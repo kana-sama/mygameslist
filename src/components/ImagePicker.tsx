@@ -1,6 +1,6 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useRef, useState, type DragEvent } from "react";
+import { optimizeCover, optimizeNoteImage } from "../domain/assets";
 import { Icon } from "./Icon";
-import { formatBytes } from "./libraryUi";
 
 export interface PreparedImage {
   clientId: string;
@@ -24,44 +24,8 @@ export interface ImagePickerProps {
   disabled?: boolean;
 }
 
-interface SourceImage {
-  dataUrl: string;
-  fileName: string;
-  width: number;
-  height: number;
-}
-
-function readFile(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Не удалось прочитать файл"));
-    reader.onerror = () => reject(reader.error ?? new Error("Не удалось прочитать файл"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function loadImage(source: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Safari не смог прочитать это изображение"));
-    image.src = source;
-  });
-}
-
-function canvasToWebp(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error("Не удалось преобразовать изображение в WebP")),
-      "image/webp",
-      0.82,
-    );
-  });
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  const dataUrl = await readFile(new File([blob], "image.webp", { type: "image/webp" }));
-  return dataUrl.slice(dataUrl.indexOf(",") + 1);
+function containsFiles(event: DragEvent<HTMLElement>): boolean {
+  return Array.from(event.dataTransfer.types).includes("Files");
 }
 
 export function ImagePicker({
@@ -75,148 +39,110 @@ export function ImagePicker({
   disabled = false,
 }: ImagePickerProps) {
   const inputId = useId();
-  const [source, setSource] = useState<SourceImage | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [offsetX, setOffsetX] = useState(0);
-  const [offsetY, setOffsetY] = useState(0);
+  const dragDepth = useRef(0);
+  const processing = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastSize, setLastSize] = useState<number | null>(null);
 
-  const previewStyle = useMemo(() => {
-    if (!source || mode !== "cover") return undefined;
-    return {
-      transform: `scale(${zoom}) translate(${offsetX / zoom}%, ${offsetY / zoom}%)`,
-    };
-  }, [mode, offsetX, offsetY, source, zoom]);
-
-  const chooseFile = async (file: File | undefined) => {
-    if (!file) return;
+  const processFile = async (file: File | undefined) => {
+    if (!file || disabled || processing.current) return;
     setError(null);
     if (!file.type.startsWith("image/")) {
       setError("Выберите изображение, а не другой тип файла.");
       return;
     }
-    try {
-      const dataUrl = await readFile(file);
-      const image = await loadImage(dataUrl);
-      setSource({ dataUrl, fileName: file.name, width: image.naturalWidth, height: image.naturalHeight });
-      setZoom(1);
-      setOffsetX(0);
-      setOffsetY(0);
-      setLastSize(null);
-      onDraftChange?.(true);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось открыть изображение");
-    }
-  };
 
-  const prepare = async () => {
-    if (!source) return;
+    processing.current = true;
     setBusy(true);
-    setError(null);
+    onDraftChange?.(true);
     try {
-      const image = await loadImage(source.dataUrl);
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d", { alpha: false });
-      if (!context) throw new Error("В Safari недоступна обработка изображений");
-
-      if (mode === "cover") {
-        canvas.width = 512;
-        canvas.height = 512;
-        const baseScale = Math.max(512 / image.naturalWidth, 512 / image.naturalHeight);
-        const scale = baseScale * zoom;
-        const width = image.naturalWidth * scale;
-        const height = image.naturalHeight * scale;
-        const overflowX = Math.max(0, width - 512);
-        const overflowY = Math.max(0, height - 512);
-        const x = (512 - width) / 2 + (offsetX / 100) * overflowX / 2;
-        const y = (512 - height) / 2 + (offsetY / 100) * overflowY / 2;
-        context.drawImage(image, x, y, width, height);
-      } else {
-        const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      }
-
-      const blob = await canvasToWebp(canvas);
-      const base64 = await blobToBase64(blob);
+      const imageAlt = alt.trim() || file.name.replace(/\.[^.]+$/, "");
+      const optimized = mode === "cover" ? await optimizeCover(file, imageAlt) : await optimizeNoteImage(file, imageAlt);
       const prepared: PreparedImage = {
         clientId: crypto.randomUUID(),
         mime: "image/webp",
-        width: canvas.width,
-        height: canvas.height,
-        base64,
-        alt: alt.trim() || source.fileName.replace(/\.[^.]+$/, ""),
-        originalName: source.fileName,
-        byteLength: blob.size,
+        width: optimized.asset.width,
+        height: optimized.asset.height,
+        base64: optimized.asset.base64,
+        alt: optimized.asset.alt,
+        originalName: optimized.asset.originalName,
+        byteLength: optimized.byteLength,
       };
-      setLastSize(blob.size);
       const accepted = await onPrepare(prepared);
-      if (accepted !== false) { setSource(null); onDraftChange?.(false); }
+      if (accepted === false) setError("Не удалось сохранить изображение.");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось подготовить изображение");
     } finally {
+      processing.current = false;
       setBusy(false);
+      onDraftChange?.(false);
     }
   };
 
-  const previewUrl = source?.dataUrl ?? currentPreviewUrl;
+  const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    if (disabled || processing.current || !containsFiles(event)) return;
+    event.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  };
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (disabled || processing.current || !containsFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+  const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
+  };
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    if (!containsFiles(event)) return;
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDragOver(false);
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith("image/")) ?? event.dataTransfer.files[0];
+    void processFile(file);
+  };
+
   return (
-    <div className={`image-picker image-picker--${mode}`}>
+    <div aria-busy={busy} className={`image-picker image-picker--${mode}`}>
       <span className="field-label">{label}</span>
       <div className="image-picker__workspace">
-        <div className="image-picker__preview">
-          {previewUrl ? (
-            <img alt="Предпросмотр" src={previewUrl} style={source ? previewStyle : undefined} />
+        <div className={`image-picker__preview${dragOver ? " is-drag-over" : ""}`} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop}>
+          {currentPreviewUrl ? (
+            <img alt="Предпросмотр" src={currentPreviewUrl} />
           ) : (
             <div className="image-picker__empty">
               <Icon name="image" size={30} />
-              <span>{mode === "cover" ? "Квадрат 512 × 512" : "До 1280 px"}</span>
+              <span>{busy ? "Обрабатываем…" : "Перетащите изображение"}</span>
             </div>
           )}
+          {busy && currentPreviewUrl ? <span className="image-picker__busy">Обрабатываем…</span> : null}
         </div>
         <div className="image-picker__actions">
-          <label className="button button--secondary" htmlFor={inputId} aria-disabled={disabled}>
+          <label aria-disabled={disabled || busy} className="button button--secondary" htmlFor={inputId}>
             <Icon name="upload" size={18} />
-            {previewUrl ? "Заменить" : "Выбрать файл"}
+            {busy ? "Обрабатываем…" : currentPreviewUrl ? "Заменить" : "Выбрать файл"}
           </label>
           <input
             accept="image/*"
-            disabled={disabled}
+            disabled={disabled || busy}
             id={inputId}
-            onChange={(event) => void chooseFile(event.currentTarget.files?.[0])}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              void processFile(file);
+            }}
             type="file"
           />
-          {(currentPreviewUrl || lastSize) && onRemove ? (
-            <button className="button button--ghost button--danger-text" onClick={onRemove} type="button">
+          {currentPreviewUrl && onRemove ? (
+            <button className="button button--ghost button--danger-text" disabled={disabled || busy} onClick={onRemove} type="button">
               <Icon name="trash" size={17} />Удалить
             </button>
           ) : null}
         </div>
       </div>
-
-      {source ? (
-        <div className="image-picker__settings">
-          <p>{source.width} × {source.height} px · после обработки будет показан точный размер.</p>
-          {mode === "cover" ? (
-            <div className="crop-controls">
-              <label>Масштаб <input max="3" min="1" onChange={(event) => setZoom(Number(event.currentTarget.value))} step="0.05" type="range" value={zoom} /></label>
-              <label>По горизонтали <input max="100" min="-100" onChange={(event) => setOffsetX(Number(event.currentTarget.value))} step="1" type="range" value={offsetX} /></label>
-              <label>По вертикали <input max="100" min="-100" onChange={(event) => setOffsetY(Number(event.currentTarget.value))} step="1" type="range" value={offsetY} /></label>
-            </div>
-          ) : null}
-          <button className="button button--primary" disabled={busy} onClick={() => void prepare()} type="button">
-            <Icon name="sparkles" size={18} />{busy ? "Обрабатываем…" : "Подготовить WebP"}
-          </button>
-        </div>
-      ) : null}
-      {lastSize !== null ? (
-        <p className="image-picker__result" role="status">
-          Готово: {formatBytes(lastSize)} · около {formatBytes(Math.ceil(lastSize * 4 / 3) * 2)} в localStorage Safari.
-        </p>
-      ) : null}
       {error ? <p className="field-error" role="alert">{error}</p> : null}
     </div>
   );

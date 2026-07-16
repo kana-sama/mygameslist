@@ -1,54 +1,88 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ImagePicker } from "../src/components/ImagePicker";
 
-class ImageMock {
-  naturalWidth = 640;
-  naturalHeight = 480;
-  onerror: (() => void) | null = null;
-  onload: (() => void) | null = null;
+const assetMocks = vi.hoisted(() => ({
+  optimizeCover: vi.fn(),
+  optimizeNoteImage: vi.fn(),
+}));
 
-  set src(_value: string) {
-    queueMicrotask(() => this.onload?.());
-  }
-}
+vi.mock("../src/domain/assets", () => assetMocks);
+
+const optimized = {
+  asset: {
+    id: "asset-id",
+    mime: "image/webp" as const,
+    width: 512,
+    height: 512,
+    base64: "UklGRgAAAABXRUJQ",
+    alt: "Обложка игры",
+    originalName: "cover.png",
+  },
+  blob: new Blob([], { type: "image/webp" }),
+  byteLength: 12,
+};
 
 beforeEach(() => {
-  vi.stubGlobal("Image", ImageMock);
-  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage: vi.fn() } as unknown as CanvasRenderingContext2D);
-  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => {
-    callback(new Blob(["webp"], { type: "image/webp" }));
-  });
+  assetMocks.optimizeCover.mockReset().mockResolvedValue(optimized);
+  assetMocks.optimizeNoteImage.mockReset().mockResolvedValue(optimized);
 });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  vi.unstubAllGlobals();
 });
 
 describe("ImagePicker", () => {
-  it("keeps the selected crop when async persistence rejects it", async () => {
+  it("converts and prepares an image immediately after file selection", async () => {
     const user = userEvent.setup();
     const onDraftChange = vi.fn();
-    const rejected = vi.fn().mockResolvedValue(false);
-    const view = render(<ImagePicker mode="cover" onDraftChange={onDraftChange} onPrepare={rejected} />);
+    const onPrepare = vi.fn().mockResolvedValue(true);
+    const view = render(<ImagePicker alt="Обложка игры" mode="cover" onDraftChange={onDraftChange} onPrepare={onPrepare} />);
+    const file = new File(["image"], "cover.png", { type: "image/png" });
+
+    await user.upload(view.container.querySelector<HTMLInputElement>('input[type="file"]')!, file);
+
+    await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(1));
+    expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "Обложка игры");
+    expect(onPrepare).toHaveBeenCalledWith(expect.objectContaining({ mime: "image/webp", width: 512, height: 512, base64: optimized.asset.base64 }));
+    expect(onDraftChange.mock.calls).toEqual([[true], [false]]);
+    expect(screen.queryByRole("button", { name: /Подготовить WebP/ })).not.toBeInTheDocument();
+    expect(view.container.querySelector('input[type="range"]')).not.toBeInTheDocument();
+  });
+
+  it("uses the same immediate conversion when an image is dropped", async () => {
+    const onPrepare = vi.fn().mockResolvedValue(true);
+    const view = render(<ImagePicker mode="cover" onPrepare={onPrepare} />);
+    const file = new File(["image"], "dropped.jpg", { type: "image/jpeg" });
+    const preview = view.container.querySelector<HTMLElement>(".image-picker__preview")!;
+    const dataTransfer = { dropEffect: "none", files: [file], types: ["Files"] };
+
+    fireEvent.dragEnter(preview, { dataTransfer });
+    expect(preview).toHaveClass("is-drag-over");
+    fireEvent.drop(preview, { dataTransfer });
+
+    await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(1));
+    expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "dropped");
+    expect(preview).not.toHaveClass("is-drag-over");
+  });
+
+  it("returns to an idle state after rejected persistence and accepts the same file again", async () => {
+    const user = userEvent.setup();
+    const onDraftChange = vi.fn();
+    const onPrepare = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const view = render(<ImagePicker mode="cover" onDraftChange={onDraftChange} onPrepare={onPrepare} />);
     const input = view.container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const file = new File(["image"], "cover.png", { type: "image/png" });
 
-    await user.upload(input, new File(["image"], "cover.png", { type: "image/png" }));
-    expect(await screen.findByRole("button", { name: /Подготовить WebP/ })).toBeInTheDocument();
-    expect(onDraftChange).toHaveBeenCalledWith(true);
+    await user.upload(input, file);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось сохранить изображение");
+    expect(onDraftChange).toHaveBeenLastCalledWith(false);
 
-    await user.click(screen.getByRole("button", { name: /Подготовить WebP/ }));
-    await waitFor(() => expect(rejected).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("button", { name: /Подготовить WebP/ })).toBeInTheDocument();
-    expect(onDraftChange).not.toHaveBeenCalledWith(false);
-
-    const accepted = vi.fn().mockResolvedValue(true);
-    view.rerender(<ImagePicker mode="cover" onDraftChange={onDraftChange} onPrepare={accepted} />);
-    await user.click(screen.getByRole("button", { name: /Подготовить WebP/ }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: /Подготовить WebP/ })).not.toBeInTheDocument());
+    await user.upload(input, file);
+    await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(onDraftChange).toHaveBeenLastCalledWith(false);
   });
 });
