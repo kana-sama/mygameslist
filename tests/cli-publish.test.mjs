@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   MISSING_VALUE_HASH,
   applyPatch,
+  buildCommitMessage,
   decodePatchInput,
   publishPatchInRepository,
   validatePatchEnvelope,
@@ -24,8 +25,17 @@ import { computeRevision, hashCanonical, validateLibrary } from "../scripts/vali
 
 const GAME_ID = "00000000-0000-4000-8000-000000000001";
 const TRANSACTION_ID = "00000000-0000-4000-8000-000000000002";
+const CELESTE_ID = "00000000-0000-4000-8000-000000000003";
+const CONTRA_ID = "00000000-0000-4000-8000-000000000004";
+const CELESTE_NOTE_ID = "00000000-0000-4000-8000-000000000005";
+const CONTRA_NOTE_ID = "00000000-0000-4000-8000-000000000006";
+const DUCKTALES_NOTE_ID = "00000000-0000-4000-8000-000000000007";
 const NOW = "2026-07-16T06:00:00.000Z";
 const temporaryPaths = [];
+const CREATE_GAME_MESSAGE = `Add DuckTales
+
+Games:
+- Add "DuckTales"`;
 
 afterEach(() => {
   while (temporaryPaths.length > 0) rmSync(temporaryPaths.pop(), { recursive: true, force: true });
@@ -42,7 +52,7 @@ function emptyDatabase() {
   };
 }
 
-function game() {
+function game(overrides = {}) {
   return {
     id: GAME_ID,
     title: "DuckTales",
@@ -54,6 +64,33 @@ function game() {
     reviewMarkdown: "Сложная, но честная игра.",
     createdAt: NOW,
     updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function note(id, gameId, bodyMarkdown, overrides = {}) {
+  return {
+    id,
+    gameId,
+    bodyMarkdown,
+    attachments: [],
+    rank: 1024,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function asset(id, originalName, overrides = {}) {
+  return {
+    id,
+    mime: "image/webp",
+    width: 1,
+    height: 1,
+    base64: Buffer.from("RIFFxxxxWEBP").toString("base64"),
+    alt: "",
+    originalName,
+    ...overrides,
   };
 }
 
@@ -136,6 +173,131 @@ describe("publish patch payload", () => {
     expect(result.publicationId).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.revision).toBe(computeRevision(result));
     expect(() => validateLibrary(result)).not.toThrow();
+    expect(buildCommitMessage(database, result)).toEqual({
+      subject: "Add DuckTales",
+      body: `Games:\n- Add "DuckTales"`,
+      message: CREATE_GAME_MESSAGE,
+    });
+  });
+
+  it("builds a dynamic subject and a semantic body without embedding image data", () => {
+    const celesteAssetId = "a".repeat(64);
+    const contraAssetId = "b".repeat(64);
+    const ducktalesAssetId = "c".repeat(64);
+    const before = emptyDatabase();
+    before.games[CELESTE_ID] = game({
+      id: CELESTE_ID,
+      title: "Celeste",
+      coverAssetId: celesteAssetId,
+      tags: ["platformer"],
+      placement: { tierId: "b", rank: 1024 },
+    });
+    before.games[CONTRA_ID] = game({ id: CONTRA_ID, title: "Contra", coverAssetId: contraAssetId });
+    before.notes[CELESTE_NOTE_ID] = note(CELESTE_NOTE_ID, CELESTE_ID, "Climb carefully");
+    before.notes[CONTRA_NOTE_ID] = note(CONTRA_NOTE_ID, CONTRA_ID, "Secret path");
+    before.assets[celesteAssetId] = asset(celesteAssetId, "celeste.webp", { alt: "Celeste cover" });
+    before.assets[contraAssetId] = asset(contraAssetId, "contra.webp");
+
+    const after = structuredClone(before);
+    after.games[CELESTE_ID] = {
+      ...after.games[CELESTE_ID],
+      title: "Celeste Classic",
+      tags: ["platformer", "precision"],
+      status: "completed",
+      placement: { tierId: "a", rank: 1024 },
+    };
+    delete after.games[CONTRA_ID];
+    after.games[GAME_ID] = game({ coverAssetId: ducktalesAssetId });
+    after.notes[CELESTE_NOTE_ID] = {
+      ...after.notes[CELESTE_NOTE_ID],
+      bodyMarkdown: "Take the hidden route",
+      attachments: [{ type: "link", url: "https://example.com/route", label: "Route" }],
+    };
+    delete after.notes[CONTRA_NOTE_ID];
+    after.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "Boss route");
+    after.assets[celesteAssetId] = { ...after.assets[celesteAssetId], alt: "Celeste Classic cover" };
+    delete after.assets[contraAssetId];
+    after.assets[ducktalesAssetId] = asset(ducktalesAssetId, "ducktales.webp");
+
+    const result = buildCommitMessage(before, after);
+    expect(result).toEqual({
+      subject: "Update Celeste Classic, Contra, DuckTales",
+      body: `Games:
+- Add "DuckTales"
+- Update "Celeste" -> "Celeste Classic": title, tags, status playing -> completed, tier B -> A
+- Remove "Contra"
+
+Notes:
+- Add note for "DuckTales" ("Boss route")
+- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments
+- Remove note from "Contra" ("Secret path")
+
+Images:
+- Add "ducktales.webp" (1×1, 12 B)
+- Update "celeste.webp": alt text
+- Remove "contra.webp" (1×1, 12 B)`,
+      message: `Update Celeste Classic, Contra, DuckTales
+
+Games:
+- Add "DuckTales"
+- Update "Celeste" -> "Celeste Classic": title, tags, status playing -> completed, tier B -> A
+- Remove "Contra"
+
+Notes:
+- Add note for "DuckTales" ("Boss route")
+- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments
+- Remove note from "Contra" ("Secret path")
+
+Images:
+- Add "ducktales.webp" (1×1, 12 B)
+- Update "celeste.webp": alt text
+- Remove "contra.webp" (1×1, 12 B)`,
+    });
+    expect(result.message).not.toContain(after.assets[ducktalesAssetId].base64);
+  });
+
+  it("bounds and sanitizes commit messages for large patches", () => {
+    const before = emptyDatabase();
+    const after = emptyDatabase();
+    for (let index = 0; index < 25; index += 1) {
+      const id = `game-${String(index).padStart(2, "0")}`;
+      after.games[id] = game({
+        id,
+        title: `Game ${index} with a deliberately long title\nthat cannot inject a commit paragraph`,
+      });
+    }
+
+    const result = buildCommitMessage(before, after);
+    expect(Array.from(result.subject)).toHaveLength(result.subject.length);
+    expect(Array.from(result.subject).length).toBeLessThanOrEqual(72);
+    expect(result.subject).not.toMatch(/[\r\n]/);
+    expect(result.subject).toMatch(/\+\d+ games$/);
+    expect(result.body.match(/^- Add /gm)).toHaveLength(20);
+    expect(result.body).toContain("- ... 5 more game changes");
+    expect(result.message.length).toBeLessThan(10_000);
+
+    const unicodeAfter = emptyDatabase();
+    unicodeAfter.games[GAME_ID] = game({ title: "🎮".repeat(100) });
+    const unicode = buildCommitMessage(emptyDatabase(), unicodeAfter);
+    expect(Array.from(unicode.subject).length).toBeLessThanOrEqual(72);
+    expect(unicode.subject).not.toContain("�");
+  });
+
+  it("bounds note details and prevents Markdown from injecting commit paragraphs", () => {
+    const before = emptyDatabase();
+    before.games[GAME_ID] = game();
+    const after = structuredClone(before);
+    for (let index = 0; index < 25; index += 1) {
+      const id = `note-${String(index).padStart(2, "0")}`;
+      after.notes[id] = note(id, GAME_ID, `Route ${index}\nInjected paragraph ${"x".repeat(2_000)}`);
+    }
+
+    const result = buildCommitMessage(before, after);
+    expect(result.subject).toBe("Update DuckTales");
+    expect(result.body.match(/^- Add note /gm)).toHaveLength(20);
+    expect(result.body).toContain("- ... 5 more note changes");
+    expect(result.body).not.toContain("\nInjected paragraph");
+    expect(result.message.length).toBeLessThan(10_000);
   });
 
   it("rejects a stale value hash and unsafe or nested paths", () => {
@@ -163,6 +325,15 @@ describe("publish patch payload", () => {
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/games/${GAME_ID}/placement/tierId`]: operation };
     expect(() => validatePatchEnvelope(patch, database)).toThrow(/expected \/root\/id/);
+
+    patch.operations = {
+      [`/games/${GAME_ID}`]: {
+        ...operation,
+        value: { ...game(), title: "Replacement" },
+        baseHash: hashCanonical(game()),
+      },
+    };
+    expect(() => validatePatchEnvelope(patch, database)).toThrow(/existing games and notes must use field operations/);
   });
 
   it("rejects legacy collection paths and schema-1 payloads", () => {
@@ -269,7 +440,8 @@ describe("publish patch transaction", () => {
     }
 
     expect(result.kind).toBe("git");
-    expect(git(root, "show", "-s", "--format=%s", "HEAD")).toBe("Update game library");
+    expect(result.commitMessage).toBe(CREATE_GAME_MESSAGE);
+    expect(git(root, "show", "-s", "--format=%B", "HEAD")).toBe(CREATE_GAME_MESSAGE);
     expect(git(root, "rev-parse", "HEAD^")).toBe(baseHead);
     expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"))
       .toBe("public/data/library.json");
@@ -299,8 +471,9 @@ describe("publish patch transaction", () => {
     expect(jj(root, "log", "-r", "@", "--no-graph", "-T", "description.first_line()"))
       .toBe("Existing work");
     expect(jj(root, "diff", "--summary")).toBe("M package.json");
-    expect(jj(root, "log", "-r", "@-", "--no-graph", "-T", "description.first_line()"))
-      .toBe("Update game library");
+    expect(result.commitMessage).toBe(CREATE_GAME_MESSAGE);
+    expect(jj(root, "log", "-r", "@-", "--no-graph", "-T", "description"))
+      .toBe(CREATE_GAME_MESSAGE);
     expect(jj(root, "diff", "-r", "@-", "--summary")).toBe("M public/data/library.json");
     expect(jj(root, "log", "-r", "main", "--no-graph", "-T", "commit_id")).toBe(mainBefore);
     expect(JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8")).games[GAME_ID].title)
@@ -316,8 +489,9 @@ describe("publish patch transaction", () => {
     expect(result.kind).toBe("jj");
     expect(jj(root, "log", "-r", "@", "--no-graph", "-T", "change_id")).toBe(workingChangeBefore);
     expect(jj(root, "diff", "--summary")).toBe("");
-    expect(jj(root, "log", "-r", "@-", "--no-graph", "-T", "description.first_line()"))
-      .toBe("Update game library");
+    expect(result.commitMessage).toBe(CREATE_GAME_MESSAGE);
+    expect(jj(root, "log", "-r", "@-", "--no-graph", "-T", "description"))
+      .toBe(CREATE_GAME_MESSAGE);
     expect(jj(root, "diff", "-r", "@-", "--summary")).toBe("M public/data/library.json");
   });
 });
