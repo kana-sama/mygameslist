@@ -19,7 +19,7 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
   notes: ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"],
-  assets: ["id", "kind", "mime", "width", "height", "byteLength", "base64", "alt", "originalName"],
+  assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
@@ -174,16 +174,8 @@ function validateAsset(value: unknown, path: string, issues: ValidationIssue[]):
   if (!isObject(value)) { issue(issues, path, "Ожидался объект asset"); return; }
   if (typeof value.id !== "string" || !SHA256.test(value.id)) issue(issues, `${path}/id`, "Asset id должен быть SHA-256");
   if (value.kind === undefined) {
-    exactKeys(value, ["id", "mime", "width", "height", "base64", "alt", "originalName"], path, issues);
-    if (value.mime !== "image/webp") issue(issues, `${path}/mime`, "Поддерживается только image/webp");
-    for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > 1280) issue(issues, `${path}/${field}`, "Размер изображения должен быть от 1 до 1280 px");
-    if (!string(value.base64, `${path}/base64`, issues, false) || !isCanonicalBase64(value.base64)) issue(issues, `${path}/base64`, "Некорректный base64");
-    else {
-      const bytes = base64ToBytes(value.base64);
-      if (bytes.length < 12 || String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP") issue(issues, `${path}/base64`, "Содержимое не является WebP");
-      else if (typeof value.id === "string" && sha256Bytes(bytes) !== value.id) issue(issues, `${path}/id`, "Asset id не совпадает с SHA-256 содержимого");
-    }
-    string(value.alt, `${path}/alt`, issues, true, 1_000); string(value.originalName, `${path}/originalName`, issues, true, 2_000);
+    issue(issues, `${path}/kind`, "Статичный asset должен ссылаться на файл в public/media");
+    if ("base64" in value) issue(issues, `${path}/base64`, "Base64 разрешён только в patch.blobs");
     return;
   }
   if (value.kind === "image") {

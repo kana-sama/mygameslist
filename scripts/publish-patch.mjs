@@ -49,7 +49,7 @@ const FIELDS = {
 };
 const GAME_FIELDS = ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"];
 const NOTE_FIELDS = ["bodyMarkdown", "attachments", "rank"];
-const ASSET_FIELDS = ["kind", "mime", "width", "height", "byteLength", "base64", "alt", "originalName"];
+const ASSET_FIELDS = ["kind", "mime", "width", "height", "byteLength", "alt", "originalName"];
 const COMMIT_SECTION_LIMIT = 20;
 const COMMIT_SUBJECT_LIMIT = 72;
 const JJ_NO_AUTO_TRACK = ["--config", 'snapshot.auto-track="none()"'];
@@ -67,7 +67,6 @@ const FIELD_LABELS = {
   mime: "format",
   width: "width",
   height: "height",
-  base64: "image data",
   byteLength: "size",
   kind: "type",
   alt: "alt text",
@@ -364,11 +363,7 @@ function noteChangeLine(change, before, after) {
 }
 
 function decodedAssetBytes(asset) {
-  if (!asset) return 0;
-  if (Number.isSafeInteger(asset.byteLength)) return asset.byteLength;
-  if (typeof asset.base64 !== "string") return 0;
-  const padding = asset.base64.endsWith("==") ? 2 : asset.base64.endsWith("=") ? 1 : 0;
-  return Math.floor(asset.base64.length / 4) * 3 - padding;
+  return Number.isSafeInteger(asset?.byteLength) ? asset.byteLength : 0;
 }
 
 function formatByteCount(bytes) {
@@ -544,26 +539,9 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-function externalizeAssets(database, blobBytes) {
+function preparePublishedAssets(database, blobBytes) {
   const next = structuredClone(database);
   const sources = new Map(blobBytes);
-  for (const [id, asset] of Object.entries(next.assets)) {
-    if (!isLegacyInlineImageAsset(asset)) continue;
-    if (!isCanonicalBase64(asset.base64)) throw new Error(`Asset ${id} has invalid inline base64`);
-    const bytes = Buffer.from(asset.base64, "base64");
-    if (sha256(bytes) !== id) throw new Error(`Asset ${id} inline bytes do not match its SHA-256 id`);
-    sources.set(id, bytes);
-    next.assets[id] = {
-      id,
-      kind: "image",
-      mime: asset.mime,
-      width: asset.width,
-      height: asset.height,
-      byteLength: bytes.byteLength,
-      alt: asset.alt,
-      originalName: asset.originalName,
-    };
-  }
 
   for (const [id, bytes] of sources) {
     const asset = next.assets[id];
@@ -604,7 +582,7 @@ function verifyMediaTarget(filePath, id, asset) {
 }
 
 function verifyPublishedMedia(root, database) {
-  const external = Object.entries(database.assets).filter(([, asset]) => !isLegacyInlineImageAsset(asset));
+  const external = Object.entries(database.assets);
   if (external.length === 0) return;
   const { mediaRoot, exists } = safeMediaRoot(root);
   if (!exists) throw new Error("public/media is missing for external library assets");
@@ -771,7 +749,7 @@ export function publishPatchInRepository(root, patch) {
   const parsed = validatePatchEnvelope(patch, database);
   const semanticNext = applyPatch(database, parsed.normalizedPatch);
   const commit = buildCommitMessage(database, semanticNext);
-  const { database: next, sources } = externalizeAssets(semanticNext, parsed.blobBytes);
+  const { database: next, sources } = preparePublishedAssets(semanticNext, parsed.blobBytes);
   const media = prepareMediaWrites(root, next, sources);
   assertMediaPathsClean(root, media.commitPaths);
   const commitPaths = [relativeDataPath, ...media.commitPaths];

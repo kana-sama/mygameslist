@@ -151,12 +151,12 @@ describe("assets and revision", () => {
 
   it("deduplicates WebP by the SHA-256 of raw bytes and validates record content", () => {
     const bytes = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
-    const first = makeWebPAsset(bytes, 1, 1, "cover", "a.webp");
-    const second = makeWebPAsset(bytes, 1, 1, "cover", "b.webp");
+    const first = makeExternalWebPAsset(bytes, 1, 1, "cover", "a.webp").asset;
+    const second = makeExternalWebPAsset(bytes, 1, 1, "cover", "b.webp").asset;
     expect(first.id).toBe(second.id);
     const database = empty(); database.assets[first.id] = first;
     expect(validateLibrary(database).ok).toBe(true);
-    database.assets[first.id].base64 = bytesToBase64(new Uint8Array([...bytes, 1]));
+    (database.assets[first.id] as unknown as Record<string, unknown>).base64 = bytesToBase64(bytes);
     expect(validateLibrary(database).ok).toBe(false);
   });
 
@@ -180,7 +180,7 @@ describe("assets and revision", () => {
   });
 
   it("requires file attachments to reference file assets", () => {
-    const image = makeWebPAsset(new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "image", "image.webp");
+    const image = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "image", "image.webp").asset;
     const database = empty();
     database.games[GAME_ID] = game();
     database.assets[image.id] = image;

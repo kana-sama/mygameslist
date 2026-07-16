@@ -86,10 +86,11 @@ function note(id, gameId, bodyMarkdown, overrides = {}) {
 function asset(id, originalName, overrides = {}) {
   return {
     id,
+    kind: "image",
     mime: "image/webp",
     width: 1,
     height: 1,
-    base64: Buffer.from("RIFFxxxxWEBP").toString("base64"),
+    byteLength: 12,
     alt: "",
     originalName,
     ...overrides,
@@ -316,7 +317,7 @@ Images:
 - Update "celeste.webp": alt text
 - Remove "contra.webp" (1×1, 12 B)`,
     });
-    expect(result.message).not.toContain(after.assets[ducktalesAssetId].base64);
+    expect(after.assets[ducktalesAssetId]).not.toHaveProperty("base64");
   });
 
   it("bounds and sanitizes commit messages for large patches", () => {
@@ -646,7 +647,7 @@ describe("publish patch transaction", () => {
       .toEqual(["public/data/library.json", relativeMediaPath].sort());
   });
 
-  it("migrates legacy inline assets without reporting representation-only changes", () => {
+  it("rejects legacy inline assets in the static library", () => {
     const bytes = webpBytes("published-legacy");
     const id = sha256(bytes);
     const database = emptyDatabase();
@@ -663,24 +664,9 @@ describe("publish patch transaction", () => {
     database.revision = computeRevision(database);
     const root = makeRepository(database);
 
-    const result = publishPatchInRepository(root, createPatch(database));
-    const relativeMediaPath = `public/media/${id}.webp`;
-    const published = JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8"));
-
-    expect(published.assets[id]).toEqual({
-      id,
-      kind: "image",
-      mime: "image/webp",
-      width: 1,
-      height: 1,
-      byteLength: bytes.byteLength,
-      alt: "Legacy",
-      originalName: "legacy.png",
-    });
-    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
-    expect(result.commitMessage).toBe(CREATE_GAME_MESSAGE);
-    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").split("\n").sort())
-      .toEqual(["public/data/library.json", relativeMediaPath].sort());
+    expect(() => publishPatchInRepository(root, createPatch(database)))
+      .toThrow(/static assets must reference files in public\/media|base64 is allowed only in patch\.blobs/);
+    expect(git(root, "rev-list", "--count", "HEAD")).toBe("1");
   });
 
   it("never accepts a media path from asset metadata", () => {

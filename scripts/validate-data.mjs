@@ -109,7 +109,7 @@ export function validateLibrary(database, options = {}) {
   }
 
   if (mediaRoot !== null) {
-    const externalAssets = Object.entries(assets).filter(([, asset]) => !isLegacyInlineImageAsset(asset));
+    const externalAssets = Object.entries(assets);
     let safeMediaDirectory = externalAssets.length === 0;
     if (externalAssets.length > 0) {
       try {
@@ -232,16 +232,8 @@ function validateAsset(key, asset, at, error) {
   if (!SHA256_RE.test(key) || asset.id !== key) error(`${at}.id`, "must equal its lowercase SHA-256 map key");
 
   if (isLegacyInlineImageAsset(asset)) {
-    exactKeys(asset, ["id", "mime", "width", "height", "base64", "alt", "originalName"], at, error);
-    validateImageMetadata(asset, at, error);
-    if (typeof asset.base64 !== "string" || asset.base64.length === 0 || !isCanonicalBase64(asset.base64)) {
-      error(`${at}.base64`, "must be canonical base64");
-      return;
-    }
-    const bytes = Buffer.from(asset.base64, "base64");
-    if (!isWebP(bytes)) error(`${at}.base64`, "is not a WebP file");
-    const digest = createHash("sha256").update(bytes).digest("hex");
-    if (digest !== key) error(`${at}.id`, "does not match the SHA-256 of decoded image bytes");
+    error(`${at}.kind`, "static assets must reference files in public/media");
+    error(`${at}.base64`, "base64 is allowed only in patch.blobs");
     return;
   }
 
@@ -262,7 +254,7 @@ function validateAsset(key, asset, at, error) {
     return;
   }
 
-  error(`${at}.kind`, "must describe a legacy inline image or equal image/file");
+  error(`${at}.kind`, "must equal image or file");
 }
 
 function validateImageMetadata(asset, at, error) {

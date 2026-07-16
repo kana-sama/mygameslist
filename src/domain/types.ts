@@ -54,7 +54,7 @@ export interface Note {
   updatedAt: string;
 }
 
-/** Inline WebP records published by older versions remain readable. */
+/** Legacy/local wire shape used only while preparing images and importing V1 patches. */
 export interface LegacyImageAsset {
   id: string;
   mime: "image/webp";
@@ -91,7 +91,8 @@ export interface FileAsset {
   base64?: never;
 }
 
-export type Asset = LegacyImageAsset | ImageAsset | FileAsset;
+/** Canonical library assets are always metadata for files under public/media. */
+export type Asset = ImageAsset | FileAsset;
 
 export interface LibraryDatabase {
   schemaVersion: typeof LIBRARY_SCHEMA_VERSION;

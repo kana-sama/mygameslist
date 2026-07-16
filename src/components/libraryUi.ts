@@ -1,4 +1,5 @@
 import type { Asset, Game, StatusId, TierId } from "../domain/types";
+import { publishedAssetUrl } from "../domain/assets";
 
 export const STATUS_LABELS: Record<StatusId, string> = {
   wishlist: "Хочу поиграть",
@@ -56,9 +57,7 @@ export function formatRelativeDate(value: string): string {
 }
 
 export function getAssetUrl(asset: Asset | undefined): string | null {
-  if (!asset?.base64) return null;
-  if (asset.base64.startsWith("data:")) return asset.base64;
-  return `data:${asset.mime};base64,${asset.base64}`;
+  return asset ? publishedAssetUrl(asset, import.meta.env.BASE_URL) : null;
 }
 
 export function sortGamesByPlacement(games: Game[]): Game[] {

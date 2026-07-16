@@ -69,11 +69,9 @@ export function makeFileAsset(bytes: Uint8Array, mime: string, originalName: str
   };
 }
 
-export function isLegacyImageAsset(asset: Asset): asset is LegacyImageAsset { return asset.kind === undefined; }
-export function isImageAsset(asset: Asset): asset is LegacyImageAsset | ImageAsset { return asset.kind !== "file"; }
+export function isImageAsset(asset: Asset): asset is ImageAsset { return asset.kind === "image"; }
 
 export function assetDataUrl(asset: Asset, blobBase64?: string): string | null {
-  if (isLegacyImageAsset(asset)) return `data:image/webp;base64,${asset.base64}`;
   if (blobBase64 === undefined) return null;
   const mime = asset.kind === "image" ? "image/webp" : "application/octet-stream";
   return `data:${mime};base64,${blobBase64}`;

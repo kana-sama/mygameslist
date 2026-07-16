@@ -16,7 +16,6 @@ import {
 } from "./components";
 import {
   PATCH_STORAGE_KEY,
-  base64DecodedBytes,
   parsePatchPath,
   webkitStringBytes,
   type Asset,
@@ -91,8 +90,7 @@ function classifyDiff(path: string, operation: PatchOperation): DiffGroupId {
 function assetMeta(asset: Asset | undefined): string[] | undefined {
   if (!asset) return undefined;
   if (asset.kind === "file") return [asset.mime, formatBytes(asset.byteLength)];
-  const byteLength = asset.kind === "image" ? asset.byteLength : base64DecodedBytes(asset.base64);
-  return [`${asset.width}×${asset.height}`, formatBytes(Math.max(0, byteLength)), "WebP"];
+  return [`${asset.width}×${asset.height}`, formatBytes(Math.max(0, asset.byteLength)), "WebP"];
 }
 
 function assetSummary(value: unknown): unknown {
@@ -103,7 +101,7 @@ function assetSummary(value: unknown): unknown {
     type: asset.mime ?? "application/octet-stream",
     width: asset.width,
     height: asset.height,
-    bytes: typeof asset.byteLength === "number" ? asset.byteLength : typeof asset.base64 === "string" ? base64DecodedBytes(asset.base64) : undefined,
+    bytes: typeof asset.byteLength === "number" ? asset.byteLength : undefined,
     alt: asset.alt,
     originalName: asset.originalName,
   };

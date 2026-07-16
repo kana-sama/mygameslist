@@ -4,7 +4,7 @@ import {
   PATCH_STORAGE_KEY,
   bytesToBase64,
   diffLibrary,
-  makeWebPAsset,
+  makeExternalWebPAsset,
   savePatch,
   withComputedRevision,
   type Asset,
@@ -43,7 +43,7 @@ function game(title: string, coverAssetId: string | null = null): Game {
 }
 
 function webpAsset(marker: number, name: string): Asset {
-  return makeWebPAsset(new Uint8Array([82, 73, 70, 70, marker, 0, 0, 0, 87, 69, 66, 80]), 1, 1, name, `${name}.webp`);
+  return makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, marker, 0, 0, 0, 87, 69, 66, 80]), 1, 1, name, `${name}.webp`).asset;
 }
 
 function seededDatabase(asset: Asset): LibraryDatabase {
