@@ -272,7 +272,14 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-card { position: relative; min-width: 0; display: block; align-self: start; overflow: hidden; padding: 0; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing) { cursor: text; }
 .note-card:not(.note-card--editing):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-.note-card > .markdown { padding: 6px; }
+.note-card__content > .markdown { padding: 6px; }
+.note-card--collapsed .note-card__viewport { max-height: 300px; overflow: hidden; }
+.note-card__collapse-toggle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; gap: 3px; appearance: none; padding: 0; border: 0; border-top: 1px solid var(--line-soft); color: var(--muted-2); background: #141518; font-size: 9px; cursor: pointer; }
+.note-card__collapse-toggle:hover, .note-card__collapse-toggle:focus-visible { color: var(--text); background: #191a1e; }
+.note-card__collapse-toggle:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.note-card__collapse-toggle svg { transition: transform .12s; }
+.note-card--expanded .note-card__collapse-toggle svg { transform: rotate(180deg); }
+.note-card--collapsed .note-card__collapse-toggle { position: absolute; z-index: 2; bottom: 0; left: 0; height: 38px; align-items: flex-end; padding-bottom: 5px; border-top: 0; background: linear-gradient(to bottom, transparent, #141518 58%); }
 .note-editor-actions button, .note-editor-actions a, .note-youtube-input-row button, .note-attachment-remove { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
 .note-editor-actions button:hover:not(:disabled), .note-editor-actions a:hover, .note-youtube-input-row button:hover, .note-attachment-remove:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-editor-actions > div:first-child button:last-child:hover:not(:disabled) { color: #dc858c; }

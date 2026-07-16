@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { optimizeNoteImage } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
@@ -416,12 +416,49 @@ function InlineNoteCard({ note, index, count, editing, assets, storageLocked, ca
 }) {
   if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />;
 
+  return <CollapsibleNoteCard assets={assets} note={note} onEdit={onEdit} resolveAssetUrl={resolveAssetUrl} />;
+}
+
+const COLLAPSED_NOTE_HEIGHT = 300;
+
+function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit }: {
+  note: EditableNote;
+  assets: Record<string, Asset>;
+  resolveAssetUrl?: (assetId: string) => string | null;
+  onEdit: () => void;
+}) {
+  const contentId = useId();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [collapsible, setCollapsible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const measure = () => {
+      const tooTall = Math.max(content.scrollHeight, content.getBoundingClientRect().height) > COLLAPSED_NOTE_HEIGHT;
+      setCollapsible(tooTall);
+      if (!tooTall) setExpanded(false);
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(content);
+    measure();
+    return () => observer?.disconnect();
+  }, []);
+
+  const collapsed = collapsible && !expanded;
+
   return (
-    <article aria-label="Редактировать заметку" className="note-card" onClick={(event) => { if (!(event.target as Element).closest("a, button")) onEdit(); }} onKeyDown={(event) => {
+    <article aria-label="Редактировать заметку" className={`note-card${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} onClick={(event) => { if (!(event.target as Element).closest("a, button")) onEdit(); }} onKeyDown={(event) => {
       if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(); }
     }} tabIndex={0}>
-      {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} /> : null}
-      {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+      <div className="note-card__viewport" id={contentId} inert={collapsed}>
+        <div className="note-card__content" ref={contentRef}>
+          {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} /> : null}
+          {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+        </div>
+      </div>
+      {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
     </article>
   );
 }
