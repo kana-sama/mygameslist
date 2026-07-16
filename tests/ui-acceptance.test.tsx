@@ -380,6 +380,116 @@ describe("GamePage", () => {
     expect(screen.getByRole("img", { name: "Карта уровня" })).toHaveAttribute("height", "720");
   });
 
+  it("opens YouTube upload and attaches one canonical video to the note draft", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Видео прохождения",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(
+      <GamePage
+        assets={{}}
+        game={makeGame({ reviewMarkdown: "" })}
+        mode="game"
+        notes={[note]}
+        onSave={onSave}
+      />,
+    );
+
+    await user.click(screen.getByText("Видео прохождения").closest("article")!);
+    const upload = screen.getByRole("link", { name: "Загрузить видео на YouTube" });
+    expect(upload).toHaveAttribute("href", "https://www.youtube.com/upload");
+    expect(upload).toHaveAttribute("target", "_blank");
+    expect(upload).toHaveAttribute("rel", expect.stringContaining("noopener"));
+
+    await user.click(upload);
+    const input = screen.getByRole("textbox", { name: "Ссылка на YouTube" });
+    expect(input).toHaveFocus();
+    await user.type(input, "https://www.youtube.com.evil.test/watch?v=dQw4w9WgXcQ{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Некорректная ссылка YouTube");
+    expect(input).toHaveValue("https://www.youtube.com.evil.test/watch?v=dQw4w9WgXcQ");
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.clear(input);
+    await user.type(input, "https://youtu.be/dQw4w9WgXcQ?t=42");
+    await user.click(screen.getByRole("button", { name: "Прикрепить видео YouTube" }));
+    expect(screen.getByTitle("Видео YouTube")).toHaveAttribute(
+      "src",
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1",
+    );
+
+    await user.click(upload);
+    const duplicateInput = screen.getByRole("textbox", { name: "Ссылка на YouTube" });
+    await user.type(duplicateInput, "https://www.youtube.com/watch?v=dQw4w9WgXcQ{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Видео уже прикреплено");
+    expect(screen.getAllByTitle("Видео YouTube")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Закрыть поле ссылки YouTube" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes).toEqual([
+      expect.objectContaining({
+        id: NOTE_ID,
+        attachments: [{
+          type: "link",
+          url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          label: "YouTube",
+        }],
+      }),
+    ]);
+  });
+
+  it("renders YouTube links as removable privacy-enhanced videos and keeps ordinary links", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Ссылки",
+      attachments: [
+        { type: "link", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", label: "YouTube" },
+        { type: "link", url: "./files/map.pdf", label: "Карта" },
+      ],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(
+      <GamePage
+        assets={{}}
+        game={makeGame({ reviewMarkdown: "" })}
+        mode="game"
+        notes={[note]}
+        onSave={onSave}
+      />,
+    );
+
+    const iframe = screen.getByTitle("Видео YouTube");
+    expect(iframe).toHaveAttribute("loading", "lazy");
+    expect(iframe).toHaveAttribute("allowfullscreen");
+    expect(iframe.getAttribute("src")).not.toContain("autoplay");
+    expect(screen.getByRole("link", { name: "Карта" })).toHaveAttribute("href", "./files/map.pdf");
+
+    await user.click(screen.getByText("Ссылки").closest("article")!);
+    await user.click(screen.getByRole("button", { name: "Удалить видео YouTube" }));
+    expect(screen.queryByTitle("Видео YouTube")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Карта" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].attachments).toEqual([
+      { type: "link", url: "./files/map.pdf", label: "Карта" },
+    ]);
+  });
+
   it("creates a game with multiple platforms and Markdown-only notes", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();

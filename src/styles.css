@@ -273,10 +273,11 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-card:not(.note-card--editing) { cursor: text; }
 .note-card:not(.note-card--editing):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .note-card > .markdown { padding: 6px; }
-.note-editor-actions button, .note-attachment-remove { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
-.note-editor-actions button:hover:not(:disabled), .note-attachment-remove:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
+.note-editor-actions button, .note-editor-actions a, .note-youtube-input-row button, .note-attachment-remove { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
+.note-editor-actions button:hover:not(:disabled), .note-editor-actions a:hover, .note-youtube-input-row button:hover, .note-attachment-remove:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-editor-actions > div:first-child button:last-child:hover:not(:disabled) { color: #dc858c; }
 .note-editor-actions button:disabled { opacity: .28; cursor: default; }
+.note-editor-actions .note-editor-youtube:hover, .note-editor-actions .note-editor-youtube:focus-visible { color: #ed5656; }
 .note-attachments { display: grid; gap: 0; margin: 0; }
 .note-attachment-shell { position: relative; min-width: 0; }
 .note-attachment-shell--link { margin: 5px 6px; }
@@ -285,6 +286,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-attachment--link { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--accent-strong); background: #171d22; text-decoration: none; }
 .note-attachment--link span { flex: 1; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .note-attachment--link svg { width: 13px; height: 13px; }
+.note-attachment-shell--youtube { aspect-ratio: 16 / 9; overflow: hidden; background: #090909; }
+.note-attachment--youtube { width: 100%; height: 100%; display: block; border: 0; }
 .note-attachment-remove { position: absolute; z-index: 2; top: 3px; right: 3px; color: #fff; background: rgba(10, 11, 12, .72); opacity: 0; pointer-events: none; }
 .note-attachment-shell:hover .note-attachment-remove, .note-attachment-remove:focus-visible { opacity: 1; pointer-events: auto; }
 .note-attachment-shell--link .note-attachment-remove { top: 50%; right: 3px; transform: translateY(-50%); }
@@ -296,6 +299,10 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-editor-actions { min-height: 31px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 2px 3px; border-top: 1px solid var(--line-soft); opacity: .62; transition: opacity .12s; }
 .note-card--editing:hover .note-editor-actions, .note-card--editing:focus-within .note-editor-actions { opacity: 1; }
 .note-editor-actions > div { display: flex; gap: 1px; }
+.note-youtube-input-row { display: grid; grid-template-columns: minmax(0, 1fr) 26px 26px; align-items: center; gap: 1px; padding: 3px; border-top: 1px solid var(--line-soft); }
+.note-youtube-input-row input { min-width: 0; height: 26px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 3px; outline: 0; color: var(--text); background: #141518; font-size: 11px; }
+.note-youtube-input-row input:focus { border-color: var(--accent); }
+.note-youtube-input-row > .field-error { grid-column: 1 / -1; margin: 1px 3px 2px; }
 .note-image-error { margin: 0; padding: 4px 6px; border-top: 1px solid var(--line-soft); }
 .game-form { display: grid; grid-template-columns: 260px minmax(0, 1fr); align-items: start; gap: 8px; }
 .form-card { padding: 10px; border: 1px solid var(--line-soft); border-radius: 6px; background: var(--surface); }
@@ -446,6 +453,9 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 @media (pointer: coarse) {
   input, textarea, select { font-size: 16px; }
   button, summary, .button, .filter-menu__panel label { min-width: 44px; min-height: 44px; }
+  .note-editor-actions a { min-width: 44px; min-height: 44px; }
+  .note-youtube-input-row { grid-template-columns: minmax(0, 1fr) 44px 44px; }
+  .note-youtube-input-row input { height: 44px; }
   .app-nav__link, .search-field, .note-attachment--link { min-height: 44px; }
   .app-shell { --app-header-height: calc(48px + env(safe-area-inset-top)); }
   .app-header { padding-top: env(safe-area-inset-top); }

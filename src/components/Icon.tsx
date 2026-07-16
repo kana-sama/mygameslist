@@ -24,7 +24,8 @@ export type IconName =
   | "sparkles"
   | "trash"
   | "upload"
-  | "warning";
+  | "warning"
+  | "youtube";
 
 interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
   name: IconName;
@@ -56,6 +57,7 @@ const paths: Record<IconName, React.ReactNode> = {
   trash: <><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v5M14 11v5" /></>,
   upload: <><path d="M12 21V9" /><path d="m7 14 5-5 5 5" /><path d="M5 3h14" /></>,
   warning: <><path d="M10.3 3.3 2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></>,
+  youtube: <><rect height="12" rx="4" width="19" x="2.5" y="6" /><path d="m10 9 5 3-5 3Z" fill="currentColor" stroke="none" /></>,
 };
 
 export function Icon({ name, size = 20, ...props }: IconProps) {

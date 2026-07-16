@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { optimizeNoteImage } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
+import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView, PlainMarkdownTextarea } from "../components/Markdown";
@@ -85,6 +86,10 @@ function AttachmentView({ attachment, assets, onRemove }: { attachment: Editable
   }
   const href = safeUrl(attachment.url);
   if (!href) return null;
+  const youtubeEmbedUrl = getYouTubeEmbedUrl(href);
+  if (youtubeEmbedUrl) {
+    return <div className="note-attachment-shell note-attachment-shell--youtube"><iframe allow="encrypted-media; picture-in-picture" allowFullScreen className="note-attachment--youtube" loading="lazy" src={youtubeEmbedUrl} title="Видео YouTube" />{onRemove ? <button aria-label="Удалить видео YouTube" className="note-attachment-remove" onClick={onRemove} title="Удалить видео YouTube" type="button"><Icon name="close" size={14} /></button> : null}</div>;
+  }
   return <div className="note-attachment-shell note-attachment-shell--link"><a className="note-attachment note-attachment--link" href={href} rel="noreferrer noopener" target={/^https?:/.test(href) ? "_blank" : undefined}><Icon name="link" /><span>{attachment.label || href}</span><Icon name="external" size={16} /></a>{onRemove ? <button aria-label="Удалить ссылку" className="note-attachment-remove" onClick={onRemove} title="Удалить ссылку" type="button"><Icon name="close" size={14} /></button> : null}</div>;
 }
 
@@ -116,6 +121,10 @@ function PlainNoteEditor({
   const processingChange = useRef(onProcessingChange);
   const [processingImages, setProcessingImages] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [youtubeInputOpen, setYoutubeInputOpen] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const youtubeInputId = useId();
   noteRef.current = note;
   processingChange.current = onProcessingChange;
   useEffect(() => {
@@ -145,6 +154,28 @@ function PlainNoteEditor({
     }).catch(() => undefined);
   };
 
+  const closeYouTubeInput = () => {
+    setYoutubeInputOpen(false);
+    setYoutubeUrl("");
+    setYoutubeError(null);
+  };
+
+  const addYouTubeAttachment = () => {
+    const canonicalUrl = normalizeYouTubeUrl(youtubeUrl);
+    if (!canonicalUrl) {
+      setYoutubeError("Некорректная ссылка YouTube");
+      return;
+    }
+    const duplicate = noteRef.current.attachments.some((attachment) => attachment.type === "link" && normalizeYouTubeUrl(attachment.url) === canonicalUrl);
+    if (duplicate) {
+      setYoutubeError("Видео уже прикреплено");
+      return;
+    }
+    const current = noteRef.current;
+    onChange({ ...current, attachments: [...current.attachments, { type: "link", url: canonicalUrl, label: "YouTube" }] });
+    closeYouTubeInput();
+  };
+
   return (
     <article aria-busy={processingImages} className="note-card note-card--editing">
       <PlainMarkdownTextarea
@@ -165,7 +196,8 @@ function PlainNoteEditor({
       />
       {note.attachments.length ? <div className="note-attachments note-attachments--editing">{note.attachments.map((attachment, index) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${index}`} onRemove={() => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} />)}</div> : null}
       {imageError ? <p className="field-error note-image-error" role="alert">{imageError}</p> : null}
-      {extraActions || onCancel || onSubmit ? <footer className="note-editor-actions"><div>{extraActions}</div><div>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={onSubmit} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer> : null}
+      {youtubeInputOpen ? <div className="note-youtube-input-row" id={youtubeInputId}><input aria-invalid={youtubeError ? "true" : undefined} aria-label="Ссылка на YouTube" autoFocus onChange={(event) => { setYoutubeUrl(event.currentTarget.value); setYoutubeError(null); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addYouTubeAttachment(); } if (event.key === "Escape") { event.preventDefault(); closeYouTubeInput(); } }} placeholder="Ссылка на YouTube" value={youtubeUrl} /><button aria-label="Прикрепить видео YouTube" onClick={addYouTubeAttachment} title="Прикрепить" type="button"><Icon name="check" size={15} /></button><button aria-label="Закрыть поле ссылки YouTube" onClick={closeYouTubeInput} title="Закрыть" type="button"><Icon name="close" size={15} /></button>{youtubeError ? <p className="field-error" role="alert">{youtubeError}</p> : null}</div> : null}
+      <footer className="note-editor-actions"><div>{extraActions}</div><div><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={onSubmit} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
     </article>
   );
 }
