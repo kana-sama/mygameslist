@@ -267,10 +267,9 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown hr { border: 0; border-top: 1px solid var(--line); }
 .markdown-empty { margin: 0; color: var(--muted-2); font-size: 11px; font-style: italic; }
 
-.notes-list, .note-editors-grid { column-width: 360px; column-gap: 7px; column-fill: balance; }
+.notes-list, .note-editors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); grid-auto-rows: 1px; gap: 7px; align-items: start; }
 .game-notes { min-width: 0; }
-.note-card { position: relative; min-width: 0; display: block; overflow: hidden; padding: 0; break-inside: avoid; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
-.notes-list > .note-card, .note-editors-grid > .note-card { width: 100%; display: inline-block; margin: 0 0 7px; vertical-align: top; break-inside: avoid; -webkit-column-break-inside: avoid; page-break-inside: avoid; }
+.note-card { position: relative; min-width: 0; display: block; align-self: start; overflow: hidden; padding: 0; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing) { cursor: text; }
 .note-card:not(.note-card--editing):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .note-card > .markdown { padding: 6px; }
@@ -440,7 +439,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .game-card__tags { display: none; }
   .game-sidebar { grid-template-columns: 96px minmax(0, 1fr); column-gap: 8px; }
   .game-sidebar__meta > div { padding: 4px 0 5px; }
-  .notes-list, .note-editors-grid { column-count: 1; column-width: auto; }
+  .notes-list, .note-editors-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
 }
 

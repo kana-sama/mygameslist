@@ -10,19 +10,20 @@ function declarationsFor(selector: string): string {
 }
 
 describe("notes masonry CSS", () => {
-  it("packs note cards into Safari-compatible columns", () => {
+  it("uses a measured grid instead of WebKit multicolumn fragmentation", () => {
     const container = declarationsFor(".notes-list, .note-editors-grid");
-    const cards = declarationsFor(".notes-list > .note-card, .note-editors-grid > .note-card");
+    const cards = declarationsFor(".note-card");
 
-    expect(container).toMatch(/column-width:\s*360px/);
-    expect(container).toMatch(/column-gap:\s*7px/);
-    expect(container).not.toMatch(/display:\s*grid/);
-    expect(cards).toMatch(/display:\s*inline-block/);
-    expect(cards).toMatch(/break-inside:\s*avoid/);
-    expect(cards).toMatch(/-webkit-column-break-inside:\s*avoid/);
+    expect(container).toMatch(/display:\s*grid/);
+    expect(container).toMatch(/repeat\(auto-fit,\s*minmax\(min\(360px,\s*100%\),\s*1fr\)\)/);
+    expect(container).toMatch(/grid-auto-rows:\s*1px/);
+    expect(container).toMatch(/gap:\s*7px/);
+    expect(container).not.toMatch(/column-/);
+    expect(cards).toMatch(/align-self:\s*start/);
+    expect(cards).not.toMatch(/break-inside|column-break/);
   });
 
   it("collapses the masonry to one column on narrow screens", () => {
-    expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*column-count:\s*1;\s*column-width:\s*auto;/);
+    expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*grid-template-columns:\s*1fr;/);
   });
 });

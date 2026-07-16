@@ -354,6 +354,32 @@ describe("GamePage", () => {
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра");
   });
 
+  it("reserves note image geometry before Safari finishes lazy decoding", () => {
+    const assetId = "a".repeat(64);
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "",
+      attachments: [{ type: "image", assetId, alt: "Карта уровня" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(
+      <GamePage
+        assets={{ [assetId]: { id: assetId, mime: "image/webp", width: 1280, height: 720, base64: "AAAA", alt: "Карта уровня", originalName: "map.png" } }}
+        game={makeGame({ reviewMarkdown: "" })}
+        mode="game"
+        notes={[note]}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Карта уровня" })).toHaveAttribute("width", "1280");
+    expect(screen.getByRole("img", { name: "Карта уровня" })).toHaveAttribute("height", "720");
+  });
+
   it("creates a game with multiple platforms and Markdown-only notes", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
