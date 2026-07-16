@@ -1,4 +1,4 @@
-import { STATUS_IDS, TIER_IDS, type LibraryDatabase, type PatchEnvelope } from "./types";
+import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
 
 export interface ValidationIssue {
@@ -12,22 +12,18 @@ export interface ValidationResult<T> {
   issues: ValidationIssue[];
 }
 
-const ENTITY_MAPS = ["games", "notes", "collections", "collectionItems", "assets"] as const;
+const ENTITY_MAPS = ["games", "notes", "assets"] as const;
 export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
   notes: ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"],
-  collections: ["id", "title", "descriptionMarkdown", "createdAt", "updatedAt"],
-  collectionItems: ["id", "collectionId", "gameId", "rank"],
   assets: ["id", "mime", "width", "height", "base64", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"],
   notes: ["bodyMarkdown", "attachments", "rank"],
-  collections: ["title", "descriptionMarkdown"],
-  collectionItems: ["collectionId", "gameId", "rank"],
   assets: [],
 };
 
@@ -169,21 +165,6 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
   isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);
 }
 
-function validateCollection(value: unknown, path: string, issues: ValidationIssue[]): void {
-  if (!isObject(value)) { issue(issues, path, "Ожидался объект коллекции"); return; }
-  exactKeys(value, ENTITY_FIELDS.collections, path, issues);
-  uuid(value.id, `${path}/id`, issues); string(value.title, `${path}/title`, issues, false, 500);
-  markdown(value.descriptionMarkdown, `${path}/descriptionMarkdown`, issues);
-  isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);
-}
-
-function validateCollectionItem(value: unknown, path: string, issues: ValidationIssue[]): void {
-  if (!isObject(value)) { issue(issues, path, "Ожидался элемент коллекции"); return; }
-  exactKeys(value, ENTITY_FIELDS.collectionItems, path, issues);
-  uuid(value.id, `${path}/id`, issues); uuid(value.collectionId, `${path}/collectionId`, issues);
-  uuid(value.gameId, `${path}/gameId`, issues); rank(value.rank, `${path}/rank`, issues);
-}
-
 function validBase64(value: string): boolean {
   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) return false;
   try {
@@ -220,10 +201,10 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
   const issues: ValidationIssue[] = [];
   if (!isObject(value)) return { ok: false, issues: [{ path: "", message: "Ожидался объект базы" }] };
   exactKeys(value, ["schemaVersion", "revision", "publicationId", ...ENTITY_MAPS], "", issues);
-  if (value.schemaVersion !== 1) issue(issues, "/schemaVersion", "Поддерживается schemaVersion 1");
+  if (value.schemaVersion !== LIBRARY_SCHEMA_VERSION) issue(issues, "/schemaVersion", `Поддерживается schemaVersion ${LIBRARY_SCHEMA_VERSION}`);
   if (typeof value.revision !== "string" || value.revision !== "" && !SHA256.test(value.revision)) issue(issues, "/revision", "Revision должен быть пустым либо SHA-256");
   if (value.publicationId !== null && !uuid(value.publicationId, "/publicationId", issues)) { /* issue added */ }
-  const validators = { games: validateGame, notes: validateNote, collections: validateCollection, collectionItems: validateCollectionItem, assets: validateAsset };
+  const validators = { games: validateGame, notes: validateNote, assets: validateAsset };
   for (const map of ENTITY_MAPS) {
     const entries = value[map];
     if (!record(entries, `/${map}`, issues)) continue;
@@ -247,17 +228,6 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
     });
     }
   }
-  const pairs = new Set<string>();
-  if (isObject(value.collectionItems) && isObject(value.games) && isObject(value.collections)) {
-    const games = value.games; const collections = value.collections;
-    for (const [id, item] of Object.entries(value.collectionItems)) if (isObject(item)) {
-    if (typeof item.gameId === "string" && !(item.gameId in games)) issue(issues, `/collectionItems/${id}/gameId`, "Игра не найдена");
-    if (typeof item.collectionId === "string" && !(item.collectionId in collections)) issue(issues, `/collectionItems/${id}/collectionId`, "Коллекция не найдена");
-    const pair = `${item.collectionId}\u0000${item.gameId}`;
-    if (pairs.has(pair)) issue(issues, `/collectionItems/${id}`, "Игра уже добавлена в эту коллекцию");
-    pairs.add(pair);
-    }
-  }
   return issues.length ? { ok: false, issues } : { ok: true, value: value as unknown as LibraryDatabase, issues };
 }
 
@@ -272,7 +242,7 @@ export function assertValidLibrary(value: unknown): asserts value is LibraryData
 
 export function libraryRevisionIsValid(database: LibraryDatabase): boolean {
   if (database.revision === "") {
-    return database.publicationId === null && [database.games, database.notes, database.collections, database.collectionItems, database.assets].every((map) => Object.keys(map).length === 0);
+    return database.publicationId === null && [database.games, database.notes, database.assets].every((map) => Object.keys(map).length === 0);
   }
   return database.revision === computeLibraryRevision(database);
 }
@@ -310,7 +280,7 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
   if (!isObject(value)) return { ok: false, issues: [{ path: "", message: "Ожидался объект патча" }] };
   exactKeys(value, ["patchVersion", "schemaVersion", "baseRevision", "operations"], "", issues);
   if (value.patchVersion !== 1) issue(issues, "/patchVersion", "Поддерживается patchVersion 1");
-  if (value.schemaVersion !== 1) issue(issues, "/schemaVersion", "Поддерживается schemaVersion 1");
+  if (value.schemaVersion !== LIBRARY_SCHEMA_VERSION) issue(issues, "/schemaVersion", `Поддерживается schemaVersion ${LIBRARY_SCHEMA_VERSION}`);
   if (typeof value.baseRevision !== "string" || value.baseRevision !== "" && !SHA256.test(value.baseRevision)) issue(issues, "/baseRevision", "Некорректный baseRevision");
   if (!record(value.operations, "/operations", issues)) return { ok: false, issues };
   const rootEntities = new Set<string>();

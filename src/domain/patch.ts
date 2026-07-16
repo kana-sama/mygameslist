@@ -1,5 +1,5 @@
 import { canonicalHash, canonicalStringify, MISSING_VALUE_HASH, withComputedRevision } from "./canonical";
-import type { LibraryDatabase, PatchConflict, PatchEnvelope, PatchOperation, ReconciledPatch } from "./types";
+import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch } from "./types";
 import { assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, type EntityMapName } from "./validation";
 
 type Entity = LibraryDatabase[EntityMapName][string];
@@ -66,7 +66,7 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
   const changedAt = options.changedAt ?? new Date().toISOString();
   const transactionId = options.transactionId ?? globalThis.crypto?.randomUUID?.() ?? `tx-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const operations: Record<string, PatchOperation> = {};
-  const maps: EntityMapName[] = ["games", "notes", "collections", "collectionItems", "assets"];
+  const maps: EntityMapName[] = ["games", "notes", "assets"];
   for (const mapName of maps) {
     const baseMap = base[mapName] as Record<string, Entity>;
     const currentMap = current[mapName] as Record<string, Entity>;
@@ -95,7 +95,7 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
       }
     }
   }
-  return { patchVersion: 1, schemaVersion: 1, baseRevision: base.revision, operations };
+  return { patchVersion: 1, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision: base.revision, operations };
 }
 
 function latest(current: string | undefined, candidate: string): string { return !current || candidate > current ? candidate : current; }
@@ -116,7 +116,7 @@ function mutateAtPath(database: LibraryDatabase, path: string, operation: PatchO
 }
 
 function applyUpdatedAt(database: LibraryDatabase, original: LibraryDatabase, operations: Record<string, PatchOperation>): void {
-  const games: Record<string, string> = {}; const notes: Record<string, string> = {}; const collections: Record<string, string> = {};
+  const games: Record<string, string> = {}; const notes: Record<string, string> = {};
   for (const [path, operation] of Object.entries(operations)) {
     const parsed = parsePatchPath(path); if (!parsed) continue;
     if (parsed.map === "games") games[parsed.id] = latest(games[parsed.id], operation.changedAt);
@@ -125,18 +125,9 @@ function applyUpdatedAt(database: LibraryDatabase, original: LibraryDatabase, op
       const note = database.notes[parsed.id] ?? original.notes[parsed.id];
       if (note) games[note.gameId] = latest(games[note.gameId], operation.changedAt);
     }
-    if (parsed.map === "collections") collections[parsed.id] = latest(collections[parsed.id], operation.changedAt);
-    if (parsed.map === "collectionItems") {
-      const item = database.collectionItems[parsed.id] ?? original.collectionItems[parsed.id];
-      if (item) {
-        collections[item.collectionId] = latest(collections[item.collectionId], operation.changedAt);
-        games[item.gameId] = latest(games[item.gameId], operation.changedAt);
-      }
-    }
   }
   for (const [id, changedAt] of Object.entries(games)) if (database.games[id]) database.games[id].updatedAt = changedAt;
   for (const [id, changedAt] of Object.entries(notes)) if (database.notes[id]) database.notes[id].updatedAt = changedAt;
-  for (const [id, changedAt] of Object.entries(collections)) if (database.collections[id]) database.collections[id].updatedAt = changedAt;
 }
 
 export function applyPatch(base: LibraryDatabase, patch: PatchEnvelope, options: ApplyPatchOptions = {}): LibraryDatabase {

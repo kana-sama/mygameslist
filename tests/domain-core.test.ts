@@ -22,7 +22,7 @@ const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-07-16T10:00:00.000Z";
 
 function empty(): LibraryDatabase {
-  return { schemaVersion: 1, revision: "", publicationId: null, games: {}, notes: {}, collections: {}, collectionItems: {}, assets: {} };
+  return { schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} };
 }
 
 function game(title = "DuckTales"): Game {
@@ -40,8 +40,8 @@ describe("canonical JSON and SHA-256", () => {
     expect(MISSING_VALUE_HASH).toBe("0".repeat(64));
   });
 
-  it("matches the revision stamped into the pristine static JSON", () => {
-    expect(computeLibraryRevision(empty())).toBe("181851167bbf0675a0cf8daafc743c3c002b958f85781c574485c60e56e4db92");
+  it("keeps the canonical empty-library revision stable", () => {
+    expect(computeLibraryRevision(empty())).toBe("779d0ac8b9511db82adeb9674e3670cf70fb3ecc98a0bf70c0a10e02511096af");
   });
 });
 
@@ -86,6 +86,16 @@ describe("patch lifecycle", () => {
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/games/${GAME_ID}/updatedAt`]: operation };
     expect(validatePatch(patch).ok).toBe(false);
+  });
+
+  it("rejects collection entities and legacy schema patches", () => {
+    const base = empty(); base.games[GAME_ID] = game();
+    const patch = diffLibrary(base, { ...base, games: { [GAME_ID]: { ...game(), title: "Local" } } }, { changedAt: NOW, transactionId: "title" });
+    const [operation] = Object.values(patch.operations);
+    patch.operations = { [`/collections/${GAME_ID}`]: operation };
+    expect(validatePatch(patch).issues.some((item) => item.message === "Недопустимый путь")).toBe(true);
+    expect(validatePatch({ ...patch, schemaVersion: 1 }).issues.some((item) => item.path === "/schemaVersion")).toBe(true);
+    expect(validateLibrary({ ...empty(), collections: {}, collectionItems: {} }).ok).toBe(false);
   });
 });
 

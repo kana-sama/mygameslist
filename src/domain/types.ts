@@ -4,6 +4,8 @@ export type StatusId = (typeof STATUS_IDS)[number];
 export const TIER_IDS = ["s", "a", "b", "c", "d", "f", "unranked"] as const;
 export type TierId = (typeof TIER_IDS)[number];
 
+export const LIBRARY_SCHEMA_VERSION = 2 as const;
+
 export interface Placement {
   tierId: TierId;
   rank: number;
@@ -46,21 +48,6 @@ export interface Note {
   updatedAt: string;
 }
 
-export interface Collection {
-  id: string;
-  title: string;
-  descriptionMarkdown: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CollectionItem {
-  id: string;
-  collectionId: string;
-  gameId: string;
-  rank: number;
-}
-
 export interface Asset {
   id: string;
   mime: "image/webp";
@@ -72,13 +59,11 @@ export interface Asset {
 }
 
 export interface LibraryDatabase {
-  schemaVersion: 1;
+  schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
   revision: string;
   publicationId: string | null;
   games: Record<string, Game>;
   notes: Record<string, Note>;
-  collections: Record<string, Collection>;
-  collectionItems: Record<string, CollectionItem>;
   assets: Record<string, Asset>;
 }
 
@@ -93,7 +78,7 @@ export interface PatchOperation {
 
 export interface PatchEnvelope {
   patchVersion: 1;
-  schemaVersion: 1;
+  schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
   baseRevision: string;
   operations: Record<string, PatchOperation>;
 }

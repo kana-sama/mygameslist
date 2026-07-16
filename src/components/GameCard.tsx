@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type CSSProperties, type MouseEvent } from "react";
+import { forwardRef, type AnchorHTMLAttributes, type CSSProperties, type HTMLAttributes, type MouseEvent, type Ref } from "react";
 import type { Asset, Game } from "../domain/types";
 import { Icon } from "./Icon";
 import { getAssetUrl, joinHuman, STATUS_LABELS } from "./libraryUi";
@@ -7,12 +7,11 @@ export interface GameCardProps {
   game: Game;
   asset?: Asset;
   variant?: "tier" | "list" | "compact";
-  selected?: boolean;
   isDragging?: boolean;
   style?: CSSProperties;
-  dragHandleProps?: ButtonHTMLAttributes<HTMLButtonElement>;
-  onMoveRequest?: (game: Game) => void;
-  onSelect?: (gameId: string, selected: boolean) => void;
+  dragLinkProps?: AnchorHTMLAttributes<HTMLAnchorElement>;
+  dragLinkRef?: Ref<HTMLAnchorElement>;
+  dragRootProps?: HTMLAttributes<HTMLElement>;
   onOpen?: (gameId: string) => void;
 }
 
@@ -21,17 +20,18 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
     game,
     asset,
     variant = "tier",
-    selected = false,
     isDragging = false,
     style,
-    dragHandleProps,
-    onMoveRequest,
-    onSelect,
+    dragLinkProps,
+    dragLinkRef,
+    dragRootProps,
     onOpen,
   },
   ref,
 ) {
   const coverUrl = getAssetUrl(asset);
+  const isTierCard = variant === "tier";
+  const tierAccessibleLabel = `${game.title}, статус: ${STATUS_LABELS[game.status]}. Открыть; пробел — перетащить`;
   const openGame = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!onOpen) return;
     event.preventDefault();
@@ -40,34 +40,34 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
 
   return (
     <article
-      className={`game-card game-card--${variant}${isDragging ? " is-dragging" : ""}${selected ? " is-selected" : ""}`}
+      {...dragRootProps}
+      className={`game-card game-card--${variant}${isTierCard && game.status === "completed" ? " game-card--completed" : ""}${isDragging ? " is-dragging" : ""}${dragRootProps?.className ? ` ${dragRootProps.className}` : ""}`}
       ref={ref}
-      style={style}
+      style={{ ...dragRootProps?.style, ...style }}
+      title={isTierCard ? game.title : dragRootProps?.title}
     >
-      {onSelect ? (
-        <label className="game-card__select" aria-label={`Выбрать ${game.title}`}>
-          <input
-            checked={selected}
-            onChange={(event) => onSelect(game.id, event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span><Icon name="check" size={14} /></span>
-        </label>
-      ) : null}
-
-      <a className="game-card__cover" href={`#/games/${encodeURIComponent(game.id)}`} onClick={openGame}>
+      <a
+        {...dragLinkProps}
+        aria-label={isTierCard ? tierAccessibleLabel : undefined}
+        className={`game-card__cover${dragLinkProps?.className ? ` ${dragLinkProps.className}` : ""}`}
+        draggable={isTierCard ? false : undefined}
+        href={`#/games/${encodeURIComponent(game.id)}`}
+        onClick={openGame}
+        ref={dragLinkRef}
+        title={isTierCard ? game.title : dragLinkProps?.title}
+      >
         {coverUrl ? (
           <img alt={asset?.alt || `Обложка ${game.title}`} draggable="false" loading="lazy" src={coverUrl} />
         ) : (
           <span className="game-card__placeholder" aria-label="Обложки пока нет">
             <Icon name="gamepad" size={variant === "list" ? 34 : 42} />
-            <span>{game.title.slice(0, 1).toLocaleUpperCase("ru")}</span>
+            {!isTierCard ? <span>{game.title.slice(0, 1).toLocaleUpperCase("ru")}</span> : null}
           </span>
         )}
-        <span className={`status-dot status-dot--${game.status}`} aria-hidden="true" />
+        {!isTierCard ? <span className={`status-dot status-dot--${game.status}`} aria-hidden="true" /> : null}
       </a>
 
-      <div className="game-card__body">
+      {!isTierCard ? <div className="game-card__body">
         <a className="game-card__title" href={`#/games/${encodeURIComponent(game.id)}`} onClick={openGame}>
           {game.title}
         </a>
@@ -84,28 +84,7 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
             </div>
           </>
         ) : null}
-      </div>
-
-      {dragHandleProps ? (
-        <button
-          {...dragHandleProps}
-          aria-label={`Перетащить ${game.title}`}
-          className={`icon-button game-card__drag ${dragHandleProps.className ?? ""}`}
-          type="button"
-        >
-          <Icon name="drag" />
-        </button>
-      ) : null}
-      {onMoveRequest ? (
-        <button
-          aria-label={`Переместить ${game.title}`}
-          className="icon-button game-card__move"
-          onClick={() => onMoveRequest(game)}
-          type="button"
-        >
-          <Icon name="more" />
-        </button>
-      ) : null}
+      </div> : null}
     </article>
   );
 });

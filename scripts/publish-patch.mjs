@@ -22,11 +22,11 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { computeRevision, hashCanonical, validateLibrary } from "./validate-data.mjs";
+import { LIBRARY_SCHEMA_VERSION, computeRevision, hashCanonical, validateLibrary } from "./validate-data.mjs";
 
 export const MISSING_VALUE_HASH = "0".repeat(64);
 const MAX_INPUT_BYTES = 16 * 1024 * 1024;
-const ROOTS = new Set(["games", "notes", "collections", "collectionItems", "assets"]);
+const ROOTS = new Set(["games", "notes", "assets"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
@@ -34,8 +34,6 @@ const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const FIELDS = {
   games: new Set(["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"]),
   notes: new Set(["bodyMarkdown", "attachments", "rank"]),
-  collections: new Set(["title", "descriptionMarkdown"]),
-  collectionItems: new Set(["collectionId", "gameId", "rank"]),
   assets: new Set(),
 };
 
@@ -68,7 +66,7 @@ export function validatePatchEnvelope(patch, database) {
   if (!isPlainObject(patch)) throw new Error("Patch envelope must be an object");
   exactKeys(patch, ["patchVersion", "schemaVersion", "baseRevision", "operations"], "patch");
   if (patch.patchVersion !== 1) throw new Error("patch.patchVersion must equal 1");
-  if (patch.schemaVersion !== 1 || patch.schemaVersion !== database.schemaVersion) {
+  if (patch.schemaVersion !== LIBRARY_SCHEMA_VERSION || patch.schemaVersion !== database.schemaVersion) {
     throw new Error("Patch schemaVersion is not compatible with the static database");
   }
   if (typeof patch.baseRevision !== "string" || patch.baseRevision !== database.revision) {
@@ -104,7 +102,6 @@ export function applyPatch(database, patch) {
   const next = structuredClone(database);
   const gameTimes = new Map();
   const noteTimes = new Map();
-  const collectionTimes = new Map();
   const remember = (map, id, changedAt) => {
     if (!map.has(id) || map.get(id) < changedAt) map.set(id, changedAt);
   };
@@ -127,19 +124,10 @@ export function applyPatch(database, patch) {
       const note = next.notes[id] ?? database.notes[id];
       if (note) remember(gameTimes, note.gameId, operation.changedAt);
     }
-    if (root === "collections") remember(collectionTimes, id, operation.changedAt);
-    if (root === "collectionItems") {
-      const item = next.collectionItems[id] ?? database.collectionItems[id];
-      if (item) {
-        remember(collectionTimes, item.collectionId, operation.changedAt);
-        remember(gameTimes, item.gameId, operation.changedAt);
-      }
-    }
   }
 
   for (const [id, changedAt] of gameTimes) if (next.games[id]) next.games[id].updatedAt = changedAt;
   for (const [id, changedAt] of noteTimes) if (next.notes[id]) next.notes[id].updatedAt = changedAt;
-  for (const [id, changedAt] of collectionTimes) if (next.collections[id]) next.collections[id].updatedAt = changedAt;
   next.publicationId = randomUUID();
   next.revision = "";
   next.revision = computeRevision(next);

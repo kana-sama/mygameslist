@@ -19,8 +19,6 @@ const ROOT_KEYS = [
   "publicationId",
   "games",
   "notes",
-  "collections",
-  "collectionItems",
   "assets",
 ];
 const STATUS_IDS = new Set(["wishlist", "playing", "played", "completed", "dropped"]);
@@ -30,6 +28,7 @@ const SHA256_RE = /^[0-9a-f]{64}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+export const LIBRARY_SCHEMA_VERSION = 2;
 
 export class DataValidationError extends Error {
   constructor(errors) {
@@ -73,7 +72,7 @@ export function validateLibrary(database, options = {}) {
   }
   exactKeys(database, ROOT_KEYS, "$", error);
 
-  if (database.schemaVersion !== 1) error("$.schemaVersion", "must equal 1");
+  if (database.schemaVersion !== LIBRARY_SCHEMA_VERSION) error("$.schemaVersion", `must equal ${LIBRARY_SCHEMA_VERSION}`);
   if (typeof database.revision !== "string" || (database.revision !== "" && !SHA256_RE.test(database.revision))) {
     error("$.revision", "must be empty for the initial database or a lowercase SHA-256 hash");
   }
@@ -81,41 +80,23 @@ export function validateLibrary(database, options = {}) {
     error("$.publicationId", "must be null or a UUID");
   }
 
-  for (const key of ["games", "notes", "collections", "collectionItems", "assets"]) {
+  for (const key of ["games", "notes", "assets"]) {
     if (!isPlainObject(database[key])) error(`$.${key}`, "must be an object map");
   }
 
   const games = isPlainObject(database.games) ? database.games : {};
   const notes = isPlainObject(database.notes) ? database.notes : {};
-  const collections = isPlainObject(database.collections) ? database.collections : {};
-  const collectionItems = isPlainObject(database.collectionItems) ? database.collectionItems : {};
   const assets = isPlainObject(database.assets) ? database.assets : {};
 
   validateRecordKeys(games, "$.games", error);
   validateRecordKeys(notes, "$.notes", error);
-  validateRecordKeys(collections, "$.collections", error);
-  validateRecordKeys(collectionItems, "$.collectionItems", error);
   validateRecordKeys(assets, "$.assets", error);
 
   for (const [id, asset] of Object.entries(assets)) validateAsset(id, asset, `$.assets.${id}`, error);
   for (const [id, game] of Object.entries(games)) validateGame(id, game, assets, `$.games.${id}`, error);
   for (const [id, note] of Object.entries(notes)) validateNote(id, note, games, assets, `$.notes.${id}`, error);
-  for (const [id, collection] of Object.entries(collections)) {
-    validateCollection(id, collection, `$.collections.${id}`, error);
-  }
-
-  const membershipPairs = new Set();
-  for (const [id, item] of Object.entries(collectionItems)) {
-    validateCollectionItem(id, item, games, collections, `$.collectionItems.${id}`, error);
-    if (isPlainObject(item) && typeof item.collectionId === "string" && typeof item.gameId === "string") {
-      const pair = `${item.collectionId}\u0000${item.gameId}`;
-      if (membershipPairs.has(pair)) error(`$.collectionItems.${id}`, "duplicates a collection/game membership");
-      membershipPairs.add(pair);
-    }
-  }
-
   if (database.revision === "") {
-    const hasContent = [games, notes, collections, collectionItems, assets].some(
+    const hasContent = [games, notes, assets].some(
       (record) => Object.keys(record).length > 0,
     );
     if (hasContent || database.publicationId !== null) {
@@ -197,29 +178,6 @@ function validateNote(key, note, games, assets, at, error) {
       }
     });
   }
-}
-
-function validateCollection(key, collection, at, error) {
-  const keys = ["id", "title", "descriptionMarkdown", "createdAt", "updatedAt"];
-  if (!isPlainObject(collection)) return error(at, "must be an object");
-  exactKeys(collection, keys, at, error);
-  validateEntityId(key, collection.id, `${at}.id`, error);
-  nonEmptyString(collection.title, `${at}.title`, error, 500);
-  markdown(collection.descriptionMarkdown, `${at}.descriptionMarkdown`, error);
-  isoDate(collection.createdAt, `${at}.createdAt`, error);
-  isoDate(collection.updatedAt, `${at}.updatedAt`, error);
-}
-
-function validateCollectionItem(key, item, games, collections, at, error) {
-  const keys = ["id", "collectionId", "gameId", "rank"];
-  if (!isPlainObject(item)) return error(at, "must be an object");
-  exactKeys(item, keys, at, error);
-  validateEntityId(key, item.id, `${at}.id`, error);
-  if (!isUuid(item.collectionId) || !Object.hasOwn(collections, item.collectionId)) {
-    error(`${at}.collectionId`, "references a missing collection");
-  }
-  if (!isUuid(item.gameId) || !Object.hasOwn(games, item.gameId)) error(`${at}.gameId`, "references a missing game");
-  rank(item.rank, `${at}.rank`, error);
 }
 
 function validateAsset(key, asset, at, error) {

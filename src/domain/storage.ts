@@ -1,4 +1,4 @@
-import type { PatchEnvelope } from "./types";
+import { LIBRARY_SCHEMA_VERSION, type PatchEnvelope } from "./types";
 import { validatePatch } from "./validation";
 
 export const PATCH_STORAGE_KEY = "my-game-library.patch.v1";
@@ -46,12 +46,20 @@ export function isStorageAccessError(error: unknown): boolean {
 
 export interface PatchLoadResult { patch: PatchEnvelope | null; raw: string | null; error: Error | null }
 
+function migrateLegacyPatch(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const patch = value as Record<string, unknown>;
+  if (patch.patchVersion !== 1 || patch.schemaVersion !== 1 || !patch.operations || typeof patch.operations !== "object" || Array.isArray(patch.operations)) return value;
+  const operations = Object.fromEntries(Object.entries(patch.operations as Record<string, unknown>).filter(([path]) => !path.startsWith("/collections/") && !path.startsWith("/collectionItems/")));
+  return { ...patch, schemaVersion: LIBRARY_SCHEMA_VERSION, operations };
+}
+
 export function loadPatch(storage: Pick<Storage, "getItem">, key = PATCH_STORAGE_KEY): PatchLoadResult {
   let raw: string | null;
   try { raw = storage.getItem(key); } catch (error) { return { patch: null, raw: null, error: error instanceof Error ? error : new Error(String(error)) }; }
   if (raw === null) return { patch: null, raw, error: null };
   try {
-    const parsed: unknown = JSON.parse(raw); const result = validatePatch(parsed);
+    const parsed = migrateLegacyPatch(JSON.parse(raw)); const result = validatePatch(parsed);
     if (!result.ok || !result.value) return { patch: null, raw, error: new Error(result.issues.map((item) => `${item.path}: ${item.message}`).join("\n")) };
     return { patch: result.value, raw, error: null };
   } catch (error) { return { patch: null, raw, error: error instanceof Error ? error : new Error(String(error)) }; }

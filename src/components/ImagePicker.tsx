@@ -18,7 +18,8 @@ export interface ImagePickerProps {
   label?: string;
   alt?: string;
   currentPreviewUrl?: string | null;
-  onPrepare: (image: PreparedImage) => void;
+  onPrepare: (image: PreparedImage) => boolean | void | Promise<boolean | void>;
+  onDraftChange?: (dirty: boolean) => void;
   onRemove?: () => void;
   disabled?: boolean;
 }
@@ -69,6 +70,7 @@ export function ImagePicker({
   alt = "",
   currentPreviewUrl,
   onPrepare,
+  onDraftChange,
   onRemove,
   disabled = false,
 }: ImagePickerProps) {
@@ -103,6 +105,7 @@ export function ImagePicker({
       setOffsetX(0);
       setOffsetY(0);
       setLastSize(null);
+      onDraftChange?.(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось открыть изображение");
     }
@@ -150,8 +153,8 @@ export function ImagePicker({
         byteLength: blob.size,
       };
       setLastSize(blob.size);
-      onPrepare(prepared);
-      setSource(null);
+      const accepted = await onPrepare(prepared);
+      if (accepted !== false) { setSource(null); onDraftChange?.(false); }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось подготовить изображение");
     } finally {

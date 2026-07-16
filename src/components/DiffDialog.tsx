@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Icon } from "./Icon";
 import { formatBytes } from "./libraryUi";
 
-export type DiffGroupId = "added" | "changed" | "deleted" | "moved" | "collections" | "assets";
+export type DiffGroupId = "added" | "changed" | "deleted" | "moved" | "assets";
 
 export interface DiffItem {
   id: string;
@@ -28,7 +28,7 @@ export interface DiffDialogProps {
   conflicts?: DiffConflictItem[];
   patchBytes: number;
   payloadIsLarge?: boolean;
-  storageEstimate?: { usage?: number; quota?: number } | null;
+  error?: string;
   command: string;
   alternateCommand?: string;
   onClose: () => void;
@@ -39,6 +39,7 @@ export interface DiffDialogProps {
   onImport: (text: string, fileName: string) => void | Promise<void>;
   onResolveConflict?: (conflictId: string, resolution: "static" | "local", manualValue?: unknown) => void;
   onDownloadCorruptedRaw?: () => void;
+  onDismissError?: () => void;
   copyCommand?: () => Promise<boolean>;
   copyAlternateCommand?: () => Promise<boolean>;
 }
@@ -48,16 +49,14 @@ const groupLabels: Record<DiffGroupId, string> = {
   changed: "Изменено",
   deleted: "Удалено",
   moved: "Перемещено",
-  collections: "Коллекции",
   assets: "Изображения",
 };
 
-const groupIcons: Record<DiffGroupId, "plus" | "edit" | "trash" | "drag" | "collection" | "image"> = {
+const groupIcons: Record<DiffGroupId, "plus" | "edit" | "trash" | "drag" | "image"> = {
   added: "plus",
   changed: "edit",
   deleted: "trash",
   moved: "drag",
-  collections: "collection",
   assets: "image",
 };
 
@@ -76,7 +75,7 @@ export function DiffDialog({
   conflicts = [],
   patchBytes,
   payloadIsLarge,
-  storageEstimate,
+  error,
   command,
   alternateCommand,
   onClose,
@@ -87,6 +86,7 @@ export function DiffDialog({
   onImport,
   onResolveConflict,
   onDownloadCorruptedRaw,
+  onDismissError,
   copyCommand,
   copyAlternateCommand,
 }: DiffDialogProps) {
@@ -190,15 +190,14 @@ export function DiffDialog({
       <section aria-labelledby="diff-title" aria-modal="true" className="diff-dialog" ref={dialogRef} role="dialog">
         <header className="modal-header diff-dialog__header">
           <div>
-            <span className="eyebrow">Только на этом устройстве</span>
             <h2 id="diff-title">Локальные правки</h2>
             <p>{items.length} {items.length === 1 ? "изменение" : "изменений"} · {formatBytes(patchBytes)}</p>
-            {storageEstimate?.usage !== undefined || storageEstimate?.quota !== undefined ? <small className="storage-diagnostic">Storage API: {storageEstimate.usage === undefined ? "?" : formatBytes(storageEstimate.usage)} / {storageEstimate.quota === undefined ? "?" : formatBytes(storageEstimate.quota)} · это не квота localStorage</small> : null}
           </div>
           <button aria-label="Закрыть" className="icon-button" onClick={onClose} type="button"><Icon name="close" /></button>
         </header>
 
         <div className="diff-dialog__body">
+          {error ? <div className="inline-alert inline-alert--error" role="alert"><Icon name="warning" /><span>{error}</span>{onDismissError ? <button onClick={onDismissError} type="button">Скрыть</button> : null}</div> : null}
           <div className="diff-toolbar">
             <button className="button button--secondary" onClick={onExport} type="button"><Icon name="download" size={17} />Экспорт</button>
             <button className="button button--secondary" onClick={() => fileInputRef.current?.click()} type="button"><Icon name="upload" size={17} />Импорт</button>

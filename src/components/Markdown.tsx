@@ -1,5 +1,4 @@
-import { Fragment, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Fragment, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { safeUrl } from "./libraryUi";
 
 function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
@@ -165,72 +164,90 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
   );
 }
 
-export interface MarkdownEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  label?: string;
-  placeholder?: string;
-  minRows?: number;
+const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i;
+
+function isImageFile(file: File): boolean {
+  return file.type.startsWith("image/") || !file.type && IMAGE_FILE_EXTENSION.test(file.name);
 }
 
-export function MarkdownEditor({
+function snapshotFiles(transfer: DataTransfer): File[] {
+  const itemFiles = Array.from(transfer.items ?? []).flatMap((item) => {
+    if (item.kind !== "file") return [];
+    const file = item.getAsFile();
+    return file ? [file] : [];
+  });
+  return itemFiles.length ? itemFiles : Array.from(transfer.files ?? []);
+}
+
+function hasFilePayload(transfer: DataTransfer): boolean {
+  return Array.from(transfer.types ?? []).includes("Files") || Array.from(transfer.items ?? []).some((item) => item.kind === "file") || transfer.files.length > 0;
+}
+
+export interface PlainMarkdownTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "onChange" | "onPaste" | "onDragEnter" | "onDragOver" | "onDragLeave" | "onDrop"> {
+  value: string;
+  onChange: (value: string) => void;
+  onImageFiles?: (files: File[]) => void;
+  onImageError?: (error: Error) => void;
+  imagesDisabled?: boolean;
+}
+
+export function PlainMarkdownTextarea({
   value,
   onChange,
-  label = "Текст",
-  placeholder = "Напишите что-нибудь…",
-  minRows = 8,
-}: MarkdownEditorProps) {
-  const [tab, setTab] = useState<"write" | "preview">("write");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const labelId = useId();
+  onImageFiles,
+  onImageError,
+  imagesDisabled = false,
+  className = "",
+  ...textareaProps
+}: PlainMarkdownTextareaProps) {
+  const [dragOver, setDragOver] = useState(false);
 
-  const insert = (before: string, after = "", fallback = "текст") => {
-    const input = textareaRef.current;
-    if (!input) return;
-    const start = input.selectionStart;
-    const end = input.selectionEnd;
-    const selection = value.slice(start, end) || fallback;
-    const nextValue = `${value.slice(0, start)}${before}${selection}${after}${value.slice(end)}`;
-    onChange(nextValue);
-    requestAnimationFrame(() => {
-      input.focus();
-      input.setSelectionRange(start + before.length, start + before.length + selection.length);
-    });
+  const acceptFiles = (transfer: DataTransfer): boolean => {
+    const files = snapshotFiles(transfer);
+    const images = files.filter(isImageFile);
+    if (!images.length) {
+      onImageError?.(new Error("Можно добавить только изображения."));
+      return false;
+    }
+    if (!imagesDisabled) onImageFiles?.(images);
+    return true;
   };
 
   return (
-    <div className="markdown-editor">
-      <div className="markdown-editor__header">
-        <span className="field-label" id={labelId}>{label}</span>
-        <div className="segmented-control" aria-label="Режим редактора">
-          <button aria-pressed={tab === "write"} onClick={() => setTab("write")} type="button">Текст</button>
-          <button aria-pressed={tab === "preview"} onClick={() => setTab("preview")} type="button">Предпросмотр</button>
-        </div>
-      </div>
-      {tab === "write" ? (
-        <>
-          <div className="markdown-editor__toolbar" aria-label="Форматирование Markdown">
-            <button aria-label="Полужирный" onClick={() => insert("**", "**")} type="button"><strong>Ж</strong></button>
-            <button aria-label="Курсив" onClick={() => insert("_", "_")} type="button"><em>К</em></button>
-            <button aria-label="Ссылка" onClick={() => insert("[", "](https://)", "название")} type="button"><Icon name="link" size={17} /></button>
-            <button aria-label="Маркированный список" onClick={() => insert("- ", "", "пункт")} type="button">• —</button>
-            <button aria-label="Заголовок" onClick={() => insert("## ", "", "Заголовок")} type="button">H2</button>
-          </div>
-          <textarea
-            aria-labelledby={labelId}
-            onChange={(event) => onChange(event.currentTarget.value)}
-            placeholder={placeholder}
-            ref={textareaRef}
-            rows={minRows}
-            value={value}
-          />
-          <span className="markdown-editor__hint">Поддерживается Markdown. Raw HTML запрещён.</span>
-        </>
-      ) : (
-        <div className="markdown-editor__preview" role="region" aria-label={`Предпросмотр: ${label}`}>
-          <MarkdownView markdown={value} emptyText="Здесь появится предпросмотр" />
-        </div>
-      )}
-    </div>
+    <textarea
+      {...textareaProps}
+      className={`${className}${dragOver ? `${className ? " " : ""}is-drag-over` : ""}`}
+      onChange={(event) => onChange(event.currentTarget.value)}
+      onDragEnter={(event) => {
+        if (!hasFilePayload(event.dataTransfer)) return;
+        event.preventDefault();
+        if (!imagesDisabled) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDragOver={(event) => {
+        if (!hasFilePayload(event.dataTransfer)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        if (!imagesDisabled) setDragOver(true);
+      }}
+      onDrop={(event) => {
+        setDragOver(false);
+        if (!hasFilePayload(event.dataTransfer)) return;
+        event.preventDefault();
+        if (!imagesDisabled) acceptFiles(event.dataTransfer);
+      }}
+      onPaste={(event) => {
+        const files = snapshotFiles(event.clipboardData);
+        if (!files.length) return;
+        event.preventDefault();
+        const images = files.filter(isImageFile);
+        if (!images.length) {
+          if (!imagesDisabled) onImageError?.(new Error("Можно добавить только изображения."));
+          return;
+        }
+        if (!imagesDisabled) onImageFiles?.(images);
+      }}
+      value={value}
+    />
   );
 }

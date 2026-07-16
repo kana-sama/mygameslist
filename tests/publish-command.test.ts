@@ -5,7 +5,7 @@ import { createDownloadedPatchCommand, createPublishCommand } from "../src/state
 
 const patch: PatchEnvelope = {
   patchVersion: 1,
-  schemaVersion: 1,
+  schemaVersion: 2,
   baseRevision: "1".repeat(64),
   operations: {
     "/games/11111111-1111-4111-8111-111111111111/title": {

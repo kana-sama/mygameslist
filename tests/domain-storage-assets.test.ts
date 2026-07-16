@@ -16,7 +16,7 @@ import {
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const DATE = "2026-07-16T10:00:00.000Z";
 const game = (): Game => ({ id: GAME_ID, title: "Mario", coverAssetId: null, platforms: ["NES"], tags: [], status: "wishlist", placement: { tierId: "unranked", rank: 1024 }, reviewMarkdown: "", createdAt: DATE, updatedAt: DATE });
-const empty = (): LibraryDatabase => ({ schemaVersion: 1, revision: "", publicationId: null, games: {}, notes: {}, collections: {}, collectionItems: {}, assets: {} });
+const empty = (): LibraryDatabase => ({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();

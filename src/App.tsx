@@ -38,12 +38,10 @@ const fieldLabels: Record<string, string> = {
   tags: "Теги",
   status: "Статус",
   placement: "Позиция в тирлисте",
-  reviewMarkdown: "Отзыв",
+  reviewMarkdown: "Заметка",
   bodyMarkdown: "Текст заметки",
   attachments: "Вложения",
   rank: "Порядок",
-  descriptionMarkdown: "Описание",
-  collectionId: "Коллекция",
   gameId: "Игра",
 };
 
@@ -65,14 +63,12 @@ function entityName(
     ? operation.value as Record<string, unknown>
     : undefined;
   if (map === "games") return String(effective.games[id]?.title ?? base.games[id]?.title ?? rootValue?.title ?? "Игра");
-  if (map === "collections") return String(effective.collections[id]?.title ?? base.collections[id]?.title ?? rootValue?.title ?? "Коллекция");
   if (map === "notes") {
     const note = effective.notes[id] ?? base.notes[id];
     const gameId = note?.gameId ?? (typeof rootValue?.gameId === "string" ? rootValue.gameId : undefined);
     const game = gameId ? effective.games[gameId] ?? base.games[gameId] : undefined;
     return `Заметка${game ? ` · ${game.title}` : ""}`;
   }
-  if (map === "collectionItems") return "Состав коллекции";
   return "Изображение";
 }
 
@@ -80,7 +76,6 @@ function classifyDiff(path: string, operation: PatchOperation): DiffGroupId {
   const parsed = parsePatchPath(path);
   if (!parsed) return "changed";
   if (parsed.map === "assets") return "assets";
-  if (parsed.map === "collections" || parsed.map === "collectionItems") return "collections";
   if (parsed.field === "placement" || parsed.field === "rank") return "moved";
   if (!parsed.field && operation.operation === "set" && !operation.baseExists) return "added";
   if (!parsed.field && operation.operation === "delete") return "deleted";
@@ -111,11 +106,9 @@ function LibraryRoutes() {
   const [diffOpen, setDiffOpen] = useState(false);
   const [command, setCommand] = useState("");
   const [commandIsLarge, setCommandIsLarge] = useState(false);
-  const [toast, setToast] = useState<{ message: string; undo?: boolean } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
-  const collections = useMemo(() => Object.values(library.effective.collections), [library.effective.collections]);
-  const collectionItems = useMemo(() => Object.values(library.effective.collectionItems), [library.effective.collectionItems]);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
   const patchBytes = useMemo(
     () => webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(library.patch)),
@@ -138,12 +131,6 @@ function LibraryRoutes() {
     });
     return () => { active = false; };
   }, [library.patch, operationEntries.length]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 6000);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   const items = useMemo<DiffItem[]>(() => operationEntries.map(([path, operation]) => {
     const parsed = parsePatchPath(path);
@@ -176,7 +163,7 @@ function LibraryRoutes() {
     };
   }), [library.base, library.conflicts, library.effective]);
 
-  const showError = (error: unknown) => setToast({ message: error instanceof Error ? error.message : String(error) });
+  const showError = (error: unknown) => setActionError(error instanceof Error ? error.message : String(error));
   const navigateHref = (href: string) => navigate(href.startsWith("#") ? href.slice(1) || "/" : href);
   const exportPatch = () => downloadPatch(library.patch);
   const copyCommand = async (value: string) => {
@@ -195,7 +182,6 @@ function LibraryRoutes() {
       const operation = library.patch.operations[path];
       const dependencyRoot = parsed && !parsed.field && operation && (
         parsed.map === "games"
-        || parsed.map === "collections"
         || parsed.map === "notes" && operation.operation === "delete"
         || parsed.map === "assets" && operation.operation === "set" && !operation.baseExists
       );
@@ -218,23 +204,17 @@ function LibraryRoutes() {
 
   return (
     <AppShell
-      onDismissLocalOnlyNotice={library.dismissLocalNotice}
-      onExportPatch={exportPatch}
       onNavigate={navigateHref}
       onOpenDiff={() => setDiffOpen(true)}
-      onRequestPersistentStorage={() => {
-        void library.persistStorage().then((accepted) => setToast({ message: accepted ? "Safari принял запрос на долговременное хранение." : "Safari не подтвердил долговременное хранение. Экспорт остаётся самым надёжным backup." }));
-      }}
       route={routeKind(location.pathname)}
-      showLocalOnlyNotice={library.showLocalNotice}
       storage={{
         bytes: library.usage.bytes,
         budgetBytes: library.usage.budget,
         operationCount: operationEntries.length,
         conflictCount: library.conflicts.length,
+        error: actionError ?? library.persistenceError ?? undefined,
       }}
     >
-      {library.persistenceError ? <div className="inline-alert inline-alert--error app-error" role="alert"><span>{library.persistenceError}</span><button onClick={() => setDiffOpen(true)} type="button">Открыть правки</button></div> : null}
       <Routes>
         <Route
           path="/"
@@ -244,7 +224,6 @@ function LibraryRoutes() {
             onMoveGame={(gameId, target) => {
               try {
                 library.moveGame(gameId, target.tierId, target.index);
-                setToast({ message: "Игра перемещена.", undo: true });
               } catch (error) { showError(error); }
             }}
             onOpenGame={(id) => navigate(`/games/${id}`)}
@@ -254,14 +233,8 @@ function LibraryRoutes() {
           path="/games"
           element={<CatalogPage
             assets={library.effective.assets}
-            collectionItems={collectionItems}
-            collections={collections}
             games={games}
-            onAddGamesToCollection={(collectionId, ids) => { try { library.addGamesToCollection(collectionId, ids); } catch (error) { showError(error); } }}
-            onCreateCollection={(input) => { try { library.createCollection(input); } catch (error) { showError(error); } }}
-            onDeleteCollection={(id) => { try { library.deleteCollection(id); } catch (error) { showError(error); } }}
             onOpenGame={(id) => navigate(`/games/${id}`)}
-            onRenameCollection={(id, title) => { try { library.renameCollection(id, title); } catch (error) { showError(error); } }}
           />}
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
@@ -275,6 +248,7 @@ function LibraryRoutes() {
         conflicts={conflictItems}
         copyAlternateCommand={commandIsLarge ? () => copyCommand(createDownloadedPatchCommand()) : undefined}
         copyCommand={() => copyCommand(command)}
+        error={actionError ?? library.persistenceError ?? undefined}
         items={items}
         onClearAll={() => {
           if (!window.confirm("Отменить все локальные правки?")) return;
@@ -282,11 +256,9 @@ function LibraryRoutes() {
         }}
         onClose={() => setDiffOpen(false)}
         onDownloadCorruptedRaw={library.corruptedPatchRaw === null ? undefined : library.downloadCorruptedPatch}
+        onDismissError={actionError ? () => setActionError(null) : undefined}
         onExport={exportPatch}
-        onImport={(text) => {
-          library.importPatch(text);
-          setToast({ message: "Патч импортирован." });
-        }}
+        onImport={(text) => library.importPatch(text)}
         onResolveConflict={(id, resolution, manualValue) => {
           try { library.resolvePatchConflict(id, resolution, manualValue); } catch (error) { showError(error); }
         }}
@@ -300,10 +272,7 @@ function LibraryRoutes() {
         open={diffOpen}
         patchBytes={patchBytes}
         payloadIsLarge={commandIsLarge}
-        storageEstimate={library.storageEstimate}
       />
-
-      {toast ? <div className="toast" role="status"><span>{toast.message}</span>{toast.undo ? <button onClick={() => { try { library.undoLast(); setToast(null); } catch (error) { showError(error); } }} type="button">Отменить</button> : null}<button aria-label="Закрыть" onClick={() => setToast(null)} type="button">×</button></div> : null}
     </AppShell>
   );
 }
@@ -311,36 +280,31 @@ function LibraryRoutes() {
 function GameRoute({ mode }: { mode: "new" | "game" }) {
   const library = useLibrary();
   const navigate = useNavigate();
-  const location = useLocation();
   const { id } = useParams();
   const game = id ? library.effective.games[id] : undefined;
-  const editing = mode === "new" || new URLSearchParams(location.search).get("edit") === "1";
-  const notes = game
-    ? Object.values(library.effective.notes).filter((note) => note.gameId === game.id)
-    : [];
-  const collections = Object.values(library.effective.collections);
-  const collectionItems = Object.values(library.effective.collectionItems);
+  const notes = useMemo(
+    () => id ? Object.values(library.effective.notes).filter((note) => note.gameId === id) : [],
+    [id, library.effective.notes],
+  );
   const platformSuggestions = [...new Set(Object.values(library.effective.games).flatMap((item) => item.platforms))];
   const tagSuggestions = [...new Set(Object.values(library.effective.games).flatMap((item) => item.tags))];
 
   if (mode === "game" && !game) {
-    return <div className="empty-state empty-state--hero"><h1>Игра не найдена</h1><p>Возможно, она была удалена локально.</p><a className="button button--primary" href="#/games">К каталогу</a></div>;
+    return <div className="empty-state empty-state--hero"><h1>Игра не найдена</h1><p>Возможно, она была удалена локально.</p></div>;
   }
 
   return <GamePage
     assets={library.effective.assets}
-    collectionItems={collectionItems}
-    collections={collections}
     game={game}
-    mode={mode === "new" ? "new" : editing ? "edit" : "view"}
+    key={game?.id ?? "new"}
+    mode={mode}
     notes={notes}
-    onCancel={() => navigate(game ? `/games/${game.id}` : "/games")}
+    onCancel={() => navigate("/games")}
     onDelete={game ? async (gameId) => { library.deleteGame(gameId); navigate("/games"); } : undefined}
     onSave={async (input) => {
       const gameId = await library.saveGame(input);
-      navigate(`/games/${gameId}`);
+      if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
-    onStartEdit={game ? () => navigate(`/games/${game.id}?edit=1`) : undefined}
     platformSuggestions={platformSuggestions}
     storageLocked={library.usage.level === "blocked"}
     tagSuggestions={tagSuggestions}

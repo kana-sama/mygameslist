@@ -34,13 +34,11 @@ afterEach(() => {
 
 function emptyDatabase() {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     revision: "",
     publicationId: null,
     games: {},
     notes: {},
-    collections: {},
-    collectionItems: {},
     assets: {},
   };
 }
@@ -63,7 +61,7 @@ function game() {
 function createPatch(database = emptyDatabase()) {
   return {
     patchVersion: 1,
-    schemaVersion: 1,
+    schemaVersion: 2,
     baseRevision: database.revision,
     operations: {
       [`/games/${GAME_ID}`]: {
@@ -139,7 +137,7 @@ describe("publish patch payload", () => {
     database.revision = computeRevision(database);
     const patch = {
       patchVersion: 1,
-      schemaVersion: 1,
+      schemaVersion: 2,
       baseRevision: database.revision,
       operations: {
         [`/games/${GAME_ID}/title`]: {
@@ -157,6 +155,19 @@ describe("publish patch payload", () => {
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/games/${GAME_ID}/placement/tierId`]: operation };
     expect(() => validatePatchEnvelope(patch, database)).toThrow(/expected \/root\/id/);
+  });
+
+  it("rejects legacy collection paths and schema-1 payloads", () => {
+    const database = emptyDatabase();
+    const patch = createPatch(database);
+    const [operation] = Object.values(patch.operations);
+    patch.operations = { [`/collections/${GAME_ID}`]: operation };
+    expect(() => validatePatchEnvelope(patch, database)).toThrow(/root is not patchable/);
+
+    patch.operations = { [`/games/${GAME_ID}`]: operation };
+    patch.schemaVersion = 1;
+    expect(() => validatePatchEnvelope(patch, database)).toThrow(/schemaVersion is not compatible/);
+    expect(() => validateLibrary({ ...database, schemaVersion: 1, collections: {}, collectionItems: {} })).toThrow(/schemaVersion.*must equal 2/);
   });
 
   it("runs npm ci only when Vite is absent", () => {

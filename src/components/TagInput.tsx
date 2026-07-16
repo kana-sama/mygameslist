@@ -2,6 +2,7 @@ import { useId, useState, type KeyboardEvent } from "react";
 import { Icon } from "./Icon";
 
 export interface TagInputProps {
+  autoFocus?: boolean;
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
@@ -11,6 +12,7 @@ export interface TagInputProps {
 }
 
 export function TagInput({
+  autoFocus = false,
   label,
   values,
   onChange,
@@ -27,7 +29,8 @@ export function TagInput({
     .slice(0, 6);
 
   const add = (raw: string) => {
-    const value = raw.trim().replace(/^#/, "");
+    const typedValue = raw.trim().replace(/^#/, "");
+    const value = suggestions.find((suggestion) => suggestion.toLocaleLowerCase("ru") === typedValue.toLocaleLowerCase("ru")) ?? typedValue;
     if (!value || normalizedValues.has(value.toLocaleLowerCase("ru"))) {
       setDraft("");
       return;
@@ -62,6 +65,7 @@ export function TagInput({
           </span>
         ))}
         <input
+          autoFocus={autoFocus}
           id={id}
           list={`${id}-suggestions`}
           onBlur={() => draft && add(draft)}

@@ -12,7 +12,6 @@ import type { GameSaveInput, EditableAttachment } from "../pages/GamePage";
 import {
   PATCH_STORAGE_KEY,
   SAFARI_SAFE_BUDGET_BYTES,
-  applyPatch,
   assertValidLibrary,
   base64ToBytes,
   classifyStorageUsage,
@@ -25,17 +24,14 @@ import {
   parsePatchPath,
   projectedStorageUsage,
   reconcilePatch,
-  requestPersistentStorage,
   resolveConflict,
   savePatch,
   validatePatch,
   webkitStorageBytes,
   webkitStringBytes,
+  LIBRARY_SCHEMA_VERSION,
   type Asset,
-  type Collection,
-  type CollectionItem,
   type LibraryDatabase,
-  type Note,
   type NoteAttachment,
   type PatchConflict,
   type PatchEnvelope,
@@ -44,10 +40,8 @@ import {
   type TierId,
 } from "../domain";
 
-const NOTICE_KEY = "my-game-library.local-notice.v1";
-
 function emptyPatch(baseRevision: string): PatchEnvelope {
-  return { patchVersion: 1, schemaVersion: 1, baseRevision, operations: {} };
+  return { patchVersion: 1, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {} };
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -69,14 +63,14 @@ function assetFromPrepared(image: { base64: string; width: number; height: numbe
   return makeWebPAsset(base64ToBytes(image.base64), image.width, image.height, image.alt, image.originalName);
 }
 
-function garbageCollectAssets(database: LibraryDatabase): void {
+function garbageCollectAssets(database: LibraryDatabase, staticAssets: LibraryDatabase["assets"]): void {
   const referenced = new Set<string>();
   Object.values(database.games).forEach((game) => game.coverAssetId && referenced.add(game.coverAssetId));
   Object.values(database.notes).forEach((note) => note.attachments.forEach((attachment) => {
     if (attachment.type === "image") referenced.add(attachment.assetId);
   }));
   Object.keys(database.assets).forEach((id) => {
-    if (!referenced.has(id)) delete database.assets[id];
+    if (!referenced.has(id) && !Object.prototype.hasOwnProperty.call(staticAssets, id)) delete database.assets[id];
   });
 }
 
@@ -102,23 +96,16 @@ export interface LibraryContextValue extends LibraryState {
   corruptedPatchRaw: string | null;
   usage: StorageUsage;
   storageEstimate: { usage?: number; quota?: number } | null;
-  showLocalNotice: boolean;
   games: LibraryDatabase["games"];
   saveGame: (input: GameSaveInput) => Promise<string>;
   deleteGame: (gameId: string) => void;
   moveGame: (gameId: string, tierId: TierId, index: number) => void;
-  createCollection: (input: { title: string; descriptionMarkdown: string }) => void;
-  renameCollection: (collectionId: string, title: string) => void;
-  deleteCollection: (collectionId: string) => void;
-  addGamesToCollection: (collectionId: string, gameIds: string[]) => void;
   discardPath: (path: string) => void;
   discardPaths: (paths: string[]) => void;
   clearPatch: () => void;
   resolvePatchConflict: (path: string, choice: "static" | "local", manualValue?: unknown) => void;
   importPatch: (raw: string) => void;
   undoLast: () => boolean;
-  dismissLocalNotice: () => void;
-  persistStorage: () => Promise<boolean>;
   downloadCorruptedPatch: () => void;
 }
 
@@ -131,9 +118,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [corruptedPatchRaw, setCorruptedPatchRaw] = useState<string | null>(null);
   const [storageEstimate, setStorageEstimate] = useState<{ usage?: number; quota?: number } | null>(null);
-  const [noticeDismissed, setNoticeDismissed] = useState(() => {
-    try { return localStorage.getItem(NOTICE_KEY) === "dismissed"; } catch { return false; }
-  });
   const undoStack = useRef<PatchEnvelope[]>([]);
 
   const installReconciled = useCallback((base: LibraryDatabase, reconciled: ReconciledPatch, remember = false) => {
@@ -253,12 +237,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", receive);
   }, [state?.base]);
 
-  const mutate = useCallback((mutator: (database: LibraryDatabase) => void) => {
+  const mutate = useCallback((mutator: (database: LibraryDatabase, base: LibraryDatabase) => void) => {
     if (!state) throw new Error("Библиотека ещё загружается");
     if (corruptedPatchRaw !== null) throw new Error("Сначала экспортируйте или сбросьте повреждённый локальный патч");
     if (state.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
     const next = structuredClone(state.effective);
-    mutator(next);
+    mutator(next, state.base);
     assertValidLibrary(next);
     const patch = diffLibrary(state.base, next, { previousPatch: state.patch });
     installReconciled(state.base, reconcilePatch(state.base, patch), true);
@@ -266,7 +250,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
     const id = input.id ?? crypto.randomUUID();
-    mutate((database) => {
+    mutate((database, base) => {
       const now = new Date().toISOString();
       const previous = database.games[id];
       let coverAssetId = input.coverAssetId;
@@ -318,62 +302,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (note.gameId === id && !retainedNoteIds.has(note.id)) delete database.notes[note.id];
       });
 
-      const selectedCollections = new Set(input.collectionIds.filter((collectionId) => Boolean(database.collections[collectionId])));
-      Object.values(database.collectionItems).forEach((item) => {
-        if (item.gameId === id && !selectedCollections.has(item.collectionId)) delete database.collectionItems[item.id];
-      });
-      selectedCollections.forEach((collectionId) => {
-        const existing = Object.values(database.collectionItems).find((item) => item.collectionId === collectionId && item.gameId === id);
-        if (existing) return;
-        const itemId = crypto.randomUUID();
-        database.collectionItems[itemId] = {
-          id: itemId,
-          collectionId,
-          gameId: id,
-          rank: maxRank(Object.values(database.collectionItems).filter((item) => item.collectionId === collectionId)) + 1024,
-        };
-      });
-      garbageCollectAssets(database);
+      garbageCollectAssets(database, base.assets);
     });
     return id;
   }, [mutate]);
 
-  const deleteGame = useCallback((gameId: string) => mutate((database) => {
+  const deleteGame = useCallback((gameId: string) => mutate((database, base) => {
     delete database.games[gameId];
     Object.values(database.notes).forEach((note) => note.gameId === gameId && delete database.notes[note.id]);
-    Object.values(database.collectionItems).forEach((item) => item.gameId === gameId && delete database.collectionItems[item.id]);
-    garbageCollectAssets(database);
+    garbageCollectAssets(database, base.assets);
   }), [mutate]);
 
   const moveGame = useCallback((gameId: string, tierId: TierId, index: number) => mutate((database) => {
     const moved = moveGameToTier(database, gameId, tierId, index);
     database.games = moved.games;
-  }), [mutate]);
-
-  const createCollection = useCallback((input: { title: string; descriptionMarkdown: string }) => mutate((database) => {
-    const id = crypto.randomUUID(); const now = new Date().toISOString();
-    database.collections[id] = { id, title: input.title.trim(), descriptionMarkdown: input.descriptionMarkdown, createdAt: now, updatedAt: now };
-  }), [mutate]);
-
-  const renameCollection = useCallback((collectionId: string, title: string) => mutate((database) => {
-    if (!database.collections[collectionId]) throw new Error("Коллекция не найдена");
-    database.collections[collectionId].title = title.trim();
-  }), [mutate]);
-
-  const deleteCollection = useCallback((collectionId: string) => mutate((database) => {
-    delete database.collections[collectionId];
-    Object.values(database.collectionItems).forEach((item) => item.collectionId === collectionId && delete database.collectionItems[item.id]);
-  }), [mutate]);
-
-  const addGamesToCollection = useCallback((collectionId: string, gameIds: string[]) => mutate((database) => {
-    if (!database.collections[collectionId]) throw new Error("Коллекция не найдена");
-    let rank = maxRank(Object.values(database.collectionItems).filter((item) => item.collectionId === collectionId));
-    gameIds.forEach((gameId) => {
-      if (!database.games[gameId]) return;
-      if (Object.values(database.collectionItems).some((item) => item.collectionId === collectionId && item.gameId === gameId)) return;
-      const id = crypto.randomUUID(); rank += 1024;
-      database.collectionItems[id] = { id, collectionId, gameId, rank };
-    });
   }), [mutate]);
 
   const installPatch = useCallback((patch: PatchEnvelope, remember = true) => {
@@ -421,13 +363,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return true;
   }, [installReconciled, state]);
 
-  const dismissLocalNotice = useCallback(() => {
-    setNoticeDismissed(true);
-    try { localStorage.setItem(NOTICE_KEY, "dismissed"); } catch { /* non-essential preference */ }
-  }, []);
-
-  const persistStorage = useCallback(async () => requestPersistentStorage(), []);
-
   const downloadCorruptedPatch = useCallback(() => {
     if (corruptedPatchRaw === null) return;
     const url = URL.createObjectURL(new Blob([corruptedPatchRaw], { type: "text/plain" }));
@@ -435,7 +370,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [corruptedPatchRaw]);
 
-  const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: 1, revision: "", publicationId: null, games: {}, notes: {}, collections: {}, collectionItems: {}, assets: {} }), []);
+  const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: LIBRARY_SCHEMA_VERSION, revision: "", publicationId: null, games: {}, notes: {}, assets: {} }), []);
   const resolvedState = state ?? { base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [] };
   const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
   const value = useMemo<LibraryContextValue>(() => ({
@@ -446,25 +381,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     corruptedPatchRaw,
     usage,
     storageEstimate,
-    showLocalNotice: !noticeDismissed && Object.keys(resolvedState.patch.operations).length > 0,
     games: resolvedState.effective.games,
     saveGame,
     deleteGame,
     moveGame,
-    createCollection,
-    renameCollection,
-    deleteCollection,
-    addGamesToCollection,
     discardPath,
     discardPaths,
     clearPatch,
     resolvePatchConflict,
     importPatch,
     undoLast,
-    dismissLocalNotice,
-    persistStorage,
     downloadCorruptedPatch,
-  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, noticeDismissed, saveGame, deleteGame, moveGame, createCollection, renameCollection, deleteCollection, addGamesToCollection, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, dismissLocalNotice, persistStorage, downloadCorruptedPatch]);
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }

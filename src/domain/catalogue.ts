@@ -1,4 +1,4 @@
-import { STATUS_IDS, TIER_IDS, type CollectionItem, type Game, type LibraryDatabase, type StatusId, type TierId } from "./types";
+import { STATUS_IDS, TIER_IDS, type Game, type LibraryDatabase, type StatusId, type TierId } from "./types";
 
 export interface CatalogueFilters {
   query?: string;
@@ -6,7 +6,6 @@ export interface CatalogueFilters {
   platforms?: readonly string[];
   tags?: readonly string[];
   tiers?: readonly TierId[];
-  collectionIds?: readonly string[];
 }
 
 export type CatalogueSort = "updated-desc" | "updated-asc" | "title-asc" | "title-desc" | "created-desc" | "created-asc" | "status-asc" | "tier-asc";
@@ -21,12 +20,8 @@ function selectedMatch(values: readonly string[], selected: readonly string[] | 
   return selected.some((value) => haystack.has(normalized(value)));
 }
 
-function gameCollectionIds(items: readonly CollectionItem[], gameId: string): string[] {
-  return items.filter((item) => item.gameId === gameId).map((item) => item.collectionId);
-}
-
 /** OR inside every filter group; AND between non-empty groups. */
-export function gameMatchesFilters(game: Game, filters: CatalogueFilters, collectionItems: readonly CollectionItem[] = []): boolean {
+export function gameMatchesFilters(game: Game, filters: CatalogueFilters): boolean {
   const terms = normalized(filters.query ?? "").split(/\s+/).filter(Boolean);
   const searchable = normalized([game.title, ...game.platforms, ...game.tags].join(" "));
   if (terms.some((term) => !searchable.includes(term))) return false;
@@ -34,7 +29,6 @@ export function gameMatchesFilters(game: Game, filters: CatalogueFilters, collec
   if (filters.tiers?.length && !filters.tiers.includes(game.placement.tierId)) return false;
   if (!selectedMatch(game.platforms, filters.platforms)) return false;
   if (!selectedMatch(game.tags, filters.tags)) return false;
-  if (!selectedMatch(gameCollectionIds(collectionItems, game.id), filters.collectionIds)) return false;
   return true;
 }
 
@@ -60,8 +54,7 @@ export function compareGames(sort: CatalogueSort = "updated-desc"): (a: Game, b:
 }
 
 export function queryGames(database: LibraryDatabase, filters: CatalogueFilters = {}, sort: CatalogueSort = "updated-desc"): Game[] {
-  const items = Object.values(database.collectionItems);
-  return Object.values(database.games).filter((game) => gameMatchesFilters(game, filters, items)).sort(compareGames(sort));
+  return Object.values(database.games).filter((game) => gameMatchesFilters(game, filters)).sort(compareGames(sort));
 }
 
 export function catalogueFacets(database: LibraryDatabase): { platforms: string[]; tags: string[] } {

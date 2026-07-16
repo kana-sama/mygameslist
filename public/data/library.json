@@ -1,10 +1,8 @@
 {
-  "schemaVersion": 1,
-  "revision": "181851167bbf0675a0cf8daafc743c3c002b958f85781c574485c60e56e4db92",
+  "schemaVersion": 2,
+  "revision": "",
   "publicationId": null,
   "games": {},
   "notes": {},
-  "collections": {},
-  "collectionItems": {},
   "assets": {}
 }
