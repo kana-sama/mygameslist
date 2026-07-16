@@ -1,4 +1,5 @@
-import { LIBRARY_SCHEMA_VERSION, type PatchEnvelope } from "./types";
+import { externalizeWebPAsset } from "./assets";
+import { LIBRARY_SCHEMA_VERSION, type LegacyImageAsset, type PatchEnvelope } from "./types";
 import { validatePatch } from "./validation";
 
 export const PATCH_STORAGE_KEY = "my-game-library.patch.v1";
@@ -46,12 +47,25 @@ export function isStorageAccessError(error: unknown): boolean {
 
 export interface PatchLoadResult { patch: PatchEnvelope | null; raw: string | null; error: Error | null }
 
-function migrateLegacyPatch(value: unknown): unknown {
+export function normalizePatchEnvelope(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const patch = value as Record<string, unknown>;
-  if (patch.patchVersion !== 1 || patch.schemaVersion !== 1 || !patch.operations || typeof patch.operations !== "object" || Array.isArray(patch.operations)) return value;
-  const operations = Object.fromEntries(Object.entries(patch.operations as Record<string, unknown>).filter(([path]) => !path.startsWith("/collections/") && !path.startsWith("/collectionItems/")));
-  return { ...patch, schemaVersion: LIBRARY_SCHEMA_VERSION, operations };
+  if (patch.patchVersion === 2) return value;
+  if (patch.patchVersion !== 1 || !patch.operations || typeof patch.operations !== "object" || Array.isArray(patch.operations)) return value;
+  const migratesSchemaV1 = patch.patchVersion === 1 && patch.schemaVersion === 1;
+  if (!migratesSchemaV1 && patch.schemaVersion !== LIBRARY_SCHEMA_VERSION) return value;
+  const blobs: Record<string, string> = {};
+  const operations = Object.fromEntries(Object.entries(patch.operations as Record<string, unknown>).flatMap(([path, rawOperation]) => {
+    if (migratesSchemaV1 && (path.startsWith("/collections/") || path.startsWith("/collectionItems/"))) return [];
+    if (!/^\/assets\/[0-9a-f]{64}$/.test(path) || !rawOperation || typeof rawOperation !== "object" || Array.isArray(rawOperation)) return [[path, rawOperation]];
+    const operation = rawOperation as Record<string, unknown>;
+    const value = operation.value;
+    if (operation.operation !== "set" || operation.baseExists !== false || !value || typeof value !== "object" || Array.isArray(value) || !("base64" in value)) return [[path, rawOperation]];
+    const externalized = externalizeWebPAsset(value as unknown as LegacyImageAsset);
+    blobs[externalized.asset.id] = externalized.base64;
+    return [[path, { ...operation, value: externalized.asset }]];
+  }));
+  return { ...patch, patchVersion: 2, schemaVersion: migratesSchemaV1 ? LIBRARY_SCHEMA_VERSION : patch.schemaVersion, operations, blobs };
 }
 
 export function loadPatch(storage: Pick<Storage, "getItem">, key = PATCH_STORAGE_KEY): PatchLoadResult {
@@ -59,7 +73,7 @@ export function loadPatch(storage: Pick<Storage, "getItem">, key = PATCH_STORAGE
   try { raw = storage.getItem(key); } catch (error) { return { patch: null, raw: null, error: error instanceof Error ? error : new Error(String(error)) }; }
   if (raw === null) return { patch: null, raw, error: null };
   try {
-    const parsed = migrateLegacyPatch(JSON.parse(raw)); const result = validatePatch(parsed);
+    const parsed = normalizePatchEnvelope(JSON.parse(raw)); const result = validatePatch(parsed);
     if (!result.ok || !result.value) return { patch: null, raw, error: new Error(result.issues.map((item) => `${item.path}: ${item.message}`).join("\n")) };
     return { patch: result.value, raw, error: null };
   } catch (error) { return { patch: null, raw, error: error instanceof Error ? error : new Error(String(error)) }; }
@@ -75,7 +89,7 @@ export function savePatch(storage: Pick<Storage, "length" | "key" | "getItem" | 
     const raw = JSON.stringify(patch);
     const currentBytes = webkitStorageBytes(storage); const usage = projectedStorageUsage(storage, key, raw);
     if (!storageIncreaseAllowed(currentBytes, usage.bytes)) return { ok: false, blocked: true, usage, error: new Error("Локальное хранилище Safari заполнено на 95%") };
-    if (Object.keys(patch.operations).length === 0) storage.removeItem(key); else storage.setItem(key, raw);
+    if (Object.keys(patch.operations).length === 0 && Object.keys(patch.blobs).length === 0) storage.removeItem(key); else storage.setItem(key, raw);
     return { ok: true, usage: classifyStorageUsage(webkitStorageBytes(storage)) };
   } catch (error) {
     let usage: StorageUsage;

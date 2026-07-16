@@ -1,11 +1,18 @@
 import {
   PATCH_STORAGE_KEY,
+  MISSING_VALUE_HASH,
   applyPatch,
+  assetDataUrl,
   bytesToBase64,
   canvasToWebPBytes,
+  discardOperation,
   diffLibrary,
   libraryRevisionIsValid,
+  loadPatch,
+  makeExternalWebPAsset,
+  makeFileAsset,
   makeWebPAsset,
+  reconcilePatch,
   savePatch,
   validateLibrary,
   webkitStorageBytes,
@@ -15,6 +22,7 @@ import {
 } from "../src/domain";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
+const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const DATE = "2026-07-16T10:00:00.000Z";
 const game = (): Game => ({ id: GAME_ID, title: "Mario", coverAssetId: null, platforms: ["NES"], tags: [], status: "wishlist", placement: { tierId: "unranked", rank: 1024 }, reviewMarkdown: "", createdAt: DATE, updatedAt: DATE });
 const empty = (): LibraryDatabase => ({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
@@ -47,6 +55,85 @@ describe("patch creation/revert and storage recovery", () => {
     expect(storage.getItem(PATCH_STORAGE_KEY)).toBe("previous-valid-value");
     expect(webkitStorageBytes(storage)).toBe(2 * (PATCH_STORAGE_KEY.length + "previous-valid-value".length));
   });
+
+  it("migrates inline V1 assets into V2 metadata and a separate blob", () => {
+    const storage = new MemoryStorage();
+    const legacy = makeWebPAsset(new Uint8Array([82, 73, 70, 70, 2, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "note", "note.webp");
+    storage.setItem(PATCH_STORAGE_KEY, JSON.stringify({
+      patchVersion: 1,
+      schemaVersion: 2,
+      baseRevision: "",
+      operations: {
+        [`/assets/${legacy.id}`]: {
+          operation: "set",
+          value: legacy,
+          baseExists: false,
+          baseHash: MISSING_VALUE_HASH,
+          changedAt: DATE,
+          transactionId: "legacy-image",
+        },
+      },
+    }));
+
+    const loaded = loadPatch(storage);
+    expect(loaded.error).toBeNull();
+    expect(loaded.patch?.patchVersion).toBe(2);
+    expect(loaded.patch?.blobs[legacy.id]).toBe(legacy.base64);
+    expect(loaded.patch?.operations[`/assets/${legacy.id}`].value).toEqual(expect.objectContaining({ kind: "image", byteLength: 12 }));
+    expect(loaded.patch?.operations[`/assets/${legacy.id}`].value).not.toHaveProperty("base64");
+  });
+
+  it("does not silently upgrade patches from an unknown schema", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PATCH_STORAGE_KEY, JSON.stringify({ patchVersion: 1, schemaVersion: 999, baseRevision: "", operations: {} }));
+
+    const loaded = loadPatch(storage);
+    expect(loaded.patch).toBeNull();
+    expect(loaded.error?.message).toContain("schemaVersion");
+  });
+
+  it("does not repair an incomplete V2 envelope during load", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(PATCH_STORAGE_KEY, JSON.stringify({ patchVersion: 2, schemaVersion: 2, baseRevision: "", operations: {} }));
+
+    const loaded = loadPatch(storage);
+    expect(loaded.patch).toBeNull();
+    expect(loaded.error?.message).toContain("/blobs");
+  });
+
+  it("keeps blobs with asset operations and prunes them on discard or publication", () => {
+    const base = empty();
+    const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 3, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "note", "note.webp");
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "image", blobs: { [prepared.asset.id]: prepared.base64 } });
+
+    expect(patch.blobs).toEqual({ [prepared.asset.id]: prepared.base64 });
+    expect(discardOperation(patch, `/assets/${prepared.asset.id}`).blobs).toEqual({});
+    const published = withComputedRevision({ ...current, publicationId: "22222222-2222-4222-8222-222222222222" });
+    expect(reconcilePatch(published, patch).patch.blobs).toEqual({});
+  });
+
+  it("reuses compatible static asset metadata by SHA and keeps incompatible kinds conflicted", () => {
+    const base = empty();
+    const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "local", "local.webp");
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "image", blobs: { [prepared.asset.id]: prepared.base64 } });
+
+    const compatible = empty();
+    compatible.assets[prepared.asset.id] = { ...prepared.asset, alt: "static", originalName: "static.webp" };
+    const reused = reconcilePatch(withComputedRevision({ ...compatible, publicationId: NOTE_ID }), patch);
+    expect(reused.conflicts).toEqual([]);
+    expect(reused.patch.operations).toEqual({});
+    expect(reused.patch.blobs).toEqual({});
+    expect(reused.effective.assets[prepared.asset.id]).toEqual(compatible.assets[prepared.asset.id]);
+
+    const incompatible = empty();
+    incompatible.assets[prepared.asset.id] = { id: prepared.asset.id, kind: "file", mime: "application/octet-stream", byteLength: prepared.asset.byteLength, originalName: "static.bin" };
+    const conflicted = reconcilePatch(withComputedRevision({ ...incompatible, publicationId: NOTE_ID }), patch);
+    expect(conflicted.conflicts).toHaveLength(1);
+    expect(conflicted.patch.operations).toHaveProperty(`/assets/${prepared.asset.id}`);
+    expect(conflicted.patch.blobs).toEqual({ [prepared.asset.id]: prepared.base64 });
+  });
 });
 
 describe("assets and revision", () => {
@@ -71,6 +158,34 @@ describe("assets and revision", () => {
     expect(validateLibrary(database).ok).toBe(true);
     database.assets[first.id].base64 = bytesToBase64(new Uint8Array([...bytes, 1]));
     expect(validateLibrary(database).ok).toBe(false);
+  });
+
+  it("validates metadata-only file assets independently from their patch blobs", () => {
+    const prepared = makeFileAsset(new TextEncoder().encode("save data"), "application/octet-stream", "save.dat");
+    expect(makeFileAsset(new TextEncoder().encode("save data"), "text/plain", "copy.txt").asset.id).toBe(prepared.asset.id);
+    const database = empty(); database.assets[prepared.asset.id] = prepared.asset;
+    expect(validateLibrary(database).ok).toBe(true);
+
+    const current = structuredClone(database);
+    const patch = diffLibrary(empty(), current, { changedAt: DATE, transactionId: "file", blobs: { [prepared.asset.id]: prepared.base64 } });
+    expect(savePatch(new MemoryStorage(), patch).ok).toBe(true);
+    const damaged = structuredClone(patch); damaged.blobs[prepared.asset.id] = bytesToBase64(new TextEncoder().encode("other"));
+    expect(savePatch(new MemoryStorage(), damaged).ok).toBe(false);
+  });
+
+  it("creates a local data URL for an empty file blob", () => {
+    const prepared = makeFileAsset(new Uint8Array(), "application/octet-stream", "empty.dat");
+    expect(prepared.base64).toBe("");
+    expect(assetDataUrl(prepared.asset, prepared.base64)).toBe("data:application/octet-stream;base64,");
+  });
+
+  it("requires file attachments to reference file assets", () => {
+    const image = makeWebPAsset(new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "image", "image.webp");
+    const database = empty();
+    database.games[GAME_ID] = game();
+    database.assets[image.id] = image;
+    database.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "file", attachments: [{ type: "file", assetId: image.id, label: "Wrong" }], rank: 1024, createdAt: DATE, updatedAt: DATE };
+    expect(validateLibrary(database).issues.some((item) => item.message === "Файл должен ссылаться на file asset")).toBe(true);
   });
 
   it("computes and verifies published revisions while accepting only an empty bootstrap revision", () => {

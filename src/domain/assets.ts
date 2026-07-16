@@ -1,5 +1,5 @@
 import { sha256Bytes } from "./canonical";
-import type { Asset } from "./types";
+import type { Asset, FileAsset, ImageAsset, LegacyImageAsset } from "./types";
 
 const CHUNK = 0x8000;
 
@@ -18,6 +18,12 @@ export function base64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
+export function isCanonicalBase64(value: string): boolean {
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) return false;
+  try { return bytesToBase64(base64ToBytes(value)) === value; }
+  catch { return false; }
+}
+
 export function base64DecodedBytes(base64: string): number {
   if (!base64) return 0;
   const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
@@ -28,14 +34,57 @@ export function isWebP(bytes: Uint8Array): boolean {
   return bytes.length >= 12 && String.fromCharCode(...bytes.subarray(0, 4)) === "RIFF" && String.fromCharCode(...bytes.subarray(8, 12)) === "WEBP";
 }
 
-export function makeWebPAsset(bytes: Uint8Array, width: number, height: number, alt = "", originalName = "image.webp"): Asset {
+export function makeWebPAsset(bytes: Uint8Array, width: number, height: number, alt = "", originalName = "image.webp"): LegacyImageAsset {
   if (!isWebP(bytes)) throw new Error("Файл не является WebP");
   return { id: sha256Bytes(bytes), mime: "image/webp", width, height, base64: bytesToBase64(bytes), alt, originalName };
 }
 
-export function assetDataUrl(asset: Asset): string { return `data:${asset.mime};base64,${asset.base64}`; }
+export function externalizeWebPAsset(asset: LegacyImageAsset): { asset: ImageAsset; base64: string } {
+  const bytes = base64ToBytes(asset.base64);
+  if (!isWebP(bytes) || sha256Bytes(bytes) !== asset.id) throw new Error("Изображение повреждено");
+  return {
+    asset: {
+      id: asset.id,
+      kind: "image",
+      mime: "image/webp",
+      width: asset.width,
+      height: asset.height,
+      byteLength: bytes.byteLength,
+      alt: asset.alt,
+      originalName: asset.originalName,
+    },
+    base64: asset.base64,
+  };
+}
 
-export interface OptimizedImage { asset: Asset; blob: Blob; byteLength: number }
+export function makeExternalWebPAsset(bytes: Uint8Array, width: number, height: number, alt = "", originalName = "image.webp"): { asset: ImageAsset; base64: string } {
+  return externalizeWebPAsset(makeWebPAsset(bytes, width, height, alt, originalName));
+}
+
+export function makeFileAsset(bytes: Uint8Array, mime: string, originalName: string): { asset: FileAsset; base64: string } {
+  const normalizedMime = mime.trim() || "application/octet-stream";
+  return {
+    asset: { id: sha256Bytes(bytes), kind: "file", mime: normalizedMime, byteLength: bytes.byteLength, originalName },
+    base64: bytesToBase64(bytes),
+  };
+}
+
+export function isLegacyImageAsset(asset: Asset): asset is LegacyImageAsset { return asset.kind === undefined; }
+export function isImageAsset(asset: Asset): asset is LegacyImageAsset | ImageAsset { return asset.kind !== "file"; }
+
+export function assetDataUrl(asset: Asset, blobBase64?: string): string | null {
+  if (isLegacyImageAsset(asset)) return `data:image/webp;base64,${asset.base64}`;
+  if (blobBase64 === undefined) return null;
+  const mime = asset.kind === "image" ? "image/webp" : "application/octet-stream";
+  return `data:${mime};base64,${blobBase64}`;
+}
+
+export function publishedAssetUrl(asset: Asset, baseUrl: string): string {
+  const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return `${root}media/${asset.id}.${asset.kind === "file" ? "bin" : "webp"}`;
+}
+
+export interface OptimizedImage { asset: LegacyImageAsset; blob: Blob; byteLength: number }
 
 interface CropRect { x: number; y: number; width: number; height: number }
 export type WebPEncoder = (image: ImageData, quality: number) => Promise<Uint8Array>;

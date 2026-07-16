@@ -8,6 +8,7 @@ export interface DiffOptions {
   changedAt?: string;
   transactionId?: string;
   previousPatch?: PatchEnvelope;
+  blobs?: Record<string, string>;
 }
 
 export interface ApplyPatchOptions {
@@ -43,6 +44,21 @@ function baseMatches(operation: PatchOperation, actual: { exists: boolean; value
   return !actual.exists ? operation.baseHash === MISSING_VALUE_HASH : canonicalHash(actual.value) === operation.baseHash;
 }
 
+function assetKind(value: unknown): "image" | "file" | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const kind = (value as { kind?: unknown }).kind;
+  if (kind === "file") return "file";
+  if (kind === "image" || kind === undefined && "base64" in value) return "image";
+  return null;
+}
+
+function isCompatiblePublishedAsset(path: string, operation: PatchOperation, actual: { exists: boolean; value?: unknown }): boolean {
+  const parsed = parsePatchPath(path);
+  if (parsed?.map !== "assets" || parsed.field !== undefined || operation.operation !== "set" || operation.baseExists || !actual.exists) return false;
+  const localKind = assetKind(operation.value);
+  return localKind !== null && localKind === assetKind(actual.value);
+}
+
 function freshOperation(base: { exists: boolean; value?: unknown }, operation: "set" | "delete", value: unknown, changedAt: string, transactionId: string): PatchOperation {
   return {
     operation,
@@ -58,6 +74,20 @@ function retainTimestamp(candidate: PatchOperation, previous: PatchOperation | u
   if (!previous || previous.operation !== candidate.operation || previous.baseExists !== candidate.baseExists || previous.baseHash !== candidate.baseHash) return candidate;
   if (candidate.operation === "set" && !same(candidate.value, previous.value)) return candidate;
   return clone(previous);
+}
+
+/** Blobs live only as long as their metadata-only asset set operation survives. */
+export function prunePatchBlobs(patch: PatchEnvelope): PatchEnvelope {
+  const blobs: Record<string, string> = {};
+  for (const [path, operation] of Object.entries(patch.operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "assets" || parsed.field !== undefined || operation.operation !== "set") continue;
+    const asset = operation.value;
+    if (!asset || typeof asset !== "object" || !("kind" in asset)) continue;
+    const blob = patch.blobs[parsed.id];
+    if (blob !== undefined) blobs[parsed.id] = blob;
+  }
+  return { ...clone(patch), blobs };
 }
 
 /** Produces a sparse, stable-ID patch and drops derived updatedAt noise. */
@@ -95,7 +125,14 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
       }
     }
   }
-  return { patchVersion: 1, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision: base.revision, operations };
+  const previousBlobs = options.previousPatch?.blobs ?? {};
+  return prunePatchBlobs({
+    patchVersion: 2,
+    schemaVersion: LIBRARY_SCHEMA_VERSION,
+    baseRevision: base.revision,
+    operations,
+    blobs: { ...previousBlobs, ...options.blobs },
+  });
 }
 
 function latest(current: string | undefined, candidate: string): string { return !current || candidate > current ? candidate : current; }
@@ -153,16 +190,17 @@ function applyBestEffort(base: LibraryDatabase, operations: Record<string, Patch
 
 /** Rebases clean operations, prunes already-published values, and reports same-field conflicts. */
 export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchEnvelope): ReconciledPatch {
-  assertValidLibrary(staticDatabase); assertValidPatch(incoming);
+  const normalizedIncoming = prunePatchBlobs(incoming);
+  assertValidLibrary(staticDatabase); assertValidPatch(normalizedIncoming);
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
-  for (const [path, operation] of Object.entries(incoming.operations)) {
+  for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
     const actual = readPatchPath(staticDatabase, path);
-    if (opTargetMatches(operation, actual)) { prunedCount += 1; continue; }
+    if (opTargetMatches(operation, actual) || isCompatiblePublishedAsset(path, operation, actual)) { prunedCount += 1; continue; }
     operations[path] = clone(operation);
     if (!baseMatches(operation, actual)) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
     else applicable[path] = clone(operation);
   }
-  const patch: PatchEnvelope = { ...clone(incoming), baseRevision: staticDatabase.revision, operations };
+  const patch = prunePatchBlobs({ ...clone(normalizedIncoming), baseRevision: staticDatabase.revision, operations });
   return { patch, effective: applyBestEffort(staticDatabase, applicable), conflicts, prunedCount };
 }
 
@@ -184,11 +222,11 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
 }
 
 export function discardTransaction(patch: PatchEnvelope, transactionId: string): PatchEnvelope {
-  return { ...clone(patch), operations: Object.fromEntries(Object.entries(patch.operations).filter(([, operation]) => operation.transactionId !== transactionId)) };
+  return prunePatchBlobs({ ...clone(patch), operations: Object.fromEntries(Object.entries(patch.operations).filter(([, operation]) => operation.transactionId !== transactionId)) });
 }
 
 export function discardOperation(patch: PatchEnvelope, path: string): PatchEnvelope {
-  const next = clone(patch); delete next.operations[path]; return next;
+  const next = clone(patch); delete next.operations[path]; return prunePatchBlobs(next);
 }
 
 export function finalizePublishedDatabase(database: LibraryDatabase, publicationId: string): LibraryDatabase {

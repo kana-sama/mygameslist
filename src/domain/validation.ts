@@ -1,4 +1,5 @@
-import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type LibraryDatabase, type PatchEnvelope } from "./types";
+import { base64ToBytes, isCanonicalBase64 } from "./assets";
+import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
 
 export interface ValidationIssue {
@@ -18,7 +19,7 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
   notes: ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"],
-  assets: ["id", "mime", "width", "height", "base64", "alt", "originalName"],
+  assets: ["id", "kind", "mime", "width", "height", "byteLength", "base64", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
@@ -159,42 +160,48 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
       exactKeys(attachment, ["type", "url", "label"], attachmentPath, issues);
       if (!string(attachment.url, `${attachmentPath}/url`, issues, false) || !isSafeLink(attachment.url)) issue(issues, `${attachmentPath}/url`, "Разрешены только http(s) и безопасные относительные ссылки");
       string(attachment.label, `${attachmentPath}/label`, issues, false, 1_000);
+    } else if (attachment.type === "file") {
+      exactKeys(attachment, ["type", "assetId", "label"], attachmentPath, issues);
+      if (typeof attachment.assetId !== "string" || !SHA256.test(attachment.assetId)) issue(issues, `${attachmentPath}/assetId`, "Ожидался SHA-256 asset id");
+      string(attachment.label, `${attachmentPath}/label`, issues, false, 1_000);
     } else issue(issues, `${attachmentPath}/type`, "Неизвестный тип вложения");
   });
   rank(value.rank, `${path}/rank`, issues);
   isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);
 }
 
-function validBase64(value: string): boolean {
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 !== 0) return false;
-  try {
-    const normalized = value.replace(/=+$/, "");
-    if (typeof atob === "function") return btoa(atob(value)).replace(/=+$/, "") === normalized;
-    return true;
-  } catch { return false; }
-}
-
-function decodeBase64(value: string): Uint8Array | null {
-  try {
-    const binary = atob(value); const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
-    return bytes;
-  } catch { return null; }
-}
-
 function validateAsset(value: unknown, path: string, issues: ValidationIssue[]): void {
-  if (!isObject(value)) { issue(issues, path, "Ожидался объект изображения"); return; }
-  exactKeys(value, ENTITY_FIELDS.assets, path, issues);
+  if (!isObject(value)) { issue(issues, path, "Ожидался объект asset"); return; }
   if (typeof value.id !== "string" || !SHA256.test(value.id)) issue(issues, `${path}/id`, "Asset id должен быть SHA-256");
-  if (value.mime !== "image/webp") issue(issues, `${path}/mime`, "Поддерживается только image/webp");
-  for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > 1280) issue(issues, `${path}/${field}`, "Размер изображения должен быть от 1 до 1280 px");
-  if (!string(value.base64, `${path}/base64`, issues, false) || !validBase64(value.base64)) issue(issues, `${path}/base64`, "Некорректный base64");
-  else {
-    const bytes = decodeBase64(value.base64);
-    if (!bytes || bytes.length < 12 || String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP") issue(issues, `${path}/base64`, "Содержимое не является WebP");
-    else if (typeof value.id === "string" && sha256Bytes(bytes) !== value.id) issue(issues, `${path}/id`, "Asset id не совпадает с SHA-256 содержимого");
+  if (value.kind === undefined) {
+    exactKeys(value, ["id", "mime", "width", "height", "base64", "alt", "originalName"], path, issues);
+    if (value.mime !== "image/webp") issue(issues, `${path}/mime`, "Поддерживается только image/webp");
+    for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > 1280) issue(issues, `${path}/${field}`, "Размер изображения должен быть от 1 до 1280 px");
+    if (!string(value.base64, `${path}/base64`, issues, false) || !isCanonicalBase64(value.base64)) issue(issues, `${path}/base64`, "Некорректный base64");
+    else {
+      const bytes = base64ToBytes(value.base64);
+      if (bytes.length < 12 || String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP") issue(issues, `${path}/base64`, "Содержимое не является WebP");
+      else if (typeof value.id === "string" && sha256Bytes(bytes) !== value.id) issue(issues, `${path}/id`, "Asset id не совпадает с SHA-256 содержимого");
+    }
+    string(value.alt, `${path}/alt`, issues, true, 1_000); string(value.originalName, `${path}/originalName`, issues, true, 2_000);
+    return;
   }
-  string(value.alt, `${path}/alt`, issues, true, 1_000); string(value.originalName, `${path}/originalName`, issues, true, 2_000);
+  if (value.kind === "image") {
+    exactKeys(value, ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"], path, issues);
+    if (value.mime !== "image/webp") issue(issues, `${path}/mime`, "Изображение должно быть image/webp");
+    for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > 1280) issue(issues, `${path}/${field}`, "Размер изображения должен быть от 1 до 1280 px");
+    if (typeof value.byteLength !== "number" || !Number.isSafeInteger(value.byteLength) || value.byteLength < 12) issue(issues, `${path}/byteLength`, "Некорректный размер файла");
+    string(value.alt, `${path}/alt`, issues, true, 1_000); string(value.originalName, `${path}/originalName`, issues, true, 2_000);
+    return;
+  }
+  if (value.kind === "file") {
+    exactKeys(value, ["id", "kind", "mime", "byteLength", "originalName"], path, issues);
+    if (!string(value.mime, `${path}/mime`, issues, false, 255) || !/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(value.mime)) issue(issues, `${path}/mime`, "Некорректный MIME type");
+    if (typeof value.byteLength !== "number" || !Number.isSafeInteger(value.byteLength) || value.byteLength < 0) issue(issues, `${path}/byteLength`, "Некорректный размер файла");
+    string(value.originalName, `${path}/originalName`, issues, false, 2_000);
+    return;
+  }
+  issue(issues, `${path}/kind`, "Неизвестный тип asset");
 }
 
 export function validateLibrary(value: unknown): ValidationResult<LibraryDatabase> {
@@ -214,17 +221,26 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
     }
   }
   if (isObject(value.games) && isObject(value.assets)) {
-    const assets = value.assets;
+    const assets = value.assets as Record<string, Asset>;
     for (const [id, game] of Object.entries(value.games)) {
-      if (isObject(game) && typeof game.coverAssetId === "string" && !(game.coverAssetId in assets)) issue(issues, `/games/${id}/coverAssetId`, "Изображение не найдено");
+      if (isObject(game) && typeof game.coverAssetId === "string") {
+        const asset = assets[game.coverAssetId];
+        if (!asset) issue(issues, `/games/${id}/coverAssetId`, "Изображение не найдено");
+        else if (asset.kind === "file") issue(issues, `/games/${id}/coverAssetId`, "Обложка должна ссылаться на изображение");
+      }
     }
   }
   if (isObject(value.notes) && isObject(value.games) && isObject(value.assets)) {
-    const games = value.games; const assets = value.assets;
+    const games = value.games; const assets = value.assets as Record<string, Asset>;
     for (const [id, note] of Object.entries(value.notes)) if (isObject(note)) {
     if (typeof note.gameId === "string" && !(note.gameId in games)) issue(issues, `/notes/${id}/gameId`, "Игра не найдена");
     if (Array.isArray(note.attachments)) note.attachments.forEach((attachment, index) => {
-      if (isObject(attachment) && attachment.type === "image" && typeof attachment.assetId === "string" && !(attachment.assetId in assets)) issue(issues, `/notes/${id}/attachments/${index}/assetId`, "Изображение не найдено");
+      if (isObject(attachment) && (attachment.type === "image" || attachment.type === "file") && typeof attachment.assetId === "string") {
+        const asset = assets[attachment.assetId];
+        if (!asset) issue(issues, `/notes/${id}/attachments/${index}/assetId`, "Asset не найден");
+        else if (attachment.type === "image" && asset.kind === "file") issue(issues, `/notes/${id}/attachments/${index}/assetId`, "Изображение должно ссылаться на image asset");
+        else if (attachment.type === "file" && asset.kind !== "file") issue(issues, `/notes/${id}/attachments/${index}/assetId`, "Файл должен ссылаться на file asset");
+      }
     });
     }
   }
@@ -278,12 +294,14 @@ export function parsePatchPath(path: string, localOnly = false): ParsedPatchPath
 export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
   const issues: ValidationIssue[] = [];
   if (!isObject(value)) return { ok: false, issues: [{ path: "", message: "Ожидался объект патча" }] };
-  exactKeys(value, ["patchVersion", "schemaVersion", "baseRevision", "operations"], "", issues);
-  if (value.patchVersion !== 1) issue(issues, "/patchVersion", "Поддерживается patchVersion 1");
+  exactKeys(value, ["patchVersion", "schemaVersion", "baseRevision", "operations", "blobs"], "", issues);
+  if (value.patchVersion !== 2) issue(issues, "/patchVersion", "Поддерживается patchVersion 2");
   if (value.schemaVersion !== LIBRARY_SCHEMA_VERSION) issue(issues, "/schemaVersion", `Поддерживается schemaVersion ${LIBRARY_SCHEMA_VERSION}`);
   if (typeof value.baseRevision !== "string" || value.baseRevision !== "" && !SHA256.test(value.baseRevision)) issue(issues, "/baseRevision", "Некорректный baseRevision");
   if (!record(value.operations, "/operations", issues)) return { ok: false, issues };
+  const blobs = record(value.blobs, "/blobs", issues) ? value.blobs : {};
   const rootEntities = new Set<string>();
+  const blobAssets = new Map<string, Record<string, unknown>>();
   for (const [path, operation] of Object.entries(value.operations)) {
     const parsed = parsePatchPath(path, true);
     if (!parsed) issue(issues, `/operations/${path}`, "Недопустимый путь");
@@ -298,11 +316,33 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     isoDate(operation.changedAt, `/operations/${path}/changedAt`, issues);
     string(operation.transactionId, `/operations/${path}/transactionId`, issues, false, 200);
     if (parsed && !parsed.field) rootEntities.add(`/${parsed.map}/${parsed.id}`);
+    if (parsed && parsed.field === undefined && operation.operation === "set" && (!isObject(operation.value) || operation.value.id !== parsed.id)) {
+      issue(issues, `/operations/${path}/value/id`, "ID сущности должен совпадать с ID в пути");
+    }
+    if (parsed?.map === "assets" && parsed.field === undefined && operation.operation === "set") {
+      validateAsset(operation.value, `/operations/${path}/value`, issues);
+      if (operation.baseExists !== false) issue(issues, `/operations/${path}`, "Существующие assets неизменяемы");
+      if (isObject(operation.value)) {
+        if (operation.value.kind === undefined) issue(issues, `/operations/${path}/value/base64`, "Patch V2 не хранит inline base64");
+        else if (operation.baseExists === false) blobAssets.set(parsed.id, operation.value);
+      }
+    }
   }
   for (const path of Object.keys(value.operations)) {
     const parsed = parsePatchPath(path, true);
     if (parsed?.field && rootEntities.has(`/${parsed.map}/${parsed.id}`)) issue(issues, `/operations/${path}`, "Нельзя одновременно менять сущность целиком и отдельное поле");
   }
+  for (const [id, raw] of Object.entries(blobs)) {
+    if (!SHA256.test(id)) { issue(issues, `/blobs/${id}`, "Ключ blob должен быть SHA-256"); continue; }
+    if (typeof raw !== "string" || !isCanonicalBase64(raw)) { issue(issues, `/blobs/${id}`, "Ожидался canonical base64"); continue; }
+    const bytes = base64ToBytes(raw);
+    if (sha256Bytes(bytes) !== id) issue(issues, `/blobs/${id}`, "Blob не совпадает с SHA-256 ключом");
+    const asset = blobAssets.get(id);
+    if (!asset) { issue(issues, `/blobs/${id}`, "Blob не связан с добавляемым asset"); continue; }
+    if (asset.byteLength !== bytes.byteLength) issue(issues, `/operations/assets/${id}/value/byteLength`, "Размер asset не совпадает с blob");
+    if (asset.kind === "image" && (bytes.length < 12 || String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP")) issue(issues, `/blobs/${id}`, "Изображение blob не является WebP");
+  }
+  for (const id of blobAssets.keys()) if (!(id in blobs)) issue(issues, `/blobs/${id}`, "Для локального asset отсутствует blob");
   return issues.length ? { ok: false, issues } : { ok: true, value: value as unknown as PatchEnvelope, issues };
 }
 

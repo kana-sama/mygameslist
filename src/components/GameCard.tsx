@@ -13,6 +13,7 @@ export interface GameCardProps {
   dragLinkRef?: Ref<HTMLAnchorElement>;
   dragRootProps?: HTMLAttributes<HTMLElement>;
   onOpen?: (gameId: string) => void;
+  resolveAssetUrl?: (assetId: string) => string | null;
 }
 
 export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard(
@@ -26,10 +27,11 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
     dragLinkRef,
     dragRootProps,
     onOpen,
+    resolveAssetUrl,
   },
   ref,
 ) {
-  const coverUrl = getAssetUrl(asset);
+  const coverUrl = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(asset) : null;
   const isTierCard = variant === "tier";
   const tierAccessibleLabel = `${game.title}, статус: ${STATUS_LABELS[game.status]}. Открыть; пробел — перетащить`;
   const openGame = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -57,7 +59,7 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
         title={isTierCard ? game.title : dragLinkProps?.title}
       >
         {coverUrl ? (
-          <img alt={asset?.alt || `Обложка ${game.title}`} draggable="false" loading="lazy" src={coverUrl} />
+          <img alt={asset && "alt" in asset ? asset.alt || `Обложка ${game.title}` : `Обложка ${game.title}`} draggable="false" loading="lazy" src={coverUrl} />
         ) : (
           <span className="game-card__placeholder" aria-label="Обложки пока нет">
             <Icon name="gamepad" size={variant === "list" ? 34 : 42} />

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { AppShell } from "../src/components/AppShell";
 import { optimizeNoteImage } from "../src/domain/assets";
-import type { Game, Note } from "../src/domain/types";
+import type { Asset, Game, Note } from "../src/domain/types";
 import { CatalogPage } from "../src/pages/CatalogPage";
 import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
 import {
@@ -159,6 +159,27 @@ describe("CatalogPage", () => {
     expect(controls.firstElementChild).toHaveClass("filter-row");
     expect(controls.lastElementChild).toHaveClass("search-field");
     await waitFor(() => expect(window.location.hash).toBe("#/games"));
+  });
+
+  it("renders a metadata-only cover through the shared asset resolver", () => {
+    const assetId = "a".repeat(64);
+    const game = makeGame({ coverAssetId: assetId });
+    const asset = {
+      id: assetId,
+      kind: "image",
+      mime: "image/webp",
+      width: 512,
+      height: 512,
+      byteLength: 128,
+      alt: "Обложка DuckTales",
+      originalName: "cover.webp",
+    } as Asset;
+    const resolveAssetUrl = vi.fn(() => "/mylib/media/cover.webp");
+
+    render(<CatalogPage assets={{ [assetId]: asset }} games={[game]} resolveAssetUrl={resolveAssetUrl} />);
+
+    expect(screen.getByRole("img", { name: "Обложка DuckTales" })).toHaveAttribute("src", "/mylib/media/cover.webp");
+    expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
   });
 
   it("restores search and filters from the hash, applies group logic, and persists changes", async () => {
@@ -490,6 +511,186 @@ describe("GamePage", () => {
     ]);
   });
 
+  it("opens compact attachment actions and adds multiple images and files through mounted inputs", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    vi.mocked(optimizeNoteImage).mockResolvedValue({
+      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.png" },
+      blob: new Blob(["webp"], { type: "image/webp" }),
+      byteLength: 4,
+    });
+
+    const view = render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
+    await user.click(screen.getByText("Материалы").closest("article")!);
+
+    const imageInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать изображения"]')!;
+    const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
+    expect(imageInput).toHaveAttribute("multiple");
+    expect(fileInput).toHaveAttribute("multiple");
+    expect(imageInput).not.toBeVisible();
+    expect(fileInput).not.toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Добавить вложение" }));
+    expect(screen.getByRole("button", { name: "Изображение" })).toHaveFocus();
+    const imageClick = vi.spyOn(imageInput, "click").mockImplementation(() => undefined);
+    const fileClick = vi.spyOn(fileInput, "click").mockImplementation(() => undefined);
+    await user.click(screen.getByRole("button", { name: "Изображение" }));
+    expect(imageClick).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Файл" }));
+    expect(fileClick).toHaveBeenCalledTimes(1);
+    imageClick.mockRestore();
+    fileClick.mockRestore();
+
+    const images = [
+      new File(["one"], "map.png", { type: "image/png" }),
+      new File(["two"], "boss.png", { type: "image/png" }),
+    ];
+    fireEvent.change(imageInput, { target: { files: images } });
+    await waitFor(() => expect(optimizeNoteImage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole("img", { name: "map" })).toBeInTheDocument());
+    expect(screen.getByRole("img", { name: "boss" })).toBeInTheDocument();
+
+    const files = [
+      new File(["guide"], "guide.pdf", { type: "application/pdf" }),
+      new File(["save"], "save.dat", { type: "application/octet-stream" }),
+    ];
+    fireEvent.change(fileInput, { target: { files } });
+    const guide = await screen.findByRole("link", { name: /guide\.pdf/ });
+    const save = screen.getByRole("link", { name: /save\.dat/ });
+    expect(guide).toHaveAttribute("download", "guide.pdf");
+    expect(guide).not.toHaveAttribute("target");
+    expect(save).toHaveTextContent("4 Б");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].attachments).toEqual([
+      expect.objectContaining({ type: "pending-image" }),
+      expect.objectContaining({ type: "pending-image" }),
+      expect.objectContaining({ type: "pending-file", label: "guide.pdf", file: expect.objectContaining({ mime: "application/pdf", originalName: "guide.pdf", byteLength: 5 }) }),
+      expect.objectContaining({ type: "pending-file", label: "save.dat", file: expect.objectContaining({ mime: "application/octet-stream", originalName: "save.dat", byteLength: 4 }) }),
+    ]);
+  });
+
+  it("preflights the optimized image size even when Safari leaves its MIME empty", async () => {
+    const user = userEvent.setup();
+    const canAddBlob = vi.fn(() => "Изображение не помещается в локальное хранилище Safari");
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    vi.mocked(optimizeNoteImage).mockResolvedValue({
+      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.webp" },
+      blob: new Blob(["webp"], { type: "image/webp" }),
+      byteLength: 4,
+    });
+    const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    await user.click(screen.getByText("Материалы").closest("article")!);
+    const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать изображения"]')!;
+    const file = new File(["source"], "map.webp", { type: "" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Изображение не помещается в локальное хранилище Safari");
+    expect(optimizeNoteImage).toHaveBeenCalledWith(file, "map");
+    expect(canAddBlob).toHaveBeenCalledWith(4);
+    expect(screen.queryByRole("img", { name: "map" })).not.toBeInTheDocument();
+  });
+
+  it("includes existing pending attachments when preflighting a later file", async () => {
+    const user = userEvent.setup();
+    const canAddBlob = vi.fn((byteLength: number) => byteLength > 5 ? "Файл не помещается в localStorage Safari" : null);
+    const read = vi.spyOn(FileReader.prototype, "readAsDataURL");
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    await user.click(screen.getByText("Материалы").closest("article")!);
+    const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
+
+    fireEvent.change(input, { target: { files: [new File(["1234"], "first.dat")] } });
+    expect(await screen.findByRole("link", { name: /first\.dat/ })).toBeInTheDocument();
+    fireEvent.change(input, { target: { files: [new File(["12"], "second.dat")] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Файл не помещается в localStorage Safari");
+    expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([4, 6]);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("link", { name: /second\.dat/ })).not.toBeInTheDocument();
+  });
+
+  it("rejects a file before reading it when the Safari patch budget cannot fit it", async () => {
+    const user = userEvent.setup();
+    const canAddBlob = vi.fn(() => "Файл не помещается в localStorage Safari");
+    const read = vi.spyOn(FileReader.prototype, "readAsDataURL");
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    await user.click(screen.getByText("Материалы").closest("article")!);
+    const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
+    fireEvent.change(input, { target: { files: [new File(["oversized"], "video.mov", { type: "video/quicktime" })] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Файл не помещается в localStorage Safari");
+    expect(canAddBlob).toHaveBeenCalledWith(9);
+    expect(read).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link", { name: /video\.mov/ })).not.toBeInTheDocument();
+  });
+
+  it("renders published files as compact downloads through the asset resolver", () => {
+    const assetId = "f".repeat(64);
+    const asset = {
+      id: assetId,
+      kind: "file",
+      mime: "application/pdf",
+      byteLength: 2048,
+      originalName: "map.pdf",
+    } as Asset;
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Карта",
+      attachments: [{ type: "file", assetId, label: "Карта мира" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const resolveAssetUrl = vi.fn(() => "/mylib/media/file.bin");
+
+    render(<GamePage assets={{ [assetId]: asset }} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={resolveAssetUrl} />);
+
+    const link = screen.getByRole("link", { name: /Карта мира/ });
+    expect(link).toHaveAttribute("href", "/mylib/media/file.bin");
+    expect(link).toHaveAttribute("download", "Карта мира");
+    expect(link).not.toHaveAttribute("target");
+    expect(link).toHaveTextContent("2 КБ");
+    expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
+  });
+
   it("creates a game with multiple platforms and Markdown-only notes", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
@@ -520,7 +721,7 @@ describe("GamePage", () => {
     await user.type(noteEditor, "Секреты [[гайд](https://example.com/ducktales)");
     expect(within(notesEditor).queryByRole("button", { name: "Предпросмотр" })).not.toBeInTheDocument();
     expect(within(notesEditor).queryByRole("button", { name: "Ссылка" })).not.toBeInTheDocument();
-    expect(notesEditor.querySelector('input[type="file"]')).not.toBeInTheDocument();
+    expect(notesEditor.querySelectorAll('input[type="file"][hidden]')).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

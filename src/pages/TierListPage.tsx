@@ -32,6 +32,7 @@ export interface TierListPageProps {
   assets: Record<string, Asset>;
   onMoveGame: (gameId: string, target: MoveGameTarget) => void;
   onOpenGame?: (gameId: string) => void;
+  resolveAssetUrl?: (assetId: string) => string | null;
 }
 
 export class NonTouchPointerSensor extends PointerSensor {
@@ -102,7 +103,7 @@ export function getTierDropTarget(
   return { tierId: targetTierId, index: Math.min(index, destination.length) };
 }
 
-function SortableGame({ game, asset, onOpenGame }: { game: Game; asset?: Asset; onOpenGame?: (id: string) => void }) {
+function SortableGame({ game, asset, onOpenGame, resolveAssetUrl }: { game: Game; asset?: Asset; onOpenGame?: (id: string) => void; resolveAssetUrl?: (assetId: string) => string | null }) {
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `game:${game.id}`,
     attributes: { roleDescription: "перетаскиваемая игра" },
@@ -125,12 +126,13 @@ function SortableGame({ game, asset, onOpenGame }: { game: Game; asset?: Asset; 
       isDragging={isDragging}
       onOpen={onOpenGame}
       ref={setNodeRef}
+      resolveAssetUrl={resolveAssetUrl}
       style={style}
     />
   );
 }
 
-function TierRow({ tierId, games, assets, onOpenGame }: { tierId: TierId; games: Game[]; assets: Record<string, Asset>; onOpenGame?: (id: string) => void }) {
+function TierRow({ tierId, games, assets, onOpenGame, resolveAssetUrl }: { tierId: TierId; games: Game[]; assets: Record<string, Asset>; onOpenGame?: (id: string) => void; resolveAssetUrl?: (assetId: string) => string | null }) {
   const { isOver, setNodeRef } = useDroppable({ id: `tier:${tierId}`, data: { type: "tier", tierId } });
   const compactLabel = tierId === "unranked" ? "—" : TIER_LABELS[tierId];
   return (
@@ -142,7 +144,7 @@ function TierRow({ tierId, games, assets, onOpenGame }: { tierId: TierId; games:
       </header>
       <div className="tier-row__games" ref={setNodeRef}>
         <SortableContext items={games.map((game) => `game:${game.id}`)} strategy={TIER_LIST_SORTING_STRATEGY}>
-          {games.map((game) => <SortableGame asset={game.coverAssetId ? assets[game.coverAssetId] : undefined} game={game} key={game.id} onOpenGame={onOpenGame} />)}
+          {games.map((game) => <SortableGame asset={game.coverAssetId ? assets[game.coverAssetId] : undefined} game={game} key={game.id} onOpenGame={onOpenGame} resolveAssetUrl={resolveAssetUrl} />)}
         </SortableContext>
         {!games.length ? <div className="tier-row__empty"><Icon name="plus" size={18} />Перетащите игру сюда</div> : null}
       </div>
@@ -150,7 +152,7 @@ function TierRow({ tierId, games, assets, onOpenGame }: { tierId: TierId; games:
   );
 }
 
-export function TierListPage({ games, assets, onMoveGame, onOpenGame }: TierListPageProps) {
+export function TierListPage({ games, assets, onMoveGame, onOpenGame, resolveAssetUrl }: TierListPageProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const suppressOpenFor = useRef<string | null>(null);
   const sensors = useSensors(
@@ -202,9 +204,9 @@ export function TierListPage({ games, assets, onMoveGame, onOpenGame }: TierList
           sensors={sensors}
         >
           <div className="tier-board">
-            {TIER_IDS.map((tierId) => <TierRow assets={assets} games={byTier[tierId]} key={tierId} onOpenGame={openGame} tierId={tierId} />)}
+            {TIER_IDS.map((tierId) => <TierRow assets={assets} games={byTier[tierId]} key={tierId} onOpenGame={openGame} resolveAssetUrl={resolveAssetUrl} tierId={tierId} />)}
           </div>
-          <DragOverlay>{activeGame ? <GameCard asset={activeGame.coverAssetId ? assets[activeGame.coverAssetId] : undefined} game={activeGame} isDragging /> : null}</DragOverlay>
+          <DragOverlay>{activeGame ? <GameCard asset={activeGame.coverAssetId ? assets[activeGame.coverAssetId] : undefined} game={activeGame} isDragging resolveAssetUrl={resolveAssetUrl} /> : null}</DragOverlay>
         </DndContext>
       )}
     </div>

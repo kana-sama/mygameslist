@@ -11,7 +11,7 @@ import {
   type Game,
   type LibraryDatabase,
 } from "../src/domain";
-import type { GameSaveInput } from "../src/pages/GamePage";
+import type { GameSaveInput, PreparedFile } from "../src/pages/GamePage";
 import { LibraryProvider, useLibrary } from "../src/state/LibraryContext";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
@@ -109,6 +109,40 @@ function AssetProbe({ localCover }: { localCover: Exclude<GameSaveInput["pending
   </div>;
 }
 
+function FileProbe({ preparedFile }: { preparedFile: PreparedFile }) {
+  const library = useLibrary();
+  const current = library.effective.games[GAME_ID];
+  const fileAsset = Object.values(library.effective.assets).find((asset) => asset.kind === "file");
+  const saveNotes = (withFile: boolean) => {
+    if (!current) return;
+    void library.saveGame({
+      id: current.id,
+      title: current.title,
+      coverAssetId: current.coverAssetId,
+      pendingCover: null,
+      platforms: current.platforms,
+      tags: current.tags,
+      status: current.status,
+      tierId: current.placement.tierId,
+      reviewMarkdown: current.reviewMarkdown,
+      notes: withFile ? [{
+        clientId: "draft-file",
+        bodyMarkdown: "Save file",
+        rank: 1024,
+        attachments: [{ type: "pending-file", file: preparedFile, label: "Save data" }],
+      }] : [],
+    });
+  };
+  return <div>
+    <span data-testid="file-loading">{String(library.loading)}</span>
+    <span data-testid="file-kind">{fileAsset?.kind ?? "none"}</span>
+    <span data-testid="file-blob-count">{Object.keys(library.patch.blobs).length}</span>
+    <span data-testid="file-url">{fileAsset ? library.resolveAssetUrl(fileAsset.id) : "none"}</span>
+    <button onClick={() => saveNotes(true)} type="button">Прикрепить файл</button>
+    <button onClick={() => saveNotes(false)} type="button">Удалить файл</button>
+  </div>;
+}
+
 beforeEach(() => {
   vi.stubGlobal("localStorage", new MemoryStorage());
 });
@@ -128,7 +162,8 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     local.games[GAME_ID].title = "Legacy local game";
     const patch = diffLibrary(base, local, { changedAt: NOW, transactionId: "legacy-edit" });
     const operation = Object.values(patch.operations)[0];
-    const legacy = { ...patch, schemaVersion: 1, operations: { ...patch.operations, [`/collections/${GAME_ID}`]: operation } };
+    const { blobs: _blobs, ...legacyPatch } = patch;
+    const legacy = { ...legacyPatch, patchVersion: 1, schemaVersion: 1, operations: { ...patch.operations, [`/collections/${GAME_ID}`]: operation } };
     localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(legacy));
     mockStaticDatabase(base);
 
@@ -221,5 +256,27 @@ describe("LibraryProvider asset garbage collection", () => {
     expect(screen.getByTestId("asset-ids")).not.toHaveTextContent(localAsset.id);
     expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${localAsset.id}`);
     expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${staticAsset.id}`);
+  });
+
+  it("stores file bytes only in V2 blobs and garbage-collects the local asset", async () => {
+    const draft = empty(); draft.games[GAME_ID] = game("Static game");
+    mockStaticDatabase(withComputedRevision(draft));
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    render(<LibraryProvider><FileProbe preparedFile={{ clientId: "file", mime: "application/octet-stream", base64: bytesToBase64(bytes), originalName: "save.dat", byteLength: bytes.byteLength }} /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("file-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Прикрепить файл" }));
+    await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("file"));
+    expect(screen.getByTestId("file-blob-count")).toHaveTextContent("1");
+    expect(screen.getByTestId("file-url")).toHaveTextContent("data:application/octet-stream;base64,AQIDBA==");
+    const stored = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as { patchVersion: number; blobs: Record<string, string>; operations: Record<string, { value?: unknown }> };
+    expect(stored.patchVersion).toBe(2);
+    expect(Object.values(stored.blobs)).toEqual(["AQIDBA=="]);
+    expect(JSON.stringify(stored.operations)).not.toContain("AQIDBA==");
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить файл" }));
+    await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("none"));
+    expect(screen.getByTestId("file-blob-count")).toHaveTextContent("0");
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
   });
 });

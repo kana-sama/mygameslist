@@ -4,7 +4,7 @@ import type { PatchEnvelope } from "../src/domain";
 import { PUBLISH_CLIPBOARD_COMMAND, createPublishPayload } from "../src/state/publishCommand";
 
 const patch: PatchEnvelope = {
-  patchVersion: 1,
+  patchVersion: 2,
   schemaVersion: 2,
   baseRevision: "1".repeat(64),
   operations: {
@@ -17,6 +17,7 @@ const patch: PatchEnvelope = {
       transactionId: "edit-title",
     },
   },
+  blobs: {},
 };
 
 describe("browser publication payload", () => {

@@ -85,4 +85,21 @@ describe("ImagePicker", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(onDraftChange).toHaveBeenLastCalledWith(false);
   });
+
+  it("lets Safari images with an empty MIME reach the encoder and reports the final-size preflight inline", async () => {
+    const onDraftChange = vi.fn();
+    const onPrepare = vi.fn();
+    const canAddBlob = vi.fn(() => "Изображение не помещается в локальное хранилище Safari");
+    const view = render(<ImagePicker canAddBlob={canAddBlob} mode="cover" onDraftChange={onDraftChange} onPrepare={onPrepare} />);
+    const input = view.container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const file = new File(["image"], "cover.webp", { type: "" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Изображение не помещается в локальное хранилище Safari");
+    expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "cover");
+    expect(canAddBlob).toHaveBeenCalledWith(optimized.byteLength);
+    expect(onPrepare).not.toHaveBeenCalled();
+    expect(onDraftChange.mock.calls).toEqual([[true], [false]]);
+  });
 });

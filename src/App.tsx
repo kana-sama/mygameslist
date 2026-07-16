@@ -24,6 +24,7 @@ import {
   type PatchOperation,
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage } from "./pages";
+import { formatBytes } from "./components/libraryUi";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
 import {
   PUBLISH_CLIPBOARD_COMMAND,
@@ -70,6 +71,10 @@ function entityName(
     const game = gameId ? effective.games[gameId] ?? base.games[gameId] : undefined;
     return `Заметка${game ? ` · ${game.title}` : ""}`;
   }
+  if (map === "assets") {
+    const asset = effective.assets[id] ?? base.assets[id] ?? rootValue as Asset | undefined;
+    return asset?.kind === "file" ? asset.originalName || "Файл" : "Изображение";
+  }
   return "Изображение";
 }
 
@@ -84,19 +89,23 @@ function classifyDiff(path: string, operation: PatchOperation): DiffGroupId {
 }
 
 function assetMeta(asset: Asset | undefined): string[] | undefined {
-  if (!asset || typeof asset.base64 !== "string" || typeof asset.width !== "number" || typeof asset.height !== "number") return undefined;
-  return [`${asset.width}×${asset.height}`, `${Math.max(0, base64DecodedBytes(asset.base64)).toLocaleString("ru-RU")} Б`, "WebP"];
+  if (!asset) return undefined;
+  if (asset.kind === "file") return [asset.mime, formatBytes(asset.byteLength)];
+  const byteLength = asset.kind === "image" ? asset.byteLength : base64DecodedBytes(asset.base64);
+  return [`${asset.width}×${asset.height}`, formatBytes(Math.max(0, byteLength)), "WebP"];
 }
 
 function assetSummary(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const asset = value as Partial<Asset>;
   return {
-    type: asset.mime ?? "image/webp",
+    kind: asset.kind ?? "image",
+    type: asset.mime ?? "application/octet-stream",
     width: asset.width,
     height: asset.height,
-    bytes: typeof asset.base64 === "string" ? base64DecodedBytes(asset.base64) : undefined,
+    bytes: typeof asset.byteLength === "number" ? asset.byteLength : typeof asset.base64 === "string" ? base64DecodedBytes(asset.base64) : undefined,
     alt: asset.alt,
+    originalName: asset.originalName,
   };
 }
 
@@ -237,6 +246,7 @@ function LibraryRoutes() {
               } catch (error) { showError(error); }
             }}
             onOpenGame={(id) => navigate(`/games/${id}`)}
+            resolveAssetUrl={library.resolveAssetUrl}
           />}
         />
         <Route
@@ -245,6 +255,7 @@ function LibraryRoutes() {
             assets={library.effective.assets}
             games={games}
             onOpenGame={(id) => navigate(`/games/${id}`)}
+            resolveAssetUrl={library.resolveAssetUrl}
           />}
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
@@ -304,6 +315,7 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
 
   return <GamePage
     assets={library.effective.assets}
+    canAddBlob={library.canAddBlob}
     game={game}
     key={game?.id ?? "new"}
     mode={mode}
@@ -315,6 +327,7 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
     platformSuggestions={platformSuggestions}
+    resolveAssetUrl={library.resolveAssetUrl}
     storageLocked={library.usage.level === "blocked"}
     tagSuggestions={tagSuggestions}
   />;

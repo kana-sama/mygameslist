@@ -8,6 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { lstatSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -27,6 +28,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const MIME_RE = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 export const LIBRARY_SCHEMA_VERSION = 2;
 
@@ -63,7 +65,7 @@ export function computeRevision(database) {
 }
 
 export function validateLibrary(database, options = {}) {
-  const { verifyRevision = true } = options;
+  const { verifyRevision = true, mediaRoot = null } = options;
   const errors = [];
   const error = (at, message) => errors.push(`${at}: ${message}`);
 
@@ -106,6 +108,39 @@ export function validateLibrary(database, options = {}) {
     error("$.revision", "does not match the canonical database content");
   }
 
+  if (mediaRoot !== null) {
+    const externalAssets = Object.entries(assets).filter(([, asset]) => !isLegacyInlineImageAsset(asset));
+    let safeMediaDirectory = externalAssets.length === 0;
+    if (externalAssets.length > 0) {
+      try {
+        const resolvedMediaRoot = path.resolve(mediaRoot);
+        const ancestors = [path.dirname(path.dirname(resolvedMediaRoot)), path.dirname(resolvedMediaRoot)];
+        const unsafeAncestor = ancestors.find((directory) => {
+          const stat = lstatSync(directory);
+          return stat.isSymbolicLink() || !stat.isDirectory();
+        });
+        if (unsafeAncestor) {
+          error("$.assets", `media ancestor must be a real directory, not a symlink: ${unsafeAncestor}`);
+        } else {
+          const mediaStat = lstatSync(resolvedMediaRoot);
+          if (mediaStat.isSymbolicLink() || !mediaStat.isDirectory()) {
+            error("$.assets", "media root must be a real directory, not a symlink");
+          } else {
+            safeMediaDirectory = true;
+          }
+        }
+      } catch (cause) {
+        if (cause?.code === "ENOENT") error("$.assets", `media directory is missing: ${mediaRoot}`);
+        else error("$.assets", `cannot inspect media directory: ${cause.message}`);
+      }
+    }
+    if (safeMediaDirectory) {
+      for (const [id, asset] of externalAssets) {
+        validateExternalAssetFile(mediaRoot, id, asset, `$.assets.${id}`, error);
+      }
+    }
+  }
+
   if (errors.length > 0) throw new DataValidationError(errors);
   return database;
 }
@@ -131,6 +166,8 @@ function validateGame(key, game, assets, at, error) {
     error(`${at}.coverAssetId`, "must be null or an asset id");
   } else if (typeof game.coverAssetId === "string" && !Object.hasOwn(assets, game.coverAssetId)) {
     error(`${at}.coverAssetId`, "references a missing asset");
+  } else if (typeof game.coverAssetId === "string" && assetStorageKind(assets[game.coverAssetId]) !== "image") {
+    error(`${at}.coverAssetId`, "must reference an image asset");
   }
   stringSet(game.platforms, `${at}.platforms`, error);
   stringSet(game.tags, `${at}.tags`, error);
@@ -167,39 +204,133 @@ function validateNote(key, note, games, assets, at, error) {
         exactKeys(attachment, ["type", "assetId", "alt"], attachmentAt, error);
         if (typeof attachment.assetId !== "string" || !Object.hasOwn(assets, attachment.assetId)) {
           error(`${attachmentAt}.assetId`, "references a missing asset");
+        } else if (assetStorageKind(assets[attachment.assetId]) !== "image") {
+          error(`${attachmentAt}.assetId`, "must reference an image asset");
         }
         boundedString(attachment.alt, `${attachmentAt}.alt`, error, 1_000);
+      } else if (attachment.type === "file") {
+        exactKeys(attachment, ["type", "assetId", "label"], attachmentAt, error);
+        if (typeof attachment.assetId !== "string" || !Object.hasOwn(assets, attachment.assetId)) {
+          error(`${attachmentAt}.assetId`, "references a missing asset");
+        } else if (assetStorageKind(assets[attachment.assetId]) !== "file") {
+          error(`${attachmentAt}.assetId`, "must reference a file asset");
+        }
+        nonEmptyString(attachment.label, `${attachmentAt}.label`, error, 1_000);
       } else if (attachment.type === "link") {
         exactKeys(attachment, ["type", "url", "label"], attachmentAt, error);
         safeUrl(attachment.url, `${attachmentAt}.url`, error);
         nonEmptyString(attachment.label, `${attachmentAt}.label`, error, 1_000);
       } else {
-        error(`${attachmentAt}.type`, "must be image or link");
+        error(`${attachmentAt}.type`, "must be image, file, or link");
       }
     });
   }
 }
 
 function validateAsset(key, asset, at, error) {
-  const keys = ["id", "mime", "width", "height", "base64", "alt", "originalName"];
   if (!isPlainObject(asset)) return error(at, "must be an object");
-  exactKeys(asset, keys, at, error);
   if (!SHA256_RE.test(key) || asset.id !== key) error(`${at}.id`, "must equal its lowercase SHA-256 map key");
+
+  if (isLegacyInlineImageAsset(asset)) {
+    exactKeys(asset, ["id", "mime", "width", "height", "base64", "alt", "originalName"], at, error);
+    validateImageMetadata(asset, at, error);
+    if (typeof asset.base64 !== "string" || asset.base64.length === 0 || !isCanonicalBase64(asset.base64)) {
+      error(`${at}.base64`, "must be canonical base64");
+      return;
+    }
+    const bytes = Buffer.from(asset.base64, "base64");
+    if (!isWebP(bytes)) error(`${at}.base64`, "is not a WebP file");
+    const digest = createHash("sha256").update(bytes).digest("hex");
+    if (digest !== key) error(`${at}.id`, "does not match the SHA-256 of decoded image bytes");
+    return;
+  }
+
+  if (asset.kind === "image") {
+    exactKeys(asset, ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"], at, error);
+    validateImageMetadata(asset, at, error);
+    byteLength(asset.byteLength, `${at}.byteLength`, error, 12);
+    return;
+  }
+
+  if (asset.kind === "file") {
+    exactKeys(asset, ["id", "kind", "mime", "byteLength", "originalName"], at, error);
+    if (typeof asset.mime !== "string" || asset.mime.length > 255 || !MIME_RE.test(asset.mime)) {
+      error(`${at}.mime`, "must be a valid MIME type");
+    }
+    byteLength(asset.byteLength, `${at}.byteLength`, error);
+    nonEmptyString(asset.originalName, `${at}.originalName`, error, 2_000);
+    return;
+  }
+
+  error(`${at}.kind`, "must describe a legacy inline image or equal image/file");
+}
+
+function validateImageMetadata(asset, at, error) {
   if (asset.mime !== "image/webp") error(`${at}.mime`, "must equal image/webp");
   imageDimension(asset.width, `${at}.width`, error);
   imageDimension(asset.height, `${at}.height`, error);
   boundedString(asset.alt, `${at}.alt`, error, 1_000);
   boundedString(asset.originalName, `${at}.originalName`, error, 2_000);
-  if (typeof asset.base64 !== "string" || asset.base64.length === 0 || !BASE64_RE.test(asset.base64)) {
-    error(`${at}.base64`, "must be canonical base64");
+}
+
+export function isCanonicalBase64(value) {
+  return typeof value === "string" && BASE64_RE.test(value) && Buffer.from(value, "base64").toString("base64") === value;
+}
+
+export function isLegacyInlineImageAsset(asset) {
+  return isPlainObject(asset) && Object.hasOwn(asset, "base64") && !Object.hasOwn(asset, "kind");
+}
+
+export function assetStorageKind(asset) {
+  return isLegacyInlineImageAsset(asset) ? "image" : asset?.kind;
+}
+
+export function externalAssetFilename(id, asset) {
+  if (!SHA256_RE.test(id)) throw new Error("External asset id must be a lowercase SHA-256 hash");
+  const kind = assetStorageKind(asset);
+  if (kind !== "image" && kind !== "file") throw new Error("External asset kind must be image or file");
+  return `${id}.${kind === "image" ? "webp" : "bin"}`;
+}
+
+export function externalAssetPath(mediaRoot, id, asset) {
+  const resolvedRoot = path.resolve(mediaRoot);
+  const resolvedPath = path.resolve(resolvedRoot, externalAssetFilename(id, asset));
+  const relative = path.relative(resolvedRoot, resolvedPath);
+  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("External asset path escapes the media directory");
+  }
+  return resolvedPath;
+}
+
+function validateExternalAssetFile(mediaRoot, id, asset, at, error) {
+  if (!SHA256_RE.test(id) || !isPlainObject(asset) || asset.id !== id) return;
+  const kind = assetStorageKind(asset);
+  if (kind !== "image" && kind !== "file") return;
+  let filePath;
+  try {
+    filePath = externalAssetPath(mediaRoot, id, asset);
+  } catch (cause) {
+    return error(at, cause.message);
+  }
+  let stat;
+  try {
+    stat = lstatSync(filePath);
+  } catch (cause) {
+    if (cause?.code === "ENOENT") return error(at, `media file is missing: ${filePath}`);
+    return error(at, `cannot inspect media file: ${cause.message}`);
+  }
+  if (stat.isSymbolicLink() || !stat.isFile()) return error(at, "media path must be a regular file, not a symlink");
+  if (stat.size !== asset.byteLength) {
+    error(`${at}.byteLength`, "does not match the media file size");
     return;
   }
-  const bytes = Buffer.from(asset.base64, "base64");
-  if (bytes.length < 12 || bytes.subarray(0, 4).toString("ascii") !== "RIFF" || bytes.subarray(8, 12).toString("ascii") !== "WEBP") {
-    error(`${at}.base64`, "is not a WebP file");
-  }
-  const digest = createHash("sha256").update(bytes).digest("hex");
-  if (digest !== key) error(`${at}.id`, "does not match the SHA-256 of decoded image bytes");
+  const bytes = readFileSync(filePath);
+  if (createHash("sha256").update(bytes).digest("hex") !== id) error(`${at}.id`, "does not match the media file SHA-256");
+  if (assetStorageKind(asset) === "image" && !isWebP(bytes)) error(`${at}.mime`, "media file is not WebP");
+}
+
+function isWebP(bytes) {
+  return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
 }
 
 function validateRecordKeys(record, at, error) {
@@ -269,6 +400,10 @@ function imageDimension(value, at, error) {
   if (!Number.isInteger(value) || value <= 0 || value > 1280) error(at, "must be an integer from 1 through 1280");
 }
 
+function byteLength(value, at, error, minimum = 0) {
+  if (!Number.isSafeInteger(value) || value < minimum) error(at, `must be a safe integer of at least ${minimum}`);
+}
+
 function isoDate(value, at, error) {
   if (typeof value !== "string" || !ISO_DATE_RE.test(value) || Number.isNaN(Date.parse(value))) {
     error(at, "must be an ISO-8601 UTC timestamp");
@@ -304,7 +439,7 @@ async function main() {
   } catch (cause) {
     throw new Error(`${inputPath} is not valid JSON: ${cause.message}`);
   }
-  validateLibrary(database);
+  validateLibrary(database, { mediaRoot: path.resolve(path.dirname(inputPath), "..", "media") });
   process.stdout.write(`Valid library data: ${inputPath}\n`);
 }
 

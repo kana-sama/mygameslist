@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmodSync,
   existsSync,
@@ -6,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -94,6 +96,67 @@ function asset(id, originalName, overrides = {}) {
   };
 }
 
+function sha256(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+function webpBytes(label = "fixture") {
+  return Buffer.from(`RIFFxxxxWEBP${label}`);
+}
+
+function imageAsset(bytes, originalName = "cover.png") {
+  return {
+    id: sha256(bytes),
+    kind: "image",
+    mime: "image/webp",
+    width: 1,
+    height: 1,
+    byteLength: bytes.byteLength,
+    alt: "",
+    originalName,
+  };
+}
+
+function fileAsset(bytes, originalName = "route.txt") {
+  return {
+    id: sha256(bytes),
+    kind: "file",
+    mime: "text/plain",
+    byteLength: bytes.byteLength,
+    originalName,
+  };
+}
+
+function setOperation(value) {
+  return {
+    operation: "set",
+    value,
+    baseExists: false,
+    baseHash: MISSING_VALUE_HASH,
+    changedAt: NOW,
+    transactionId: TRANSACTION_ID,
+  };
+}
+
+function createMediaPatch(bytes, metadata, database = emptyDatabase()) {
+  const noteValue = note(DUCKTALES_NOTE_ID, GAME_ID, "Route", {
+    attachments: metadata.kind === "file"
+      ? [{ type: "file", assetId: metadata.id, label: metadata.originalName }]
+      : [{ type: "image", assetId: metadata.id, alt: "Route" }],
+  });
+  return {
+    patchVersion: 2,
+    schemaVersion: 2,
+    baseRevision: database.revision || computeRevision(database),
+    operations: {
+      [`/assets/${metadata.id}`]: setOperation(metadata),
+      [`/games/${GAME_ID}`]: setOperation(game({ coverAssetId: metadata.kind === "image" ? metadata.id : null })),
+      [`/notes/${DUCKTALES_NOTE_ID}`]: setOperation(noteValue),
+    },
+    blobs: { [metadata.id]: bytes.toString("base64") },
+  };
+}
+
 function createPatch(database = emptyDatabase()) {
   return {
     patchVersion: 1,
@@ -131,11 +194,11 @@ function jj(root, ...args) {
   return execFileSync(jjExecutable, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
-function makeRepository() {
+function makeRepository(database = emptyDatabase()) {
   const root = mkdtempSync(path.join(tmpdir(), "mylib-publish-test-"));
   temporaryPaths.push(root);
   mkdirSync(path.join(root, "public", "data"), { recursive: true });
-  writeFileSync(path.join(root, "public", "data", "library.json"), `${JSON.stringify(emptyDatabase(), null, 2)}\n`);
+  writeFileSync(path.join(root, "public", "data", "library.json"), `${JSON.stringify(database, null, 2)}\n`);
   writeFileSync(path.join(root, "package.json"), "{\"private\":true}\n");
   writeFileSync(path.join(root, "staged.txt"), "base\n");
   git(root, "init");
@@ -147,8 +210,8 @@ function makeRepository() {
   return root;
 }
 
-function makeJujutsuRepository() {
-  const root = makeRepository();
+function makeJujutsuRepository(database = emptyDatabase()) {
+  const root = makeRepository(database);
   execFileSync(jjExecutable, ["git", "init", "--colocate", root], { stdio: ["ignore", "pipe", "pipe"] });
   return root;
 }
@@ -348,9 +411,378 @@ Images:
     expect(() => validatePatchEnvelope(patch, database)).toThrow(/schemaVersion is not compatible/);
     expect(() => validateLibrary({ ...database, schemaVersion: 1, collections: {}, collectionItems: {} })).toThrow(/schemaVersion.*must equal 2/);
   });
+
+  it("accepts V2 blobs and migrates V1 inline image operations", () => {
+    const bytes = webpBytes("v1-migration");
+    const metadata = imageAsset(bytes);
+    const v2 = createMediaPatch(bytes, metadata);
+    expect(() => validatePatchEnvelope(v2, emptyDatabase())).not.toThrow();
+
+    const legacy = {
+      ...v2,
+      patchVersion: 1,
+      operations: structuredClone(v2.operations),
+    };
+    delete legacy.blobs;
+    legacy.operations[`/assets/${metadata.id}`].value = {
+      id: metadata.id,
+      mime: "image/webp",
+      width: 1,
+      height: 1,
+      base64: bytes.toString("base64"),
+      alt: "",
+      originalName: "cover.png",
+    };
+    const result = applyPatch(emptyDatabase(), legacy);
+    expect(result.assets[metadata.id]).toEqual(metadata);
+    expect(result.notes[DUCKTALES_NOTE_ID].attachments[0].type).toBe("image");
+  });
+
+  it("rejects missing, orphaned, noncanonical, mismatched, and wrongly-sized blobs", () => {
+    const bytes = Buffer.from("file fixture");
+    const metadata = fileAsset(bytes);
+    const original = createMediaPatch(bytes, metadata);
+
+    const missing = structuredClone(original);
+    missing.blobs = {};
+    expect(() => validatePatchEnvelope(missing, emptyDatabase())).toThrow(/missing blob payload/);
+
+    const orphan = structuredClone(original);
+    const orphanBytes = Buffer.from("orphan");
+    orphan.blobs[sha256(orphanBytes)] = orphanBytes.toString("base64");
+    expect(() => validatePatchEnvelope(orphan, emptyDatabase())).toThrow(/orphan blob payload/);
+
+    const noncanonical = structuredClone(original);
+    noncanonical.blobs[metadata.id] = `${bytes.toString("base64").slice(0, -2)}==`;
+    expect(() => validatePatchEnvelope(noncanonical, emptyDatabase())).toThrow(/canonical base64|SHA-256/);
+
+    const wrongHash = structuredClone(original);
+    wrongHash.blobs[metadata.id] = Buffer.from("different bytes").toString("base64");
+    expect(() => validatePatchEnvelope(wrongHash, emptyDatabase())).toThrow(/SHA-256/);
+
+    const wrongSize = structuredClone(original);
+    wrongSize.operations[`/assets/${metadata.id}`].value.byteLength += 1;
+    expect(() => validatePatchEnvelope(wrongSize, emptyDatabase())).toThrow(/byteLength/);
+  });
+
+  it("rejects replacement of an existing deduplicated asset but still permits deletion", () => {
+    const bytes = Buffer.from("existing asset");
+    const metadata = fileAsset(bytes, "original.txt");
+    const database = emptyDatabase();
+    database.assets[metadata.id] = metadata;
+    database.revision = computeRevision(database);
+    const common = {
+      baseExists: true,
+      baseHash: hashCanonical(metadata),
+      changedAt: NOW,
+      transactionId: TRANSACTION_ID,
+    };
+    const replacement = {
+      patchVersion: 2,
+      schemaVersion: 2,
+      baseRevision: database.revision,
+      operations: {
+        [`/assets/${metadata.id}`]: {
+          operation: "set",
+          value: { ...metadata, originalName: "replacement.txt" },
+          ...common,
+        },
+      },
+      blobs: {},
+    };
+    expect(() => validatePatchEnvelope(replacement, database)).toThrow(/existing assets cannot be replaced/);
+
+    const deletion = structuredClone(replacement);
+    deletion.operations[`/assets/${metadata.id}`] = { operation: "delete", ...common };
+    expect(() => validatePatchEnvelope(deletion, database)).not.toThrow();
+  });
+
+  it("never derives external media paths from invalid asset ids", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mylib-validator-path-test-"));
+    temporaryPaths.push(root);
+    const mediaRoot = path.join(root, "media");
+    mkdirSync(mediaRoot);
+    const outsideBytes = Buffer.from("outside media");
+    writeFileSync(path.join(root, "outside.bin"), outsideBytes);
+    const unsafeId = "../outside";
+    const database = emptyDatabase();
+    database.assets[unsafeId] = {
+      id: unsafeId,
+      kind: "file",
+      mime: "application/octet-stream",
+      byteLength: outsideBytes.byteLength,
+      originalName: "outside.bin",
+    };
+    database.revision = computeRevision(database);
+
+    let failure;
+    try {
+      validateLibrary(database, { mediaRoot });
+    } catch (cause) {
+      failure = cause;
+    }
+    expect(failure?.errors).toHaveLength(1);
+    expect(failure.errors[0]).toMatch(/must equal its lowercase SHA-256 map key/);
+    expect(failure.errors[0]).not.toMatch(/media file|media directory|SHA-256$/);
+  });
+
+  it("does not traverse a media-root symlink after rejecting it", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mylib-validator-symlink-test-"));
+    temporaryPaths.push(root);
+    const targetRoot = path.join(root, "outside");
+    const mediaRoot = path.join(root, "media");
+    mkdirSync(targetRoot);
+    const expected = Buffer.from("expected bytes");
+    const metadata = fileAsset(expected, "save.bin");
+    writeFileSync(path.join(targetRoot, `${metadata.id}.bin`), Buffer.from("tampered bytes"));
+    symlinkSync(targetRoot, mediaRoot, "dir");
+    const database = emptyDatabase();
+    database.assets[metadata.id] = metadata;
+    database.revision = computeRevision(database);
+
+    let failure;
+    try {
+      validateLibrary(database, { mediaRoot });
+    } catch (cause) {
+      failure = cause;
+    }
+    expect(failure?.errors).toEqual(["$.assets: media root must be a real directory, not a symlink"]);
+  });
+
+  it("does not traverse a symlinked media ancestor", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mylib-validator-ancestor-test-"));
+    temporaryPaths.push(root);
+    const outsidePublic = path.join(root, "outside-public");
+    const outsideMedia = path.join(outsidePublic, "media");
+    mkdirSync(outsideMedia, { recursive: true });
+    const expected = Buffer.from("expected ancestor bytes");
+    const metadata = fileAsset(expected, "save.bin");
+    writeFileSync(path.join(outsideMedia, `${metadata.id}.bin`), Buffer.from("tampered ancestor bytes"));
+    const publicLink = path.join(root, "public");
+    symlinkSync(outsidePublic, publicLink, "dir");
+    const database = emptyDatabase();
+    database.assets[metadata.id] = metadata;
+    database.revision = computeRevision(database);
+
+    let failure;
+    try {
+      validateLibrary(database, { mediaRoot: path.join(publicLink, "media") });
+    } catch (cause) {
+      failure = cause;
+    }
+    expect(failure?.errors).toHaveLength(1);
+    expect(failure.errors[0]).toMatch(/media ancestor must be a real directory, not a symlink/);
+  });
+
+  it("checks external media size before reading or hashing the file", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mylib-validator-size-test-"));
+    temporaryPaths.push(root);
+    const mediaRoot = path.join(root, "public", "media");
+    mkdirSync(mediaRoot, { recursive: true });
+    const expected = Buffer.from("declared bytes");
+    const metadata = fileAsset(expected, "save.bin");
+    const filePath = path.join(mediaRoot, `${metadata.id}.bin`);
+    writeFileSync(filePath, Buffer.from("different-size bytes"));
+    chmodSync(filePath, 0o000);
+    const database = emptyDatabase();
+    database.assets[metadata.id] = metadata;
+    database.revision = computeRevision(database);
+
+    let failure;
+    try {
+      validateLibrary(database, { mediaRoot });
+    } catch (cause) {
+      failure = cause;
+    } finally {
+      chmodSync(filePath, 0o644);
+    }
+    expect(failure?.errors).toHaveLength(1);
+    expect(failure.errors[0]).toMatch(/byteLength: does not match the media file size/);
+  });
 });
 
 describe("publish patch transaction", () => {
+  it("materializes a V2 file blob and commits exactly JSON plus the derived media path", () => {
+    const root = makeRepository();
+    const bytes = Buffer.from("DuckTales route notes\n");
+    const metadata = fileAsset(bytes, "route notes.txt");
+    const result = publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    const relativeMediaPath = `public/media/${metadata.id}.bin`;
+    const published = JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8"));
+
+    expect(result.mediaPaths).toEqual([relativeMediaPath]);
+    expect(published.assets[metadata.id]).toEqual(metadata);
+    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
+    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").split("\n").sort())
+      .toEqual(["public/data/library.json", relativeMediaPath].sort());
+    expect(git(root, "show", "-s", "--format=%B", "HEAD")).toContain(`Files:\n- Add "route notes.txt"`);
+    expect(() => validateLibrary(published, { mediaRoot: path.join(root, "public", "media") })).not.toThrow();
+  });
+
+  it("publishes a V1 inline new image as V2 metadata plus a derived WebP file", () => {
+    const root = makeRepository();
+    const bytes = webpBytes("new-v1-image");
+    const metadata = imageAsset(bytes);
+    const patch = createMediaPatch(bytes, metadata);
+    patch.patchVersion = 1;
+    delete patch.blobs;
+    patch.operations[`/assets/${metadata.id}`].value = {
+      id: metadata.id,
+      mime: "image/webp",
+      width: 1,
+      height: 1,
+      base64: bytes.toString("base64"),
+      alt: "",
+      originalName: "cover.png",
+    };
+
+    publishPatchInRepository(root, patch);
+
+    const relativeMediaPath = `public/media/${metadata.id}.webp`;
+    const published = JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8"));
+    expect(published.assets[metadata.id]).toEqual(metadata);
+    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
+    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").split("\n").sort())
+      .toEqual(["public/data/library.json", relativeMediaPath].sort());
+  });
+
+  it("migrates legacy inline assets without reporting representation-only changes", () => {
+    const bytes = webpBytes("published-legacy");
+    const id = sha256(bytes);
+    const database = emptyDatabase();
+    database.assets[id] = {
+      id,
+      mime: "image/webp",
+      width: 1,
+      height: 1,
+      base64: bytes.toString("base64"),
+      alt: "Legacy",
+      originalName: "legacy.png",
+    };
+    database.publicationId = TRANSACTION_ID;
+    database.revision = computeRevision(database);
+    const root = makeRepository(database);
+
+    const result = publishPatchInRepository(root, createPatch(database));
+    const relativeMediaPath = `public/media/${id}.webp`;
+    const published = JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8"));
+
+    expect(published.assets[id]).toEqual({
+      id,
+      kind: "image",
+      mime: "image/webp",
+      width: 1,
+      height: 1,
+      byteLength: bytes.byteLength,
+      alt: "Legacy",
+      originalName: "legacy.png",
+    });
+    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
+    expect(result.commitMessage).toBe(CREATE_GAME_MESSAGE);
+    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").split("\n").sort())
+      .toEqual(["public/data/library.json", relativeMediaPath].sort());
+  });
+
+  it("never accepts a media path from asset metadata", () => {
+    const root = makeRepository();
+    const bytes = Buffer.from("unsafe path");
+    const metadata = { ...fileAsset(bytes), path: "../../outside" };
+    expect(() => publishPatchInRepository(root, createMediaPatch(bytes, metadata))).toThrow(/unknown field path|path: unknown field/);
+    expect(existsSync(path.join(root, "public", "media"))).toBe(false);
+  });
+
+  it("rejects missing existing media, symlinks, and hash collisions before changing JSON", () => {
+    const bytes = Buffer.from("existing file");
+    const metadata = fileAsset(bytes);
+    const database = emptyDatabase();
+    database.assets[metadata.id] = metadata;
+    database.publicationId = TRANSACTION_ID;
+    database.revision = computeRevision(database);
+
+    const missingRoot = makeRepository(database);
+    const missingOriginal = readFileSync(path.join(missingRoot, "public", "data", "library.json"), "utf8");
+    expect(() => publishPatchInRepository(missingRoot, createPatch(database))).toThrow(/public\/media is missing/);
+    expect(readFileSync(path.join(missingRoot, "public", "data", "library.json"), "utf8")).toBe(missingOriginal);
+
+    const symlinkRoot = makeRepository(database);
+    mkdirSync(path.join(symlinkRoot, "public", "media"));
+    const outside = path.join(symlinkRoot, "outside.bin");
+    writeFileSync(outside, bytes);
+    symlinkSync(outside, path.join(symlinkRoot, "public", "media", `${metadata.id}.bin`));
+    expect(() => publishPatchInRepository(symlinkRoot, createPatch(database))).toThrow(/regular media file, not a symlink/);
+
+    const collisionRoot = makeRepository();
+    mkdirSync(path.join(collisionRoot, "public", "media"));
+    writeFileSync(path.join(collisionRoot, "public", "media", `${metadata.id}.bin`), "collision");
+    expect(() => publishPatchInRepository(collisionRoot, createMediaPatch(bytes, metadata))).toThrow(/size does not match|SHA-256/);
+    expect(JSON.parse(readFileSync(path.join(collisionRoot, "public", "data", "library.json"), "utf8"))).toEqual(emptyDatabase());
+  });
+
+  it("rolls back JSON, media, and index when a media commit fails", () => {
+    const root = makeRepository();
+    const bytes = Buffer.from("rollback file");
+    const metadata = fileAsset(bytes);
+    const dataPath = path.join(root, "public", "data", "library.json");
+    const original = readFileSync(dataPath, "utf8");
+    const originalHead = git(root, "rev-parse", "HEAD");
+    const hook = path.join(root, ".git", "hooks", "pre-commit");
+    writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+    chmodSync(hook, 0o755);
+
+    expect(() => publishPatchInRepository(root, createMediaPatch(bytes, metadata))).toThrow(/git commit/);
+    expect(readFileSync(dataPath, "utf8")).toBe(original);
+    expect(existsSync(path.join(root, "public", "media", `${metadata.id}.bin`))).toBe(false);
+    expect(existsSync(path.join(root, "public", "media"))).toBe(false);
+    expect(git(root, "rev-parse", "HEAD")).toBe(originalHead);
+    expect(git(root, "status", "--porcelain")).toBe("");
+  });
+
+  it("surfaces media cleanup failures instead of reporting a clean rollback", () => {
+    const root = makeRepository();
+    const bytes = Buffer.from("rollback permissions");
+    const metadata = fileAsset(bytes);
+    const dataPath = path.join(root, "public", "data", "library.json");
+    const mediaRoot = path.join(root, "public", "media");
+    const mediaPath = path.join(mediaRoot, `${metadata.id}.bin`);
+    const original = readFileSync(dataPath, "utf8");
+    const hook = path.join(root, ".git", "hooks", "pre-commit");
+    writeFileSync(hook, "#!/bin/sh\nchmod 0555 public/media\nexit 1\n");
+    chmodSync(hook, 0o755);
+
+    let failure;
+    let mediaWasLeftBehind = false;
+    try {
+      publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    } catch (cause) {
+      failure = cause;
+    } finally {
+      mediaWasLeftBehind = existsSync(mediaPath);
+      if (existsSync(mediaRoot)) chmodSync(mediaRoot, 0o755);
+    }
+
+    expect(failure?.message).toMatch(/Rollback incomplete/);
+    expect(failure.message).toMatch(/remove created public\/media\//);
+    expect(failure.message).toMatch(/remove created public\/media directory/);
+    expect(mediaWasLeftBehind).toBe(true);
+    expect(readFileSync(dataPath, "utf8")).toBe(original);
+  });
+
+  it("does not delete old unreferenced media", () => {
+    const root = makeRepository();
+    const mediaRoot = path.join(root, "public", "media");
+    mkdirSync(mediaRoot);
+    const oldMedia = path.join(mediaRoot, `${"f".repeat(64)}.bin`);
+    writeFileSync(oldMedia, "old unreferenced bytes");
+    git(root, "add", "--", "public/media");
+    git(root, "commit", "-m", "Add old media");
+
+    publishPatchInRepository(root, createPatch());
+
+    expect(readFileSync(oldMedia, "utf8")).toBe("old unreferenced bytes");
+    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"))
+      .toBe("public/data/library.json");
+  });
+
   it("refuses to mix a patch with pre-existing library.json changes", () => {
     const root = makeRepository();
     const dataPath = path.join(root, "public", "data", "library.json");
@@ -493,5 +925,89 @@ describe("publish patch transaction", () => {
     expect(jj(root, "log", "-r", "@-", "--no-graph", "-T", "description"))
       .toBe(CREATE_GAME_MESSAGE);
     expect(jj(root, "diff", "-r", "@-", "--summary")).toBe("M public/data/library.json");
+  });
+
+  it.skipIf(!jjExecutable)("keeps unrelated untracked files outside a successful media publication", () => {
+    const root = makeJujutsuRepository();
+    const workingChangeBefore = jj(root, "log", "-r", "@", "--no-graph", "-T", "change_id");
+    const unrelatedPath = "scratch.txt";
+    writeFileSync(path.join(root, unrelatedPath), "unrelated local file\n");
+    const bytes = Buffer.from("publication media");
+    const metadata = fileAsset(bytes, "save.txt");
+    const relativeMediaPath = `public/media/${metadata.id}.bin`;
+
+    const result = publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    const noAutoTrack = ["--config", 'snapshot.auto-track="none()"'];
+
+    expect(result.kind).toBe("jj");
+    expect(git(root, "status", "--porcelain=v1", "--", unrelatedPath)).toBe(`?? ${unrelatedPath}`);
+    expect(jj(root, ...noAutoTrack, "file", "list", "-r", "@", unrelatedPath)).toBe("");
+    expect(jj(root, ...noAutoTrack, "diff", "--summary")).toBe("");
+    expect(jj(root, ...noAutoTrack, "log", "-r", "@", "--no-graph", "-T", "change_id"))
+      .toBe(workingChangeBefore);
+    expect(jj(root, ...noAutoTrack, "diff", "-r", "@-", "--summary").split("\n").sort())
+      .toEqual([`A ${relativeMediaPath}`, "M public/data/library.json"].sort());
+  });
+
+  it.skipIf(!jjExecutable)("restores the exact Jujutsu operation when splitting pre-existing untracked media fails", () => {
+    const root = makeJujutsuRepository();
+    jj(root, "describe", "-m", "Existing work");
+    const workingChangeBefore = jj(root, "log", "-r", "@", "--no-graph", "-T", "change_id");
+    const packagePath = path.join(root, "package.json");
+    const packageContents = "{\"private\":true,\"local\":true}\n";
+    writeFileSync(packagePath, packageContents);
+
+    const bytes = Buffer.from("pre-existing untracked media");
+    const metadata = fileAsset(bytes, "existing.txt");
+    const relativeMediaPath = `public/media/${metadata.id}.bin`;
+    const mediaPath = path.join(root, relativeMediaPath);
+    mkdirSync(path.dirname(mediaPath));
+    writeFileSync(mediaPath, bytes);
+    const dataPath = path.join(root, "public", "data", "library.json");
+    const originalData = readFileSync(dataPath, "utf8");
+
+    const shimDirectory = mkdtempSync(path.join(tmpdir(), "mylib-jj-failure-shim-"));
+    temporaryPaths.push(shimDirectory);
+    const shim = path.join(shimDirectory, "jj");
+    writeFileSync(shim, `#!/bin/sh\nfor arg in "$@"; do if [ "$arg" = "split" ]; then exit 73; fi; done\nexec ${JSON.stringify(jjExecutable)} "$@"\n`);
+    chmodSync(shim, 0o755);
+    const previousPath = process.env.PATH;
+    process.env.PATH = `${shimDirectory}${path.delimiter}${previousPath}`;
+    let failure;
+    try {
+      publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    } catch (cause) {
+      failure = cause;
+    } finally {
+      process.env.PATH = previousPath;
+    }
+
+    expect(failure?.message).toMatch(/jj .* split .* failed: exit 73/s);
+    expect(readFileSync(dataPath, "utf8")).toBe(originalData);
+    expect(readFileSync(packagePath, "utf8")).toBe(packageContents);
+    expect(readFileSync(mediaPath)).toEqual(bytes);
+    expect(git(root, "status", "--porcelain=v1", "--", relativeMediaPath)).toBe(`?? ${relativeMediaPath}`);
+    const noAutoTrack = ["--config", 'snapshot.auto-track="none()"'];
+    expect(jj(root, ...noAutoTrack, "log", "-r", "@", "--no-graph", "-T", "change_id")).toBe(workingChangeBefore);
+    expect(jj(root, ...noAutoTrack, "log", "-r", "@", "--no-graph", "-T", "description.first_line()"))
+      .toBe("Existing work");
+    expect(jj(root, ...noAutoTrack, "diff", "--summary")).toBe("M package.json");
+  });
+
+  it.skipIf(!jjExecutable)("forces a large media blob into the isolated Jujutsu commit", () => {
+    const root = makeJujutsuRepository();
+    const bytes = Buffer.alloc(1_100_000, 0x5a);
+    const metadata = fileAsset(bytes, "large-save.bin");
+    const workingChangeBefore = jj(root, "log", "-r", "@", "--no-graph", "-T", "change_id");
+
+    const result = publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    const relativeMediaPath = `public/media/${metadata.id}.bin`;
+
+    expect(result.kind).toBe("jj");
+    expect(jj(root, "log", "-r", "@", "--no-graph", "-T", "change_id")).toBe(workingChangeBefore);
+    expect(jj(root, "diff", "--summary")).toBe("");
+    expect(jj(root, "diff", "-r", "@-", "--summary").split("\n").sort())
+      .toEqual([`A ${relativeMediaPath}`, "M public/data/library.json"].sort());
+    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
   });
 });

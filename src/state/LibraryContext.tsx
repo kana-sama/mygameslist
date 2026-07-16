@@ -13,16 +13,20 @@ import {
   PATCH_STORAGE_KEY,
   SAFARI_SAFE_BUDGET_BYTES,
   assertValidLibrary,
+  assetDataUrl,
   base64ToBytes,
   classifyStorageUsage,
   computeLibraryRevision,
   diffLibrary,
   discardOperation,
   loadPatch,
-  makeWebPAsset,
+  makeExternalWebPAsset,
+  makeFileAsset,
   moveGameToTier,
+  normalizePatchEnvelope,
   parsePatchPath,
   projectedStorageUsage,
+  publishedAssetUrl,
   reconcilePatch,
   resolveConflict,
   savePatch,
@@ -41,7 +45,7 @@ import {
 } from "../domain";
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
-  return { patchVersion: 1, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {} };
+  return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -59,15 +63,27 @@ function maxRank(items: Array<{ rank: number }>): number {
   return items.reduce((maximum, item) => Math.max(maximum, item.rank), 0);
 }
 
-function assetFromPrepared(image: { base64: string; width: number; height: number; alt: string; originalName: string }): Asset {
-  return makeWebPAsset(base64ToBytes(image.base64), image.width, image.height, image.alt, image.originalName);
+function assetFromPrepared(image: { base64: string; width: number; height: number; alt: string; originalName: string }) {
+  return makeExternalWebPAsset(base64ToBytes(image.base64), image.width, image.height, image.alt, image.originalName);
+}
+
+function retainLocalAsset(database: LibraryDatabase, base: LibraryDatabase, blobs: Record<string, string>, prepared: { asset: Asset; base64: string }, expectedKind: "image" | "file"): string {
+  const existing = database.assets[prepared.asset.id];
+  if (existing) {
+    const compatible = expectedKind === "file" ? existing.kind === "file" : existing.kind !== "file";
+    if (!compatible) throw new Error("Файл с тем же содержимым уже сохранён как другой тип asset");
+    return existing.id;
+  }
+  database.assets[prepared.asset.id] = prepared.asset;
+  if (!Object.prototype.hasOwnProperty.call(base.assets, prepared.asset.id)) blobs[prepared.asset.id] = prepared.base64;
+  return prepared.asset.id;
 }
 
 function garbageCollectAssets(database: LibraryDatabase, staticAssets: LibraryDatabase["assets"]): void {
   const referenced = new Set<string>();
   Object.values(database.games).forEach((game) => game.coverAssetId && referenced.add(game.coverAssetId));
   Object.values(database.notes).forEach((note) => note.attachments.forEach((attachment) => {
-    if (attachment.type === "image") referenced.add(attachment.assetId);
+    if (attachment.type === "image" || attachment.type === "file") referenced.add(attachment.assetId);
   }));
   Object.keys(database.assets).forEach((id) => {
     if (!referenced.has(id) && !Object.prototype.hasOwnProperty.call(staticAssets, id)) delete database.assets[id];
@@ -97,6 +113,8 @@ export interface LibraryContextValue extends LibraryState {
   usage: StorageUsage;
   storageEstimate: { usage?: number; quota?: number } | null;
   games: LibraryDatabase["games"];
+  canAddBlob: (byteLength: number) => string | null;
+  resolveAssetUrl: (assetId: string) => string | null;
   saveGame: (input: GameSaveInput) => Promise<string>;
   deleteGame: (gameId: string) => void;
   moveGame: (gameId: string, tierId: TierId, index: number) => void;
@@ -237,27 +255,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", receive);
   }, [state?.base]);
 
-  const mutate = useCallback((mutator: (database: LibraryDatabase, base: LibraryDatabase) => void) => {
+  const mutate = useCallback((mutator: (database: LibraryDatabase, base: LibraryDatabase, blobs: Record<string, string>) => void) => {
     if (!state) throw new Error("Библиотека ещё загружается");
     if (corruptedPatchRaw !== null) throw new Error("Сначала экспортируйте или сбросьте повреждённый локальный патч");
     if (state.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
     const next = structuredClone(state.effective);
-    mutator(next, state.base);
+    const blobs = structuredClone(state.patch.blobs);
+    mutator(next, state.base, blobs);
     assertValidLibrary(next);
-    const patch = diffLibrary(state.base, next, { previousPatch: state.patch });
+    const patch = diffLibrary(state.base, next, { previousPatch: state.patch, blobs });
     installReconciled(state.base, reconcilePatch(state.base, patch), true);
   }, [corruptedPatchRaw, installReconciled, state]);
 
   const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
     const id = input.id ?? crypto.randomUUID();
-    mutate((database, base) => {
+    mutate((database, base, blobs) => {
       const now = new Date().toISOString();
       const previous = database.games[id];
       let coverAssetId = input.coverAssetId;
       if (input.pendingCover) {
-        const asset = assetFromPrepared(input.pendingCover);
-        database.assets[asset.id] = asset;
-        coverAssetId = asset.id;
+        coverAssetId = retainLocalAsset(database, base, blobs, assetFromPrepared(input.pendingCover), "image");
       }
       const tierChanged = previous && previous.placement.tierId !== input.tierId;
       const placementRank = previous && !tierChanged
@@ -282,10 +299,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         const noteId = draft.id && database.notes[draft.id]?.gameId === id ? draft.id : crypto.randomUUID();
         retainedNoteIds.add(noteId);
         const attachments: NoteAttachment[] = draft.attachments.map((attachment: EditableAttachment) => {
-          if (attachment.type !== "pending-image") return attachment;
-          const asset = assetFromPrepared(attachment.image);
-          database.assets[asset.id] = asset;
-          return { type: "image", assetId: asset.id, alt: attachment.alt || asset.alt };
+          if (attachment.type === "pending-image") {
+            const prepared = assetFromPrepared(attachment.image);
+            const assetId = retainLocalAsset(database, base, blobs, prepared, "image");
+            const asset = database.assets[assetId];
+            return { type: "image", assetId, alt: attachment.alt || (asset.kind === "file" ? "" : asset.alt) };
+          }
+          if (attachment.type === "pending-file") {
+            const bytes = base64ToBytes(attachment.file.base64);
+            if (bytes.byteLength !== attachment.file.byteLength) throw new Error("Размер файла не совпадает с содержимым");
+            const assetId = retainLocalAsset(database, base, blobs, makeFileAsset(bytes, attachment.file.mime, attachment.file.originalName), "file");
+            return { type: "file", assetId, label: attachment.label || attachment.file.originalName };
+          }
+          return attachment;
         });
         const previousNote = database.notes[noteId];
         database.notes[noteId] = {
@@ -349,7 +375,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [installReconciled, state]);
 
   const importPatch = useCallback((raw: string) => {
-    const parsed: unknown = JSON.parse(raw);
+    const parsed = normalizePatchEnvelope(JSON.parse(raw));
     const validation = validatePatch(parsed);
     if (!validation.ok || !validation.value) throw new Error(validation.issues.map((item) => `${item.path}: ${item.message}`).join("\n"));
     installPatch(validation.value);
@@ -373,6 +399,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: LIBRARY_SCHEMA_VERSION, revision: "", publicationId: null, games: {}, notes: {}, assets: {} }), []);
   const resolvedState = state ?? { base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [] };
   const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
+  const canAddBlob = useCallback((byteLength: number): string | null => {
+    if (!Number.isSafeInteger(byteLength) || byteLength < 0) return "Некорректный размер файла";
+    const base64CodeUnits = 4 * Math.ceil(byteLength / 3);
+    const conservativeMetadataCodeUnits = 4_096;
+    const projectedBytes = usage.bytes + 2 * (base64CodeUnits + conservativeMetadataCodeUnits);
+    return projectedBytes >= SAFARI_SAFE_BUDGET_BYTES * 0.95 ? "Файл не помещается в локальное хранилище Safari" : null;
+  }, [usage.bytes]);
+  const resolveAssetUrl = useCallback((assetId: string): string | null => {
+    const asset = resolvedState.effective.assets[assetId];
+    if (!asset) return null;
+    return assetDataUrl(asset, resolvedState.patch.blobs[assetId]) ?? publishedAssetUrl(asset, import.meta.env.BASE_URL);
+  }, [resolvedState.effective.assets, resolvedState.patch.blobs]);
   const value = useMemo<LibraryContextValue>(() => ({
     ...resolvedState,
     loading,
@@ -382,6 +420,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     usage,
     storageEstimate,
     games: resolvedState.effective.games,
+    canAddBlob,
+    resolveAssetUrl,
     saveGame,
     deleteGame,
     moveGame,
@@ -392,7 +432,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     importPatch,
     undoLast,
     downloadCorruptedPatch,
-  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch]);
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }

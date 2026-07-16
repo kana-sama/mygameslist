@@ -18,6 +18,7 @@ export interface ImagePickerProps {
   label?: string;
   alt?: string;
   currentPreviewUrl?: string | null;
+  canAddBlob?: (byteLength: number) => string | null;
   onPrepare: (image: PreparedImage) => boolean | void | Promise<boolean | void>;
   onDraftChange?: (dirty: boolean) => void;
   onRemove?: () => void;
@@ -33,6 +34,7 @@ export function ImagePicker({
   label = mode === "cover" ? "Обложка" : "Изображение",
   alt = "",
   currentPreviewUrl,
+  canAddBlob,
   onPrepare,
   onDraftChange,
   onRemove,
@@ -48,7 +50,7 @@ export function ImagePicker({
   const processFile = async (file: File | undefined) => {
     if (!file || disabled || processing.current) return;
     setError(null);
-    if (!file.type.startsWith("image/")) {
+    if (file.type && !file.type.startsWith("image/")) {
       setError("Выберите изображение, а не другой тип файла.");
       return;
     }
@@ -59,6 +61,12 @@ export function ImagePicker({
     try {
       const imageAlt = alt.trim() || file.name.replace(/\.[^.]+$/, "");
       const optimized = mode === "cover" ? await optimizeCover(file, imageAlt) : await optimizeNoteImage(file, imageAlt);
+      if (optimized.asset.kind !== undefined) throw new Error("Не удалось подготовить изображение");
+      const storageError = canAddBlob?.(optimized.byteLength);
+      if (storageError) {
+        setError(storageError);
+        return;
+      }
       const prepared: PreparedImage = {
         clientId: crypto.randomUUID(),
         mime: "image/webp",

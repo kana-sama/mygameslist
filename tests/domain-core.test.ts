@@ -88,6 +88,22 @@ describe("patch lifecycle", () => {
     expect(validatePatch(patch).ok).toBe(false);
   });
 
+  it("requires root set values to use the entity ID from their operation path", () => {
+    const base = empty(); const current = structuredClone(base); current.games[GAME_ID] = game();
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "create" });
+    const operation = structuredClone(patch.operations[`/games/${GAME_ID}`]);
+    const cases = [
+      { path: `/games/${GAME_ID}`, valueId: "22222222-2222-4222-8222-222222222222" },
+      { path: "/notes/33333333-3333-4333-8333-333333333333", valueId: "44444444-4444-4444-8444-444444444444" },
+      { path: `/assets/${"a".repeat(64)}`, valueId: "b".repeat(64) },
+    ];
+
+    for (const item of cases) {
+      const candidate = { ...patch, operations: { [item.path]: { ...operation, value: { id: item.valueId } } } };
+      expect(validatePatch(candidate).issues).toContainEqual(expect.objectContaining({ message: "ID сущности должен совпадать с ID в пути" }));
+    }
+  });
+
   it("rejects collection entities and legacy schema patches", () => {
     const base = empty(); base.games[GAME_ID] = game();
     const patch = diffLibrary(base, { ...base, games: { [GAME_ID]: { ...game(), title: "Local" } } }, { changedAt: NOW, transactionId: "title" });

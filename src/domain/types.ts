@@ -36,7 +36,13 @@ export interface LinkAttachment {
   label: string;
 }
 
-export type NoteAttachment = ImageAttachment | LinkAttachment;
+export interface FileAttachment {
+  type: "file";
+  assetId: string;
+  label: string;
+}
+
+export type NoteAttachment = ImageAttachment | LinkAttachment | FileAttachment;
 
 export interface Note {
   id: string;
@@ -48,7 +54,8 @@ export interface Note {
   updatedAt: string;
 }
 
-export interface Asset {
+/** Inline WebP records published by older versions remain readable. */
+export interface LegacyImageAsset {
   id: string;
   mime: "image/webp";
   width: number;
@@ -56,7 +63,35 @@ export interface Asset {
   base64: string;
   alt: string;
   originalName: string;
+  kind?: never;
+  byteLength?: never;
 }
+
+export interface ImageAsset {
+  id: string;
+  kind: "image";
+  mime: "image/webp";
+  width: number;
+  height: number;
+  byteLength: number;
+  alt: string;
+  originalName: string;
+  base64?: never;
+}
+
+export interface FileAsset {
+  id: string;
+  kind: "file";
+  mime: string;
+  byteLength: number;
+  originalName: string;
+  width?: never;
+  height?: never;
+  alt?: never;
+  base64?: never;
+}
+
+export type Asset = LegacyImageAsset | ImageAsset | FileAsset;
 
 export interface LibraryDatabase {
   schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
@@ -76,11 +111,20 @@ export interface PatchOperation {
   transactionId: string;
 }
 
-export interface PatchEnvelope {
+export interface PatchEnvelopeV1 {
   patchVersion: 1;
   schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
   baseRevision: string;
   operations: Record<string, PatchOperation>;
+}
+
+/** Browser state and exported patches always use this normalized wire shape. */
+export interface PatchEnvelope {
+  patchVersion: 2;
+  schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
+  baseRevision: string;
+  operations: Record<string, PatchOperation>;
+  blobs: Record<string, string>;
 }
 
 export interface PatchConflict {

@@ -11,6 +11,7 @@ export interface CatalogPageProps {
   games: Game[];
   assets: Record<string, Asset>;
   onOpenGame?: (gameId: string) => void;
+  resolveAssetUrl?: (assetId: string) => string | null;
 }
 
 function initialFilters(): CatalogFilters {
@@ -35,7 +36,7 @@ function FilterChecks({ label, values, selected, onChange, renderLabel = (value)
   );
 }
 
-export function CatalogPage({ games, assets, onOpenGame }: CatalogPageProps) {
+export function CatalogPage({ games, assets, onOpenGame, resolveAssetUrl }: CatalogPageProps) {
   const [filters, setFilters] = useState<CatalogFilters>(initialFilters);
   const platforms = useMemo(() => [...new Set(games.flatMap((game) => game.platforms))].sort((a, b) => a.localeCompare(b, "ru")), [games]);
   const tags = useMemo(() => [...new Set(games.flatMap((game) => game.tags))].sort((a, b) => a.localeCompare(b, "ru")), [games]);
@@ -75,7 +76,7 @@ export function CatalogPage({ games, assets, onOpenGame }: CatalogPageProps) {
         </div>
         <label className="search-field"><Icon name="search" /><input aria-label="Поиск игр" onChange={(event) => setFilters((value) => ({ ...value, q: event.currentTarget.value }))} placeholder="Поиск…" type="search" value={filters.q} />{filters.q ? <button aria-label="Очистить поиск" onClick={() => setFilters((value) => ({ ...value, q: "" }))} type="button"><Icon name="close" size={17} /></button> : null}</label>
       </section>
-      {filtered.length ? <div className="catalog-list">{filtered.map((game) => <GameCard asset={game.coverAssetId ? assets[game.coverAssetId] : undefined} game={game} key={game.id} onOpen={onOpenGame} variant="list" />)}</div> : <div className="empty-state"><span className="empty-state__icon"><Icon name={games.length ? "search" : "gamepad"} /></span><h2>{games.length ? "Ничего не найдено" : "Добавьте первую игру"}</h2><p>{games.length ? "Попробуйте изменить запрос или убрать часть фильтров." : "Используйте постоянную кнопку в хедере — игра сразу появится здесь и в тирлисте."}</p>{games.length ? <button className="button button--secondary" onClick={clearFilters} type="button">Сбросить фильтры</button> : null}</div>}
+      {filtered.length ? <div className="catalog-list">{filtered.map((game) => <GameCard asset={game.coverAssetId ? assets[game.coverAssetId] : undefined} game={game} key={game.id} onOpen={onOpenGame} resolveAssetUrl={resolveAssetUrl} variant="list" />)}</div> : <div className="empty-state"><span className="empty-state__icon"><Icon name={games.length ? "search" : "gamepad"} /></span><h2>{games.length ? "Ничего не найдено" : "Добавьте первую игру"}</h2><p>{games.length ? "Попробуйте изменить запрос или убрать часть фильтров." : "Используйте постоянную кнопку в хедере — игра сразу появится здесь и в тирлисте."}</p>{games.length ? <button className="button button--secondary" onClick={clearFilters} type="button">Сбросить фильтры</button> : null}</div>}
     </div>
   );
 }

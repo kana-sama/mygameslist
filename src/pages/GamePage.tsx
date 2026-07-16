@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { optimizeNoteImage } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
@@ -8,9 +8,19 @@ import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView, PlainMarkdownTextarea } from "../components/Markdown";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { TagInput } from "../components/TagInput";
-import { formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
+import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
 
-export type EditableAttachment = NoteAttachment | { type: "pending-image"; image: PreparedImage; alt: string };
+export interface PreparedFile {
+  clientId: string;
+  mime: string;
+  base64: string;
+  originalName: string;
+  byteLength: number;
+}
+
+export type EditableAttachment = NoteAttachment
+  | { type: "pending-image"; image: PreparedImage; alt: string }
+  | { type: "pending-file"; file: PreparedFile; label: string };
 export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; rank: number }
 export interface GameSaveInput {
   id?: string;
@@ -46,6 +56,7 @@ async function prepareNoteAttachment(file: File): Promise<EditableAttachment> {
   const originalName = file.name || "clipboard-image";
   const alt = originalName.replace(/\.[^.]+$/, "") || "Вставленное изображение";
   const optimized = await optimizeNoteImage(file, alt);
+  if (optimized.asset.kind !== undefined) throw new Error("Не удалось подготовить изображение");
   return {
     type: "pending-image",
     alt,
@@ -62,6 +73,49 @@ async function prepareNoteAttachment(file: File): Promise<EditableAttachment> {
   };
 }
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("Не удалось прочитать файл"));
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("Не удалось прочитать файл"));
+        return;
+      }
+      const separator = reader.result.indexOf(",");
+      if (separator < 0) {
+        reject(new Error("Не удалось прочитать файл"));
+        return;
+      }
+      resolve(reader.result.slice(separator + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepareFileAttachment(file: File): Promise<EditableAttachment> {
+  const originalName = file.name.trim() || "Вложение";
+  return {
+    type: "pending-file",
+    label: originalName,
+    file: {
+      clientId: crypto.randomUUID(),
+      mime: file.type || "application/octet-stream",
+      base64: await readFileAsBase64(file),
+      originalName,
+      byteLength: file.size,
+    },
+  };
+}
+
+function pendingAttachmentBytes(attachments: EditableAttachment[]): number {
+  return attachments.reduce((total, attachment) => {
+    if (attachment.type === "pending-image") return total + attachment.image.byteLength;
+    if (attachment.type === "pending-file") return total + attachment.file.byteLength;
+    return total;
+  }, 0);
+}
+
 export interface GamePageProps {
   mode: "game" | "new";
   game?: Game;
@@ -70,19 +124,34 @@ export interface GamePageProps {
   platformSuggestions?: string[];
   tagSuggestions?: string[];
   storageLocked?: boolean;
+  canAddBlob?: (byteLength: number) => string | null;
+  resolveAssetUrl?: (assetId: string) => string | null;
   onCancel?: () => void;
   onSave: (input: GameSaveInput) => void | Promise<void>;
   onDelete?: (gameId: string) => void | Promise<void>;
 }
 
-function AttachmentView({ attachment, assets, onRemove }: { attachment: EditableAttachment; assets: Record<string, Asset>; onRemove?: () => void }) {
+function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: EditableAttachment; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
   if (attachment.type === "image" || attachment.type === "pending-image") {
     const asset = attachment.type === "image" ? assets[attachment.assetId] : undefined;
-    const url = attachment.type === "image" ? getAssetUrl(asset) : `data:image/webp;base64,${attachment.image.base64}`;
+    const url = attachment.type === "image" ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset) : `data:image/webp;base64,${attachment.image.base64}`;
     if (!url) return null;
-    const alt = attachment.alt || asset?.alt || "Изображение к заметке";
+    const alt = attachment.alt || (asset && "alt" in asset ? asset.alt : "") || "Изображение к заметке";
     const dimensions = attachment.type === "image" ? asset : attachment.image;
-    return <div className="note-attachment-shell"><figure className="note-attachment note-attachment--image"><img alt={alt} height={dimensions?.height} loading="lazy" src={url} width={dimensions?.width} /></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>;
+    const width = dimensions && "width" in dimensions ? dimensions.width : undefined;
+    const height = dimensions && "height" in dimensions ? dimensions.height : undefined;
+    return <div className="note-attachment-shell"><figure className="note-attachment note-attachment--image"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>;
+  }
+  if (attachment.type === "file" || attachment.type === "pending-file") {
+    const asset = attachment.type === "file" ? assets[attachment.assetId] : undefined;
+    const href = attachment.type === "file"
+      ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset)
+      : `data:application/octet-stream;base64,${attachment.file.base64}`;
+    if (!href) return null;
+    const originalName = attachment.type === "pending-file" ? attachment.file.originalName : asset?.originalName || attachment.label;
+    const downloadName = attachment.label.trim() || originalName;
+    const byteLength = attachment.type === "pending-file" ? attachment.file.byteLength : typeof asset?.byteLength === "number" ? asset.byteLength : 0;
+    return <div className="note-attachment-shell note-attachment-shell--file"><a className="note-attachment note-attachment--file" download={downloadName} href={href}><Icon name="download" size={15} /><span><b>{downloadName}</b><small>{formatBytes(byteLength)}</small></span></a>{onRemove ? <button aria-label="Удалить файл" className="note-attachment-remove" onClick={onRemove} title="Удалить файл" type="button"><Icon name="close" size={14} /></button> : null}</div>;
   }
   const href = safeUrl(attachment.url);
   if (!href) return null;
@@ -97,6 +166,8 @@ function PlainNoteEditor({
   note,
   assets,
   storageLocked = false,
+  canAddBlob,
+  resolveAssetUrl,
   autoFocus = false,
   extraActions,
   onCancel,
@@ -107,6 +178,8 @@ function PlainNoteEditor({
   note: EditableNote;
   assets: Record<string, Asset>;
   storageLocked?: boolean;
+  canAddBlob?: (byteLength: number) => string | null;
+  resolveAssetUrl?: (assetId: string) => string | null;
   autoFocus?: boolean;
   extraActions?: ReactNode;
   onCancel?: () => void;
@@ -116,35 +189,58 @@ function PlainNoteEditor({
 }) {
   const noteRef = useRef(note);
   const imageQueue = useRef<Promise<void>>(Promise.resolve());
+  const imageInput = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const attachmentFirstAction = useRef<HTMLButtonElement>(null);
   const pendingJobs = useRef(0);
   const active = useRef(true);
   const processingChange = useRef(onProcessingChange);
   const [processingImages, setProcessingImages] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const [youtubeInputOpen, setYoutubeInputOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const youtubeInputId = useId();
+  const attachmentPickerId = useId();
   noteRef.current = note;
   processingChange.current = onProcessingChange;
   useEffect(() => {
     active.current = true;
     return () => { active.current = false; if (pendingJobs.current > 0) processingChange.current?.(false); };
   }, []);
+  useEffect(() => {
+    if (attachmentPickerOpen) attachmentFirstAction.current?.focus();
+  }, [attachmentPickerOpen]);
 
   const addImageFiles = (files: File[]) => {
+    if (!files.length) return;
+    setAttachmentError(null);
     const wasIdle = pendingJobs.current === 0;
     pendingJobs.current += 1;
     if (wasIdle) { setProcessingImages(true); processingChange.current?.(true); }
     const task = imageQueue.current.then(async () => {
       const prepared: EditableAttachment[] = [];
+      let preparedBytes = 0;
       for (const file of files) {
-        try { prepared.push(await prepareNoteAttachment(file)); }
-        catch (reason) { if (active.current) setImageError(reason instanceof Error ? reason.message : "Не удалось обработать изображение"); }
+        try {
+          const attachment = await prepareNoteAttachment(file);
+          if (attachment.type !== "pending-image") throw new Error("Не удалось подготовить изображение");
+          const storageError = canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + preparedBytes + attachment.image.byteLength);
+          if (storageError) {
+            if (active.current) setAttachmentError(storageError);
+            continue;
+          }
+          prepared.push(attachment);
+          preparedBytes += attachment.image.byteLength;
+        }
+        catch (reason) { if (active.current) setAttachmentError(reason instanceof Error ? reason.message : "Не удалось обработать изображение"); }
       }
       if (prepared.length && active.current) {
         const current = noteRef.current;
-        onChange({ ...current, attachments: [...current.attachments, ...prepared] });
+        const next = { ...current, attachments: [...current.attachments, ...prepared] };
+        noteRef.current = next;
+        onChange(next);
       }
     });
     imageQueue.current = task.catch(() => undefined);
@@ -152,6 +248,45 @@ function PlainNoteEditor({
       pendingJobs.current -= 1;
       if (pendingJobs.current === 0 && active.current) { setProcessingImages(false); processingChange.current?.(false); }
     }).catch(() => undefined);
+  };
+
+  const addFileFiles = (files: File[]) => {
+    if (!files.length) return;
+    const selectedBytes = files.reduce((total, file) => total + file.size, 0);
+    const preflightError = canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + selectedBytes);
+    if (preflightError) {
+      setAttachmentError(preflightError);
+      return;
+    }
+    setAttachmentError(null);
+    const wasIdle = pendingJobs.current === 0;
+    pendingJobs.current += 1;
+    if (wasIdle) { setProcessingImages(true); processingChange.current?.(true); }
+    const task = imageQueue.current.then(async () => {
+      const prepared: EditableAttachment[] = [];
+      for (const file of files) {
+        try { prepared.push(await prepareFileAttachment(file)); }
+        catch (reason) { if (active.current) setAttachmentError(reason instanceof Error ? reason.message : "Не удалось прочитать файл"); }
+      }
+      if (prepared.length && active.current) {
+        const current = noteRef.current;
+        const next = { ...current, attachments: [...current.attachments, ...prepared] };
+        noteRef.current = next;
+        onChange(next);
+      }
+    });
+    imageQueue.current = task.catch(() => undefined);
+    void task.finally(() => {
+      pendingJobs.current -= 1;
+      if (pendingJobs.current === 0 && active.current) { setProcessingImages(false); processingChange.current?.(false); }
+    }).catch(() => undefined);
+  };
+
+  const selectFiles = (event: ChangeEvent<HTMLInputElement>, kind: "image" | "file") => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (kind === "image") addImageFiles(files);
+    else addFileFiles(files);
   };
 
   const closeYouTubeInput = () => {
@@ -184,7 +319,7 @@ function PlainNoteEditor({
         className="plain-markdown-textarea"
         imagesDisabled={storageLocked}
         onChange={(bodyMarkdown) => onChange({ ...noteRef.current, bodyMarkdown })}
-        onImageError={(error) => setImageError(error.message)}
+        onImageError={(error) => setAttachmentError(error.message)}
         onImageFiles={addImageFiles}
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && onSubmit && !processingImages) { event.preventDefault(); onSubmit(); }
@@ -194,10 +329,13 @@ function PlainNoteEditor({
         rows={7}
         value={note.bodyMarkdown}
       />
-      {note.attachments.length ? <div className="note-attachments note-attachments--editing">{note.attachments.map((attachment, index) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${index}`} onRemove={() => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} />)}</div> : null}
-      {imageError ? <p className="field-error note-image-error" role="alert">{imageError}</p> : null}
+      {note.attachments.length ? <div className="note-attachments note-attachments--editing">{note.attachments.map((attachment, index) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${index}`} onRemove={() => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+      {attachmentError ? <p className="field-error note-image-error" role="alert">{attachmentError}</p> : null}
       {youtubeInputOpen ? <div className="note-youtube-input-row" id={youtubeInputId}><input aria-invalid={youtubeError ? "true" : undefined} aria-label="Ссылка на YouTube" autoFocus onChange={(event) => { setYoutubeUrl(event.currentTarget.value); setYoutubeError(null); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addYouTubeAttachment(); } if (event.key === "Escape") { event.preventDefault(); closeYouTubeInput(); } }} placeholder="Ссылка на YouTube" value={youtubeUrl} /><button aria-label="Прикрепить видео YouTube" onClick={addYouTubeAttachment} title="Прикрепить" type="button"><Icon name="check" size={15} /></button><button aria-label="Закрыть поле ссылки YouTube" onClick={closeYouTubeInput} title="Закрыть" type="button"><Icon name="close" size={15} /></button>{youtubeError ? <p className="field-error" role="alert">{youtubeError}</p> : null}</div> : null}
-      <footer className="note-editor-actions"><div>{extraActions}</div><div><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={onSubmit} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
+      <input accept="image/*" aria-label="Выбрать изображения" className="note-attachment-file-input" disabled={storageLocked || processingImages} hidden multiple onChange={(event) => selectFiles(event, "image")} ref={imageInput} type="file" />
+      <input aria-label="Выбрать файлы" className="note-attachment-file-input" disabled={storageLocked || processingImages} hidden multiple onChange={(event) => selectFiles(event, "file")} ref={fileInput} type="file" />
+      {attachmentPickerOpen ? <div className="note-attachment-picker-row" id={attachmentPickerId}><button disabled={storageLocked || processingImages} onClick={() => imageInput.current?.click()} ref={attachmentFirstAction} type="button"><Icon name="image" size={14} />Изображение</button><button disabled={storageLocked || processingImages} onClick={() => fileInput.current?.click()} type="button"><Icon name="note" size={14} />Файл</button></div> : null}
+      <footer className="note-editor-actions"><div>{extraActions}</div><div><button aria-controls={attachmentPickerId} aria-expanded={attachmentPickerOpen} aria-label="Добавить вложение" disabled={storageLocked || processingImages} onClick={() => { setAttachmentPickerOpen((open) => !open); setAttachmentError(null); }} title="Добавить изображение или файл" type="button"><Icon name="plus" size={16} /></button><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={onSubmit} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
     </article>
   );
 }
@@ -260,13 +398,15 @@ function InlineValuesField({ active, ariaLabel, values, suggestions, prefix = ""
   }}><TagInput autoFocus label={ariaLabel} onChange={(next) => { setDraft(next); void onCommit(next); }} prefix={prefix} suggestions={suggestions} values={draft} /></div>;
 }
 
-function InlineNoteCard({ note, index, count, editing, assets, storageLocked, onEdit, onChange, onSave, onCancel, onDelete, onMove }: {
+function InlineNoteCard({ note, index, count, editing, assets, storageLocked, canAddBlob, resolveAssetUrl, onEdit, onChange, onSave, onCancel, onDelete, onMove }: {
   note: EditableNote;
   index: number;
   count: number;
   editing: boolean;
   assets: Record<string, Asset>;
   storageLocked: boolean;
+  canAddBlob?: (byteLength: number) => string | null;
+  resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onChange: (note: EditableNote) => void;
   onSave: (note: EditableNote) => void;
@@ -274,14 +414,14 @@ function InlineNoteCard({ note, index, count, editing, assets, storageLocked, on
   onDelete: () => void;
   onMove: (targetIndex: number) => void;
 }) {
-  if (editing) return <PlainNoteEditor assets={assets} autoFocus extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} storageLocked={storageLocked} />;
+  if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />;
 
   return (
     <article aria-label="Редактировать заметку" className="note-card" onClick={(event) => { if (!(event.target as Element).closest("a, button")) onEdit(); }} onKeyDown={(event) => {
       if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(); }
     }} tabIndex={0}>
       {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} /> : null}
-      {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} />)}</div> : null}
+      {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
     </article>
   );
 }
@@ -319,7 +459,7 @@ function useUnsavedChangesGuard(dirty: boolean) {
   }, [dirty]);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, onSave, onDelete }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<EditableNote | null>(null);
@@ -328,7 +468,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [coverDraftDirty, setCoverDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cover = game.coverAssetId ? getAssetUrl(assets[game.coverAssetId]) : null;
+  const cover = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(assets[game.coverAssetId]) : null;
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
   const persist = async (overrides: Partial<GameSaveInput> = {}): Promise<boolean> => {
@@ -393,7 +533,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     <div className="page game-view-page">
       <div className="game-view-layout">
         <aside aria-label={game.title} className="game-sidebar">
-          {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} currentPreviewUrl={cover} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className="game-sidebar__cover" onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
+          {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} canAddBlob={canAddBlob} currentPreviewUrl={cover} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className="game-sidebar__cover" onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
           <h1><InlineTextField active={editingField === "title"} ariaLabel="Название" triggerAriaLabel={game.title} onBegin={() => !saving && setEditingField("title")} onCommit={async (title) => {
             if (!title.trim()) { setError("Название не может быть пустым."); return false; }
             return persist({ title: title.trim() });
@@ -409,14 +549,14 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section aria-label="Заметки" className="game-notes">
-          {visibleNotes.length ? <MasonryGrid className="notes-list">{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} storageLocked={storageLocked} />)}</MasonryGrid> : null}
+          {visibleNotes.length ? <MasonryGrid className="notes-list">{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />)}</MasonryGrid> : null}
         </section>
       </div>
     </div>
   );
 }
 
-function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, onCancel, onSave }: GamePageProps) {
+function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onCancel, onSave }: GamePageProps) {
   const [title, setTitle] = useState(""); const [platforms, setPlatforms] = useState<string[]>([]); const [tags, setTags] = useState<string[]>([]);
   const [status, setStatus] = useState<StatusId>("wishlist"); const [tierId, setTierId] = useState<TierId>("unranked");
   const [pendingCover, setPendingCover] = useState<PreparedImage | null>(null); const [draftNotes, setDraftNotes] = useState<EditableNote[]>([]);
@@ -443,9 +583,9 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   return (
     <div className="page game-new-page">
       <form aria-label="Новая игра" className="game-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-        <section className="form-card form-card--cover"><ImagePicker alt={title ? `Обложка ${title}` : "Обложка игры"} currentPreviewUrl={coverPreview} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={(image) => { setPendingCover(image); setDirty(true); }} onRemove={() => { setPendingCover(null); setCoverDraftDirty(false); setDirty(true); }} /></section>
+        <section className="form-card form-card--cover"><ImagePicker alt={title ? `Обложка ${title}` : "Обложка игры"} canAddBlob={canAddBlob} currentPreviewUrl={coverPreview} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={(image) => { setPendingCover(image); setDirty(true); }} onRemove={() => { setPendingCover(null); setCoverDraftDirty(false); setDirty(true); }} /></section>
         <section className="form-card form-card--main"><label className="field-group"><span className="field-label">Название *</span><input autoFocus onChange={(event) => change(setTitle)(event.currentTarget.value)} placeholder="Например, DuckTales" value={title} /></label><div className="form-grid"><TagInput label="Платформы" onChange={change(setPlatforms)} placeholder="NES, Switch, PC…" suggestions={platformSuggestions} values={platforms} /><TagInput label="Теги" onChange={change(setTags)} placeholder="platformer, mario…" prefix="#" suggestions={tagSuggestions} values={tags} /><label className="field-group"><span className="field-label">Статус</span><span className="select-wrap"><select onChange={(event) => change(setStatus)(event.currentTarget.value as StatusId)} value={status}>{STATUS_IDS.map((item) => <option key={item} value={item}>{STATUS_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label><label className="field-group"><span className="field-label">Тир</span><span className="select-wrap"><select onChange={(event) => change(setTierId)(event.currentTarget.value as TierId)} value={tierId}>{TIER_IDS.map((item) => <option key={item} value={item}>{TIER_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label></div></section>
-        <section aria-label="Заметки" className="form-card--wide notes-editor"><button className="button button--ghost note-add-button" disabled={storageLocked} onClick={() => { setDraftNotes((values) => [...values, { clientId: crypto.randomUUID(), bodyMarkdown: "", attachments: [], rank: Math.max(0, ...values.map((item) => item.rank)) + 1024 }]); setDirty(true); }} type="button"><Icon name="plus" size={15} />Добавить заметку</button>{draftNotes.length ? <MasonryGrid className="note-editors-grid">{draftNotes.map((note, index) => <PlainNoteEditor assets={assets} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === draftNotes.length - 1} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} storageLocked={storageLocked} />)}</MasonryGrid> : null}</section>
+        <section aria-label="Заметки" className="form-card--wide notes-editor"><button className="button button--ghost note-add-button" disabled={storageLocked} onClick={() => { setDraftNotes((values) => [...values, { clientId: crypto.randomUUID(), bodyMarkdown: "", attachments: [], rank: Math.max(0, ...values.map((item) => item.rank)) + 1024 }]); setDirty(true); }} type="button"><Icon name="plus" size={15} />Добавить заметку</button>{draftNotes.length ? <MasonryGrid className="note-editors-grid">{draftNotes.map((note, index) => <PlainNoteEditor assets={assets} canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === draftNotes.length - 1} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />)}</MasonryGrid> : null}</section>
         {error ? <p className="field-error form-error" role="alert">{error}</p> : null}<footer className="form-actions"><button className="button button--secondary" onClick={() => { if ((!dirty && !coverDraftDirty) || window.confirm("Отменить несохранённые изменения?")) onCancel?.(); }} type="button">Отмена</button><button className="button button--primary" disabled={saving || processingNoteIds.size > 0 || coverDraftDirty} type="submit"><Icon name="check" size={18} />{saving ? "Сохраняем…" : "Сохранить"}</button></footer>
       </form>
     </div>
