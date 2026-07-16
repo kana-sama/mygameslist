@@ -1,0 +1,367 @@
+#!/usr/bin/env node
+
+/**
+ * Apply a browser-produced PatchEnvelopeV1 and create a local commit.
+ *
+ * Browser command contract (the delimiter is quoted on purpose):
+ *
+ *   node scripts/publish-patch.mjs <<'MYLIB_PATCH'
+ *   <base64(gzip(UTF8(JSON.stringify(patchEnvelope))))>
+ *   MYLIB_PATCH
+ *
+ * Raw JSON is accepted too. A downloaded raw JSON/base64 file can be passed as
+ * `--file /path/to/file`. No payload field is ever interpreted as a path,
+ * remote, branch, argument, or command. This program never invokes git push.
+ */
+
+import { randomUUID } from "node:crypto";
+import { closeSync, existsSync, openSync, readFileSync, readSync, renameSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { gunzipSync } from "node:zlib";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+import { computeRevision, hashCanonical, validateLibrary } from "./validate-data.mjs";
+
+export const MISSING_VALUE_HASH = "0".repeat(64);
+const MAX_INPUT_BYTES = 16 * 1024 * 1024;
+const ROOTS = new Set(["games", "notes", "collections", "collectionItems", "assets"]);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SHA256_RE = /^[0-9a-f]{64}$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+const FIELDS = {
+  games: new Set(["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"]),
+  notes: new Set(["bodyMarkdown", "attachments", "rank"]),
+  collections: new Set(["title", "descriptionMarkdown"]),
+  collectionItems: new Set(["collectionId", "gameId", "rank"]),
+  assets: new Set(),
+};
+
+export function decodePatchInput(input) {
+  let source = Buffer.isBuffer(input) ? input : Buffer.from(input);
+  if (source.length > MAX_INPUT_BYTES) throw new Error("Patch input is larger than 16 MiB");
+  let text = source.toString("utf8").replace(/^\uFEFF/, "").trim();
+  if (!text) throw new Error("Patch input is empty");
+
+  if (!text.startsWith("{")) {
+    const encoded = text.replace(/[\t\n\r ]/g, "");
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+      throw new Error("Patch is neither raw JSON nor canonical base64");
+    }
+    source = Buffer.from(encoded, "base64");
+    if (source[0] === 0x1f && source[1] === 0x8b) source = gunzipSync(source, { maxOutputLength: MAX_INPUT_BYTES });
+    text = source.toString("utf8").replace(/^\uFEFF/, "").trim();
+  }
+
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch (cause) {
+    throw new Error(`Patch payload is not valid JSON: ${cause.message}`);
+  }
+  return value;
+}
+
+export function validatePatchEnvelope(patch, database) {
+  if (!isPlainObject(patch)) throw new Error("Patch envelope must be an object");
+  exactKeys(patch, ["patchVersion", "schemaVersion", "baseRevision", "operations"], "patch");
+  if (patch.patchVersion !== 1) throw new Error("patch.patchVersion must equal 1");
+  if (patch.schemaVersion !== 1 || patch.schemaVersion !== database.schemaVersion) {
+    throw new Error("Patch schemaVersion is not compatible with the static database");
+  }
+  if (typeof patch.baseRevision !== "string" || patch.baseRevision !== database.revision) {
+    throw new Error(`Stale patch: base revision ${JSON.stringify(patch.baseRevision)} does not match ${JSON.stringify(database.revision)}`);
+  }
+  if (!isPlainObject(patch.operations)) throw new Error("patch.operations must be an object map");
+  if (Object.keys(patch.operations).length === 0) throw new Error("Patch contains no operations");
+  if (Object.keys(patch.operations).length > 100_000) throw new Error("Patch contains too many operations");
+
+  const parsed = [];
+  for (const [pointer, operation] of Object.entries(patch.operations)) {
+    const tokens = parseOperationPath(pointer);
+    validateOperation(operation, pointer);
+    const current = readPath(database, tokens);
+    if (current.exists !== operation.baseExists) throw new Error(`${pointer}: base existence guard failed`);
+    const expectedHash = current.exists ? hashCanonical(current.value) : MISSING_VALUE_HASH;
+    if (operation.baseHash.toLowerCase() !== expectedHash) throw new Error(`${pointer}: base hash guard failed`);
+    parsed.push({ pointer, tokens, operation });
+  }
+
+  const paths = new Set(parsed.map(({ pointer }) => pointer));
+  for (const { pointer, tokens } of parsed) {
+    if (tokens.length === 3 && paths.has(`/${escapePointer(tokens[0])}/${escapePointer(tokens[1])}`)) {
+      throw new Error(`${pointer}: overlaps an entity-level operation`);
+    }
+  }
+  return parsed;
+}
+
+export function applyPatch(database, patch) {
+  validateLibrary(database);
+  const parsed = validatePatchEnvelope(patch, database);
+  const next = structuredClone(database);
+  const gameTimes = new Map();
+  const noteTimes = new Map();
+  const collectionTimes = new Map();
+  const remember = (map, id, changedAt) => {
+    if (!map.has(id) || map.get(id) < changedAt) map.set(id, changedAt);
+  };
+
+  for (const { tokens, operation } of parsed.sort((left, right) => left.pointer.localeCompare(right.pointer))) {
+    const [root, id, field] = tokens;
+    if (field === undefined) {
+      if (operation.operation === "delete") delete next[root][id];
+      else next[root][id] = structuredClone(operation.value);
+    } else {
+      if (!Object.hasOwn(next[root], id) || !isPlainObject(next[root][id])) {
+        throw new Error(`/${root}/${id}/${field}: parent entity does not exist`);
+      }
+      if (operation.operation === "delete") delete next[root][id][field];
+      else next[root][id][field] = structuredClone(operation.value);
+    }
+    if (root === "games") remember(gameTimes, id, operation.changedAt);
+    if (root === "notes") {
+      remember(noteTimes, id, operation.changedAt);
+      const note = next.notes[id] ?? database.notes[id];
+      if (note) remember(gameTimes, note.gameId, operation.changedAt);
+    }
+    if (root === "collections") remember(collectionTimes, id, operation.changedAt);
+    if (root === "collectionItems") {
+      const item = next.collectionItems[id] ?? database.collectionItems[id];
+      if (item) {
+        remember(collectionTimes, item.collectionId, operation.changedAt);
+        remember(gameTimes, item.gameId, operation.changedAt);
+      }
+    }
+  }
+
+  for (const [id, changedAt] of gameTimes) if (next.games[id]) next.games[id].updatedAt = changedAt;
+  for (const [id, changedAt] of noteTimes) if (next.notes[id]) next.notes[id].updatedAt = changedAt;
+  for (const [id, changedAt] of collectionTimes) if (next.collections[id]) next.collections[id].updatedAt = changedAt;
+  next.publicationId = randomUUID();
+  next.revision = "";
+  next.revision = computeRevision(next);
+  validateLibrary(next);
+  return next;
+}
+
+function parseOperationPath(pointer) {
+  if (typeof pointer !== "string" || !pointer.startsWith("/") || pointer.includes("\u0000")) {
+    throw new Error(`${pointer}: operation path must be a JSON Pointer`);
+  }
+  const rawTokens = pointer.slice(1).split("/");
+  if (rawTokens.length < 2 || rawTokens.length > 3 || rawTokens.some((token) => /~(?:[^01]|$)/.test(token))) {
+    throw new Error(`${pointer}: expected /root/id or /root/id/field`);
+  }
+  const tokens = rawTokens.map((token) => token.replace(/~1/g, "/").replace(/~0/g, "~"));
+  if (tokens.some((token) => token === "" || PROTOTYPE_KEYS.has(token))) throw new Error(`${pointer}: contains an unsafe path token`);
+  const [root, id, field] = tokens;
+  if (!ROOTS.has(root)) throw new Error(`${pointer}: root is not patchable`);
+  if (root === "assets" ? !SHA256_RE.test(id) : !UUID_RE.test(id)) throw new Error(`${pointer}: entity id is invalid`);
+  if (field !== undefined && !FIELDS[root].has(field)) throw new Error(`${pointer}: field is not patchable`);
+  return tokens;
+}
+
+function validateOperation(operation, pointer) {
+  if (!isPlainObject(operation)) throw new Error(`${pointer}: operation must be an object`);
+  const common = ["operation", "baseExists", "baseHash", "changedAt", "transactionId"];
+  exactKeys(operation, operation.operation === "set" ? [...common, "value"] : common, pointer);
+  if (operation.operation !== "set" && operation.operation !== "delete") throw new Error(`${pointer}: unsupported operation`);
+  if (typeof operation.baseExists !== "boolean") throw new Error(`${pointer}: baseExists must be boolean`);
+  if (typeof operation.baseHash !== "string" || !SHA256_RE.test(operation.baseHash)) {
+    throw new Error(`${pointer}: baseHash must be a SHA-256 hash`);
+  }
+  if (!operation.baseExists && operation.baseHash !== MISSING_VALUE_HASH) {
+    throw new Error(`${pointer}: a missing base must use the zero hash`);
+  }
+  if (typeof operation.changedAt !== "string" || !ISO_DATE_RE.test(operation.changedAt) || Number.isNaN(Date.parse(operation.changedAt))) {
+    throw new Error(`${pointer}: changedAt must be an ISO-8601 UTC timestamp`);
+  }
+  if (typeof operation.transactionId !== "string" || operation.transactionId.trim() === "" || operation.transactionId.length > 200) {
+    throw new Error(`${pointer}: transactionId must be a short non-empty string`);
+  }
+  if (operation.operation === "set" && operation.value === undefined) throw new Error(`${pointer}: set requires value`);
+}
+
+function readPath(database, tokens) {
+  let value = database;
+  for (const token of tokens) {
+    if (!isPlainObject(value) || !Object.hasOwn(value, token)) return { exists: false, value: undefined };
+    value = value[token];
+  }
+  return { exists: true, value };
+}
+
+function escapePointer(token) {
+  return token.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+
+function exactKeys(value, expected, at) {
+  const wanted = new Set(expected);
+  for (const key of Object.keys(value)) if (!wanted.has(key)) throw new Error(`${at}: unknown field ${key}`);
+  for (const key of wanted) if (!Object.hasOwn(value, key)) throw new Error(`${at}: missing field ${key}`);
+}
+
+function isPlainObject(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function git(root, args, options = {}) {
+  const result = spawnSync("git", args, { cwd: root, encoding: "utf8", stdio: options.inherit ? "inherit" : "pipe" });
+  if (result.status !== 0 && !options.allowFailure) {
+    const detail = result.stderr?.trim() || result.stdout?.trim() || `exit ${result.status}`;
+    throw new Error(`git ${args.join(" ")} failed: ${detail}`);
+  }
+  return result;
+}
+
+function run(root, command, args) {
+  const result = spawnSync(command, args, { cwd: root, stdio: "inherit" });
+  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with exit ${result.status}`);
+}
+
+/** A fresh clone has no node_modules. Install the locked dependencies only when Vite is absent. */
+export function ensureBuildDependencies(root, commandRunner = run) {
+  if (existsSync(path.join(root, "node_modules", "vite", "package.json"))) return false;
+  process.stdout.write("Vite is not installed; running npm ci from package-lock.json…\n");
+  commandRunner(root, "npm", ["ci"]);
+  return true;
+}
+
+function validateAndBuild(root) {
+  run(root, "npm", ["run", "data:validate"]);
+  run(root, "npm", ["run", "build"]);
+}
+
+function startPreview(root) {
+  process.stdout.write("\nCommit created. Preview starts now; press Ctrl-C when finished.\n");
+  process.stdout.write("Then publish manually with: git push origin main\n\n");
+  run(root, "npm", ["run", "preview", "--", "--open"]);
+}
+
+function findRepositoryRoot() {
+  const result = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
+  return result.stdout.trim();
+}
+
+function prepareRepository(root) {
+  git(root, ["rev-parse", "--verify", "HEAD"]);
+  const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"]).stdout.trim();
+  if (branch !== "main") throw new Error(`Publishing is allowed only on main (current branch: ${branch || "detached HEAD"})`);
+  assertTrackedClean(root);
+  if (git(root, ["remote", "get-url", "origin"], { allowFailure: true }).status === 0) {
+    process.stdout.write("Updating main from origin with fast-forward only…\n");
+    git(root, ["fetch", "origin", "main"], { inherit: true });
+    git(root, ["merge", "--ff-only", "origin/main"], { inherit: true });
+    assertTrackedClean(root);
+  }
+}
+
+function assertTrackedClean(root, allowedPath) {
+  const lines = git(root, ["status", "--porcelain=v1", "--untracked-files=no"]).stdout
+    .split("\n")
+    .filter(Boolean);
+  const unexpected = allowedPath ? lines.filter((line) => line.slice(3) !== allowedPath) : lines;
+  if (unexpected.length > 0) throw new Error(`Tracked files or index are not clean:\n${unexpected.join("\n")}`);
+}
+
+function confirmCommit() {
+  let descriptor;
+  try {
+    descriptor = openSync("/dev/tty", "r+");
+  } catch {
+    throw new Error("Cannot ask for confirmation without a terminal; no commit was created");
+  }
+  try {
+    writeSync(descriptor, "Create local commit ‘Update game library’? [y/N] ");
+    const buffer = Buffer.alloc(32);
+    const count = readSync(descriptor, buffer, 0, buffer.length, null);
+    return /^y(?:es)?$/i.test(buffer.subarray(0, count).toString("utf8").trim());
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+async function readPayloadArgument(args) {
+  if (args.length === 0) {
+    const chunks = [];
+    for await (const chunk of process.stdin) chunks.push(chunk);
+    return Buffer.concat(chunks);
+  }
+  if (args.length === 2 && args[0] === "--file") return readFile(path.resolve(args[1]));
+  throw new Error("Usage: node scripts/publish-patch.mjs [--file PATCH_FILE]");
+}
+
+/**
+ * Orchestrates a publication in a real Git repository.
+ *
+ * `hooks` exists only for direct module-level tests: there is deliberately no
+ * CLI flag or payload field that can disable validation, confirmation, build,
+ * or preview in the executable path.
+ */
+export function publishPatchInRepository(root, patch, hooks = {}) {
+  const installDependencies = hooks.installDependencies ?? ensureBuildDependencies;
+  const runValidationAndBuild = hooks.validateAndBuild ?? validateAndBuild;
+  const askForConfirmation = hooks.confirm ?? confirmCommit;
+  const showPreview = hooks.preview ?? startPreview;
+  prepareRepository(root);
+
+  const relativeDataPath = "public/data/library.json";
+  const dataPath = path.join(root, relativeDataPath);
+  const original = readFileSync(dataPath, "utf8");
+  const database = JSON.parse(original);
+  validateLibrary(database);
+  const next = applyPatch(database, patch);
+  const operationCount = Object.keys(patch.operations).length;
+  const tempPath = `${dataPath}.tmp-${process.pid}`;
+  let committed = false;
+
+  try {
+    writeFileSync(tempPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o644, flag: "wx" });
+    renameSync(tempPath, dataPath);
+    installDependencies(root);
+    runValidationAndBuild(root);
+    assertTrackedClean(root, relativeDataPath);
+    git(root, ["diff", "--check", "--", relativeDataPath]);
+
+    process.stdout.write(`\nReady to publish ${operationCount} operation${operationCount === 1 ? "" : "s"}.\n`);
+    process.stdout.write(`New revision: ${next.revision}\nPublication: ${next.publicationId}\n`);
+    if (!askForConfirmation({ operationCount, next })) {
+      process.stdout.write("Cancelled; no commit was created.\n");
+      return { committed: false, next };
+    }
+
+    git(root, ["add", "--", relativeDataPath]);
+    const staged = git(root, ["diff", "--cached", "--name-only"]).stdout.trim().split("\n").filter(Boolean);
+    if (staged.length !== 1 || staged[0] !== relativeDataPath) throw new Error("Refusing to commit anything except library.json");
+    git(root, ["commit", "-m", "Update game library"], { inherit: true });
+    committed = true;
+  } finally {
+    if (!committed) {
+      try { unlinkSync(tempPath); } catch {}
+      writeFileSync(dataPath, original, "utf8");
+      git(root, ["restore", "--staged", "--", relativeDataPath], { allowFailure: true });
+    }
+  }
+
+  showPreview(root, next);
+  return { committed: true, next };
+}
+
+async function main() {
+  const payloadInput = await readPayloadArgument(process.argv.slice(2));
+  const patch = decodePatchInput(payloadInput);
+  const root = findRepositoryRoot();
+  publishPatchInRepository(root, patch);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

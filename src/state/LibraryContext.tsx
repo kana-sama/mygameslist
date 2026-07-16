@@ -1,0 +1,483 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { GameSaveInput, EditableAttachment } from "../pages/GamePage";
+import {
+  PATCH_STORAGE_KEY,
+  SAFARI_SAFE_BUDGET_BYTES,
+  applyPatch,
+  assertValidLibrary,
+  base64ToBytes,
+  classifyStorageUsage,
+  computeLibraryRevision,
+  diffLibrary,
+  discardOperation,
+  loadPatch,
+  makeWebPAsset,
+  moveGameToTier,
+  parsePatchPath,
+  projectedStorageUsage,
+  reconcilePatch,
+  requestPersistentStorage,
+  resolveConflict,
+  savePatch,
+  validatePatch,
+  webkitStorageBytes,
+  webkitStringBytes,
+  type Asset,
+  type Collection,
+  type CollectionItem,
+  type LibraryDatabase,
+  type Note,
+  type NoteAttachment,
+  type PatchConflict,
+  type PatchEnvelope,
+  type ReconciledPatch,
+  type StorageUsage,
+  type TierId,
+} from "../domain";
+
+const NOTICE_KEY = "my-game-library.local-notice.v1";
+
+function emptyPatch(baseRevision: string): PatchEnvelope {
+  return { patchVersion: 1, schemaVersion: 1, baseRevision, operations: {} };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values.flatMap((value) => {
+    const trimmed = value.trim();
+    const key = trimmed.toLocaleLowerCase("ru");
+    if (!trimmed || seen.has(key)) return [];
+    seen.add(key);
+    return [trimmed];
+  });
+}
+
+function maxRank(items: Array<{ rank: number }>): number {
+  return items.reduce((maximum, item) => Math.max(maximum, item.rank), 0);
+}
+
+function assetFromPrepared(image: { base64: string; width: number; height: number; alt: string; originalName: string }): Asset {
+  return makeWebPAsset(base64ToBytes(image.base64), image.width, image.height, image.alt, image.originalName);
+}
+
+function garbageCollectAssets(database: LibraryDatabase): void {
+  const referenced = new Set<string>();
+  Object.values(database.games).forEach((game) => game.coverAssetId && referenced.add(game.coverAssetId));
+  Object.values(database.notes).forEach((note) => note.attachments.forEach((attachment) => {
+    if (attachment.type === "image") referenced.add(attachment.assetId);
+  }));
+  Object.keys(database.assets).forEach((id) => {
+    if (!referenced.has(id)) delete database.assets[id];
+  });
+}
+
+function patchUsage(patch: PatchEnvelope): StorageUsage {
+  try {
+    return projectedStorageUsage(localStorage, PATCH_STORAGE_KEY, JSON.stringify(patch));
+  } catch {
+    return classifyStorageUsage(webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(patch)));
+  }
+}
+
+interface LibraryState {
+  base: LibraryDatabase;
+  effective: LibraryDatabase;
+  patch: PatchEnvelope;
+  conflicts: PatchConflict[];
+}
+
+export interface LibraryContextValue extends LibraryState {
+  loading: boolean;
+  fatalError: string | null;
+  persistenceError: string | null;
+  corruptedPatchRaw: string | null;
+  usage: StorageUsage;
+  storageEstimate: { usage?: number; quota?: number } | null;
+  showLocalNotice: boolean;
+  games: LibraryDatabase["games"];
+  saveGame: (input: GameSaveInput) => Promise<string>;
+  deleteGame: (gameId: string) => void;
+  moveGame: (gameId: string, tierId: TierId, index: number) => void;
+  createCollection: (input: { title: string; descriptionMarkdown: string }) => void;
+  renameCollection: (collectionId: string, title: string) => void;
+  deleteCollection: (collectionId: string) => void;
+  addGamesToCollection: (collectionId: string, gameIds: string[]) => void;
+  discardPath: (path: string) => void;
+  discardPaths: (paths: string[]) => void;
+  clearPatch: () => void;
+  resolvePatchConflict: (path: string, choice: "static" | "local", manualValue?: unknown) => void;
+  importPatch: (raw: string) => void;
+  undoLast: () => boolean;
+  dismissLocalNotice: () => void;
+  persistStorage: () => Promise<boolean>;
+  downloadCorruptedPatch: () => void;
+}
+
+const LibraryContext = createContext<LibraryContextValue | null>(null);
+
+export function LibraryProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<LibraryState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fatalError, setFatalError] = useState<string | null>(null);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [corruptedPatchRaw, setCorruptedPatchRaw] = useState<string | null>(null);
+  const [storageEstimate, setStorageEstimate] = useState<{ usage?: number; quota?: number } | null>(null);
+  const [noticeDismissed, setNoticeDismissed] = useState(() => {
+    try { return localStorage.getItem(NOTICE_KEY) === "dismissed"; } catch { return false; }
+  });
+  const undoStack = useRef<PatchEnvelope[]>([]);
+
+  const installReconciled = useCallback((base: LibraryDatabase, reconciled: ReconciledPatch, remember = false) => {
+    assertValidLibrary(reconciled.effective);
+    let written;
+    try {
+      written = savePatch(localStorage, reconciled.patch);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Safari не разрешил доступ к localStorage";
+      setPersistenceError(message);
+      throw new Error(message);
+    }
+    if (!written.ok) {
+      const message = written.error?.message ?? "Safari не сохранил локальный патч";
+      setPersistenceError(message);
+      throw new Error(message);
+    }
+    if (remember && state) undoStack.current = [...undoStack.current.slice(-49), structuredClone(state.patch)];
+    setPersistenceError(null);
+    setState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
+  }, [state]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const dataUrl = new URL(`${import.meta.env.BASE_URL}data/library.json`, document.baseURI);
+        dataUrl.searchParams.set("_", String(Date.now()));
+        const response = await fetch(dataUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Не удалось загрузить библиотеку: HTTP ${response.status}`);
+        const parsed: unknown = await response.json();
+        assertValidLibrary(parsed);
+        const base = structuredClone(parsed);
+        const computedRevision = computeLibraryRevision(base);
+        if (base.revision && base.revision !== computedRevision) throw new Error("Revision опубликованной базы не совпадает с её содержимым");
+        base.revision = computedRevision;
+
+        let patch = emptyPatch(base.revision);
+        let patchIsCorrupted = false;
+        try {
+          const loaded = loadPatch(localStorage);
+          if (loaded.error) {
+            patchIsCorrupted = true;
+            setCorruptedPatchRaw(loaded.raw);
+            setPersistenceError("Локальный патч повреждён. Его можно скачать из окна правок.");
+          } else if (loaded.patch) patch = loaded.patch;
+        } catch (error) {
+          setPersistenceError(error instanceof Error ? error.message : "localStorage недоступен");
+        }
+        let reconciled: ReconciledPatch;
+        try {
+          reconciled = reconcilePatch(base, patch);
+          assertValidLibrary(reconciled.effective);
+        } catch (error) {
+          patchIsCorrupted = true;
+          let raw: string | null = null;
+          try { raw = localStorage.getItem(PATCH_STORAGE_KEY); } catch { /* localStorage may be unavailable */ }
+          setCorruptedPatchRaw(raw);
+          setPersistenceError(error instanceof Error ? `Локальный патч нельзя применить: ${error.message}` : "Локальный патч нельзя применить");
+          reconciled = reconcilePatch(base, emptyPatch(base.revision));
+        }
+        if (!active) return;
+        if (!patchIsCorrupted) {
+          try {
+            const written = savePatch(localStorage, reconciled.patch);
+            if (!written.ok) setPersistenceError(written.error?.message ?? "Safari не сохранил патч");
+          } catch (error) {
+            setPersistenceError(error instanceof Error ? error.message : "localStorage недоступен");
+          }
+        }
+        setState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
+      } catch (error) {
+        if (active) setFatalError(error instanceof Error ? error.message : "Не удалось открыть библиотеку");
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    return () => { active = false; };
+  // corruptedPatchRaw must not restart the initial fetch.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void navigator.storage?.estimate?.().then((estimate) => {
+      if (active) setStorageEstimate({ usage: estimate.usage, quota: estimate.quota });
+    }).catch(() => { /* This is diagnostics only; localStorage uses the fixed WebKit budget. */ });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!state) return;
+    const receive = (event: StorageEvent) => {
+      if (event.key !== PATCH_STORAGE_KEY) return;
+      const loaded = loadPatch(localStorage);
+      if (loaded.patch) {
+        try {
+          const reconciled = reconcilePatch(state.base, loaded.patch);
+          assertValidLibrary(reconciled.effective);
+          setCorruptedPatchRaw(null);
+          setState({ base: state.base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
+        } catch (error) {
+          setCorruptedPatchRaw(event.newValue);
+          setPersistenceError(error instanceof Error ? `Патч из другой вкладки повреждён: ${error.message}` : "Патч из другой вкладки повреждён");
+        }
+      } else if (loaded.error && event.newValue !== null) {
+        setCorruptedPatchRaw(event.newValue);
+        setPersistenceError("Патч из другой вкладки повреждён. Скачайте raw-значение перед сбросом.");
+      } else if (event.newValue === null) {
+        const patch = emptyPatch(state.base.revision);
+        setCorruptedPatchRaw(null);
+        setState({ base: state.base, effective: state.base, patch, conflicts: [] });
+      }
+    };
+    window.addEventListener("storage", receive);
+    return () => window.removeEventListener("storage", receive);
+  }, [state?.base]);
+
+  const mutate = useCallback((mutator: (database: LibraryDatabase) => void) => {
+    if (!state) throw new Error("Библиотека ещё загружается");
+    if (corruptedPatchRaw !== null) throw new Error("Сначала экспортируйте или сбросьте повреждённый локальный патч");
+    if (state.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
+    const next = structuredClone(state.effective);
+    mutator(next);
+    assertValidLibrary(next);
+    const patch = diffLibrary(state.base, next, { previousPatch: state.patch });
+    installReconciled(state.base, reconcilePatch(state.base, patch), true);
+  }, [corruptedPatchRaw, installReconciled, state]);
+
+  const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
+    const id = input.id ?? crypto.randomUUID();
+    mutate((database) => {
+      const now = new Date().toISOString();
+      const previous = database.games[id];
+      let coverAssetId = input.coverAssetId;
+      if (input.pendingCover) {
+        const asset = assetFromPrepared(input.pendingCover);
+        database.assets[asset.id] = asset;
+        coverAssetId = asset.id;
+      }
+      const tierChanged = previous && previous.placement.tierId !== input.tierId;
+      const placementRank = previous && !tierChanged
+        ? previous.placement.rank
+        : maxRank(Object.values(database.games).filter((game) => game.id !== id && game.placement.tierId === input.tierId).map((game) => game.placement)) + 1024;
+      database.games[id] = {
+        id,
+        title: input.title.trim(),
+        coverAssetId,
+        platforms: uniqueStrings(input.platforms),
+        tags: uniqueStrings(input.tags),
+        status: input.status,
+        placement: { tierId: input.tierId, rank: placementRank },
+        reviewMarkdown: input.reviewMarkdown,
+        createdAt: previous?.createdAt ?? now,
+        updatedAt: previous?.updatedAt ?? now,
+      };
+
+      const retainedNoteIds = new Set<string>();
+      input.notes.forEach((draft, index) => {
+        if (!draft.bodyMarkdown.trim() && !draft.attachments.length) return;
+        const noteId = draft.id && database.notes[draft.id]?.gameId === id ? draft.id : crypto.randomUUID();
+        retainedNoteIds.add(noteId);
+        const attachments: NoteAttachment[] = draft.attachments.map((attachment: EditableAttachment) => {
+          if (attachment.type !== "pending-image") return attachment;
+          const asset = assetFromPrepared(attachment.image);
+          database.assets[asset.id] = asset;
+          return { type: "image", assetId: asset.id, alt: attachment.alt || asset.alt };
+        });
+        const previousNote = database.notes[noteId];
+        database.notes[noteId] = {
+          id: noteId,
+          gameId: id,
+          bodyMarkdown: draft.bodyMarkdown,
+          attachments,
+          rank: draft.rank,
+          createdAt: previousNote?.createdAt ?? now,
+          updatedAt: previousNote?.updatedAt ?? now,
+        };
+      });
+      Object.values(database.notes).forEach((note) => {
+        if (note.gameId === id && !retainedNoteIds.has(note.id)) delete database.notes[note.id];
+      });
+
+      const selectedCollections = new Set(input.collectionIds.filter((collectionId) => Boolean(database.collections[collectionId])));
+      Object.values(database.collectionItems).forEach((item) => {
+        if (item.gameId === id && !selectedCollections.has(item.collectionId)) delete database.collectionItems[item.id];
+      });
+      selectedCollections.forEach((collectionId) => {
+        const existing = Object.values(database.collectionItems).find((item) => item.collectionId === collectionId && item.gameId === id);
+        if (existing) return;
+        const itemId = crypto.randomUUID();
+        database.collectionItems[itemId] = {
+          id: itemId,
+          collectionId,
+          gameId: id,
+          rank: maxRank(Object.values(database.collectionItems).filter((item) => item.collectionId === collectionId)) + 1024,
+        };
+      });
+      garbageCollectAssets(database);
+    });
+    return id;
+  }, [mutate]);
+
+  const deleteGame = useCallback((gameId: string) => mutate((database) => {
+    delete database.games[gameId];
+    Object.values(database.notes).forEach((note) => note.gameId === gameId && delete database.notes[note.id]);
+    Object.values(database.collectionItems).forEach((item) => item.gameId === gameId && delete database.collectionItems[item.id]);
+    garbageCollectAssets(database);
+  }), [mutate]);
+
+  const moveGame = useCallback((gameId: string, tierId: TierId, index: number) => mutate((database) => {
+    const moved = moveGameToTier(database, gameId, tierId, index);
+    database.games = moved.games;
+  }), [mutate]);
+
+  const createCollection = useCallback((input: { title: string; descriptionMarkdown: string }) => mutate((database) => {
+    const id = crypto.randomUUID(); const now = new Date().toISOString();
+    database.collections[id] = { id, title: input.title.trim(), descriptionMarkdown: input.descriptionMarkdown, createdAt: now, updatedAt: now };
+  }), [mutate]);
+
+  const renameCollection = useCallback((collectionId: string, title: string) => mutate((database) => {
+    if (!database.collections[collectionId]) throw new Error("Коллекция не найдена");
+    database.collections[collectionId].title = title.trim();
+  }), [mutate]);
+
+  const deleteCollection = useCallback((collectionId: string) => mutate((database) => {
+    delete database.collections[collectionId];
+    Object.values(database.collectionItems).forEach((item) => item.collectionId === collectionId && delete database.collectionItems[item.id]);
+  }), [mutate]);
+
+  const addGamesToCollection = useCallback((collectionId: string, gameIds: string[]) => mutate((database) => {
+    if (!database.collections[collectionId]) throw new Error("Коллекция не найдена");
+    let rank = maxRank(Object.values(database.collectionItems).filter((item) => item.collectionId === collectionId));
+    gameIds.forEach((gameId) => {
+      if (!database.games[gameId]) return;
+      if (Object.values(database.collectionItems).some((item) => item.collectionId === collectionId && item.gameId === gameId)) return;
+      const id = crypto.randomUUID(); rank += 1024;
+      database.collectionItems[id] = { id, collectionId, gameId, rank };
+    });
+  }), [mutate]);
+
+  const installPatch = useCallback((patch: PatchEnvelope, remember = true) => {
+    if (!state) return;
+    installReconciled(state.base, reconcilePatch(state.base, patch), remember);
+  }, [installReconciled, state]);
+
+  const discardPath = useCallback((path: string) => {
+    if (!state) return;
+    installPatch(discardOperation(state.patch, path));
+  }, [installPatch, state]);
+
+  const discardPaths = useCallback((paths: string[]) => {
+    if (!state) return;
+    const blocked = new Set(paths);
+    const patch = structuredClone(state.patch);
+    Object.keys(patch.operations).forEach((path) => blocked.has(path) && delete patch.operations[path]);
+    installPatch(patch);
+  }, [installPatch, state]);
+
+  const clearPatch = useCallback(() => {
+    if (!state) return;
+    installPatch(emptyPatch(state.base.revision));
+    setCorruptedPatchRaw(null);
+  }, [installPatch, state]);
+
+  const resolvePatchConflict = useCallback((path: string, choice: "static" | "local", manualValue?: unknown) => {
+    if (!state) return;
+    const result = resolveConflict(state.base, state.patch, path, manualValue === undefined ? { choice } : { choice: "manual", value: manualValue });
+    installReconciled(state.base, result, true);
+  }, [installReconciled, state]);
+
+  const importPatch = useCallback((raw: string) => {
+    const parsed: unknown = JSON.parse(raw);
+    const validation = validatePatch(parsed);
+    if (!validation.ok || !validation.value) throw new Error(validation.issues.map((item) => `${item.path}: ${item.message}`).join("\n"));
+    installPatch(validation.value);
+    setCorruptedPatchRaw(null);
+  }, [installPatch]);
+
+  const undoLast = useCallback(() => {
+    const previous = undoStack.current.pop();
+    if (!previous || !state) return false;
+    installReconciled(state.base, reconcilePatch(state.base, previous), false);
+    return true;
+  }, [installReconciled, state]);
+
+  const dismissLocalNotice = useCallback(() => {
+    setNoticeDismissed(true);
+    try { localStorage.setItem(NOTICE_KEY, "dismissed"); } catch { /* non-essential preference */ }
+  }, []);
+
+  const persistStorage = useCallback(async () => requestPersistentStorage(), []);
+
+  const downloadCorruptedPatch = useCallback(() => {
+    if (corruptedPatchRaw === null) return;
+    const url = URL.createObjectURL(new Blob([corruptedPatchRaw], { type: "text/plain" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = "mylib-corrupted-local-patch.txt"; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [corruptedPatchRaw]);
+
+  const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: 1, revision: "", publicationId: null, games: {}, notes: {}, collections: {}, collectionItems: {}, assets: {} }), []);
+  const resolvedState = state ?? { base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [] };
+  const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
+  const value = useMemo<LibraryContextValue>(() => ({
+    ...resolvedState,
+    loading,
+    fatalError,
+    persistenceError,
+    corruptedPatchRaw,
+    usage,
+    storageEstimate,
+    showLocalNotice: !noticeDismissed && Object.keys(resolvedState.patch.operations).length > 0,
+    games: resolvedState.effective.games,
+    saveGame,
+    deleteGame,
+    moveGame,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    addGamesToCollection,
+    discardPath,
+    discardPaths,
+    clearPatch,
+    resolvePatchConflict,
+    importPatch,
+    undoLast,
+    dismissLocalNotice,
+    persistStorage,
+    downloadCorruptedPatch,
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, noticeDismissed, saveGame, deleteGame, moveGame, createCollection, renameCollection, deleteCollection, addGamesToCollection, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, dismissLocalNotice, persistStorage, downloadCorruptedPatch]);
+
+  return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
+}
+
+export function useLibrary(): LibraryContextValue {
+  const value = useContext(LibraryContext);
+  if (!value) throw new Error("useLibrary must be used inside LibraryProvider");
+  return value;
+}
+
+export function operationLocalValue(database: LibraryDatabase, path: string): unknown {
+  const parsed = parsePatchPath(path);
+  if (!parsed) return undefined;
+  const entity = database[parsed.map][parsed.id] as unknown as Record<string, unknown> | undefined;
+  return parsed.field ? entity?.[parsed.field] : entity;
+}
