@@ -10,12 +10,13 @@
  *
  * Raw JSON on stdin and a raw JSON/base64 file passed as `--file /path/to/file`
  * remain available for diagnostics and backup recovery. No payload field is
- * ever interpreted as a path, remote, branch, argument, or command. This
- * program never invokes git push.
+ * ever interpreted as a path, remote, branch, argument, or command. The script
+ * only applies the patch and creates a local Git or Jujutsu commit; it never
+ * updates branches, bookmarks, remotes, dependencies, builds, previews, or pushes.
  */
 
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, readSync, renameSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { spawnSync } from "node:child_process";
@@ -69,8 +70,9 @@ export function validatePatchEnvelope(patch, database) {
   if (patch.schemaVersion !== LIBRARY_SCHEMA_VERSION || patch.schemaVersion !== database.schemaVersion) {
     throw new Error("Patch schemaVersion is not compatible with the static database");
   }
-  if (typeof patch.baseRevision !== "string" || patch.baseRevision !== database.revision) {
-    throw new Error(`Stale patch: base revision ${JSON.stringify(patch.baseRevision)} does not match ${JSON.stringify(database.revision)}`);
+  const expectedRevision = database.revision || computeRevision(database);
+  if (typeof patch.baseRevision !== "string" || patch.baseRevision !== expectedRevision) {
+    throw new Error(`Stale patch: base revision ${JSON.stringify(patch.baseRevision)} does not match ${JSON.stringify(expectedRevision)}`);
   }
   if (!isPlainObject(patch.operations)) throw new Error("patch.operations must be an object map");
   if (Object.keys(patch.operations).length === 0) throw new Error("Patch contains no operations");
@@ -209,26 +211,10 @@ function git(root, args, options = {}) {
 
 function run(root, command, args) {
   const result = spawnSync(command, args, { cwd: root, stdio: "inherit" });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} failed with exit ${result.status}`);
-}
-
-/** A fresh clone has no node_modules. Install the locked dependencies only when Vite is absent. */
-export function ensureBuildDependencies(root, commandRunner = run) {
-  if (existsSync(path.join(root, "node_modules", "vite", "package.json"))) return false;
-  process.stdout.write("Vite is not installed; running npm ci from package-lock.json…\n");
-  commandRunner(root, "npm", ["ci"]);
-  return true;
-}
-
-function validateAndBuild(root) {
-  run(root, "npm", ["run", "data:validate"]);
-  run(root, "npm", ["run", "build"]);
-}
-
-function startPreview(root) {
-  process.stdout.write("\nCommit created. Preview starts now; press Ctrl-C when finished.\n");
-  process.stdout.write("Then publish manually with: git push origin main\n\n");
-  run(root, "npm", ["run", "preview", "--", "--open"]);
+  if (result.status !== 0) {
+    const reason = result.error?.message ?? (result.signal ? `signal ${result.signal}` : `exit ${result.status ?? "unknown"}`);
+    throw new Error(`${command} ${args.join(" ")} failed: ${reason}`);
+  }
 }
 
 function findRepositoryRoot() {
@@ -236,42 +222,21 @@ function findRepositoryRoot() {
   return result.stdout.trim();
 }
 
-function prepareRepository(root) {
-  git(root, ["rev-parse", "--verify", "HEAD"]);
-  const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"]).stdout.trim();
-  if (branch !== "main") throw new Error(`Publishing is allowed only on main (current branch: ${branch || "detached HEAD"})`);
-  assertTrackedClean(root);
-  if (git(root, ["remote", "get-url", "origin"], { allowFailure: true }).status === 0) {
-    process.stdout.write("Updating main from origin with fast-forward only…\n");
-    git(root, ["fetch", "origin", "main"], { inherit: true });
-    git(root, ["merge", "--ff-only", "origin/main"], { inherit: true });
-    assertTrackedClean(root);
-  }
+function assertLibraryFileClean(root, relativeDataPath) {
+  const status = git(root, ["status", "--porcelain=v1", "--untracked-files=no", "--", relativeDataPath]).stdout.trim();
+  if (status) throw new Error(`${relativeDataPath} already has uncommitted changes`);
 }
 
-function assertTrackedClean(root, allowedPath) {
-  const lines = git(root, ["status", "--porcelain=v1", "--untracked-files=no"]).stdout
-    .split("\n")
-    .filter(Boolean);
-  const unexpected = allowedPath ? lines.filter((line) => line.slice(3) !== allowedPath) : lines;
-  if (unexpected.length > 0) throw new Error(`Tracked files or index are not clean:\n${unexpected.join("\n")}`);
+function repositoryKind(root) {
+  return existsSync(path.join(root, ".jj")) ? "jj" : "git";
 }
 
-function confirmCommit() {
-  let descriptor;
-  try {
-    descriptor = openSync("/dev/tty", "r+");
-  } catch {
-    throw new Error("Cannot ask for confirmation without a terminal; no commit was created");
+function commitLibraryUpdate(root, relativeDataPath, kind) {
+  if (kind === "jj") {
+    run(root, "jj", ["split", "-A", "@-", "-m", "Update game library", "--", relativeDataPath]);
+    return;
   }
-  try {
-    writeSync(descriptor, "Create local commit ‘Update game library’? [y/N] ");
-    const buffer = Buffer.alloc(32);
-    const count = readSync(descriptor, buffer, 0, buffer.length, null);
-    return /^y(?:es)?$/i.test(buffer.subarray(0, count).toString("utf8").trim());
-  } finally {
-    closeSync(descriptor);
-  }
+  git(root, ["commit", "--only", "-m", "Update game library", "--", relativeDataPath], { inherit: true });
 }
 
 async function readPayloadArgument(args) {
@@ -285,21 +250,15 @@ async function readPayloadArgument(args) {
 }
 
 /**
- * Orchestrates a publication in a real Git repository.
- *
- * `hooks` exists only for direct module-level tests: there is deliberately no
- * CLI flag or payload field that can disable validation, confirmation, build,
- * or preview in the executable path.
+ * Applies a patch and creates one path-isolated local commit. Repository
+ * synchronization, branch/bookmark movement, builds, previews, and pushes are
+ * deliberately outside this function.
  */
-export function publishPatchInRepository(root, patch, hooks = {}) {
-  const installDependencies = hooks.installDependencies ?? ensureBuildDependencies;
-  const runValidationAndBuild = hooks.validateAndBuild ?? validateAndBuild;
-  const askForConfirmation = hooks.confirm ?? confirmCommit;
-  const showPreview = hooks.preview ?? startPreview;
-  prepareRepository(root);
-
+export function publishPatchInRepository(root, patch) {
   const relativeDataPath = "public/data/library.json";
   const dataPath = path.join(root, relativeDataPath);
+  const kind = repositoryKind(root);
+  assertLibraryFileClean(root, relativeDataPath);
   const original = readFileSync(dataPath, "utf8");
   const database = JSON.parse(original);
   validateLibrary(database);
@@ -311,33 +270,19 @@ export function publishPatchInRepository(root, patch, hooks = {}) {
   try {
     writeFileSync(tempPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o644, flag: "wx" });
     renameSync(tempPath, dataPath);
-    installDependencies(root);
-    runValidationAndBuild(root);
-    assertTrackedClean(root, relativeDataPath);
     git(root, ["diff", "--check", "--", relativeDataPath]);
-
-    process.stdout.write(`\nReady to publish ${operationCount} operation${operationCount === 1 ? "" : "s"}.\n`);
-    process.stdout.write(`New revision: ${next.revision}\nPublication: ${next.publicationId}\n`);
-    if (!askForConfirmation({ operationCount, next })) {
-      process.stdout.write("Cancelled; no commit was created.\n");
-      return { committed: false, next };
-    }
-
-    git(root, ["add", "--", relativeDataPath]);
-    const staged = git(root, ["diff", "--cached", "--name-only"]).stdout.trim().split("\n").filter(Boolean);
-    if (staged.length !== 1 || staged[0] !== relativeDataPath) throw new Error("Refusing to commit anything except library.json");
-    git(root, ["commit", "-m", "Update game library"], { inherit: true });
+    commitLibraryUpdate(root, relativeDataPath, kind);
     committed = true;
   } finally {
     if (!committed) {
       try { unlinkSync(tempPath); } catch {}
       writeFileSync(dataPath, original, "utf8");
-      git(root, ["restore", "--staged", "--", relativeDataPath], { allowFailure: true });
+      if (kind === "git") git(root, ["restore", "--staged", "--", relativeDataPath], { allowFailure: true });
     }
   }
 
-  showPreview(root, next);
-  return { committed: true, next };
+  process.stdout.write(`Applied ${operationCount} operation${operationCount === 1 ? "" : "s"}; created ${kind === "jj" ? "Jujutsu" : "Git"} commit ‘Update game library’.\n`);
+  return { committed: true, kind, next };
 }
 
 export function publishPatchInput(payloadInput) {
