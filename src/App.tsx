@@ -20,14 +20,15 @@ import {
   parsePatchPath,
   webkitStringBytes,
   type Asset,
+  type PatchEnvelope,
   type PatchOperation,
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage } from "./pages";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
 import {
+  PUBLISH_CLIPBOARD_COMMAND,
   copyText,
-  createDownloadedPatchCommand,
-  createPublishCommand,
+  createPublishPayload,
   downloadPatch,
 } from "./state/publishCommand";
 
@@ -104,12 +105,15 @@ function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
-  const [command, setCommand] = useState("");
-  const [commandIsLarge, setCommandIsLarge] = useState(false);
+  const [preparedPayload, setPreparedPayload] = useState<{ patch: PatchEnvelope; payload: string } | null>(null);
+  const [publishFailure, setPublishFailure] = useState<{ patch: PatchEnvelope; message: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
+  const publishPayload = preparedPayload?.patch === library.patch ? preparedPayload.payload : "";
+  const publishError = publishFailure?.patch === library.patch ? publishFailure.message : null;
+  const publishPayloadPreparing = operationEntries.length > 0 && !publishPayload && !publishError;
   const patchBytes = useMemo(
     () => webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(library.patch)),
     [library.patch],
@@ -118,16 +122,22 @@ function LibraryRoutes() {
   useEffect(() => {
     let active = true;
     if (!operationEntries.length) {
-      setCommand("");
-      setCommandIsLarge(false);
+      setPreparedPayload(null);
+      setPublishFailure(null);
       return () => { active = false; };
     }
-    void createPublishCommand(library.patch).then((result) => {
+    const patch = library.patch;
+    void createPublishPayload(patch).then((payload) => {
       if (!active) return;
-      setCommand(result.command);
-      setCommandIsLarge(result.isLarge);
-    }).catch(() => {
-      if (active) setCommand("");
+      setPreparedPayload({ patch, payload });
+      setPublishFailure(null);
+    }).catch((error) => {
+      if (!active) return;
+      setPreparedPayload(null);
+      setPublishFailure({
+        patch,
+        message: `Не удалось подготовить патч: ${error instanceof Error ? error.message : String(error)}`,
+      });
     });
     return () => { active = false; };
   }, [library.patch, operationEntries.length]);
@@ -166,9 +176,9 @@ function LibraryRoutes() {
   const showError = (error: unknown) => setActionError(error instanceof Error ? error.message : String(error));
   const navigateHref = (href: string) => navigate(href.startsWith("#") ? href.slice(1) || "/" : href);
   const exportPatch = () => downloadPatch(library.patch);
-  const copyCommand = async (value: string) => {
+  const copyPatch = async () => {
     try {
-      await copyText(value);
+      await copyText(publishPayload);
       return true;
     } catch {
       return false;
@@ -243,12 +253,9 @@ function LibraryRoutes() {
       </Routes>
 
       <DiffDialog
-        alternateCommand={commandIsLarge ? createDownloadedPatchCommand() : undefined}
-        command={command}
         conflicts={conflictItems}
-        copyAlternateCommand={commandIsLarge ? () => copyCommand(createDownloadedPatchCommand()) : undefined}
-        copyCommand={() => copyCommand(command)}
-        error={actionError ?? library.persistenceError ?? undefined}
+        copyPatch={copyPatch}
+        error={actionError ?? publishError ?? library.persistenceError ?? undefined}
         items={items}
         onClearAll={() => {
           if (!window.confirm("Отменить все локальные правки?")) return;
@@ -271,7 +278,9 @@ function LibraryRoutes() {
         }}
         open={diffOpen}
         patchBytes={patchBytes}
-        payloadIsLarge={commandIsLarge}
+        payload={publishPayload}
+        payloadPreparing={publishPayloadPreparing}
+        publishCommand={PUBLISH_CLIPBOARD_COMMAND}
       />
     </AppShell>
   );

@@ -27,10 +27,10 @@ export interface DiffDialogProps {
   items: DiffItem[];
   conflicts?: DiffConflictItem[];
   patchBytes: number;
-  payloadIsLarge?: boolean;
+  payload: string;
+  payloadPreparing?: boolean;
+  publishCommand: string;
   error?: string;
-  command: string;
-  alternateCommand?: string;
   onClose: () => void;
   onUndoItem?: (itemId: string) => void;
   onUndoGroup?: (groupId: DiffGroupId) => void;
@@ -40,8 +40,7 @@ export interface DiffDialogProps {
   onResolveConflict?: (conflictId: string, resolution: "static" | "local", manualValue?: unknown) => void;
   onDownloadCorruptedRaw?: () => void;
   onDismissError?: () => void;
-  copyCommand?: () => Promise<boolean>;
-  copyAlternateCommand?: () => Promise<boolean>;
+  copyPatch?: () => Promise<boolean>;
 }
 
 const groupLabels: Record<DiffGroupId, string> = {
@@ -74,10 +73,10 @@ export function DiffDialog({
   items,
   conflicts = [],
   patchBytes,
-  payloadIsLarge,
+  payload,
+  payloadPreparing = false,
+  publishCommand,
   error,
-  command,
-  alternateCommand,
   onClose,
   onUndoItem,
   onUndoGroup,
@@ -87,13 +86,12 @@ export function DiffDialog({
   onResolveConflict,
   onDownloadCorruptedRaw,
   onDismissError,
-  copyCommand,
-  copyAlternateCommand,
+  copyPatch,
 }: DiffDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const copyAttemptRef = useRef(0);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "fallback">("idle");
-  const [shortCopyState, setShortCopyState] = useState<"idle" | "copied" | "fallback">("idle");
   const [importError, setImportError] = useState<string | null>(null);
   const [manualConflict, setManualConflict] = useState<string | null>(null);
   const [manualValue, setManualValue] = useState("");
@@ -106,7 +104,6 @@ export function DiffDialog({
   useEffect(() => {
     if (!open) return;
     setCopyState("idle");
-    setShortCopyState("idle");
     const element = dialogRef.current;
     const focusable = () => Array.from(element?.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex='0']") ?? []);
     requestAnimationFrame(() => focusable()[0]?.focus());
@@ -132,24 +129,20 @@ export function DiffDialog({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose, open]);
 
+  useEffect(() => {
+    copyAttemptRef.current += 1;
+    setCopyState("idle");
+  }, [payload]);
+
   if (!open) return null;
 
   const copy = async () => {
+    const attempt = ++copyAttemptRef.current;
     try {
-      const success = copyCommand ? await copyCommand() : await navigator.clipboard.writeText(command).then(() => true);
-      setCopyState(success ? "copied" : "fallback");
+      const success = copyPatch ? await copyPatch() : await navigator.clipboard.writeText(payload).then(() => true);
+      if (attempt === copyAttemptRef.current) setCopyState(success ? "copied" : "fallback");
     } catch {
-      setCopyState("fallback");
-    }
-  };
-
-  const copyShort = async () => {
-    if (!alternateCommand) return;
-    try {
-      const success = copyAlternateCommand ? await copyAlternateCommand() : await navigator.clipboard.writeText(alternateCommand).then(() => true);
-      setShortCopyState(success ? "copied" : "fallback");
-    } catch {
-      setShortCopyState("fallback");
+      if (attempt === copyAttemptRef.current) setCopyState("fallback");
     }
   };
 
@@ -282,28 +275,18 @@ export function DiffDialog({
           {items.length ? (
             <section className="publish-panel">
               <div className="section-heading">
-                <div><span className="section-icon section-icon--publish"><Icon name="clipboard" /></span><div><h3>Опубликовать</h3><p>Команда изменит JSON и создаст локальный коммит. Push остаётся ручным.</p></div></div>
+                <div><span className="section-icon section-icon--publish"><Icon name="clipboard" /></span><div><h3>Опубликовать</h3><p>Скопируйте патч и сразу запустите постоянную команду в локальном клоне.</p></div></div>
               </div>
-              {(payloadIsLarge ?? patchBytes > 512 * 1024) ? (
-                <div className="inline-alert inline-alert--stacked">
-                  <Icon name="warning" />
-                  <span>Payload больше 512 КБ. Скачайте patch-файл, затем скопируйте короткую команду. По умолчанию она ожидает файл в папке Downloads.</span>
-                  <div className="inline-alert__actions">
-                    <button onClick={onExport} type="button">Скачать patch-файл</button>
-                    {alternateCommand ? <button onClick={() => void copyShort()} type="button">{shortCopyState === "copied" ? "Короткая команда скопирована" : "Скопировать короткую команду"}</button> : null}
-                  </div>
-                  {shortCopyState === "fallback" && alternateCommand ? <textarea onFocus={(event) => event.currentTarget.select()} readOnly rows={4} value={alternateCommand} /> : null}
-                </div>
-              ) : null}
               {conflicts.length ? <p className="publish-panel__blocked"><Icon name="warning" size={17} />Сначала разрешите все конфликты.</p> : null}
-              <button className="button button--primary button--wide" disabled={Boolean(conflicts.length) || !command} onClick={() => void copy()} type="button">
+              <code className="publish-panel__command">{publishCommand}</code>
+              <button className="button button--primary button--wide" disabled={Boolean(conflicts.length) || payloadPreparing || !payload} onClick={() => void copy()} type="button">
                 <Icon name={copyState === "copied" ? "check" : "clipboard"} size={18} />
-                {copyState === "copied" ? "Команда скопирована" : "Скопировать команду"}
+                {copyState === "copied" ? "Патч скопирован" : payloadPreparing ? "Подготавливаем патч…" : "Скопировать патч"}
               </button>
               {copyState === "fallback" ? (
                 <div className="copy-fallback">
-                  <label htmlFor="publish-command">Safari не разрешил доступ к буферу. Скопируйте вручную:</label>
-                  <textarea id="publish-command" onFocus={(event) => event.currentTarget.select()} readOnly rows={8} value={command} />
+                  <label htmlFor="publish-payload">Safari не разрешил доступ к буферу. Скопируйте патч вручную; в терминал его вставлять не нужно:</label>
+                  <textarea id="publish-payload" onFocus={(event) => event.currentTarget.select()} readOnly rows={5} value={payload} />
                 </div>
               ) : null}
             </section>

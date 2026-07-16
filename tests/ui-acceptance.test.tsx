@@ -666,7 +666,6 @@ describe("DiffDialog", () => {
 
     render(
       <DiffDialog
-        command=""
         error="Safari отклонил запись"
         items={[]}
         onClose={vi.fn()}
@@ -675,6 +674,8 @@ describe("DiffDialog", () => {
         onImport={vi.fn()}
         open
         patchBytes={0}
+        payload=""
+        publishCommand="npm run publish:clipboard"
       />,
     );
 
@@ -691,11 +692,10 @@ describe("DiffDialog", () => {
     const onUndoItem = vi.fn();
     const onUndoGroup = vi.fn();
     const onClearAll = vi.fn();
-    const copyCommand = vi.fn().mockResolvedValue(true);
+    const copyPatch = vi.fn().mockResolvedValue(true);
 
     render(
       <DiffDialog
-        command="node scripts/publish-patch.mjs"
         conflicts={[{
           id: "title-conflict",
           path: `/games/${DUCK_ID}/title`,
@@ -703,7 +703,7 @@ describe("DiffDialog", () => {
           staticValue: "DuckTales Remastered",
           localValue: "DuckTales Local",
         }]}
-        copyCommand={copyCommand}
+        copyPatch={copyPatch}
         items={[item]}
         onClearAll={onClearAll}
         onClose={vi.fn()}
@@ -714,10 +714,12 @@ describe("DiffDialog", () => {
         onUndoItem={onUndoItem}
         open
         patchBytes={2048}
+        payload="payload"
+        publishCommand="npm run publish:clipboard"
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Скопировать команду" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скопировать патч" })).toBeDisabled();
     expect(screen.getByText("Сначала разрешите все конфликты.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Оставить локальное" }));
@@ -728,31 +730,33 @@ describe("DiffDialog", () => {
     expect(onUndoGroup).toHaveBeenCalledWith("changed");
     await user.click(screen.getByRole("button", { name: "Отменить все правки" }));
     expect(onClearAll).toHaveBeenCalledTimes(1);
-    expect(copyCommand).not.toHaveBeenCalled();
+    expect(copyPatch).not.toHaveBeenCalled();
   });
 
   it("shows a manual Safari fallback when clipboard copying is rejected", async () => {
     const user = userEvent.setup();
-    const command = "node scripts/publish-patch.mjs <<'MYLIB_PATCH'\npayload\nMYLIB_PATCH";
-    const copyCommand = vi.fn().mockResolvedValue(false);
+    const payload = "H4sIAAAAAAAA";
+    const copyPatch = vi.fn().mockResolvedValue(false);
 
     render(
       <DiffDialog
-        command={command}
-        copyCommand={copyCommand}
+        copyPatch={copyPatch}
         items={[item]}
         onClose={vi.fn()}
         onExport={vi.fn()}
         onImport={vi.fn()}
         open
         patchBytes={1024}
+        payload={payload}
+        publishCommand="npm run publish:clipboard"
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Скопировать команду" }));
+    expect(screen.getByText("npm run publish:clipboard")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Скопировать патч" }));
     const fallback = await screen.findByLabelText(/Safari не разрешил доступ к буферу/);
-    expect(fallback).toHaveValue(command);
-    expect(copyCommand).toHaveBeenCalledTimes(1);
+    expect(fallback).toHaveValue(payload);
+    expect(copyPatch).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1,7 +1,6 @@
 import type { PatchEnvelope } from "../domain/types";
 
-const COMMAND_DELIMITER = "MYLIB_PATCH";
-const LARGE_INLINE_PATCH = 512 * 1024;
+export const PUBLISH_CLIPBOARD_COMMAND = "npm run publish:clipboard";
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -10,10 +9,6 @@ function bytesToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
   return btoa(binary);
-}
-
-function wrapBase64(value: string): string {
-  return value.match(/.{1,76}/g)?.join("\n") ?? value;
 }
 
 async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
@@ -27,50 +22,10 @@ async function gzip(bytes: Uint8Array): Promise<Uint8Array> {
   }
 }
 
-export interface PublishCommand {
-  command: string;
-  payloadBytes: number;
-  isLarge: boolean;
-}
-
-export async function createPublishCommand(patch: PatchEnvelope): Promise<PublishCommand> {
+export async function createPublishPayload(patch: PatchEnvelope): Promise<string> {
   const source = new TextEncoder().encode(JSON.stringify(patch));
   const payload = await gzip(source);
-  const encoded = wrapBase64(bytesToBase64(payload));
-  const command = [
-    "(",
-    "  set -eu",
-    '  cd -- "$(git rev-parse --show-toplevel)"',
-    `  node ./scripts/publish-patch.mjs <<'${COMMAND_DELIMITER}'`,
-    encoded,
-    COMMAND_DELIMITER,
-    ")",
-  ].join("\n");
-  return {
-    command,
-    payloadBytes: payload.byteLength,
-    isLarge: payload.byteLength > LARGE_INLINE_PATCH,
-  };
-}
-
-export function createDownloadedPatchCommand(fileName = "mylib-patch.json"): string {
-  if (fileName === "mylib-patch.json") {
-    return [
-      "(",
-      "  set -eu",
-      '  cd -- "$(git rev-parse --show-toplevel)"',
-      '  node ./scripts/publish-patch.mjs --file "${HOME}/Downloads/mylib-patch.json"',
-      ")",
-    ].join("\n");
-  }
-  const escapedName = fileName.replace(/["\\`$]/g, "\\$&");
-  return [
-    "(",
-    "  set -eu",
-    '  cd -- "$(git rev-parse --show-toplevel)"',
-    `  node ./scripts/publish-patch.mjs --file \"${escapedName}\"`,
-    ")",
-  ].join("\n");
+  return bytesToBase64(payload);
 }
 
 export function downloadPatch(patch: PatchEnvelope, fileName = "mylib-patch.json"): void {

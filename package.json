@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "publish:clipboard": "node scripts/publish-clipboard.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "data:validate": "node scripts/validate-data.mjs"

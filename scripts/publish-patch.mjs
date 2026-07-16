@@ -3,15 +3,15 @@
 /**
  * Apply a browser-produced PatchEnvelopeV1 and create a local commit.
  *
- * Browser command contract (the delimiter is quoted on purpose):
+ * The browser copies an inert base64(gzip(JSON)) payload. On macOS the stable
+ * `npm run publish:clipboard` entrypoint reads it via `/usr/bin/pbpaste` and
+ * passes the bytes to this module without placing the payload in the shell
+ * command, argv, environment, or terminal input buffer.
  *
- *   node scripts/publish-patch.mjs <<'MYLIB_PATCH'
- *   <base64(gzip(UTF8(JSON.stringify(patchEnvelope))))>
- *   MYLIB_PATCH
- *
- * Raw JSON is accepted too. A downloaded raw JSON/base64 file can be passed as
- * `--file /path/to/file`. No payload field is ever interpreted as a path,
- * remote, branch, argument, or command. This program never invokes git push.
+ * Raw JSON on stdin and a raw JSON/base64 file passed as `--file /path/to/file`
+ * remain available for diagnostics and backup recovery. No payload field is
+ * ever interpreted as a path, remote, branch, argument, or command. This
+ * program never invokes git push.
  */
 
 import { randomUUID } from "node:crypto";
@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { LIBRARY_SCHEMA_VERSION, computeRevision, hashCanonical, validateLibrary } from "./validate-data.mjs";
 
 export const MISSING_VALUE_HASH = "0".repeat(64);
-const MAX_INPUT_BYTES = 16 * 1024 * 1024;
+export const MAX_INPUT_BYTES = 16 * 1024 * 1024;
 const ROOTS = new Set(["games", "notes", "assets"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;
@@ -340,11 +340,14 @@ export function publishPatchInRepository(root, patch, hooks = {}) {
   return { committed: true, next };
 }
 
-async function main() {
-  const payloadInput = await readPayloadArgument(process.argv.slice(2));
+export function publishPatchInput(payloadInput) {
   const patch = decodePatchInput(payloadInput);
   const root = findRepositoryRoot();
-  publishPatchInRepository(root, patch);
+  return publishPatchInRepository(root, patch);
+}
+
+async function main() {
+  publishPatchInput(await readPayloadArgument(process.argv.slice(2)));
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
