@@ -35,8 +35,10 @@ export function makeWebPAsset(bytes: Uint8Array, width: number, height: number, 
 
 export function assetDataUrl(asset: Asset): string { return `data:${asset.mime};base64,${asset.base64}`; }
 
-export interface CropRect { x: number; y: number; width: number; height: number }
 export interface OptimizedImage { asset: Asset; blob: Blob; byteLength: number }
+
+interface CropRect { x: number; y: number; width: number; height: number }
+export type WebPEncoder = (image: ImageData, quality: number) => Promise<Uint8Array>;
 
 async function loadImage(file: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
@@ -47,27 +49,49 @@ async function loadImage(file: Blob): Promise<HTMLImageElement> {
   } finally { URL.revokeObjectURL(url); }
 }
 
-function webpBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Safari не смог создать WebP")), "image/webp", quality));
+async function nativeWebPBytes(canvas: HTMLCanvasElement, quality: number): Promise<Uint8Array | null> {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    try { canvas.toBlob(resolve, "image/webp", quality); }
+    catch { resolve(null); }
+  });
+  if (!blob) return null;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return isWebP(bytes) ? bytes : null;
 }
 
-async function render(file: File, outputWidth: number, outputHeight: number, source: CropRect, alt: string): Promise<OptimizedImage> {
-  const image = await loadImage(file); const canvas = document.createElement("canvas"); canvas.width = outputWidth; canvas.height = outputHeight;
+async function wasmWebPBytes(image: ImageData, quality: number): Promise<Uint8Array> {
+  const { default: encode } = await import("@jsquash/webp/encode");
+  const bytes = new Uint8Array(await encode(image, { quality: Math.round(quality * 100) }));
+  if (!isWebP(bytes)) throw new Error("WebP-кодировщик вернул повреждённый файл");
+  return bytes;
+}
+
+export async function canvasToWebPBytes(canvas: HTMLCanvasElement, quality = 0.82, fallback: WebPEncoder = wasmWebPBytes): Promise<Uint8Array> {
+  const nativeBytes = await nativeWebPBytes(canvas, quality);
+  if (nativeBytes) return nativeBytes;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas недоступен");
+  try { return await fallback(context.getImageData(0, 0, canvas.width, canvas.height), quality); }
+  catch (reason) { throw new Error("Safari не смог создать WebP", { cause: reason }); }
+}
+
+async function render(file: File, image: HTMLImageElement, outputWidth: number, outputHeight: number, source: CropRect, alt: string): Promise<OptimizedImage> {
+  const canvas = document.createElement("canvas"); canvas.width = outputWidth; canvas.height = outputHeight;
   const context = canvas.getContext("2d"); if (!context) throw new Error("Canvas недоступен");
   context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
   context.drawImage(image, source.x, source.y, source.width, source.height, 0, 0, outputWidth, outputHeight);
-  const blob = await webpBlob(canvas, 0.82); const bytes = new Uint8Array(await blob.arrayBuffer());
+  const bytes = await canvasToWebPBytes(canvas); const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
   return { asset: makeWebPAsset(bytes, outputWidth, outputHeight, alt, file.name), blob, byteLength: bytes.byteLength };
 }
 
-export async function optimizeCover(file: File, crop?: CropRect, alt = ""): Promise<OptimizedImage> {
+export async function optimizeCover(file: File, alt = ""): Promise<OptimizedImage> {
   const image = await loadImage(file); const size = Math.min(image.naturalWidth, image.naturalHeight);
-  const source = crop ?? { x: (image.naturalWidth - size) / 2, y: (image.naturalHeight - size) / 2, width: size, height: size };
-  return render(file, 512, 512, source, alt);
+  const source = { x: (image.naturalWidth - size) / 2, y: (image.naturalHeight - size) / 2, width: size, height: size };
+  return render(file, image, 512, 512, source, alt);
 }
 
 export async function optimizeNoteImage(file: File, alt = ""): Promise<OptimizedImage> {
   const image = await loadImage(file); const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
   const width = Math.max(1, Math.round(image.naturalWidth * scale)); const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  return render(file, width, height, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }, alt);
+  return render(file, image, width, height, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }, alt);
 }

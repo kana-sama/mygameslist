@@ -5,6 +5,9 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  optimizeDeps: {
+    exclude: ["@jsquash/webp", "@jsquash/webp/encode"],
+  },
   test: {
     environment: "jsdom",
     globals: true,

@@ -2,6 +2,7 @@ import {
   PATCH_STORAGE_KEY,
   applyPatch,
   bytesToBase64,
+  canvasToWebPBytes,
   diffLibrary,
   libraryRevisionIsValid,
   makeWebPAsset,
@@ -49,6 +50,18 @@ describe("patch creation/revert and storage recovery", () => {
 });
 
 describe("assets and revision", () => {
+  it("falls back to the WebP encoder when Safari returns PNG for a WebP canvas request", async () => {
+    const canvas = document.createElement("canvas"); canvas.width = 3; canvas.height = 2;
+    const imageData = { data: new Uint8ClampedArray(24), width: 3, height: 2 } as ImageData;
+    vi.spyOn(canvas, "getContext").mockReturnValue({ getImageData: vi.fn(() => imageData) } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(canvas, "toBlob").mockImplementation((callback) => callback(new Blob(["png"], { type: "image/png" })));
+    const webp = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
+    const fallback = vi.fn(async () => webp);
+
+    await expect(canvasToWebPBytes(canvas, 0.82, fallback)).resolves.toEqual(webp);
+    expect(fallback).toHaveBeenCalledWith(imageData, 0.82);
+  });
+
   it("deduplicates WebP by the SHA-256 of raw bytes and validates record content", () => {
     const bytes = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
     const first = makeWebPAsset(bytes, 1, 1, "cover", "a.webp");
