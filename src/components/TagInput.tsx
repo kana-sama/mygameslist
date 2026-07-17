@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Icon } from "./Icon";
 
 export interface TagInputProps {
@@ -19,6 +19,8 @@ export function TagInput({
   suggestions = [],
 }: TagInputProps) {
   const [draft, setDraft] = useState("");
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const id = useId();
   const normalizedValues = new Set(values.map((value) => value.toLocaleLowerCase("ru")));
   const visibleSuggestions = suggestions
@@ -29,6 +31,7 @@ export function TagInput({
   const add = (raw: string) => {
     const typedValue = raw.trim().replace(/^#/, "");
     const value = suggestions.find((suggestion) => suggestion.toLocaleLowerCase("ru") === typedValue.toLocaleLowerCase("ru")) ?? typedValue;
+    setSuggestionsOpen(false);
     if (!value || normalizedValues.has(value.toLocaleLowerCase("ru"))) {
       setDraft("");
       return;
@@ -36,6 +39,11 @@ export function TagInput({
     onChange([...values, value]);
     setDraft("");
   };
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    return () => input?.blur();
+  }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" || event.key === ",") {
@@ -63,13 +71,31 @@ export function TagInput({
           </span>
         ))}
         <input
+          aria-expanded={suggestionsOpen && visibleSuggestions.length > 0}
+          aria-haspopup="listbox"
           autoFocus={autoFocus}
           id={id}
-          list={`${id}-suggestions`}
-          onBlur={() => draft && add(draft)}
-          onChange={(event) => setDraft(event.currentTarget.value)}
+          list={suggestionsOpen && visibleSuggestions.length ? `${id}-suggestions` : undefined}
+          onBlur={() => {
+            setSuggestionsOpen(false);
+            if (draft) add(draft);
+          }}
+          onChange={(event) => {
+            const nextDraft = event.currentTarget.value;
+            const normalizedDraft = nextDraft.trim().replace(/^#/, "").toLocaleLowerCase("ru");
+            const exactSuggestion = suggestions.find((suggestion) => suggestion.toLocaleLowerCase("ru") === normalizedDraft);
+            if (exactSuggestion) {
+              add(exactSuggestion);
+            } else {
+              setDraft(nextDraft);
+              setSuggestionsOpen(true);
+            }
+          }}
+          onFocus={() => setSuggestionsOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={values.length ? "Добавить…" : placeholder}
+          ref={inputRef}
+          role="combobox"
           value={draft}
         />
         <datalist id={`${id}-suggestions`}>
