@@ -10,7 +10,7 @@ function declarations(selector: string): string {
 }
 
 describe("note card footer", () => {
-  it("reserves measured space for every note's actions below its clipped surface", () => {
+  it("floats every note's actions below its clipped surface without reserving space", () => {
     const footer = declarations(".note-card__actions");
     const card = declarations(".note-card:not(.note-card--editing)");
     const surface = declarations(".note-card__surface");
@@ -18,12 +18,13 @@ describe("note card footer", () => {
     const edit = declarations(".note-card__actions .note-card__edit");
 
     expect(footer).toContain("position: absolute");
-    expect(footer).toContain("bottom: 0");
+    expect(footer).toContain("top: 100%");
+    expect(footer).toContain("bottom: auto");
     expect(footer).toContain("left: 0");
     expect(footer).toContain("opacity: 0");
     expect(footer).toContain("pointer-events: none");
     expect(card).toContain("overflow: visible");
-    expect(card).toContain("padding-bottom: 29px");
+    expect(card).not.toContain("padding-bottom");
     expect(surface).toContain("overflow: hidden");
     expect(surface).toContain("border: 1px solid var(--line-soft)");
     expect(drag).toContain("cursor: grab");
@@ -36,7 +37,7 @@ describe("note card footer", () => {
   });
 
   it("keeps footer actions visible on coarse pointers", () => {
-    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card:not\(\.note-card--editing\) \{[^}]*padding-bottom:\s*49px;/);
+    expect(styles).not.toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card:not\(\.note-card--editing\) \{[^}]*padding-bottom/);
     expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__actions \{[^}]*min-height:\s*49px;[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
     expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__actions button \{[^}]*pointer-events:\s*auto;/);
   });

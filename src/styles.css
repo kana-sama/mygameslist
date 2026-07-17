@@ -290,7 +290,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-group-add-button:disabled { opacity: .35; cursor: default; }
 .game-notes.is-file-dragging iframe, .game-notes.is-file-dragging video, .game-notes.is-file-dragging .note-attachment-image-open { pointer-events: none; }
 .note-card { position: relative; min-width: 0; display: block; align-self: start; padding: 0; border: 0; background: transparent; }
-.note-card:not(.note-card--editing) { overflow: visible; padding-bottom: 29px; }
+.note-card:not(.note-card--editing) { overflow: visible; }
 .note-card__surface { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 4; }
 .note-card--sortable { touch-action: pan-y; }
@@ -310,7 +310,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-card__collapse-toggle svg { transition: transform .12s; }
 .note-card--expanded .note-card__collapse-toggle svg { transform: rotate(180deg); }
 .note-card--collapsed .note-card__collapse-toggle { position: absolute; z-index: 2; bottom: 0; left: 0; height: 38px; align-items: flex-end; padding-bottom: 5px; border-top: 0; background: linear-gradient(to bottom, transparent, #141518 58%); }
-.note-card__actions { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.note-card__actions { position: absolute; z-index: 3; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__actions button:hover:not(:disabled), .note-card__actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-card__actions button:disabled { opacity: .28; cursor: default; }
@@ -530,7 +530,6 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .app-header { padding-top: env(safe-area-inset-top); }
   .app-header .app-nav__link, .patch-pill { min-width: 44px; min-height: 44px; }
   .note-editor-actions, .note-attachment-remove { opacity: 1; pointer-events: auto; }
-  .note-card:not(.note-card--editing) { padding-bottom: 49px; }
   .note-empty-group { min-height: 44px; }
   .note-group-add-slot { top: 0; right: 0; width: 44px; height: 44px; }
   .note-group-add-button { width: 44px; height: 44px; }
