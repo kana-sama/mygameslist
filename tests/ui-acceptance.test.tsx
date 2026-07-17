@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { KeyboardCode, KeyboardSensor, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { rectSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { AppShell } from "../src/components/AppShell";
@@ -180,6 +181,18 @@ describe("CatalogPage", () => {
 
     expect(screen.getByRole("img", { name: "Обложка DuckTales" })).toHaveAttribute("src", "/mylib/media/cover.webp");
     expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
+  });
+
+  it("keeps search stable when StrictMode replays state updaters", async () => {
+    const user = userEvent.setup();
+    render(<StrictMode><CatalogPage assets={{}} games={[makeGame()]} /></StrictMode>);
+
+    const search = screen.getByRole("searchbox", { name: "Поиск игр" });
+    await user.type(search, "du");
+
+    expect(search).toHaveValue("du");
+    expect(screen.getByText("DuckTales")).toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).toBe("#/games?q=du"));
   });
 
   it("restores search and filters from the hash, applies group logic, and persists changes", async () => {
