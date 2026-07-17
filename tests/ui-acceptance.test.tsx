@@ -883,7 +883,7 @@ describe("GamePage", () => {
     ];
     fireEvent.change(fileInput, { target: { files } });
     const guide = await screen.findByRole("link", { name: /guide\.pdf/ });
-    const save = screen.getByRole("link", { name: /save\.dat/ });
+    const save = await screen.findByRole("link", { name: /save\.dat/ });
     expect(guide).toHaveAttribute("download", "guide.pdf");
     expect(guide).not.toHaveAttribute("target");
     expect(save).toHaveTextContent("4 Б");
@@ -966,6 +966,37 @@ describe("GamePage", () => {
     expect(optimizeNoteImage).toHaveBeenCalledWith(file, "map");
     expect(canAddBlob).toHaveBeenCalledWith(4);
     expect(screen.queryByRole("img", { name: "map" })).not.toBeInTheDocument();
+  });
+
+  it("creates an image note in an existing group from the group add card", async () => {
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const canAddBlob = vi.fn(() => null);
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      groupRank: 2048,
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    vi.mocked(optimizeNoteImage).mockResolvedValue({
+      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.webp" },
+      blob: new Blob(["webp"], { type: "image/webp" }),
+      byteLength: 4,
+    });
+    render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
+    const addCard = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
+    const file = new File(["source"], "map.PNG", { type: "" });
+
+    fireEvent.drop(addCard, { dataTransfer: { files: [file], items: [], types: ["Files"], dropEffect: "none" } });
+
+    const image = await screen.findByRole("img", { name: "map" });
+    expect(image.closest(".note-group")).toHaveAttribute("data-note-group-rank", "2048");
+    expect(optimizeNoteImage).toHaveBeenCalledWith(file, "map");
+    expect(canAddBlob).toHaveBeenCalledWith(4);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("includes existing pending attachments when preflighting a later file", async () => {

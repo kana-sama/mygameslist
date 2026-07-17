@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -76,6 +76,21 @@ function rect(left: number, top: number, width: number, height: number): DOMRect
   return { x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({ left, top, width, height }) } as DOMRect;
 }
 
+function fileTransfer(files: File[] = [], types = ["Files"]): DataTransfer {
+  return {
+    dropEffect: "none",
+    files,
+    items: files.map((file) => ({ kind: "file", type: file.type, getAsFile: () => file })) as unknown as DataTransferItemList,
+    types,
+  } as unknown as DataTransfer;
+}
+
+function fileDragEvent(type: "dragenter" | "dragleave" | "dragover" | "drop", transfer: DataTransfer): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", { value: transfer });
+  return event;
+}
+
 describe("anonymous note groups", () => {
   it("groups legacy notes together and derives one trailing empty group", () => {
     const notes = [
@@ -133,6 +148,73 @@ describe("anonymous note groups", () => {
     expect(document.querySelectorAll(".notes-list")).toHaveLength(2);
     expect(screen.getAllByRole("group", { name: /Группа заметок/ })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Добавить заметку в новую группу" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 2" })).toBeInTheDocument();
+  });
+
+  it("creates a note directly inside an existing group", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    expect(editor.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
+    await user.type(editor, "Новая заметка");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes.find((item) => item.bodyMarkdown === "Новая заметка")).toMatchObject({ groupRank: 1024, rank: 2048 });
+  });
+
+  it("reveals every group add card while files are over the notes area", () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
+    const notesArea = screen.getByRole("region", { name: "Заметки" });
+    const transfer = fileTransfer();
+
+    fireEvent(notesArea, fileDragEvent("dragenter", transfer));
+    expect(notesArea).toHaveClass("is-file-dragging");
+    expect(notesArea.querySelector(".note-groups")).toHaveClass("is-file-dragging");
+    expect(notesArea.querySelectorAll(".note-group-add-card")).toHaveLength(3);
+
+    fireEvent(notesArea, fileDragEvent("dragleave", transfer));
+    expect(notesArea).not.toHaveClass("is-file-dragging");
+  });
+
+  it("creates one unsaved note from a mixed file drop and checks quota cumulatively", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const canAddBlob = vi.fn((byteLength: number) => byteLength > 5 ? "Файл не помещается в localStorage Safari" : null);
+    render(<GamePage assets={{}} canAddBlob={canAddBlob} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
+    const addCard = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
+    const first = new File(["1234"], "run.MP4", { type: "" });
+    const second = new File(["12"], "guide.pdf", { type: "application/pdf" });
+
+    fireEvent(addCard, fileDragEvent("drop", fileTransfer([first, second])));
+
+    const video = await screen.findByLabelText("Видео «run.MP4»");
+    expect(video).toHaveAttribute("src", "data:video/mp4;base64,MTIzNA==");
+    expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Файл не помещается в localStorage Safari");
+    expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([4, 6]);
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const created = onSave.mock.calls[0][0].notes.find((item) => item.clientId !== NOTE_A_ID)!;
+    expect(created).toMatchObject({ groupRank: 1024, rank: 2048 });
+    expect(created.attachments).toEqual([expect.objectContaining({ type: "pending-file", label: "run.MP4" })]);
+  });
+
+  it("creates an attachment draft from the empty-group card on a new game", async () => {
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    const addCard = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+
+    fireEvent(addCard, fileDragEvent("drop", fileTransfer([new File(["video"], "clip.mp4", { type: "video/mp4" })])));
+
+    const video = await screen.findByLabelText("Видео «clip.mp4»");
+    expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
   });
 
   it("drops the last note into the virtual empty group", async () => {
@@ -140,7 +222,7 @@ describe("anonymous note groups", () => {
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
-      if (this.matches(".note-group-empty")) return rect(0, 220, 727, 40);
+      if (this.matches(".note-empty-group")) return rect(0, 220, 727, 40);
       if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
@@ -165,7 +247,7 @@ describe("anonymous note groups", () => {
     const user = userEvent.setup();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
-      if (this.matches(".note-group-empty")) return rect(0, 220, 727, 40);
+      if (this.matches(".note-empty-group")) return rect(0, 220, 727, 40);
       if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
@@ -194,7 +276,7 @@ describe("anonymous note groups", () => {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
       if (this.dataset.noteId === NOTE_B_ID) return rect(0, 260, 360, 90);
       if (this.matches(".notes-list")) return this.parentElement?.getAttribute("aria-label") === "Группа заметок 1" ? rect(0, 100, 727, 100) : rect(0, 260, 727, 100);
-      if (this.matches(".note-group-empty")) return rect(0, 420, 727, 40);
+      if (this.matches(".note-empty-group")) return rect(0, 420, 727, 40);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
@@ -224,7 +306,7 @@ describe("anonymous note groups", () => {
       if (this.matches('.note-group[data-note-group-rank="1024"]')) return rect(0, 100, 727, 100);
       if (this.matches('.note-group[data-note-group-rank="2048"]')) return rect(0, 260, 727, 120);
       if (this.matches(".notes-list")) return rect(0, 0, 727, 100);
-      if (this.matches(".note-group-empty")) return rect(0, 420, 727, 40);
+      if (this.matches(".note-empty-group")) return rect(0, 420, 727, 40);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
@@ -251,7 +333,7 @@ describe("anonymous note groups", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
       if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
-      if (this.matches(".note-group-empty")) return rect(0, 240, 727, 44);
+      if (this.matches(".note-empty-group")) return rect(0, 240, 727, 44);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
@@ -274,7 +356,7 @@ describe("anonymous note groups", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
       if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
-      if (this.matches(".note-group-empty")) return rect(0, 240, 727, 44);
+      if (this.matches(".note-empty-group")) return rect(0, 240, 727, 44);
       if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
@@ -297,7 +379,7 @@ describe("anonymous note groups", () => {
       if (this.matches('.note-group[data-note-group-rank="1024"]')) return rect(0, 100, 727, 160);
       if (this.matches('.note-group[data-note-group-rank="2048"]')) return rect(0, 300, 727, 160);
       if (this.matches(".note-editors-grid")) return rank === "2048" ? rect(0, 300, 727, 140) : rect(0, 100, 727, 140);
-      if (this.matches(".note-group-empty")) return rect(0, 500, 727, 40);
+      if (this.matches(".note-empty-group")) return rect(0, 500, 727, 40);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
     });

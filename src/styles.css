@@ -280,10 +280,16 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-group + .note-group { padding-top: 7px; border-top: 1px solid var(--line-soft); }
 .note-group.is-over { box-shadow: inset 0 -1px var(--accent); }
 .note-group:has(.note-card--media-only) { padding-bottom: 29px; }
-.note-group-empty { width: 100%; min-height: 30px; display: grid; appearance: none; padding: 0; border: 0; border-top: 1px solid var(--line-soft); place-items: center; color: var(--muted-2); background: transparent; cursor: pointer; }
-.note-group-empty:hover:not(:disabled), .note-group-empty:focus-visible, .note-group-empty.is-over { color: var(--text); background: rgba(255, 255, 255, .025); }
-.note-group-empty:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.note-group-empty:disabled { opacity: .35; cursor: default; }
+.note-empty-group { min-height: 30px; border-top: 1px solid var(--line-soft); }
+.note-empty-group.is-over { background: rgba(255, 255, 255, .025); box-shadow: inset 0 -1px var(--accent); }
+.note-group-add-slot { max-height: 0; overflow: hidden; opacity: 0; }
+.note-group:hover > .note-group-add-slot, .note-empty-group:hover > .note-group-add-slot, .note-group-add-slot:focus-within, .note-groups.is-file-dragging .note-group-add-slot, .note-empty-group.is-over > .note-group-add-slot { max-height: 152px; padding-top: 7px; opacity: 1; }
+.note-group:has(.note-card--media-only):hover > .note-group-add-slot, .note-groups.is-file-dragging .note-group:has(.note-card--media-only) > .note-group-add-slot { padding-top: 36px; }
+.note-group-add-card { width: min(144px, 100%); aspect-ratio: 4 / 3; display: grid; appearance: none; padding: 0; border: 1px solid var(--line-soft); border-radius: 5px; place-items: center; color: var(--muted-2); background: #141518; cursor: pointer; }
+.note-group-add-card:hover:not(:disabled), .note-group-add-card:focus-visible, .note-group-add-card.is-drag-over { border-color: var(--accent); color: var(--text); background: var(--accent-wash); }
+.note-group-add-card:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
+.note-group-add-card:disabled { opacity: .35; cursor: default; }
+.game-notes.is-file-dragging iframe, .game-notes.is-file-dragging video, .game-notes.is-file-dragging .note-attachment-image-open { pointer-events: none; }
 .note-card { position: relative; min-width: 0; display: block; align-self: start; overflow: hidden; padding: 0; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing) { cursor: text; }
 .note-card--sortable { cursor: grab !important; touch-action: pan-y; }
@@ -530,7 +536,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .note-editor-actions, .note-attachment-remove { opacity: 1; pointer-events: auto; }
   .note-card--media-only { overflow: hidden; }
   .note-group:has(.note-card--media-only) { padding-bottom: 0; }
-  .note-group-empty { min-height: 44px; }
+  .note-empty-group { min-height: 44px; }
   .note-card__media-actions { position: static; min-height: 49px; opacity: 1; pointer-events: auto; }
   .note-card__media-actions button { pointer-events: auto; }
   .tier-page .game-card--tier { min-width: 44px; min-height: 44px; }
