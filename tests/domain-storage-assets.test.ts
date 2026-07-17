@@ -1,9 +1,12 @@
 import {
   PATCH_STORAGE_KEY,
+  LOSSLESS_WEBP_OPTIONS,
+  MAX_WEBP_DIMENSION,
   MISSING_VALUE_HASH,
   applyPatch,
   assetDataUrl,
   bytesToBase64,
+  canvasToLosslessWebPBytes,
   canvasToWebPBytes,
   discardOperation,
   diffLibrary,
@@ -12,6 +15,7 @@ import {
   makeExternalWebPAsset,
   makeFileAsset,
   makeWebPAsset,
+  optimizeNoteImage,
   publishedAssetUrl,
   reconcilePatch,
   savePatch,
@@ -28,6 +32,35 @@ const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const DATE = "2026-07-16T10:00:00.000Z";
 const game = (): Game => ({ id: GAME_ID, title: "Mario", coverAssetId: null, platforms: ["NES"], tags: [], status: "wishlist", placement: { tierId: "unranked", rank: 1024 }, reviewMarkdown: "", createdAt: DATE, updatedAt: DATE });
 const empty = (): LibraryDatabase => ({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+function mockDecodedImage(width: number, height: number): void {
+  class DecodedImage {
+    decoding = "";
+    naturalWidth = width;
+    naturalHeight = height;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    set src(_value: string) { this.onload?.(); }
+  }
+
+  const NativeURL = URL;
+  class BlobURL extends NativeURL {}
+  Object.defineProperty(BlobURL, "createObjectURL", { value: vi.fn(() => "blob:test-image") });
+  Object.defineProperty(BlobURL, "revokeObjectURL", { value: vi.fn() });
+  vi.stubGlobal("Image", DecodedImage);
+  vi.stubGlobal("URL", BlobURL);
+}
+
+function fileWithBytes(bytes: Uint8Array, name: string, type: string): File {
+  const file = new File([bytes.slice().buffer as ArrayBuffer], name, { type });
+  Object.defineProperty(file, "arrayBuffer", { value: async () => bytes.slice().buffer as ArrayBuffer });
+  return file;
+}
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
@@ -149,6 +182,64 @@ describe("assets and revision", () => {
 
     await expect(canvasToWebPBytes(canvas, 0.82, fallback)).resolves.toEqual(webp);
     expect(fallback).toHaveBeenCalledWith(imageData, 0.82);
+  });
+
+  it("uses the exact canvas pixels and lossless options for note WebP encoding", async () => {
+    const canvas = document.createElement("canvas"); canvas.width = 420; canvas.height = 3072;
+    const imageData = { data: new Uint8ClampedArray(), width: 420, height: 3072 } as ImageData;
+    const getImageData = vi.fn(() => imageData);
+    vi.spyOn(canvas, "getContext").mockReturnValue({ getImageData } as unknown as CanvasRenderingContext2D);
+    const nativeEncoder = vi.spyOn(canvas, "toBlob");
+    const webp = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
+    const encoder = vi.fn(async () => webp);
+
+    await expect(canvasToLosslessWebPBytes(canvas, encoder)).resolves.toEqual(webp);
+    expect(getImageData).toHaveBeenCalledWith(0, 0, 420, 3072);
+    expect(encoder).toHaveBeenCalledWith(imageData, LOSSLESS_WEBP_OPTIONS);
+    expect(nativeEncoder).not.toHaveBeenCalled();
+  });
+
+  it("preserves the original pixel resolution when importing a note image", async () => {
+    mockDecodedImage(420, 3072);
+    const imageData = { data: new Uint8ClampedArray(), width: 420, height: 3072 } as ImageData;
+    const drawImage = vi.fn();
+    const getImageData = vi.fn(() => imageData);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage, getImageData } as unknown as CanvasRenderingContext2D);
+    const nativeEncoder = vi.spyOn(HTMLCanvasElement.prototype, "toBlob");
+    const webp = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
+    const encoder = vi.fn(async () => webp);
+    const file = fileWithBytes(new Uint8Array([137, 80, 78, 71]), "map.png", "image/png");
+
+    const optimized = await optimizeNoteImage(file, "map", encoder);
+
+    expect(optimized.asset).toEqual(expect.objectContaining({ width: 420, height: 3072, alt: "map" }));
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 420, 3072);
+    expect(getImageData).toHaveBeenCalledWith(0, 0, 420, 3072);
+    expect(encoder).toHaveBeenCalledWith(imageData, LOSSLESS_WEBP_OPTIONS);
+    expect(nativeEncoder).not.toHaveBeenCalled();
+  });
+
+  it("keeps an existing WebP byte-for-byte without another encode", async () => {
+    mockDecodedImage(960, 1280);
+    const webp = new Uint8Array([82, 73, 70, 70, 4, 0, 0, 0, 87, 69, 66, 80]);
+    const encoder = vi.fn(async () => new Uint8Array());
+    const file = fileWithBytes(webp, "already.webp", "");
+
+    const optimized = await optimizeNoteImage(file, "original", encoder);
+
+    expect(optimized.asset).toEqual(makeWebPAsset(webp, 960, 1280, "original", "already.webp"));
+    expect(optimized.byteLength).toBe(webp.byteLength);
+    expect(encoder).not.toHaveBeenCalled();
+  });
+
+  it("accepts note image dimensions above the old 1280 px limit", () => {
+    const bytes = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
+    const asset = makeExternalWebPAsset(bytes, 420, 3072, "map", "map.webp").asset;
+    const database = empty(); database.assets[asset.id] = asset;
+    expect(validateLibrary(database).ok).toBe(true);
+
+    database.assets[asset.id] = { ...asset, height: MAX_WEBP_DIMENSION + 1 };
+    expect(validateLibrary(database).ok).toBe(false);
   });
 
   it("deduplicates WebP by the SHA-256 of raw bytes and validates record content", () => {

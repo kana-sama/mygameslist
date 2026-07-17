@@ -31,6 +31,7 @@ const BASE64_RE = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=
 const MIME_RE = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 export const LIBRARY_SCHEMA_VERSION = 2;
+export const MAX_WEBP_DIMENSION = 16_383;
 
 export class DataValidationError extends Error {
   constructor(errors) {
@@ -392,7 +393,7 @@ function rank(value, at, error) {
 }
 
 function imageDimension(value, at, error) {
-  if (!Number.isInteger(value) || value <= 0 || value > 1280) error(at, "must be an integer from 1 through 1280");
+  if (!Number.isInteger(value) || value <= 0 || value > MAX_WEBP_DIMENSION) error(at, `must be an integer from 1 through ${MAX_WEBP_DIMENSION}`);
 }
 
 function byteLength(value, at, error, minimum = 0) {

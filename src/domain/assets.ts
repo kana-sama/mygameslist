@@ -2,6 +2,7 @@ import { sha256Bytes } from "./canonical";
 import type { Asset, FileAsset, ImageAsset, LegacyImageAsset } from "./types";
 
 const CHUNK = 0x8000;
+export const MAX_WEBP_DIMENSION = 16_383;
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -101,6 +102,8 @@ export interface OptimizedImage { asset: LegacyImageAsset; blob: Blob; byteLengt
 
 interface CropRect { x: number; y: number; width: number; height: number }
 export type WebPEncoder = (image: ImageData, quality: number) => Promise<Uint8Array>;
+export const LOSSLESS_WEBP_OPTIONS = { lossless: 1, exact: 1, near_lossless: 100 } as const;
+export type LosslessWebPEncoder = (image: ImageData, options: typeof LOSSLESS_WEBP_OPTIONS) => Promise<Uint8Array>;
 
 async function loadImage(file: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
@@ -128,6 +131,13 @@ async function wasmWebPBytes(image: ImageData, quality: number): Promise<Uint8Ar
   return bytes;
 }
 
+async function wasmLosslessWebPBytes(image: ImageData, options: typeof LOSSLESS_WEBP_OPTIONS): Promise<Uint8Array> {
+  const { default: encode } = await import("@jsquash/webp/encode");
+  const bytes = new Uint8Array(await encode(image, options));
+  if (!isWebP(bytes)) throw new Error("WebP-кодировщик вернул повреждённый файл");
+  return bytes;
+}
+
 export async function canvasToWebPBytes(canvas: HTMLCanvasElement, quality = 0.82, fallback: WebPEncoder = wasmWebPBytes): Promise<Uint8Array> {
   const nativeBytes = await nativeWebPBytes(canvas, quality);
   if (nativeBytes) return nativeBytes;
@@ -135,6 +145,18 @@ export async function canvasToWebPBytes(canvas: HTMLCanvasElement, quality = 0.8
   if (!context) throw new Error("Canvas недоступен");
   try { return await fallback(context.getImageData(0, 0, canvas.width, canvas.height), quality); }
   catch (reason) { throw new Error("Safari не смог создать WebP", { cause: reason }); }
+}
+
+export async function canvasToLosslessWebPBytes(canvas: HTMLCanvasElement, encoder: LosslessWebPEncoder = wasmLosslessWebPBytes): Promise<Uint8Array> {
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas недоступен");
+  try {
+    const bytes = await encoder(context.getImageData(0, 0, canvas.width, canvas.height), LOSSLESS_WEBP_OPTIONS);
+    if (!isWebP(bytes)) throw new Error("WebP-кодировщик вернул повреждённый файл");
+    return bytes;
+  } catch (reason) {
+    throw new Error("Safari не смог создать WebP без потерь", { cause: reason });
+  }
 }
 
 async function render(file: File, image: HTMLImageElement, outputWidth: number, outputHeight: number, source: CropRect, alt: string): Promise<OptimizedImage> {
@@ -152,8 +174,27 @@ export async function optimizeCover(file: File, alt = ""): Promise<OptimizedImag
   return render(file, image, 512, 512, source, alt);
 }
 
-export async function optimizeNoteImage(file: File, alt = ""): Promise<OptimizedImage> {
-  const image = await loadImage(file); const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
-  const width = Math.max(1, Math.round(image.naturalWidth * scale)); const height = Math.max(1, Math.round(image.naturalHeight * scale));
-  return render(file, image, width, height, { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight }, alt);
+export async function optimizeNoteImage(file: File, alt = "", encoder: LosslessWebPEncoder = wasmLosslessWebPBytes): Promise<OptimizedImage> {
+  const image = await loadImage(file);
+  const width = image.naturalWidth;
+  const height = image.naturalHeight;
+  if (width < 1 || height < 1 || width > MAX_WEBP_DIMENSION || height > MAX_WEBP_DIMENSION) {
+    throw new Error(`WebP поддерживает размеры только до ${MAX_WEBP_DIMENSION}×${MAX_WEBP_DIMENSION} px; прикрепите это изображение как файл`);
+  }
+
+  const originalBytes = new Uint8Array(await file.arrayBuffer());
+  if (isWebP(originalBytes)) {
+    const blob = new Blob([originalBytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
+    return { asset: makeWebPAsset(originalBytes, width, height, alt, file.name), blob, byteLength: originalBytes.byteLength };
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas недоступен");
+  context.drawImage(image, 0, 0, width, height);
+  const bytes = await canvasToLosslessWebPBytes(canvas, encoder);
+  const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
+  return { asset: makeWebPAsset(bytes, width, height, alt, file.name), blob, byteLength: bytes.byteLength };
 }

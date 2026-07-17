@@ -1,4 +1,4 @@
-import { base64ToBytes, isCanonicalBase64 } from "./assets";
+import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
 import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
 
@@ -182,7 +182,7 @@ function validateAsset(value: unknown, path: string, issues: ValidationIssue[]):
   if (value.kind === "image") {
     exactKeys(value, ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"], path, issues);
     if (value.mime !== "image/webp") issue(issues, `${path}/mime`, "Изображение должно быть image/webp");
-    for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > 1280) issue(issues, `${path}/${field}`, "Размер изображения должен быть от 1 до 1280 px");
+    for (const field of ["width", "height"] as const) if (typeof value[field] !== "number" || !Number.isSafeInteger(value[field]) || value[field] < 1 || value[field] > MAX_WEBP_DIMENSION) issue(issues, `${path}/${field}`, `Размер изображения должен быть от 1 до ${MAX_WEBP_DIMENSION} px`);
     if (typeof value.byteLength !== "number" || !Number.isSafeInteger(value.byteLength) || value.byteLength < 12) issue(issues, `${path}/byteLength`, "Некорректный размер файла");
     string(value.alt, `${path}/alt`, issues, true, 1_000); string(value.originalName, `${path}/originalName`, issues, true, 2_000);
     return;
