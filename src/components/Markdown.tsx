@@ -46,8 +46,31 @@ function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
 interface MarkdownBlock {
   type: "code" | "heading" | "list" | "ordered-list" | "quote" | "paragraph" | "rule";
   value?: string;
-  values?: string[];
+  items?: MarkdownListItem[];
   depth?: number;
+}
+
+interface MarkdownListItem {
+  value: string;
+  sourceLine: number;
+  taskChecked?: boolean;
+}
+
+const TASK_MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
+
+export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
+  const parts = markdown.split(/(\r\n?|\n)/);
+  const lineIndex = sourceLine * 2;
+  const line = parts[lineIndex];
+  if (line === undefined) return markdown;
+
+  const nextLine = line.replace(
+    /^([ \t]*[-*+][ \t]+\[)[ xX](\])(?=[ \t]|$)/,
+    (_match, prefix: string, suffix: string) => `${prefix}${checked ? "x" : " "}${suffix}`,
+  );
+  if (nextLine === line) return markdown;
+  parts[lineIndex] = nextLine;
+  return parts.join("");
 }
 
 function parseBlocks(markdown: string): MarkdownBlock[] {
@@ -85,21 +108,28 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
       continue;
     }
     if (/^\s*[-*+]\s+/.test(line)) {
-      const values: string[] = [];
+      const items: MarkdownListItem[] = [];
       while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
-        values.push(lines[index].replace(/^\s*[-*+]\s+/, ""));
+        const sourceLine = index;
+        const rawValue = lines[index].replace(/^\s*[-*+]\s+/, "");
+        const task = TASK_MARKER.exec(rawValue);
+        items.push({
+          value: task ? rawValue.slice(task[0].length) : rawValue,
+          sourceLine,
+          taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+        });
         index += 1;
       }
-      blocks.push({ type: "list", values });
+      blocks.push({ type: "list", items });
       continue;
     }
     if (/^\s*\d+[.)]\s+/.test(line)) {
-      const values: string[] = [];
+      const items: MarkdownListItem[] = [];
       while (index < lines.length && /^\s*\d+[.)]\s+/.test(lines[index])) {
-        values.push(lines[index].replace(/^\s*\d+[.)]\s+/, ""));
+        items.push({ value: lines[index].replace(/^\s*\d+[.)]\s+/, ""), sourceLine: index });
         index += 1;
       }
-      blocks.push({ type: "ordered-list", values });
+      blocks.push({ type: "ordered-list", items });
       continue;
     }
     if (/^\s*>\s?/.test(line)) {
@@ -129,13 +159,19 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
   return blocks;
 }
 
+export function hasMarkdownTasks(markdown: string): boolean {
+  return parseBlocks(markdown).some((block) => block.type === "list" && block.items?.some((item) => item.taskChecked !== undefined));
+}
+
 export interface MarkdownViewProps {
   markdown: string;
   className?: string;
   emptyText?: string;
+  onTaskChange?: (markdown: string) => void;
+  taskChangesDisabled?: boolean;
 }
 
-export function MarkdownView({ markdown, className = "", emptyText = "Текста пока нет" }: MarkdownViewProps) {
+export function MarkdownView({ markdown, className = "", emptyText = "Текста пока нет", onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
   if (!blocks.length) return <p className={`markdown-empty ${className}`}>{emptyText}</p>;
 
@@ -150,7 +186,10 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
         }
         if (block.type === "list" || block.type === "ordered-list") {
           const Tag = block.type === "list" ? "ul" : "ol";
-          return <Tag key={key}>{block.values?.map((value, itemIndex) => <li key={itemIndex}>{renderInline(value, `${key}-${itemIndex}`)}</li>)}</Tag>;
+          return <Tag key={key}>{block.items?.map((item, itemIndex) => item.taskChecked === undefined ? <li key={itemIndex}>{renderInline(item.value, `${key}-${itemIndex}`)}</li> : <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemIndex}><label className="markdown-task-control" onClick={(event) => event.stopPropagation()}><input aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`} checked={item.taskChecked} className="markdown-task-checkbox" disabled={!onTaskChange || taskChangesDisabled} onChange={(event) => {
+            const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
+            if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+          }} onClick={(event) => event.stopPropagation()} type="checkbox" /></label><span>{renderInline(item.value, `${key}-${itemIndex}`)}</span></li>)}</Tag>;
         }
         if (block.type === "heading") {
           const children = renderInline(block.value ?? "", key);

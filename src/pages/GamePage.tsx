@@ -5,7 +5,7 @@ import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttach
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
-import { MarkdownView, PlainMarkdownTextarea } from "../components/Markdown";
+import { hasMarkdownTasks, MarkdownView, PlainMarkdownTextarea } from "../components/Markdown";
 import { MasonryGrid } from "../components/MasonryGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
@@ -397,39 +397,44 @@ function InlineValuesField({ active, ariaLabel, values, suggestions, children, o
   }}><TagInput autoFocus label={ariaLabel} onChange={(next) => { setDraft(next); void onCommit(next); }} suggestions={suggestions} values={draft} /></div>;
 }
 
-function InlineNoteCard({ note, index, count, editing, assets, storageLocked, canAddBlob, resolveAssetUrl, onEdit, onChange, onSave, onCancel, onDelete, onMove }: {
+function InlineNoteCard({ note, index, count, editing, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
   note: EditableNote;
   index: number;
   count: number;
   editing: boolean;
   assets: Record<string, Asset>;
   storageLocked: boolean;
+  saving: boolean;
   canAddBlob?: (byteLength: number) => string | null;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onChange: (note: EditableNote) => void;
   onSave: (note: EditableNote) => void;
+  onTaskSave: (note: EditableNote) => void | Promise<void>;
   onCancel: () => void;
   onDelete: () => void;
   onMove: (targetIndex: number) => void;
 }) {
   if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />;
 
-  return <CollapsibleNoteCard assets={assets} note={note} onEdit={onEdit} resolveAssetUrl={resolveAssetUrl} />;
+  return <CollapsibleNoteCard assets={assets} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
 
 const COLLAPSED_NOTE_HEIGHT = 300;
 
-function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit }: {
+function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
+  onTaskChange: (markdown: string) => void;
+  taskChangesDisabled: boolean;
 }) {
   const contentId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
   const [collapsible, setCollapsible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -448,12 +453,17 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit }: {
   const collapsed = collapsible && !expanded;
 
   return (
-    <article aria-label="Редактировать заметку" className={`note-card${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} onClick={(event) => { if (!(event.target as Element).closest("a, button")) onEdit(); }} onKeyDown={(event) => {
+    <article aria-label="Редактировать заметку" className={`note-card${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} onClick={(event) => { if (!(event.target as Element).closest("a, button, input, label")) onEdit(); }} onKeyDown={(event) => {
       if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(); }
     }} tabIndex={0}>
-      <div className="note-card__viewport" id={contentId} inert={collapsed}>
+      <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
+        if (!collapsed || event.target === event.currentTarget) return;
+        const viewportRect = event.currentTarget.getBoundingClientRect();
+        const targetRect = (event.target as HTMLElement).getBoundingClientRect();
+        if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
+      }}>
         <div className="note-card__content" ref={contentRef}>
-          {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} /> : null}
+          {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
           {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
         </div>
       </div>
@@ -504,6 +514,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [coverDraftDirty, setCoverDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const taskSaveInFlight = useRef(false);
   const cover = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(assets[game.coverAssetId]) : null;
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
@@ -543,6 +554,16 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     const exists = editableNotes.some((note) => note.clientId === draft.clientId);
     const nextNotes = exists ? editableNotes.map((note) => note.clientId === draft.clientId ? draft : note) : [...editableNotes, draft];
     if (await persist({ notes: nextNotes })) { setEditingDraft(null); setNoteDirty(false); }
+  };
+  const saveTaskNote = async (draft: EditableNote) => {
+    if (taskSaveInFlight.current || saving) return;
+    taskSaveInFlight.current = true;
+    try {
+      const nextNotes = editableNotes.map((note) => note.clientId === draft.clientId ? draft : note);
+      await persist({ notes: nextNotes });
+    } finally {
+      taskSaveInFlight.current = false;
+    }
   };
   const moveNote = async (clientId: string, targetIndex: number) => { await persist({ notes: moveDraftNote(editableNotes, clientId, targetIndex) }); };
   const deleteNote = async (clientId: string) => {
@@ -585,7 +606,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section aria-label="Заметки" className="game-notes">
-          {visibleNotes.length ? <MasonryGrid className="notes-list">{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />)}</MasonryGrid> : null}
+          {visibleNotes.length ? <MasonryGrid className="notes-list">{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} storageLocked={storageLocked} />)}</MasonryGrid> : null}
         </section>
       </div>
     </div>

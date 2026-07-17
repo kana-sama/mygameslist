@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Game, Note } from "../src/domain/types";
@@ -94,5 +94,49 @@ describe("long note cards", () => {
     expect(editor).toHaveValue("Long note");
     expect(editor.closest("article")).toHaveClass("note-card--editing");
     expect(screen.queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+  });
+
+  it("keeps visible task controls clickable while a long note is collapsed", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(420);
+    const note = makeNote("22222222-2222-4222-8222-222222222222", "- [ ] Visible task\n\nLong tail", 1024);
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    const card = screen.getByText("Visible task").closest("article")!;
+    expect(card).toHaveClass("note-card--collapsed");
+    expect(card.querySelector(".note-card__viewport")).not.toHaveAttribute("inert");
+    await user.click(within(card).getByRole("checkbox"));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe("- [x] Visible task\n\nLong tail");
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("expands for keyboard focus below the clipped viewport and toggles with Space", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(420);
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (this.classList.contains("note-card__viewport")) return new DOMRect(0, 0, 360, 300);
+      if (this.classList.contains("markdown-task-checkbox")) return new DOMRect(10, 340, 14, 14);
+      return new DOMRect(0, 0, 360, this.classList.contains("note-card__content") ? 420 : 20);
+    });
+    const note = makeNote("22222222-2222-4222-8222-222222222222", "Long introduction\n\n- [ ] Hidden task", 1024);
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    const card = screen.getByText("Long introduction").closest("article")!;
+    const checkbox = within(card).getByRole("checkbox");
+    card.focus();
+    await user.tab();
+
+    expect(checkbox).toHaveFocus();
+    expect(card).toHaveClass("note-card--expanded");
+    await user.keyboard("[Space]");
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe("Long introduction\n\n- [x] Hidden task");
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 });
