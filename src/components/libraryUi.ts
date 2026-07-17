@@ -6,6 +6,7 @@ export const STATUS_LABELS: Record<StatusId, string> = {
   playing: "Играю",
   played: "Играл",
   completed: "Пройдено",
+  platinum: "Платина",
   dropped: "Брошено",
 };
 

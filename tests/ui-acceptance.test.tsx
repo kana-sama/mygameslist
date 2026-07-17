@@ -183,6 +183,21 @@ describe("CatalogPage", () => {
     expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
   });
 
+  it("marks platinum catalog covers and leaves completed covers plain", () => {
+    render(<CatalogPage assets={{}} games={[
+      makeGame({ title: "Platinum game", status: "platinum" }),
+      makeGame({ id: MARIO_ID, title: "Completed game", status: "completed" }),
+    ]} />);
+
+    const platinumCard = screen.getByRole("link", { name: "Platinum game" }).closest("article")!;
+    const completedCard = screen.getByRole("link", { name: "Completed game" }).closest("article")!;
+    expect(platinumCard.querySelector(".game-card__cover")).toHaveClass("cover--platinum");
+    expect(completedCard.querySelector(".game-card__cover")).not.toHaveClass("cover--platinum");
+    expect(within(platinumCard).getByText("Платина")).toBeInTheDocument();
+    expect(within(completedCard).getByText("Пройдено")).toBeInTheDocument();
+    expect(screen.getByLabelText("Платина")).toBeInTheDocument();
+  });
+
   it("keeps search stable when StrictMode replays state updaters", async () => {
     const user = userEvent.setup();
     render(<StrictMode><CatalogPage assets={{}} games={[makeGame()]} /></StrictMode>);
@@ -257,6 +272,17 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
+  it("shows the platinum frame only on a platinum game cover", () => {
+    const view = render(<GamePage assets={{}} game={makeGame({ status: "platinum" })} mode="game" notes={[]} onSave={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Изменить обложку" })).toHaveClass("cover--platinum");
+    expect(screen.getByText("Платина")).toBeInTheDocument();
+
+    view.rerender(<GamePage assets={{}} game={makeGame({ status: "completed" })} mode="game" notes={[]} onSave={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Изменить обложку" })).not.toHaveClass("cover--platinum");
+    expect(screen.getByText("Пройдено")).toBeInTheDocument();
+  });
+
   it("blocks growing actions without rendering a separate storage notification", () => {
     render(
       <GamePage
@@ -1146,14 +1172,21 @@ describe("TierListPage", () => {
     expect(screen.queryByLabelText("1 игр")).not.toBeInTheDocument();
   });
 
-  it("marks completed cover-only cards with a platinum frame and an accessible status", () => {
+  it("marks platinum cover-only cards with a platinum frame and an accessible status", () => {
+    render(<TierListPage assets={{}} games={[makeGame({ status: "platinum" })]} onMoveGame={vi.fn()} />);
+
+    const cover = screen.getByRole("link", { name: /DuckTales, статус: Платина.*пробел — перетащить/ });
+    const card = cover.closest("article");
+    expect(cover).toHaveClass("cover--platinum");
+    expect(card?.textContent).toBe("");
+    expect(card?.querySelector(".status-dot")).not.toBeInTheDocument();
+  });
+
+  it("leaves completed cover-only cards without the platinum frame", () => {
     render(<TierListPage assets={{}} games={[makeGame({ status: "completed" })]} onMoveGame={vi.fn()} />);
 
     const cover = screen.getByRole("link", { name: /DuckTales, статус: Пройдено.*пробел — перетащить/ });
-    const card = cover.closest("article");
-    expect(card).toHaveClass("game-card--completed");
-    expect(card?.textContent).toBe("");
-    expect(card?.querySelector(".status-dot")).not.toBeInTheDocument();
+    expect(cover).not.toHaveClass("cover--platinum");
   });
 
   it("opens a game on a regular cover click", async () => {

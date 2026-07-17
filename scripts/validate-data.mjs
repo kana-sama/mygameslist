@@ -22,7 +22,7 @@ const ROOT_KEYS = [
   "notes",
   "assets",
 ];
-const STATUS_IDS = new Set(["wishlist", "playing", "played", "completed", "dropped"]);
+const STATUS_IDS = new Set(["wishlist", "playing", "played", "completed", "platinum", "dropped"]);
 const TIER_IDS = new Set(["s", "a", "b", "c", "d", "f", "unranked"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;

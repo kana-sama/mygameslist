@@ -1,4 +1,4 @@
-export const STATUS_IDS = ["wishlist", "playing", "played", "completed", "dropped"] as const;
+export const STATUS_IDS = ["wishlist", "playing", "played", "completed", "platinum", "dropped"] as const;
 export type StatusId = (typeof STATUS_IDS)[number];
 
 export const TIER_IDS = ["s", "a", "b", "c", "d", "f", "unranked"] as const;

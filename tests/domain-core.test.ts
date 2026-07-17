@@ -51,6 +51,13 @@ describe("library validation", () => {
     const database = empty(); database.games[GAME_ID] = { ...game(), reviewMarkdown: "[oops](javascript:alert(1))" };
     expect(validateLibrary(database).issues.some((item) => item.path.endsWith("reviewMarkdown"))).toBe(true);
   });
+
+  it("accepts platinum as a distinct game status", () => {
+    const database = empty();
+    database.games[GAME_ID] = { ...game(), status: "platinum" };
+
+    expect(validateLibrary(database).ok).toBe(true);
+  });
 });
 
 describe("patch lifecycle", () => {

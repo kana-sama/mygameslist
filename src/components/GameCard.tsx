@@ -43,7 +43,7 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
   return (
     <article
       {...dragRootProps}
-      className={`game-card game-card--${variant}${isTierCard && game.status === "completed" ? " game-card--completed" : ""}${isDragging ? " is-dragging" : ""}${dragRootProps?.className ? ` ${dragRootProps.className}` : ""}`}
+      className={`game-card game-card--${variant}${isDragging ? " is-dragging" : ""}${dragRootProps?.className ? ` ${dragRootProps.className}` : ""}`}
       ref={ref}
       style={{ ...dragRootProps?.style, ...style }}
       title={isTierCard ? game.title : dragRootProps?.title}
@@ -51,7 +51,7 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
       <a
         {...dragLinkProps}
         aria-label={isTierCard ? tierAccessibleLabel : undefined}
-        className={`game-card__cover${dragLinkProps?.className ? ` ${dragLinkProps.className}` : ""}`}
+        className={`game-card__cover${game.status === "platinum" ? " cover--platinum" : ""}${dragLinkProps?.className ? ` ${dragLinkProps.className}` : ""}`}
         draggable={isTierCard ? false : undefined}
         href={`#/games/${encodeURIComponent(game.id)}`}
         onClick={openGame}
