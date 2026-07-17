@@ -71,15 +71,20 @@ export function makeFileAsset(bytes: Uint8Array, mime: string, originalName: str
 
 export function isImageAsset(asset: Asset): asset is ImageAsset { return asset.kind === "image"; }
 
+export function isMp4FileMetadata(file: Pick<FileAsset, "mime" | "originalName">): boolean {
+  return file.mime.toLowerCase() === "video/mp4";
+}
+
 export function assetDataUrl(asset: Asset, blobBase64?: string): string | null {
   if (blobBase64 === undefined) return null;
-  const mime = asset.kind === "image" ? "image/webp" : "application/octet-stream";
+  const mime = asset.kind === "image" ? "image/webp" : asset.mime;
   return `data:${mime};base64,${blobBase64}`;
 }
 
 export function publishedAssetUrl(asset: Asset, baseUrl: string): string {
   const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return `${root}media/${asset.id}.${asset.kind === "file" ? "bin" : "webp"}`;
+  const extension = asset.kind === "image" ? "webp" : isMp4FileMetadata(asset) ? "mp4" : "bin";
+  return `${root}media/${asset.id}.${extension}`;
 }
 
 export interface OptimizedImage { asset: LegacyImageAsset; blob: Blob; byteLength: number }

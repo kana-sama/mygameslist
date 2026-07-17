@@ -781,6 +781,35 @@ describe("GamePage", () => {
     expect(screen.getByTitle("Видео YouTube")).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1");
   });
 
+  it("keeps a published MP4 interactive while exposing media-only drag and edit controls", async () => {
+    const user = userEvent.setup();
+    const assetId = "e".repeat(64);
+    const asset: Asset = { id: assetId, kind: "file", mime: "video/mp4", byteLength: 1024, originalName: "run.mp4" };
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "",
+      attachments: [{ type: "file", assetId, label: "Boss run" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(<GamePage assets={{ [assetId]: asset }} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={() => `/mylib/media/${assetId}.mp4`} />);
+    const video = screen.getByLabelText("Видео «Boss run»");
+    const card = video.closest("article")!;
+    expect(video).toHaveAttribute("src", `/mylib/media/${assetId}.mp4`);
+    expect(card).toHaveClass("note-card--media-only");
+    expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Редактировать заметку" })).toBeInTheDocument();
+
+    await user.click(video);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(screen.getByLabelText("Видео «Boss run»")).toBeInTheDocument();
+  });
+
   it("opens compact attachment actions and adds multiple images and files through mounted inputs", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
@@ -848,6 +877,46 @@ describe("GamePage", () => {
       expect.objectContaining({ type: "pending-file", label: "guide.pdf", file: expect.objectContaining({ mime: "application/pdf", originalName: "guide.pdf", byteLength: 5 }) }),
       expect.objectContaining({ type: "pending-file", label: "save.dat", file: expect.objectContaining({ mime: "application/octet-stream", originalName: "save.dat", byteLength: 4 }) }),
     ]);
+  });
+
+  it("previews MP4 files added by drop or file picker and preserves Safari MIME fallback", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const canAddBlob = vi.fn(() => null);
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Материалы",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
+    await user.click(screen.getByText("Материалы").closest("article")!);
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const dropped = new File(["drop"], "dropped.MP4", { type: "" });
+
+    fireEvent.drop(editor, { dataTransfer: { files: [dropped], items: [], types: ["Files"] } });
+    const droppedVideo = await screen.findByLabelText("Видео «dropped.MP4»");
+    expect(droppedVideo).toHaveAttribute("controls");
+    expect(droppedVideo).toHaveAttribute("playsinline");
+    expect(droppedVideo).toHaveAttribute("preload", "metadata");
+    expect(droppedVideo).not.toHaveAttribute("autoplay");
+    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==");
+
+    const picked = new File(["picked"], "picked.mp4", { type: "video/mp4" });
+    const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
+    fireEvent.change(fileInput, { target: { files: [picked] } });
+    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].attachments).toEqual([
+      expect.objectContaining({ type: "pending-file", label: "dropped.MP4", file: expect.objectContaining({ mime: "video/mp4", originalName: "dropped.MP4", byteLength: 4 }) }),
+      expect.objectContaining({ type: "pending-file", label: "picked.mp4", file: expect.objectContaining({ mime: "video/mp4", originalName: "picked.mp4", byteLength: 6 }) }),
+    ]);
+    expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([4, 10]);
   });
 
   it("preflights the optimized image size even when Safari leaves its MIME empty", async () => {
@@ -958,6 +1027,8 @@ describe("GamePage", () => {
     expect(link).toHaveAttribute("download", "Карта мира");
     expect(link).not.toHaveAttribute("target");
     expect(link).toHaveTextContent("2 КБ");
+    expect(link.closest("article")).not.toHaveClass("note-card--media-only");
+    expect(document.querySelector("video")).not.toBeInTheDocument();
     expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
   });
 

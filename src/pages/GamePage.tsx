@@ -17,7 +17,7 @@ import {
   type DraggableSyntheticListeners,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
-import { optimizeNoteImage } from "../domain/assets";
+import { isMp4FileMetadata, optimizeNoteImage } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
@@ -117,18 +117,30 @@ function noteTargetMatches(target: EventTarget | null, selector: string): boolea
 }
 
 function blocksNoteDrag(target: EventTarget | null): boolean {
-  return noteTargetMatches(target, "button:not(.note-attachment-image-open), input, label, textarea, select, iframe, [contenteditable='true']");
+  return noteTargetMatches(target, "button:not(.note-attachment-image-open), input, label, textarea, select, iframe, video, [contenteditable='true']");
 }
 
 function blocksNoteEdit(target: EventTarget | null): boolean {
-  return noteTargetMatches(target, "a, button, input, label, textarea, select, iframe, [contenteditable='true']");
+  return noteTargetMatches(target, "a, button, input, label, textarea, select, iframe, video, [contenteditable='true']");
 }
 
-function isInlineMediaAttachment(attachment: EditableAttachment): boolean {
-  if (attachment.type === "image" || attachment.type === "pending-image") return true;
+function isMp4Attachment(attachment: EditableAttachment, assets: Record<string, Asset>): boolean {
+  if (attachment.type === "pending-file") return isMp4FileMetadata(attachment.file);
+  if (attachment.type !== "file") return false;
+  const asset = assets[attachment.assetId];
+  return Boolean(asset?.kind === "file" && isMp4FileMetadata(asset));
+}
+
+function isPlayableMediaAttachment(attachment: EditableAttachment, assets: Record<string, Asset>): boolean {
+  if (isMp4Attachment(attachment, assets)) return true;
   if (attachment.type !== "link") return false;
   const href = safeUrl(attachment.url);
   return Boolean(href && getYouTubeEmbedUrl(href));
+}
+
+function isInlineMediaAttachment(attachment: EditableAttachment, assets: Record<string, Asset>): boolean {
+  if (attachment.type === "image" || attachment.type === "pending-image") return true;
+  return isPlayableMediaAttachment(attachment, assets);
 }
 
 function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNote[] {
@@ -186,12 +198,18 @@ function readFileAsBase64(file: File): Promise<string> {
 
 async function prepareFileAttachment(file: File): Promise<EditableAttachment> {
   const originalName = file.name.trim() || "Вложение";
+  const declaredMime = file.type.trim().toLowerCase();
+  const mime = /\.mp4$/i.test(originalName)
+    ? "video/mp4"
+    : /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i.test(declaredMime)
+      ? declaredMime
+      : "application/octet-stream";
   return {
     type: "pending-file",
     label: originalName,
     file: {
       clientId: crypto.randomUUID(),
-      mime: file.type || "application/octet-stream",
+      mime,
       base64: await readFileAsBase64(file),
       originalName,
       byteLength: file.size,
@@ -239,13 +257,21 @@ function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { att
   if (attachment.type === "image" || attachment.type === "pending-image") return <ImageAttachmentView assets={assets} attachment={attachment} onRemove={onRemove} resolveAssetUrl={resolveAssetUrl} />;
   if (attachment.type === "file" || attachment.type === "pending-file") {
     const asset = attachment.type === "file" ? assets[attachment.assetId] : undefined;
+    const mime = attachment.type === "pending-file"
+      ? attachment.file.mime
+      : asset?.kind === "file"
+        ? asset.mime
+        : "application/octet-stream";
     const href = attachment.type === "file"
       ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset)
-      : `data:application/octet-stream;base64,${attachment.file.base64}`;
+      : `data:${mime};base64,${attachment.file.base64}`;
     if (!href) return null;
     const originalName = attachment.type === "pending-file" ? attachment.file.originalName : asset?.originalName || attachment.label;
     const downloadName = attachment.label.trim() || originalName;
     const byteLength = attachment.type === "pending-file" ? attachment.file.byteLength : typeof asset?.byteLength === "number" ? asset.byteLength : 0;
+    if (isMp4FileMetadata({ mime, originalName })) {
+      return <div className="note-attachment-shell note-attachment-shell--video"><video aria-label={`Видео «${downloadName}»`} className="note-attachment--video" controls playsInline preload="metadata" src={href} />{onRemove ? <button aria-label="Удалить видео" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить видео" type="button"><Icon name="close" size={14} /></button> : null}</div>;
+    }
     return <div className="note-attachment-shell note-attachment-shell--file"><a className="note-attachment note-attachment--file" download={downloadName} href={href}><Icon name="download" size={15} /><span><b>{downloadName}</b><small>{formatBytes(byteLength)}</small></span></a>{onRemove ? <button aria-label="Удалить файл" className="note-attachment-remove" onClick={onRemove} title="Удалить файл" type="button"><Icon name="close" size={14} /></button> : null}</div>;
   }
   const href = safeUrl(attachment.url);
@@ -414,6 +440,7 @@ function PlainNoteEditor({
         className="plain-markdown-textarea"
         imagesDisabled={storageLocked}
         onChange={(bodyMarkdown) => onChange({ ...noteRef.current, bodyMarkdown })}
+        onFileFiles={addFileFiles}
         onImageError={(error) => setAttachmentError(error.message)}
         onImageFiles={addImageFiles}
         onKeyDown={(event) => {
@@ -569,7 +596,7 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const [collapsible, setCollapsible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
-  const mediaOnly = !note.bodyMarkdown.trim() && note.attachments.length > 0 && note.attachments.every(isInlineMediaAttachment);
+  const mediaOnly = !note.bodyMarkdown.trim() && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
   const cardDragAttributes = mediaOnly ? undefined : dragAttributes;
   const cardDragListeners = mediaOnly ? undefined : dragListeners;
 

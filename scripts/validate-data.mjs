@@ -281,7 +281,8 @@ export function externalAssetFilename(id, asset) {
   if (!SHA256_RE.test(id)) throw new Error("External asset id must be a lowercase SHA-256 hash");
   const kind = assetStorageKind(asset);
   if (kind !== "image" && kind !== "file") throw new Error("External asset kind must be image or file");
-  return `${id}.${kind === "image" ? "webp" : "bin"}`;
+  const extension = kind === "image" ? "webp" : typeof asset.mime === "string" && asset.mime.toLowerCase() === "video/mp4" ? "mp4" : "bin";
+  return `${id}.${extension}`;
 }
 
 export function externalAssetPath(mediaRoot, id, asset) {

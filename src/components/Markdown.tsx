@@ -226,6 +226,7 @@ export interface PlainMarkdownTextareaProps extends Omit<TextareaHTMLAttributes<
   value: string;
   onChange: (value: string) => void;
   onImageFiles?: (files: File[]) => void;
+  onFileFiles?: (files: File[]) => void;
   onImageError?: (error: Error) => void;
   imagesDisabled?: boolean;
 }
@@ -234,6 +235,7 @@ export function PlainMarkdownTextarea({
   value,
   onChange,
   onImageFiles,
+  onFileFiles,
   onImageError,
   imagesDisabled = false,
   className = "",
@@ -244,11 +246,15 @@ export function PlainMarkdownTextarea({
   const acceptFiles = (transfer: DataTransfer): boolean => {
     const files = snapshotFiles(transfer);
     const images = files.filter(isImageFile);
-    if (!images.length) {
-      onImageError?.(new Error("Можно добавить только изображения."));
+    const otherFiles = files.filter((file) => !isImageFile(file));
+    if (!images.length && (!otherFiles.length || !onFileFiles)) {
+      if (!imagesDisabled) onImageError?.(new Error("Можно добавить только изображения."));
       return false;
     }
-    if (!imagesDisabled) onImageFiles?.(images);
+    if (!imagesDisabled) {
+      if (images.length) onImageFiles?.(images);
+      if (otherFiles.length) onFileFiles?.(otherFiles);
+    }
     return true;
   };
 
@@ -279,12 +285,7 @@ export function PlainMarkdownTextarea({
         const files = snapshotFiles(event.clipboardData);
         if (!files.length) return;
         event.preventDefault();
-        const images = files.filter(isImageFile);
-        if (!images.length) {
-          if (!imagesDisabled) onImageError?.(new Error("Можно добавить только изображения."));
-          return;
-        }
-        if (!imagesDisabled) onImageFiles?.(images);
+        acceptFiles(event.clipboardData);
       }}
       value={value}
     />

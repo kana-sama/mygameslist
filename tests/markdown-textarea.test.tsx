@@ -109,6 +109,24 @@ describe("PlainMarkdownTextarea", () => {
     expect(onImageError).toHaveBeenCalledWith(expect.objectContaining({ message: "Можно добавить только изображения." }));
   });
 
+  it("routes dropped MP4 files to the generic file callback, including Safari's empty MIME", () => {
+    const declared = new File(["video"], "clip.mp4", { type: "video/mp4" });
+    const safari = new File(["video"], "CLIP.MP4", { type: "" });
+    const onFileFiles = vi.fn();
+    const onImageFiles = vi.fn();
+    const onImageError = vi.fn();
+    render(<PlainMarkdownTextarea aria-label="Текст заметки" onChange={vi.fn()} onFileFiles={onFileFiles} onImageError={onImageError} onImageFiles={onImageFiles} value="" />);
+    const event = transferEvent("drop", transfer({ files: [declared, safari] }));
+
+    fireEvent(screen.getByRole("textbox"), event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onFileFiles).toHaveBeenCalledOnce();
+    expect(onFileFiles).toHaveBeenCalledWith([declared, safari]);
+    expect(onImageFiles).not.toHaveBeenCalled();
+    expect(onImageError).not.toHaveBeenCalled();
+  });
+
   it("still consumes file gestures when images are disabled without emitting files", () => {
     const image = new File(["png"], "shot.png", { type: "image/png" });
     const onImageFiles = vi.fn();

@@ -620,6 +620,20 @@ describe("publish patch transaction", () => {
     expect(() => validateLibrary(published, { mediaRoot: path.join(root, "public", "media") })).not.toThrow();
   });
 
+  it("materializes video/mp4 with a fixed MP4 extension for GitHub Pages", () => {
+    const root = makeRepository();
+    const bytes = Buffer.from("synthetic mp4 bytes");
+    const metadata = { ...fileAsset(bytes, "clip.mp4"), mime: "video/mp4" };
+    const result = publishPatchInRepository(root, createMediaPatch(bytes, metadata));
+    const relativeMediaPath = `public/media/${metadata.id}.mp4`;
+
+    expect(result.mediaPaths).toEqual([relativeMediaPath]);
+    expect(readFileSync(path.join(root, relativeMediaPath))).toEqual(bytes);
+    expect(git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").split("\n").sort())
+      .toEqual(["public/data/library.json", relativeMediaPath].sort());
+    expect(() => validateLibrary(JSON.parse(readFileSync(path.join(root, "public", "data", "library.json"), "utf8")), { mediaRoot: path.join(root, "public", "media") })).not.toThrow();
+  });
+
   it("publishes a V1 inline new image as V2 metadata plus a derived WebP file", () => {
     const root = makeRepository();
     const bytes = webpBytes("new-v1-image");

@@ -12,6 +12,7 @@ import {
   makeExternalWebPAsset,
   makeFileAsset,
   makeWebPAsset,
+  publishedAssetUrl,
   reconcilePatch,
   savePatch,
   validateLibrary,
@@ -177,6 +178,13 @@ describe("assets and revision", () => {
     const prepared = makeFileAsset(new Uint8Array(), "application/octet-stream", "empty.dat");
     expect(prepared.base64).toBe("");
     expect(assetDataUrl(prepared.asset, prepared.base64)).toBe("data:application/octet-stream;base64,");
+  });
+
+  it("preserves MP4 MIME locally and derives a Pages-safe video filename", () => {
+    const prepared = makeFileAsset(new TextEncoder().encode("video"), "video/mp4", "clip.mp4");
+
+    expect(assetDataUrl(prepared.asset, prepared.base64)).toBe(`data:video/mp4;base64,${prepared.base64}`);
+    expect(publishedAssetUrl(prepared.asset, "/mylib/")).toBe(`/mylib/media/${prepared.asset.id}.mp4`);
   });
 
   it("requires file attachments to reference file assets", () => {
