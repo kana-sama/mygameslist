@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Icon } from "./Icon";
+import {
+  DiffSyncButton,
+  DiffSyncPanel,
+  isDiffSyncBusy,
+  type DiffSyncController,
+} from "./DiffSyncPanel";
 import { formatBytes } from "./libraryUi";
 
 export type DiffGroupId = "added" | "changed" | "deleted" | "moved" | "assets";
@@ -41,6 +47,7 @@ export interface DiffDialogProps {
   onDownloadCorruptedRaw?: () => void;
   onDismissError?: () => void;
   copyPatch?: () => Promise<boolean>;
+  sync?: DiffSyncController;
 }
 
 const groupLabels: Record<DiffGroupId, string> = {
@@ -87,6 +94,7 @@ export function DiffDialog({
   onDownloadCorruptedRaw,
   onDismissError,
   copyPatch,
+  sync,
 }: DiffDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +103,9 @@ export function DiffDialog({
   const [importError, setImportError] = useState<string | null>(null);
   const [manualConflict, setManualConflict] = useState<string | null>(null);
   const [manualValue, setManualValue] = useState("");
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncSubmitting, setSyncSubmitting] = useState(false);
+  const syncToggleRef = useRef<HTMLButtonElement>(null);
   const grouped = useMemo(() => {
     const result = new Map<DiffGroupId, DiffItem[]>();
     for (const item of items) result.set(item.group, [...(result.get(item.group) ?? []), item]);
@@ -130,11 +141,29 @@ export function DiffDialog({
   }, [onClose, open]);
 
   useEffect(() => {
+    if (open) return;
+    setSyncOpen(false);
+    setSyncSubmitting(false);
+  }, [open]);
+
+  useEffect(() => {
     copyAttemptRef.current += 1;
     setCopyState("idle");
   }, [payload]);
 
   if (!open) return null;
+
+  const syncBlockedReason = !items.length
+    ? "Нет локальных изменений для синхронизации."
+    : conflicts.length
+      ? "Сначала разрешите все конфликты."
+      : undefined;
+  const syncBusy = syncSubmitting || Boolean(sync?.busy) || isDiffSyncBusy(sync?.stage);
+
+  const closeSyncPanel = () => {
+    setSyncOpen(false);
+    requestAnimationFrame(() => syncToggleRef.current?.focus());
+  };
 
   const copy = async () => {
     const attempt = ++copyAttemptRef.current;
@@ -186,10 +215,14 @@ export function DiffDialog({
             <h2 id="diff-title">Локальные правки</h2>
             <p>{items.length} {items.length === 1 ? "изменение" : "изменений"} · {formatBytes(patchBytes)}</p>
           </div>
-          <button aria-label="Закрыть" className="icon-button" onClick={onClose} type="button"><Icon name="close" /></button>
+          <div className="diff-dialog__header-actions">
+            {sync ? <DiffSyncButton busy={syncBusy} expanded={syncOpen} onClick={() => syncOpen ? closeSyncPanel() : setSyncOpen(true)} ref={syncToggleRef} /> : null}
+            <button aria-label="Закрыть" className="icon-button" onClick={onClose} type="button"><Icon name="close" /></button>
+          </div>
         </header>
 
         <div className="diff-dialog__body">
+          {sync ? <DiffSyncPanel blockedReason={syncBlockedReason} controller={sync} onBusyChange={setSyncSubmitting} onClose={closeSyncPanel} open={syncOpen} /> : null}
           {error ? <div className="inline-alert inline-alert--error" role="alert"><Icon name="warning" /><span>{error}</span>{onDismissError ? <button onClick={onDismissError} type="button">Скрыть</button> : null}</div> : null}
           <div className="diff-toolbar">
             <button className="button button--secondary" onClick={onExport} type="button"><Icon name="download" size={17} />Экспорт</button>
@@ -273,23 +306,24 @@ export function DiffDialog({
           )}
 
           {items.length ? (
-            <section className="publish-panel">
-              <div className="section-heading">
-                <div><span className="section-icon section-icon--publish"><Icon name="clipboard" /></span><div><h3>Опубликовать</h3><p>Скопируйте патч и сразу запустите постоянную команду в локальном клоне.</p></div></div>
+            <details className="publish-panel publish-panel--fallback">
+              <summary><Icon name="clipboard" size={14} /><span>Локальная публикация</span><small>резервный способ</small></summary>
+              <div className="publish-panel__fallback-body">
+                <p>Скопируйте патч и запустите постоянную команду в локальном клоне.</p>
+                {conflicts.length ? <p className="publish-panel__blocked"><Icon name="warning" size={17} />Сначала разрешите все конфликты.</p> : null}
+                <code className="publish-panel__command">{publishCommand}</code>
+                <button className="button button--secondary button--wide" disabled={Boolean(conflicts.length) || payloadPreparing || !payload} onClick={() => void copy()} type="button">
+                  <Icon name={copyState === "copied" ? "check" : "clipboard"} size={18} />
+                  {copyState === "copied" ? "Патч скопирован" : payloadPreparing ? "Подготавливаем патч…" : "Скопировать патч"}
+                </button>
+                {copyState === "fallback" ? (
+                  <div className="copy-fallback">
+                    <label htmlFor="publish-payload">Safari не разрешил доступ к буферу. Скопируйте патч вручную; в терминал его вставлять не нужно:</label>
+                    <textarea id="publish-payload" onFocus={(event) => event.currentTarget.select()} readOnly rows={5} value={payload} />
+                  </div>
+                ) : null}
               </div>
-              {conflicts.length ? <p className="publish-panel__blocked"><Icon name="warning" size={17} />Сначала разрешите все конфликты.</p> : null}
-              <code className="publish-panel__command">{publishCommand}</code>
-              <button className="button button--primary button--wide" disabled={Boolean(conflicts.length) || payloadPreparing || !payload} onClick={() => void copy()} type="button">
-                <Icon name={copyState === "copied" ? "check" : "clipboard"} size={18} />
-                {copyState === "copied" ? "Патч скопирован" : payloadPreparing ? "Подготавливаем патч…" : "Скопировать патч"}
-              </button>
-              {copyState === "fallback" ? (
-                <div className="copy-fallback">
-                  <label htmlFor="publish-payload">Safari не разрешил доступ к буферу. Скопируйте патч вручную; в терминал его вставлять не нужно:</label>
-                  <textarea id="publish-payload" onFocus={(event) => event.currentTarget.select()} readOnly rows={5} value={payload} />
-                </div>
-              ) : null}
-            </section>
+            </details>
           ) : null}
         </div>
 

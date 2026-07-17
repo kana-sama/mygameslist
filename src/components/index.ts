@@ -1,5 +1,6 @@
 export * from "./AppShell";
 export * from "./DiffDialog";
+export * from "./DiffSyncPanel";
 export * from "./GameCard";
 export * from "./Icon";
 export * from "./ImagePicker";

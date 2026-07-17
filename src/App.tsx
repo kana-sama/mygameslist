@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HashRouter,
   Route,
@@ -11,6 +11,7 @@ import {
   AppShell,
   DiffDialog,
   type AppRoute,
+  type DiffSyncController,
   type DiffGroupId,
   type DiffItem,
 } from "./components";
@@ -31,6 +32,15 @@ import {
   createPublishPayload,
   downloadPatch,
 } from "./state/publishCommand";
+import {
+  GITHUB_REPOSITORY_NAME,
+  GITHUB_REPOSITORY_OWNER,
+  clearGitHubPat,
+  getGitHubPatCreationUrl,
+  loadGitHubPat,
+  saveGitHubPat,
+  type GitHubPatPersistence,
+} from "./state/githubPat";
 
 const fieldLabels: Record<string, string> = {
   title: "Название",
@@ -116,6 +126,25 @@ function LibraryRoutes() {
   const [preparedPayload, setPreparedPayload] = useState<{ patch: PatchEnvelope; payload: string } | null>(null);
   const [publishFailure, setPublishFailure] = useState<{ patch: PatchEnvelope; message: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const githubPatRef = useRef<string | null>(null);
+  const [githubPatPersistence, setGitHubPatPersistence] = useState<GitHubPatPersistence | null>(null);
+  const [githubSyncState, setGitHubSyncState] = useState<{
+    busy: boolean;
+    stage: DiffSyncController["stage"];
+    error: string | null;
+    commitUrl?: string;
+  }>({ busy: false, stage: "idle", error: null });
+  const previousPendingCommitRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const loaded = loadGitHubPat();
+    if (loaded.ok) {
+      githubPatRef.current = loaded.token;
+      setGitHubPatPersistence(loaded.persistence);
+    } else {
+      setGitHubSyncState((current) => ({ ...current, error: loaded.error === "invalid-token" ? "Сохранённый PAT повреждён" : "Safari не разрешил прочитать сохранённый PAT" }));
+    }
+  }, []);
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
@@ -126,6 +155,19 @@ function LibraryRoutes() {
     () => webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(library.patch)),
     [library.patch],
   );
+
+  useEffect(() => {
+    if (githubSyncState.stage !== "complete" || !operationEntries.length) return;
+    setGitHubSyncState((current) => ({ ...current, stage: "idle", commitUrl: undefined }));
+  }, [githubSyncState.stage, library.patch, operationEntries.length]);
+
+  useEffect(() => {
+    const commitSha = library.pendingPublication?.commitSha ?? null;
+    if (previousPendingCommitRef.current && !commitSha) {
+      setGitHubSyncState((current) => ({ ...current, stage: "idle", commitUrl: undefined }));
+    }
+    previousPendingCommitRef.current = commitSha;
+  }, [library.pendingPublication]);
 
   useEffect(() => {
     let active = true;
@@ -191,6 +233,72 @@ function LibraryRoutes() {
     } catch {
       return false;
     }
+  };
+
+  const syncWithGitHub = async (token: string) => {
+    setGitHubSyncState((current) => ({ ...current, busy: true, stage: "connecting", error: null }));
+    try {
+      const result = await library.syncToGitHub(token, (stage) => {
+        setGitHubSyncState((current) => ({ ...current, busy: true, stage }));
+      });
+      setGitHubSyncState({ busy: false, stage: "complete", error: null, commitUrl: result.commitUrl });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Не удалось синхронизировать библиотеку";
+      if (message.startsWith("GitHub отклонил PAT")) {
+        clearGitHubPat();
+        githubPatRef.current = null;
+        setGitHubPatPersistence(null);
+      }
+      setGitHubSyncState((current) => ({ ...current, busy: false, stage: "idle", error: message }));
+      throw reason;
+    }
+  };
+
+  const connectAndSyncGitHub = async (token: string, remember: boolean) => {
+    const saved = saveGitHubPat(token, remember);
+    if (!saved.ok) {
+      throw new Error(saved.error === "invalid-token"
+        ? "Нужен fine-grained PAT в формате github_pat_…"
+        : "Safari не разрешил сохранить PAT");
+    }
+    const loaded = loadGitHubPat();
+    if (!loaded.ok || !loaded.token || !loaded.persistence) {
+      clearGitHubPat();
+      throw new Error("Не удалось прочитать сохранённый PAT");
+    }
+    githubPatRef.current = loaded.token;
+    setGitHubPatPersistence(loaded.persistence);
+    await syncWithGitHub(loaded.token);
+  };
+
+  const disconnectGitHub = async () => {
+    const cleared = clearGitHubPat();
+    if (!cleared.ok) throw new Error("Safari не разрешил удалить сохранённый PAT");
+    githubPatRef.current = null;
+    setGitHubPatPersistence(null);
+    setGitHubSyncState({ busy: false, stage: "idle", error: null });
+  };
+
+  const githubSyncController: DiffSyncController = {
+    connected: githubPatRef.current !== null,
+    persistence: githubPatPersistence ?? "none",
+    busy: githubSyncState.busy,
+    stage: githubSyncState.stage,
+    error: githubSyncState.error,
+    commitUrl: githubSyncState.commitUrl ?? (library.pendingPublication
+      ? `https://github.com/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}/commit/${library.pendingPublication.commitSha}`
+      : undefined),
+    pagesPending: library.pendingPublication !== null,
+    repository: `${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME} · main`,
+    patCreationHref: getGitHubPatCreationUrl(),
+    onConnect: connectAndSyncGitHub,
+    onDisconnect: disconnectGitHub,
+    onSync: async () => {
+      const token = githubPatRef.current;
+      if (!token) throw new Error("Сначала подключите fine-grained PAT");
+      await syncWithGitHub(token);
+    },
+    onDismissError: () => setGitHubSyncState((current) => ({ ...current, error: null })),
   };
 
   const expandedDiscardPaths = (paths: string[]): string[] => {
@@ -291,6 +399,7 @@ function LibraryRoutes() {
         payload={publishPayload}
         payloadPreparing={publishPayloadPreparing}
         publishCommand={PUBLISH_CLIPBOARD_COMMAND}
+        sync={githubSyncController}
       />
     </AppShell>
   );

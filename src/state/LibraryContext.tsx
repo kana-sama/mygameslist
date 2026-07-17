@@ -44,6 +44,24 @@ import {
   type StorageUsage,
   type TierId,
 } from "../domain";
+import {
+  PENDING_PUBLICATION_STORAGE_KEY,
+  clearPendingPublication,
+  installPendingPublication,
+  loadPendingPublication,
+  type PendingPublicationReceipt,
+} from "./pendingPublication";
+import {
+  GitHubGitDatabaseSyncClient,
+  GitHubPatchConflictError,
+  GitHubSyncError,
+  type GitHubSyncStage,
+} from "./githubGitDatabaseSync";
+import {
+  GITHUB_REPOSITORY_NAME,
+  GITHUB_REPOSITORY_OWNER,
+  loadGitHubPat,
+} from "./githubPat";
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
   return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
@@ -99,11 +117,41 @@ function patchUsage(patch: PatchEnvelope): StorageUsage {
   }
 }
 
+function samePublishedVersion(left: LibraryDatabase, right: LibraryDatabase): boolean {
+  return left.revision === right.revision
+    || left.publicationId !== null && left.publicationId === right.publicationId;
+}
+
+async function deployedVersionIsGitHubHead(deployed: LibraryDatabase): Promise<boolean> {
+  const credential = loadGitHubPat();
+  if (!credential.ok || !credential.token) return false;
+  try {
+    const client = new GitHubGitDatabaseSyncClient({
+      owner: GITHUB_REPOSITORY_OWNER,
+      repo: GITHUB_REPOSITORY_NAME,
+      branch: "main",
+      token: credential.token,
+    });
+    const latest = await client.fetchLatestLibrary();
+    return samePublishedVersion(deployed, latest.database);
+  } catch {
+    return false;
+  }
+}
+
 interface LibraryState {
   base: LibraryDatabase;
   effective: LibraryDatabase;
   patch: PatchEnvelope;
   conflicts: PatchConflict[];
+  pendingPublication: PendingPublicationReceipt | null;
+}
+
+export interface LibraryGitHubSyncResult {
+  status: "committed" | "up-to-date";
+  commitSha: string;
+  commitUrl: string;
+  pagesPending: boolean;
 }
 
 export interface LibraryContextValue extends LibraryState {
@@ -126,6 +174,7 @@ export interface LibraryContextValue extends LibraryState {
   importPatch: (raw: string) => void;
   undoLast: () => boolean;
   downloadCorruptedPatch: () => void;
+  syncToGitHub: (token: string, onStage?: (stage: GitHubSyncStage) => void) => Promise<LibraryGitHubSyncResult>;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -138,8 +187,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [corruptedPatchRaw, setCorruptedPatchRaw] = useState<string | null>(null);
   const [storageEstimate, setStorageEstimate] = useState<{ usage?: number; quota?: number } | null>(null);
   const undoStack = useRef<PatchEnvelope[]>([]);
+  const stateRef = useRef<LibraryState | null>(null);
+  const syncInFlightRef = useRef(false);
 
-  const installReconciled = useCallback((base: LibraryDatabase, reconciled: ReconciledPatch, remember = false) => {
+  const setLibraryState = useCallback((next: LibraryState) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  const installReconciled = useCallback((
+    base: LibraryDatabase,
+    reconciled: ReconciledPatch,
+    remember = false,
+    pendingPublication = stateRef.current?.pendingPublication ?? null,
+  ) => {
     assertValidLibrary(reconciled.effective);
     let written;
     try {
@@ -154,10 +215,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setPersistenceError(message);
       throw new Error(message);
     }
-    if (remember && state) undoStack.current = [...undoStack.current.slice(-49), structuredClone(state.patch)];
+    const current = stateRef.current;
+    if (remember && current) undoStack.current = [...undoStack.current.slice(-49), structuredClone(current.patch)];
     setPersistenceError(null);
-    setState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
-  }, [state]);
+    setLibraryState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication });
+  }, [setLibraryState]);
 
   useEffect(() => {
     let active = true;
@@ -169,10 +231,38 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (!response.ok) throw new Error(`Не удалось загрузить библиотеку: HTTP ${response.status}`);
         const parsed: unknown = await response.json();
         assertValidLibrary(parsed);
-        const base = structuredClone(parsed);
-        const computedRevision = computeLibraryRevision(base);
-        if (base.revision && base.revision !== computedRevision) throw new Error("Revision опубликованной базы не совпадает с её содержимым");
-        base.revision = computedRevision;
+        const deployedBase = structuredClone(parsed);
+        const computedRevision = computeLibraryRevision(deployedBase);
+        if (deployedBase.revision && deployedBase.revision !== computedRevision) throw new Error("Revision опубликованной базы не совпадает с её содержимым");
+        deployedBase.revision = computedRevision;
+
+        let base = deployedBase;
+        let pendingPublication: PendingPublicationReceipt | null = null;
+        try {
+          const pending = loadPendingPublication(localStorage);
+          if (pending.error) {
+            setPersistenceError(pending.error.message);
+          } else if (pending.receipt) {
+            const sameTarget = pending.receipt.owner === GITHUB_REPOSITORY_OWNER
+              && pending.receipt.repo === GITHUB_REPOSITORY_NAME
+              && pending.receipt.branch === "main";
+            const publicationArrived = sameTarget && samePublishedVersion(deployedBase, pending.receipt.database);
+            const pagesStillAtSource = sameTarget && deployedBase.revision === pending.receipt.sourceRevision;
+            const pagesAtCurrentHead = sameTarget && !publicationArrived && !pagesStillAtSource
+              ? await deployedVersionIsGitHubHead(deployedBase)
+              : false;
+            if (publicationArrived || pagesAtCurrentHead) {
+              clearPendingPublication(localStorage);
+            } else if (sameTarget) {
+              base = structuredClone(pending.receipt.database);
+              pendingPublication = pending.receipt;
+            } else {
+              setPersistenceError("Ожидающая публикация относится к другому репозиторию");
+            }
+          }
+        } catch {
+          setPersistenceError("Safari не разрешил прочитать состояние синхронизации");
+        }
 
         let patch = emptyPatch(base.revision);
         let patchIsCorrupted = false;
@@ -207,7 +297,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
             setPersistenceError(error instanceof Error ? error.message : "localStorage недоступен");
           }
         }
-        setState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
+        setLibraryState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication });
       } catch (error) {
         if (active) setFatalError(error instanceof Error ? error.message : "Не удалось открыть библиотеку");
       } finally {
@@ -218,7 +308,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => { active = false; };
   // corruptedPatchRaw must not restart the initial fetch.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setLibraryState]);
 
   useEffect(() => {
     let active = true;
@@ -230,43 +320,139 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!state) return;
-    const receive = (event: StorageEvent) => {
-      if (event.key !== PATCH_STORAGE_KEY) return;
+    let timer: number | undefined;
+    const installStoredState = () => {
+      const current = stateRef.current;
+      if (!current) return;
+      const pending = loadPendingPublication(localStorage);
+      if (pending.error) {
+        setPersistenceError(pending.error.message);
+        return;
+      }
+      if (pending.receipt) {
+        const sameTarget = pending.receipt.owner === GITHUB_REPOSITORY_OWNER
+          && pending.receipt.repo === GITHUB_REPOSITORY_NAME
+          && pending.receipt.branch === "main";
+        if (!sameTarget) {
+          setPersistenceError("Ожидающая публикация относится к другому репозиторию");
+          return;
+        }
+        const loaded = loadPatch(localStorage);
+        if (loaded.error) {
+          setCorruptedPatchRaw(loaded.raw);
+          setPersistenceError("Патч из другой вкладки повреждён. Скачайте raw-значение перед сбросом.");
+          return;
+        }
+        try {
+          const base = structuredClone(pending.receipt.database);
+          const patch = loaded.patch ?? emptyPatch(base.revision);
+          const reconciled = reconcilePatch(base, patch);
+          assertValidLibrary(reconciled.effective);
+          setCorruptedPatchRaw(null);
+          setPersistenceError(null);
+          setLibraryState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication: pending.receipt });
+        } catch (error) {
+          setCorruptedPatchRaw(loaded.raw);
+          setPersistenceError(error instanceof Error ? `Патч из другой вкладки повреждён: ${error.message}` : "Патч из другой вкладки повреждён");
+        }
+        return;
+      }
+
+      // The tab that observed Pages clears the receipt first; other tabs keep
+      // their in-memory bridge until their own poll fetches the deployed base.
+      if (current.pendingPublication) return;
       const loaded = loadPatch(localStorage);
       if (loaded.patch) {
         try {
-          const reconciled = reconcilePatch(state.base, loaded.patch);
+          const reconciled = reconcilePatch(current.base, loaded.patch);
           assertValidLibrary(reconciled.effective);
           setCorruptedPatchRaw(null);
-          setState({ base: state.base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts });
+          setLibraryState({ base: current.base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication: null });
         } catch (error) {
-          setCorruptedPatchRaw(event.newValue);
+          setCorruptedPatchRaw(loaded.raw);
           setPersistenceError(error instanceof Error ? `Патч из другой вкладки повреждён: ${error.message}` : "Патч из другой вкладки повреждён");
         }
-      } else if (loaded.error && event.newValue !== null) {
-        setCorruptedPatchRaw(event.newValue);
+      } else if (loaded.error) {
+        setCorruptedPatchRaw(loaded.raw);
         setPersistenceError("Патч из другой вкладки повреждён. Скачайте raw-значение перед сбросом.");
-      } else if (event.newValue === null) {
-        const patch = emptyPatch(state.base.revision);
+      } else {
+        const patch = emptyPatch(current.base.revision);
         setCorruptedPatchRaw(null);
-        setState({ base: state.base, effective: state.base, patch, conflicts: [] });
+        setLibraryState({ base: current.base, effective: current.base, patch, conflicts: [], pendingPublication: null });
       }
     };
+    const receive = (event: StorageEvent) => {
+      if (event.key !== PATCH_STORAGE_KEY && event.key !== PENDING_PUBLICATION_STORAGE_KEY) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(installStoredState, 0);
+    };
     window.addEventListener("storage", receive);
-    return () => window.removeEventListener("storage", receive);
-  }, [state?.base]);
+    return () => {
+      window.removeEventListener("storage", receive);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [setLibraryState, state?.base]);
+
+  useEffect(() => {
+    const pending = state?.pendingPublication;
+    if (!pending) return;
+    let active = true;
+    let timer: number | undefined;
+    const checkedNonTargetRevisions = new Set<string>();
+    const check = async () => {
+      try {
+        const dataUrl = new URL(`${import.meta.env.BASE_URL}data/library.json`, document.baseURI);
+        dataUrl.searchParams.set("_", String(Date.now()));
+        const response = await fetch(dataUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const deployed: unknown = await response.json();
+        assertValidLibrary(deployed);
+        const deployedBase = structuredClone(deployed);
+        const revision = computeLibraryRevision(deployedBase);
+        if (deployedBase.revision && deployedBase.revision !== revision) throw new Error("Некорректная revision");
+        deployedBase.revision = revision;
+        if (!active) return;
+        let publicationArrived = samePublishedVersion(deployedBase, pending.database);
+        if (
+          !publicationArrived
+          && deployedBase.revision !== pending.sourceRevision
+          && !checkedNonTargetRevisions.has(deployedBase.revision)
+        ) {
+          checkedNonTargetRevisions.add(deployedBase.revision);
+          publicationArrived = await deployedVersionIsGitHubHead(deployedBase);
+        }
+        if (!publicationArrived) {
+          timer = window.setTimeout(() => void check(), 5_000);
+          return;
+        }
+        const current = stateRef.current;
+        if (!current || current.pendingPublication?.commitSha !== pending.commitSha) return;
+        const reconciled = reconcilePatch(deployedBase, current.patch);
+        installReconciled(deployedBase, reconciled, false, null);
+        clearPendingPublication(localStorage);
+      } catch {
+        if (active) timer = window.setTimeout(() => void check(), 10_000);
+      }
+    };
+    timer = window.setTimeout(() => void check(), 2_000);
+    return () => {
+      active = false;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [installReconciled, state?.pendingPublication]);
 
   const mutate = useCallback((mutator: (database: LibraryDatabase, base: LibraryDatabase, blobs: Record<string, string>) => void) => {
-    if (!state) throw new Error("Библиотека ещё загружается");
+    const current = stateRef.current;
+    if (!current) throw new Error("Библиотека ещё загружается");
     if (corruptedPatchRaw !== null) throw new Error("Сначала экспортируйте или сбросьте повреждённый локальный патч");
-    if (state.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
-    const next = structuredClone(state.effective);
-    const blobs = structuredClone(state.patch.blobs);
-    mutator(next, state.base, blobs);
+    if (current.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
+    const next = structuredClone(current.effective);
+    const blobs = structuredClone(current.patch.blobs);
+    mutator(next, current.base, blobs);
     assertValidLibrary(next);
-    const patch = diffLibrary(state.base, next, { previousPatch: state.patch, blobs });
-    installReconciled(state.base, reconcilePatch(state.base, patch), true);
-  }, [corruptedPatchRaw, installReconciled, state]);
+    const patch = diffLibrary(current.base, next, { previousPatch: current.patch, blobs });
+    installReconciled(current.base, reconcilePatch(current.base, patch), true, current.pendingPublication);
+  }, [corruptedPatchRaw, installReconciled]);
 
   const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
     const id = input.id ?? crypto.randomUUID();
@@ -399,8 +585,136 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [corruptedPatchRaw]);
 
+  const syncToGitHub = useCallback(async (
+    token: string,
+    onStage?: (stage: GitHubSyncStage) => void,
+  ): Promise<LibraryGitHubSyncResult> => {
+    if (syncInFlightRef.current) throw new Error("Синхронизация уже выполняется");
+    const snapshot = stateRef.current;
+    if (!snapshot) throw new Error("Библиотека ещё загружается");
+    if (corruptedPatchRaw !== null) throw new Error("Сначала восстановите или сбросьте повреждённый патч");
+    if (snapshot.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
+    if (!Object.keys(snapshot.patch.operations).length) throw new Error("Нет локальных правок для синхронизации");
+
+    syncInFlightRef.current = true;
+    const snapshotEffective = structuredClone(snapshot.effective);
+    const snapshotPatch = structuredClone(snapshot.patch);
+    try {
+      const client = new GitHubGitDatabaseSyncClient({
+        owner: GITHUB_REPOSITORY_OWNER,
+        repo: GITHUB_REPOSITORY_NAME,
+        branch: "main",
+        token,
+        onStage,
+      });
+
+      let result;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          result = await client.publishPatch(snapshotPatch);
+          break;
+        } catch (reason) {
+          if (reason instanceof GitHubSyncError && reason.code === "concurrent_update" && attempt === 0) continue;
+          if (reason instanceof GitHubPatchConflictError) {
+            const current = stateRef.current;
+            if (current) {
+              const reconciliation = reconcilePatch(reason.latestDatabase, current.patch);
+              const existingPendingBlobs = current.pendingPublication?.blobs ?? {};
+              const receiptBlobs = Object.fromEntries(Object.entries(existingPendingBlobs).filter(([id]) => id in reason.latestDatabase.assets));
+              if (reason.latestDatabase.publicationId !== null && reason.latestDatabase.revision !== current.base.revision) {
+                const receipt: PendingPublicationReceipt = {
+                  version: 1,
+                  owner: GITHUB_REPOSITORY_OWNER,
+                  repo: GITHUB_REPOSITORY_NAME,
+                  branch: "main",
+                  sourceRevision: current.pendingPublication?.sourceRevision ?? current.base.revision,
+                  commitSha: reason.latestSnapshot.headSha,
+                  createdAt: new Date().toISOString(),
+                  database: reason.latestDatabase,
+                  blobs: receiptBlobs,
+                };
+                const installed = installPendingPublication(localStorage, receipt, reconciliation.patch);
+                if (installed.ok) {
+                  undoStack.current = [];
+                  setPersistenceError(null);
+                  setLibraryState({ base: reason.latestDatabase, effective: reconciliation.effective, patch: reconciliation.patch, conflicts: reconciliation.conflicts, pendingPublication: receipt });
+                } else {
+                  setPersistenceError(`${installed.error.message}. Конфликты сохранятся только до перезагрузки.`);
+                  setLibraryState({ base: reason.latestDatabase, effective: reconciliation.effective, patch: reconciliation.patch, conflicts: reconciliation.conflicts, pendingPublication: receipt });
+                }
+              } else {
+                installReconciled(reason.latestDatabase, reconciliation, false, current.pendingPublication);
+              }
+            }
+            throw new Error("В main изменились те же поля. Разрешите появившиеся конфликты и повторите синхронизацию.");
+          }
+          if (reason instanceof GitHubSyncError) {
+            if (reason.status === 401) throw new Error("GitHub отклонил PAT. Создайте новый fine-grained PAT.");
+            if (reason.status === 403) throw new Error("PAT не имеет права Contents: write либо запись в main запрещена правилами репозитория.");
+            if (reason.status === 404) throw new Error("GitHub не нашёл репозиторий. Проверьте, что PAT выдан только для kana-sama/mygameslist.");
+            if (reason.code === "concurrent_update") throw new Error("Ветка main снова изменилась во время синхронизации. Повторите попытку.");
+          }
+          throw reason;
+        }
+      }
+
+      const current = stateRef.current;
+      if (!current) throw new Error("Локальное состояние закрылось во время синхронизации");
+      const postClickPatch = diffLibrary(snapshotEffective, current.effective, {
+        previousPatch: current.patch,
+        blobs: current.patch.blobs,
+      });
+      const remaining = reconcilePatch(result.database, postClickPatch);
+      const pagesPending = result.status === "committed"
+        || result.database.revision !== snapshot.base.revision
+        || snapshot.pendingPublication !== null;
+
+      if (pagesPending) {
+        const mergedBlobCandidates = {
+          ...(snapshot.pendingPublication?.blobs ?? {}),
+          ...snapshotPatch.blobs,
+          ...result.reconciledPatch.blobs,
+        };
+        const receiptBlobs = Object.fromEntries(Object.entries(mergedBlobCandidates).filter(([id]) => id in result.database.assets));
+        const receipt: PendingPublicationReceipt = {
+          version: 1,
+          owner: GITHUB_REPOSITORY_OWNER,
+          repo: GITHUB_REPOSITORY_NAME,
+          branch: "main",
+          sourceRevision: snapshot.pendingPublication?.sourceRevision ?? snapshot.base.revision,
+          commitSha: result.commitSha,
+          createdAt: new Date().toISOString(),
+          database: result.database,
+          blobs: receiptBlobs,
+        };
+        const installed = installPendingPublication(localStorage, receipt, remaining.patch);
+        if (installed.ok) {
+          undoStack.current = [];
+          setPersistenceError(null);
+          setLibraryState({ base: result.database, effective: remaining.effective, patch: remaining.patch, conflicts: remaining.conflicts, pendingPublication: receipt });
+        } else {
+          setPersistenceError(`${installed.error.message}. Коммит уже создан; локальный патч очистится после обновления Pages.`);
+          setLibraryState({ ...current, pendingPublication: receipt });
+        }
+      } else {
+        installReconciled(result.database, remaining, false, null);
+        clearPendingPublication(localStorage);
+        undoStack.current = [];
+      }
+
+      return {
+        status: result.status,
+        commitSha: result.commitSha,
+        commitUrl: `https://github.com/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}/commit/${result.commitSha}`,
+        pagesPending,
+      };
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, [corruptedPatchRaw, installReconciled, setLibraryState]);
+
   const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: LIBRARY_SCHEMA_VERSION, revision: "", publicationId: null, games: {}, notes: {}, assets: {} }), []);
-  const resolvedState = state ?? { base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [] };
+  const resolvedState = state ?? { base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [], pendingPublication: null };
   const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
   const canAddBlob = useCallback((byteLength: number): string | null => {
     if (!Number.isSafeInteger(byteLength) || byteLength < 0) return "Некорректный размер файла";
@@ -412,8 +726,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const resolveAssetUrl = useCallback((assetId: string): string | null => {
     const asset = resolvedState.effective.assets[assetId];
     if (!asset) return null;
-    return assetDataUrl(asset, resolvedState.patch.blobs[assetId]) ?? publishedAssetUrl(asset, import.meta.env.BASE_URL);
-  }, [resolvedState.effective.assets, resolvedState.patch.blobs]);
+    return assetDataUrl(asset, resolvedState.patch.blobs[assetId] ?? resolvedState.pendingPublication?.blobs[assetId]) ?? publishedAssetUrl(asset, import.meta.env.BASE_URL);
+  }, [resolvedState.effective.assets, resolvedState.patch.blobs, resolvedState.pendingPublication]);
   const value = useMemo<LibraryContextValue>(() => ({
     ...resolvedState,
     loading,
@@ -435,7 +749,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     importPatch,
     undoLast,
     downloadCorruptedPatch,
-  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch]);
+    syncToGitHub,
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch, syncToGitHub]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }
