@@ -15,7 +15,8 @@ describe("notes masonry CSS", () => {
     const cards = declarationsFor(".note-card");
 
     expect(container).toMatch(/display:\s*grid/);
-    expect(container).toMatch(/repeat\(auto-fit,\s*minmax\(min\(360px,\s*100%\),\s*1fr\)\)/);
+    expect(container).toMatch(/repeat\(auto-fill,\s*minmax\(min\(360px,\s*100%\),\s*1fr\)\)/);
+    expect(container).not.toMatch(/repeat\(auto-fit/);
     expect(container).toMatch(/grid-auto-rows:\s*1px/);
     expect(container).toMatch(/gap:\s*7px/);
     expect(container).not.toMatch(/column-/);
