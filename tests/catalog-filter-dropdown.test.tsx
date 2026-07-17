@@ -18,22 +18,39 @@ const game: Game = {
 };
 
 describe("catalog filter dropdowns", () => {
-  it("stay open while focus moves inside and close when focus leaves", async () => {
+  it("keeps a filter open when Safari reports no blur destination for an option click", async () => {
     const user = userEvent.setup();
     render(<CatalogPage assets={{}} games={[game]} />);
 
     const summary = screen.getByText("Статус").closest("summary")!;
     const dropdown = summary.closest("details")!;
     const checkbox = screen.getByRole("checkbox", { name: "Играю" });
-    const search = screen.getByRole("searchbox", { name: "Поиск игр" });
+    const option = checkbox.closest("label")!;
 
     await user.click(summary);
     expect(dropdown).toHaveAttribute("open");
 
-    fireEvent.blur(summary, { relatedTarget: checkbox });
-    expect(dropdown).toHaveAttribute("open");
+    fireEvent.blur(summary, { relatedTarget: null });
+    await user.click(option);
 
-    fireEvent.blur(checkbox, { relatedTarget: search });
+    expect(checkbox).toBeChecked();
+    expect(dropdown).toHaveAttribute("open");
+  });
+
+  it("closes an open filter when the pointer or keyboard focus leaves it", async () => {
+    const user = userEvent.setup();
+    render(<CatalogPage assets={{}} games={[game]} />);
+
+    const summary = screen.getByText("Статус").closest("summary")!;
+    const dropdown = summary.closest("details")!;
+    const search = screen.getByRole("searchbox", { name: "Поиск игр" });
+
+    await user.click(summary);
+    await user.click(search);
+    expect(dropdown).not.toHaveAttribute("open");
+
+    await user.click(summary);
+    search.focus();
     expect(dropdown).not.toHaveAttribute("open");
   });
 });
