@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "b58bf78d9f439312ee2e9448bde46d4a425bf9a217e0389bf4337a0cf495cb50",
-  "publicationId": "35a86193-aab2-471c-867b-ba8f69ac5324",
+  "revision": "62fb4c685f436a8f0c1615bb2cdfe79cc5dc297938d9ea8a4d47a11765d10785",
+  "publicationId": "bbf03d98-958d-49d0-9e01-0d05aded9bf8",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -229,7 +229,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T02:13:11.599Z",
-      "updatedAt": "2026-07-17T03:21:29.556Z"
+      "updatedAt": "2026-07-17T03:50:19.925Z"
     }
   },
   "notes": {
@@ -535,6 +535,36 @@
       "rank": 4096,
       "createdAt": "2026-07-17T03:20:03.197Z",
       "updatedAt": "2026-07-17T03:21:24.078Z"
+    },
+    "500fcae9-2f30-4f78-9ba5-dbbbfbf5fee9": {
+      "id": "500fcae9-2f30-4f78-9ba5-dbbbfbf5fee9",
+      "gameId": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "file",
+          "assetId": "67bec3c112607a8e68fe6d3e7993f714e856d62b00b83674a80c49b2a538a5db",
+          "label": "341fuzzy.mp4"
+        }
+      ],
+      "rank": 5120,
+      "createdAt": "2026-07-17T03:41:29.675Z",
+      "updatedAt": "2026-07-17T03:41:29.759Z"
+    },
+    "da2f441b-ede0-43bf-b62f-e14cab62f1e3": {
+      "id": "da2f441b-ede0-43bf-b62f-e14cab62f1e3",
+      "gameId": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "file",
+          "assetId": "4a6537d654d1f155088f9f180216a69b5f748ca2f6cba9ac90d5f6f8347657a1",
+          "label": "SMW2_World_map_2.mp4"
+        }
+      ],
+      "rank": 6144,
+      "createdAt": "2026-07-17T03:50:19.858Z",
+      "updatedAt": "2026-07-17T03:50:19.925Z"
     }
   },
   "assets": {
@@ -724,6 +754,20 @@
       "mime": "video/mp4",
       "byteLength": 675236,
       "originalName": "Yoshi's_Island.mp4"
+    },
+    "4a6537d654d1f155088f9f180216a69b5f748ca2f6cba9ac90d5f6f8347657a1": {
+      "id": "4a6537d654d1f155088f9f180216a69b5f748ca2f6cba9ac90d5f6f8347657a1",
+      "kind": "file",
+      "mime": "video/mp4",
+      "byteLength": 982685,
+      "originalName": "SMW2_World_map_2.mp4"
+    },
+    "67bec3c112607a8e68fe6d3e7993f714e856d62b00b83674a80c49b2a538a5db": {
+      "id": "67bec3c112607a8e68fe6d3e7993f714e856d62b00b83674a80c49b2a538a5db",
+      "kind": "file",
+      "mime": "video/mp4",
+      "byteLength": 294283,
+      "originalName": "341fuzzy.mp4"
     }
   }
 }
