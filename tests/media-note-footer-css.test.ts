@@ -10,29 +10,34 @@ function declarations(selector: string): string {
 }
 
 describe("media-only note footer", () => {
-  it("overlays media without changing masonry geometry while revealing actions", () => {
+  it("places actions below the card without changing masonry geometry", () => {
     const footer = declarations(".note-card__media-actions");
+    const card = declarations(".note-card--media-only");
+    const media = declarations(".note-card--media-only > .note-attachments");
+    const elevated = declarations(".note-card--media-only:hover, .note-card--media-only:focus-within");
     const visible = declarations(".note-card--media-only:hover .note-card__media-actions, .note-card--media-only:focus-within .note-card__media-actions");
     const visibleButtons = declarations(".note-card--media-only:hover .note-card__media-actions button, .note-card--media-only:focus-within .note-card__media-actions button");
 
     expect(footer).toContain("position: absolute");
-    expect(footer).toContain("bottom: 0");
+    expect(footer).toContain("top: 100%");
+    expect(footer).toContain("bottom: auto");
     expect(footer).toContain("left: 0");
     expect(footer).toContain("opacity: 0");
     expect(footer).toContain("pointer-events: none");
+    expect(card).toContain("overflow: visible");
+    expect(media).toContain("overflow: hidden");
+    expect(elevated).toContain("z-index: 4");
     expect(visible).toContain("opacity: 1");
-    expect(visible).not.toContain("pointer-events: auto");
+    expect(visible).toContain("pointer-events: auto");
     expect(visibleButtons).toContain("pointer-events: auto");
     expect(styles).not.toContain("--note-media-footer-height");
     expect(styles).not.toContain(".note-card--media-only.note-card--collapsed");
-  });
-
-  it("keeps the overlay above native controls for playable media", () => {
-    expect(declarations(".note-card--playable-media .note-card__media-actions")).toContain("bottom: 42px");
+    expect(styles).not.toContain("note-card--playable-media");
   });
 
   it("keeps footer actions visible on coarse pointers", () => {
-    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__media-actions \{[^}]*min-height:\s*49px;[^}]*opacity:\s*1;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card--media-only \{[^}]*overflow:\s*hidden;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__media-actions \{[^}]*position:\s*static;[^}]*min-height:\s*49px;[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
     expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__media-actions button \{[^}]*pointer-events:\s*auto;/);
   });
 });
