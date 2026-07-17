@@ -1,4 +1,22 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardCode,
+  KeyboardSensor,
+  pointerWithin,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+  type DraggableAttributes,
+  type DraggableSyntheticListeners,
+} from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
 import { optimizeNoteImage } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
@@ -38,6 +56,71 @@ export interface GameSaveInput {
 function moveDraftNote(notes: EditableNote[], clientId: string, targetIndex: number): EditableNote[] {
   return moveRanked(notes.map((note) => ({ id: note.clientId, rank: note.rank, note })), clientId, targetIndex).items
     .map((item) => ({ ...item.note, rank: item.rank }));
+}
+
+export function getNoteDropIndex(notes: EditableNote[], activeClientId: string, overClientId: string): number | null {
+  if (activeClientId === overClientId) return null;
+  const ordered = [...notes].sort((a, b) => a.rank - b.rank || a.clientId.localeCompare(b.clientId));
+  const sourceIndex = ordered.findIndex((note) => note.clientId === activeClientId);
+  const overIndex = ordered.findIndex((note) => note.clientId === overClientId);
+  if (sourceIndex < 0 || overIndex < 0) return null;
+
+  const destination = ordered.filter((note) => note.clientId !== activeClientId);
+  let targetIndex = destination.findIndex((note) => note.clientId === overClientId);
+  if (sourceIndex < overIndex) targetIndex += 1;
+  return Math.min(targetIndex, destination.length);
+}
+
+export class NonTouchNotePointerSensor extends PointerSensor {
+  static activators: typeof PointerSensor.activators = [{
+    eventName: "onPointerDown",
+    handler: (event, options) => {
+      if (event.nativeEvent.pointerType === "touch") return false;
+      return PointerSensor.activators[0].handler(event, options);
+    },
+  }];
+}
+
+export const NOTE_LIST_SENSOR_TYPES = {
+  pointer: NonTouchNotePointerSensor,
+  touch: TouchSensor,
+  keyboard: KeyboardSensor,
+} as const;
+
+export const NOTE_LIST_SENSOR_OPTIONS = {
+  pointer: { activationConstraint: { distance: 8 } },
+  touch: { activationConstraint: { delay: 180, tolerance: 8 } },
+  keyboard: {
+    coordinateGetter: sortableKeyboardCoordinates,
+    keyboardCodes: {
+      start: [KeyboardCode.Space],
+      cancel: [KeyboardCode.Esc],
+      end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab],
+    },
+  },
+};
+
+// Masonry cards have different heights. Moving every grid item with transforms while
+// hovering leaves stale composited layers in Safari, so only the lightweight overlay
+// moves; the actual order changes once, after drop.
+export const NOTE_LIST_SORTING_STRATEGY: SortingStrategy = () => null;
+
+export const noteListCollisionDetection: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return closestCenter(args);
+  const directHit = pointerWithin(args);
+  return directHit.length ? directHit : closestCenter(args);
+};
+
+function noteTargetMatches(target: EventTarget | null, selector: string): boolean {
+  return target instanceof Element && Boolean(target.closest(selector));
+}
+
+function blocksNoteDrag(target: EventTarget | null): boolean {
+  return noteTargetMatches(target, "button, input, label, textarea, select, iframe, [contenteditable='true']");
+}
+
+function blocksNoteEdit(target: EventTarget | null): boolean {
+  return noteTargetMatches(target, "a, button, input, label, textarea, select, iframe, [contenteditable='true']");
 }
 
 function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNote[] {
@@ -397,11 +480,12 @@ function InlineValuesField({ active, ariaLabel, values, suggestions, children, o
   }}><TagInput autoFocus label={ariaLabel} onChange={(next) => { setDraft(next); void onCommit(next); }} suggestions={suggestions} values={draft} /></div>;
 }
 
-function InlineNoteCard({ note, index, count, editing, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
+function InlineNoteCard({ note, index, count, editing, sortingDisabled, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
   note: EditableNote;
   index: number;
   count: number;
   editing: boolean;
+  sortingDisabled: boolean;
   assets: Record<string, Asset>;
   storageLocked: boolean;
   saving: boolean;
@@ -417,18 +501,55 @@ function InlineNoteCard({ note, index, count, editing, assets, storageLocked, sa
 }) {
   if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />;
 
-  return <CollapsibleNoteCard assets={assets} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
+  return <SortableNoteCard assets={assets} disabled={sortingDisabled} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
 
 const COLLAPSED_NOTE_HEIGHT = 300;
 
-function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled }: {
+function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled }: {
+  note: EditableNote;
+  assets: Record<string, Asset>;
+  disabled: boolean;
+  resolveAssetUrl?: (assetId: string) => string | null;
+  onEdit: () => void;
+  onTaskChange: (markdown: string) => void;
+  taskChangesDisabled: boolean;
+}) {
+  const suppressEdit = useRef(false);
+  const { attributes, isDragging, isOver, listeners, setNodeRef } = useSortable({
+    id: `note:${note.clientId}`,
+    animateLayoutChanges: () => false,
+    attributes: { roleDescription: "перетаскиваемая заметка" },
+    data: { type: "note", clientId: note.clientId },
+    disabled,
+  });
+
+  useEffect(() => {
+    if (isDragging) {
+      suppressEdit.current = true;
+      return;
+    }
+    if (!suppressEdit.current) return;
+    const timer = window.setTimeout(() => { suppressEdit.current = false; }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isDragging]);
+
+  return <CollapsibleNoteCard assets={assets} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={() => { if (!suppressEdit.current) onEdit(); }} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
+}
+
+function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragAttributes, dragListeners, dragging = false, dropTarget = false, nodeRef, sortable = false }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
   taskChangesDisabled: boolean;
+  dragAttributes?: DraggableAttributes;
+  dragListeners?: DraggableSyntheticListeners;
+  dragging?: boolean;
+  dropTarget?: boolean;
+  nodeRef?: (node: HTMLElement | null) => void;
+  sortable?: boolean;
 }) {
   const contentId = useId();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -453,9 +574,10 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const collapsed = collapsible && !expanded;
 
   return (
-    <article aria-label="Редактировать заметку" className={`note-card${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} onClick={(event) => { if (!(event.target as Element).closest("a, button, input, label")) onEdit(); }} onKeyDown={(event) => {
-      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(); }
-    }} tabIndex={0}>
+    <article aria-describedby={dragAttributes?.["aria-describedby"]} aria-disabled={dragAttributes?.["aria-disabled"]} aria-label="Редактировать заметку" aria-roledescription={dragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
+      if (!blocksNoteDrag(event.target)) dragListeners?.onKeyDown?.(event);
+      if (!dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
+    }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={dragAttributes?.tabIndex ?? 0}>
       <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
         if (!collapsed || event.target === event.currentTarget) return;
         const viewportRect = event.currentTarget.getBoundingClientRect();
@@ -505,6 +627,10 @@ function useUnsavedChangesGuard(dirty: boolean) {
   }, [dirty]);
 }
 
+function NoteDragPreview({ note }: { note: EditableNote }) {
+  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
+}
+
 function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -514,7 +640,14 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [coverDraftDirty, setCoverDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const taskSaveInFlight = useRef(false);
+  const suppressNoteEditFor = useRef<string | null>(null);
+  const noteSensors = useSensors(
+    useSensor(NOTE_LIST_SENSOR_TYPES.pointer, NOTE_LIST_SENSOR_OPTIONS.pointer),
+    useSensor(NOTE_LIST_SENSOR_TYPES.touch, NOTE_LIST_SENSOR_OPTIONS.touch),
+    useSensor(NOTE_LIST_SENSOR_TYPES.keyboard, NOTE_LIST_SENSOR_OPTIONS.keyboard),
+  );
   const cover = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(assets[game.coverAssetId]) : null;
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
@@ -585,6 +718,29 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const draftIsExisting = editingDraft && editableNotes.some((note) => note.clientId === editingDraft.clientId);
   const visibleNotes = editableNotes.map((note) => editingDraft?.clientId === note.clientId ? editingDraft : note);
   if (editingDraft && !draftIsExisting) visibleNotes.push(editingDraft);
+  const sortingDisabled = saving || editingDraft !== null;
+  const activeNote = activeNoteId ? editableNotes.find((note) => note.clientId === activeNoteId) ?? null : null;
+  const noteLayoutKey = `${visibleNotes.map((note) => note.clientId).join("|")}:${editingDraft?.clientId ?? "view"}`;
+  const startNoteDrag = ({ active }: DragStartEvent) => {
+    const clientId = String(active.data.current?.clientId ?? "");
+    suppressNoteEditFor.current = clientId;
+    setActiveNoteId(clientId);
+  };
+  const finishNoteDrag = () => {
+    const clientId = suppressNoteEditFor.current;
+    setActiveNoteId(null);
+    window.setTimeout(() => {
+      if (suppressNoteEditFor.current === clientId) suppressNoteEditFor.current = null;
+    }, 0);
+  };
+  const endNoteDrag = ({ active, over }: DragEndEvent) => {
+    finishNoteDrag();
+    if (!over || active.id === over.id || sortingDisabled) return;
+    const clientId = String(active.data.current?.clientId ?? "");
+    const overClientId = String(over.data.current?.clientId ?? "");
+    const targetIndex = getNoteDropIndex(editableNotes, clientId, overClientId);
+    if (targetIndex !== null) void moveNote(clientId, targetIndex);
+  };
 
   return (
     <div className="page game-view-page">
@@ -606,7 +762,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section aria-label="Заметки" className="game-notes">
-          {visibleNotes.length ? <MasonryGrid className="notes-list">{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} storageLocked={storageLocked} />)}</MasonryGrid> : null}
+          {visibleNotes.length ? <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><MasonryGrid className="notes-list" layoutKey={noteLayoutKey}>{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => { if (suppressNoteEditFor.current !== note.clientId) beginNoteEdit(note); }} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} />)}</MasonryGrid></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext> : null}
         </section>
       </div>
     </div>

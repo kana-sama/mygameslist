@@ -15,8 +15,9 @@ export function masonryRowSpan(height: number, rowHeight = DEFAULT_ROW_HEIGHT, g
   return Math.max(1, Math.ceil((safeHeight + safeGap) / (safeRowHeight + safeGap)));
 }
 
-export function MasonryGrid({ children, className }: { children: ReactNode; className: string }) {
+export function MasonryGrid({ children, className, layoutKey }: { children: ReactNode; className: string; layoutKey?: string }) {
   const gridRef = useRef<HTMLDivElement>(null);
+  const layoutDependency = layoutKey ?? children;
 
   useLayoutEffect(() => {
     const grid = gridRef.current;
@@ -50,7 +51,7 @@ export function MasonryGrid({ children, className }: { children: ReactNode; clas
       observer?.disconnect();
       window.removeEventListener("resize", scheduleLayout);
     };
-  }, [children]);
+  }, [layoutDependency]);
 
   return <div className={className} ref={gridRef}>{children}</div>;
 }

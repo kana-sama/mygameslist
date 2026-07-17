@@ -9,7 +9,16 @@ import { AppShell } from "../src/components/AppShell";
 import { optimizeNoteImage } from "../src/domain/assets";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { CatalogPage } from "../src/pages/CatalogPage";
-import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
+import {
+  GamePage,
+  getNoteDropIndex,
+  NonTouchNotePointerSensor,
+  NOTE_LIST_SENSOR_OPTIONS,
+  NOTE_LIST_SENSOR_TYPES,
+  NOTE_LIST_SORTING_STRATEGY,
+  type EditableNote,
+  type GameSaveInput,
+} from "../src/pages/GamePage";
 import {
   getTierDropTarget,
   NonTouchPointerSensor,
@@ -27,6 +36,8 @@ vi.mock("../src/domain/assets", async () => {
 const DUCK_ID = "11111111-1111-4111-8111-111111111111";
 const MARIO_ID = "22222222-2222-4222-8222-222222222222";
 const NOTE_ID = "33333333-3333-4333-8333-333333333333";
+const NOTE_TWO_ID = "44444444-4444-4444-8444-444444444444";
+const NOTE_THREE_ID = "55555555-5555-4555-8555-555555555555";
 const ZELDA_ID = "66666666-6666-4666-8666-666666666666";
 const NOW = "2026-07-16T10:00:00.000Z";
 
@@ -416,6 +427,125 @@ describe("GamePage", () => {
     restoredCard.focus();
     await user.keyboard("{Enter}");
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра");
+  });
+
+  it("uses Safari-safe sensors and calculates note drops against rank order", () => {
+    const editableNotes: EditableNote[] = [
+      { clientId: NOTE_ID, bodyMarkdown: "A", attachments: [], rank: 1024 },
+      { clientId: NOTE_TWO_ID, bodyMarkdown: "B", attachments: [], rank: 2048 },
+      { clientId: NOTE_THREE_ID, bodyMarkdown: "C", attachments: [], rank: 3072 },
+    ];
+
+    expect(getNoteDropIndex(editableNotes, NOTE_ID, NOTE_THREE_ID)).toBe(2);
+    expect(getNoteDropIndex(editableNotes, NOTE_THREE_ID, NOTE_ID)).toBe(0);
+    expect(getNoteDropIndex(editableNotes, NOTE_TWO_ID, NOTE_THREE_ID)).toBe(2);
+    expect(getNoteDropIndex(editableNotes, NOTE_TWO_ID, NOTE_ID)).toBe(0);
+    expect(getNoteDropIndex(editableNotes, NOTE_ID, NOTE_ID)).toBeNull();
+    expect(getNoteDropIndex(editableNotes, NOTE_ID, "missing")).toBeNull();
+    expect(NOTE_LIST_SENSOR_TYPES).toEqual({ pointer: NonTouchNotePointerSensor, touch: TouchSensor, keyboard: KeyboardSensor });
+    expect(NonTouchNotePointerSensor.prototype).toBeInstanceOf(PointerSensor);
+    expect(NOTE_LIST_SENSOR_OPTIONS.pointer).toEqual({ activationConstraint: { distance: 8 } });
+    expect(NOTE_LIST_SENSOR_OPTIONS.touch).toEqual({ activationConstraint: { delay: 180, tolerance: 8 } });
+    expect(NOTE_LIST_SENSOR_OPTIONS.keyboard.coordinateGetter).toBe(sortableKeyboardCoordinates);
+    expect(NOTE_LIST_SENSOR_OPTIONS.keyboard.keyboardCodes).toEqual({
+      start: [KeyboardCode.Space],
+      cancel: [KeyboardCode.Esc],
+      end: [KeyboardCode.Space, KeyboardCode.Enter, KeyboardCode.Tab],
+    });
+    expect(NOTE_LIST_SORTING_STRATEGY({} as never)).toBeNull();
+  });
+
+  it("reorders masonry notes with the whole card and does not open the editor after drop", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const notes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "", attachments: [{ type: "link", url: "https://example.com/a", label: "A" }], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "B", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "C", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const rects = new Map([
+      [NOTE_ID, domRect(0, 100, 360, 100)],
+      [NOTE_TWO_ID, domRect(367, 100, 360, 220)],
+      [NOTE_THREE_ID, domRect(0, 207, 360, 90)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".notes-list")) return domRect(0, 100, 727, 500);
+      if (this.matches(".note-drag-preview")) return domRect(0, 0, 360, 100);
+      if (this.dataset.noteId) return rects.get(this.dataset.noteId) ?? domRect(0, 0, 360, 100);
+      if (this.matches(".note-card__content")) return domRect(0, 0, 360, 80);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
+    const first = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    const firstLink = within(first).getByRole("link", { name: "A" });
+
+    await user.pointer([{ keys: "[MouseLeft>]", target: firstLink, coords: { clientX: 20, clientY: 120 } }]);
+    expect(first).not.toHaveClass("is-dragging");
+    await user.pointer([{ target: firstLink, coords: { clientX: 40, clientY: 120 } }]);
+    await waitFor(() => expect(first).toHaveClass("is-dragging"));
+    await user.pointer([{ target: firstLink, coords: { clientX: 40, clientY: 240 } }]);
+    await user.pointer([{ keys: "[/MouseLeft]", target: firstLink, coords: { clientX: 40, clientY: 240 } }]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const savedNotes = [...onSave.mock.calls[0][0].notes].sort((a, b) => a.rank - b.rank);
+    expect(savedNotes.map((note) => note.clientId)).toEqual([NOTE_TWO_ID, NOTE_THREE_ID, NOTE_ID]);
+    expect(savedNotes.at(-1)?.rank).toBe(4096);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("does not start note dragging from an interactive task checkbox", async () => {
+    const user = userEvent.setup();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] Найти секрет", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId) return domRect(0, 100, 360, 100);
+      if (this.matches(".note-card__content")) return domRect(0, 0, 360, 80);
+      return domRect(0, 0, 360, 120);
+    });
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    const checkbox = screen.getByRole("checkbox", { name: "Отметить: Найти секрет" });
+
+    await user.pointer([{ keys: "[MouseLeft>]", target: checkbox, coords: { clientX: 20, clientY: 120 } }]);
+    await user.pointer([{ target: checkbox, coords: { clientX: 50, clientY: 120 } }]);
+    expect(card).not.toHaveClass("is-dragging");
+    await user.pointer([{ keys: "[/MouseLeft]", target: checkbox, coords: { clientX: 50, clientY: 120 } }]);
+  });
+
+  it("supports keyboard note sorting while keeping Enter for inline editing", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const notes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "A", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "B", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "C", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const rects = new Map([
+      [NOTE_ID, domRect(0, 100, 360, 100)],
+      [NOTE_TWO_ID, domRect(367, 100, 360, 100)],
+      [NOTE_THREE_ID, domRect(734, 100, 360, 100)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".notes-list")) return domRect(0, 100, 1094, 120);
+      if (this.matches(".note-drag-preview")) return domRect(0, 0, 360, 100);
+      if (this.dataset.noteId) return rects.get(this.dataset.noteId) ?? domRect(0, 0, 360, 100);
+      if (this.matches(".note-card__content")) return domRect(0, 0, 360, 80);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
+    const first = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    first.focus();
+
+    await user.keyboard("[Space]");
+    await waitFor(() => expect(first).toHaveClass("is-dragging"));
+    await user.keyboard("[ArrowRight]");
+    await user.keyboard("[Enter]");
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect([...onSave.mock.calls[0][0].notes].sort((a, b) => a.rank - b.rank).map((note) => note.clientId)).toEqual([NOTE_TWO_ID, NOTE_ID, NOTE_THREE_ID]);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
   it("reserves note image geometry before Safari finishes lazy decoding", () => {

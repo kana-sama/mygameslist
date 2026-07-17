@@ -29,9 +29,9 @@ describe("Safari-safe masonry grid", () => {
 
     const { container, rerender } = render(
       <MasonryGrid className="notes-list">
-        <article data-height="100" key="first" />
-        <article data-height="240" key="second" />
-        <article data-height="80" key="third" />
+        <article data-height="100" data-note-id="first" key="first" />
+        <article data-height="240" data-note-id="second" key="second" />
+        <article data-height="80" data-note-id="third" key="third" />
       </MasonryGrid>,
     );
     const originalCards = Array.from(container.querySelectorAll("article"));
@@ -39,13 +39,25 @@ describe("Safari-safe masonry grid", () => {
 
     rerender(
       <MasonryGrid className="notes-list">
-        <article data-height="100" key="first" />
-        <article data-height="320" key="second" />
-        <article data-height="80" key="third" />
+        <article data-height="100" data-note-id="first" key="first" />
+        <article data-height="320" data-note-id="second" key="second" />
+        <article data-height="80" data-note-id="third" key="third" />
       </MasonryGrid>,
     );
     const updatedCards = Array.from(container.querySelectorAll("article"));
     expect(updatedCards).toEqual(originalCards);
     expect(updatedCards.map((card) => card.style.gridRowEnd)).toEqual(["span 14", "span 41", "span 11"]);
+
+    rerender(
+      <MasonryGrid className="notes-list">
+        <article data-height="80" data-note-id="third" key="third" />
+        <article data-height="100" data-note-id="first" key="first" />
+        <article data-height="320" data-note-id="second" key="second" />
+      </MasonryGrid>,
+    );
+    const reorderedCards = Array.from(container.querySelectorAll("article"));
+    expect(reorderedCards.map((card) => card.dataset.noteId)).toEqual(["third", "first", "second"]);
+    expect(reorderedCards).toEqual([originalCards[2], originalCards[0], originalCards[1]]);
+    expect(reorderedCards.map((card) => card.style.gridRowEnd)).toEqual(["span 11", "span 14", "span 41"]);
   });
 });
