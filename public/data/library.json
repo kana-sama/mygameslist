@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "2da761defb9d312933eca94c19bee0c3e2ac9e4b96a61095b69c8b06a8878a92",
-  "publicationId": "70908435-c175-43f0-904b-c50b568b3cab",
+  "revision": "cd0df4798748664a35a7661b2b07b3309feac35c470a65e7bddbd384c380747e",
+  "publicationId": "981da830-c283-4d8a-97bf-9deba55ac853",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -88,7 +88,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-17T00:27:44.577Z"
+      "updatedAt": "2026-07-17T02:08:38.439Z"
     },
     "cc5b015a-3fef-41cf-b596-36322578efa4": {
       "id": "cc5b015a-3fef-41cf-b596-36322578efa4",
@@ -150,7 +150,9 @@
       "platforms": [
         "Super Nintendo Entertainment System"
       ],
-      "tags": [],
+      "tags": [
+        "Super Mario"
+      ],
       "status": "platinum",
       "placement": {
         "tierId": "s",
@@ -158,12 +160,12 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T00:27:03.048Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T02:07:21.282Z"
     },
     "bf484eba-6d37-48de-80e8-412b9492ced3": {
       "id": "bf484eba-6d37-48de-80e8-412b9492ced3",
       "title": "S.S. Lucifer: Man Overboard!",
-      "coverAssetId": "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328",
+      "coverAssetId": "a62451160f36f2e849a5dc19d176c01b82c5038f4dcd919b04a030e0ef6e0d8f",
       "platforms": [
         "Sega Genesis"
       ],
@@ -175,7 +177,59 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T00:18:31.770Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T01:23:39.537Z"
+    },
+    "8a91fe92-faf5-4393-bedf-cc09bd852601": {
+      "id": "8a91fe92-faf5-4393-bedf-cc09bd852601",
+      "title": "Donkey Kong Country",
+      "coverAssetId": "ae1addf8f3b5294f3df212ed3d327f7b464431d55487f41c0baebfdd84eee580",
+      "platforms": [
+        "Super Nintendo Entertainment System"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 5120
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T02:10:15.934Z",
+      "updatedAt": "2026-07-17T02:10:15.949Z"
+    },
+    "d8f0e5ee-c0a3-4aee-beeb-76dc16affb7f": {
+      "id": "d8f0e5ee-c0a3-4aee-beeb-76dc16affb7f",
+      "title": "Ys: Book I & II",
+      "coverAssetId": "ea5720f463d17c47d0d559d53b21af04f7a9578e11de9bef3bd36e9f1b41a57d",
+      "platforms": [
+        "TurboGrafx-16"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 6144
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T02:11:06.870Z",
+      "updatedAt": "2026-07-17T02:11:06.928Z"
+    },
+    "ed3fc057-e128-44d7-8723-1be7bbd04840": {
+      "id": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "title": "Super Mario World 2: Yoshi's Island",
+      "coverAssetId": "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d",
+      "platforms": [
+        "Super Nintendo Entertainment System",
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T02:13:11.599Z",
+      "updatedAt": "2026-07-17T02:14:07.594Z"
     }
   },
   "notes": {
@@ -193,9 +247,9 @@
       "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
       "bodyMarkdown": "#### 1. Bob-omb Battlefield\nСамый обычный уровень, который знакомил нас с основными механиками.\n\n#### 2. Whomp's Fortress\nПоявляется много интересного платформинга, уровень очень вертикальный.\n\n#### 3. Jolly Roger Bay\nВ этот раз это компактная песочница на несколько зон с загадками.\n\n#### 4. Cool, Cool Mountain\nСнова песочница с загадками и спусками по склону, но уже льду, и очень вертикальная.\n\n#### ⛫. Bowser in the Dark World\nКуча очень классного платформинга просто лучший ост в марио.\n\n#### 5. Big Boo's Haunt\nМного комнат, каждая со своей загадкой, очень атмосферно.\n\n#### 6. Hazy Maze Cave\nЛабиринт, внутри которого есть свои подлабиринты. Насыщеный уровень.\n\n#### 7. Lethal Lava Land\nКуча задачек в песочнице, но песок это лава!\n\n#### 8. Shifting Sand Land\nА вот этот уровень я ненавижу, слишком много склонов, которые ведут к неотвратимой смерти.\n\n#### ⛫. Bowser in the Fire Sea\nСнова офигенный платформинг, но, возможно из-за моей личной прогрессии, показался попроще.\n\n#### 9. Dire, Dire Docks\nПриятный подводный уровень, но маленький и короткий. Была классная загадка на сразу две шляпы!\n\n#### 10. Snowman's Land\nДостаточно ебучий платформинг, и поэтому было достаточно приятно его победить.\n\n#### 11. Wet-dry World\nКомпактная зона с рядом загадок, но в целом скучновато.\n\n#### 12. Tall, Tall Mountain\nДефолтный вертикальный уровень с местами страшным платформингом.\n\n#### 13. Tiny-Huge Island\nУже идея двух входов очень прикольная. И сам уровень неплохой, но ничего особенного. НО! Из последней звезды за 100 монет я софтдропнул игру на неделю, по полчаса пытаясь пройти этот уровень. Готов уже был и пропустить уровень, и читы заюзать. Решил все случай, я случайно увидел, что определенные мобы дают в пять раз больше монет, если их убить определенным образом. Изи звезда.\n\n#### 14. Tick Tock Clock\nОпять прикольная идея со входом, но в целом уровень средний.\n\n#### 15. Rainbow Ride\nА вот такое я люблю! Песочница с 5-ю уникальными зонами, неплохой платформинг и задачки. Один из любимых уровней.\n",
       "attachments": [],
-      "rank": 2048,
+      "rank": 512,
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-17T00:27:40.888Z"
+      "updatedAt": "2026-07-17T02:08:35.439Z"
     },
     "477fdb97-3032-4e89-a21b-dd4399ee8daa": {
       "id": "477fdb97-3032-4e89-a21b-dd4399ee8daa",
@@ -289,9 +343,9 @@
           "alt": "telegram-cloud-photo-size-2-5271598363705466920-y"
         }
       ],
-      "rank": 1536,
+      "rank": 2048,
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T02:08:38.439Z"
     },
     "fbd279ad-fb12-425f-8480-f9f7417cf57a": {
       "id": "fbd279ad-fb12-425f-8480-f9f7417cf57a",
@@ -320,7 +374,7 @@
     "13094c52-91a9-46b5-b1b2-d68b949ff883": {
       "id": "13094c52-91a9-46b5-b1b2-d68b949ff883",
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
-      "bodyMarkdown": "✅ Yoshi's Island\n✅ • Yoshi's House\n✅ • Yellow Switch Palace\n✅ • Yoshi's Island 1\n✅ • Yoshi's Island 2\n✅ • Yoshi's Island 3\n✅ • Yoshi's Island 4\n✅ • #1 Iggy's Castle\n\n✅ Donut Plains\n✅ • Donut Plains 1\n✅ • Donut Plains 2\n✅ • Donut Ghost House\n✅ • Donut Plains 3\n✅ • Donut Plains 4\n✅ • #2 Morton's Castle\n✅ • Green Switch Palace\n✅ • Top Secret Area\n✅ • Donut Secret 1\n✅ • Donut Secret House\n✅ • Donut Secret 2\n\n✅ Vanilla Dome\n✅ • Vanilla Dome 1\n✅ • Vanilla Dome 2\n✅ • Vanilla Ghost House\n✅ • Vanilla Dome 3\n✅ • Vanilla Dome 4\n✅ • #3 Lemmy's Castle 😡\n✅ • Red Switch Palace\n✅ • Vanilla Secret 1\n✅ • Vanilla Secret 2\n✅ • Vanilla Secret 3\n✅ • Vanilla Fortress\n\n✅ Twin Bridges\n✅ • Butter Bridge 1 😡\n✅ • Butter Bridge 2 🧀\n✅ • Cheese Bridge Area 🧀\n✅ • Soda Lake\n✅ • Cookie Mountain\n✅ • #4 Ludwig's Castle\n\n✅ Forest of Illusion\n✅ • Forest of Illusion 1\n✅ • Forest of Illusion 2\n✅ • Forest of Illusion 3\n✅ • Forest Ghost House\n✅ • #5 Roy's Castle\n✅ • Blue Switch Palace\n✅ • Forest of Illusion 4\n✅ • Forest Secret Area\n✅ • Forest Fortress 😡\n\n✅ Chocolate Island\n✅ • Chocolate Island 1\n✅ • Choco-Ghost House\n✅ • Chocolate Island 2 💯\n✅ • Chocolate Island 3\n✅ • Chocolate Fortress\n✅ • Chocolate Island 4\n✅ • Chocolate Island 5\n✅ • Chocolate Secret\n✅ • #6 Wendy's Castle 😡💯\n\n✅ Valley of Bowser\n✅ • Sunken Ghost Ship\n✅ • Valley of Bowser 1\n✅ • Valley of Bowser 2\n✅ • Valley Ghost House\n✅ • Valley of Bowser 3\n✅ • Valley of Bowser 4\n✅ • #7 Larry's Castle\n✅ • Valley Fortress\n✅ • Front Door\n✅ • Back Door\n\n✅ Star World\n✅ • Star World 1\n✅ • Star World 2\n✅ • Star World 3\n✅ • Star World 4\n✅ • Star World 5\n\n✅ Special Zone\n✅ • Gnarly\n✅ • Tubular 😡\n✅ • Way Cool\n✅ • Awesome\n✅ • Groovy\n✅ • Mondo\n✅ • Outrageous\n✅ • Funky 😡",
+      "bodyMarkdown": "",
       "attachments": [
         {
           "type": "image",
@@ -328,18 +382,18 @@
           "alt": "IMAGE 2026-07-17 04:28:36"
         }
       ],
-      "rank": 4096,
+      "rank": 9728,
       "createdAt": "2026-07-17T00:28:45.328Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T02:05:00.966Z"
     },
     "411ad4f7-b383-41e1-9e69-525a35dca697": {
       "id": "411ad4f7-b383-41e1-9e69-525a35dca697",
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
       "bodyMarkdown": "## Шорткат в конец\n\nУже в начале второго мира можно открыть проход до второй половины последнего мира. Более того, можно уже в начале второго мира перевести мир в состояние осени, пройдя звездные уровни и спешлы.",
       "attachments": [],
-      "rank": 6144,
+      "rank": 2304,
       "createdAt": "2026-07-17T00:30:35.492Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T02:04:46.186Z"
     },
     "506439e3-af88-4a54-a775-46ea187f40f0": {
       "id": "506439e3-af88-4a54-a775-46ea187f40f0",
@@ -356,23 +410,14 @@
       "createdAt": "2026-07-17T00:33:44.464Z",
       "updatedAt": "2026-07-17T00:37:05.267Z"
     },
-    "5e28c2a3-eacd-43c1-9b2f-f22c2462a9cc": {
-      "id": "5e28c2a3-eacd-43c1-9b2f-f22c2462a9cc",
-      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
-      "bodyMarkdown": "Игра есть на SNES и GBA. Говорят, что на SNES лучше графика и звук. Много секретиков.\n\nЗа 100% прохождение считается открытие всех 96 выходов из уровней (у некоторых уровней по два выхода).\n\nОчень приятное и цепляющее управление, грустно что я прошел игру, но есть куча ромхаков, которые нужно попробовать.",
-      "attachments": [],
-      "rank": 1024,
-      "createdAt": "2026-07-17T00:27:03.048Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
-    },
     "689547e4-6f72-4194-98a8-7f327f6e39c3": {
       "id": "689547e4-6f72-4194-98a8-7f327f6e39c3",
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
       "bodyMarkdown": "## Секретные уровни\n\nжесть оказывается практика скрывать половину уровней в марио началась еще как минимум с super mario world на snes\n\nпо приколу нашел секретный выход из уровня, а там секретный уровень, оттуда еще секретный уровень, но в прошлом секретном уровне (то есть в середине этой секретной цепочки) есть секретный выход с секретным боссом, которой ведет в секретный мир",
       "attachments": [],
-      "rank": 2048,
+      "rank": 6656,
       "createdAt": "2026-07-17T00:27:19.361Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T02:04:44.717Z"
     },
     "81a4a569-eaa3-49ce-8af2-7e69517aa509": {
       "id": "81a4a569-eaa3-49ce-8af2-7e69517aa509",
@@ -394,9 +439,9 @@
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
       "bodyMarkdown": "## Отличия GBA-версии от SNES\n- она сохраняет жизни\n- больше хп (урон в костюме переводит тебя в super mario состояние)\n- есть экран с уровнями, где видно пропущенные большие монеты\n- выглядит и звучит она хуже",
       "attachments": [],
-      "rank": 5120,
+      "rank": 3200,
       "createdAt": "2026-07-17T00:29:10.962Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T02:04:51.183Z"
     },
     "b5b39caf-5e32-4e9b-96c9-809ca5b45d2e": {
       "id": "b5b39caf-5e32-4e9b-96c9-809ca5b45d2e",
@@ -421,6 +466,69 @@
       "rank": 8192,
       "createdAt": "2026-07-17T00:30:59.815Z",
       "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "0c13da87-65bb-4701-9111-c861d0a39b4c": {
+      "id": "0c13da87-65bb-4701-9111-c861d0a39b4c",
+      "gameId": "d8f0e5ee-c0a3-4aee-beeb-76dc16affb7f",
+      "bodyMarkdown": "Странная боевка, странный сюжет, много гринда, но неплохие боссы. Хочу допройти.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T02:11:06.870Z",
+      "updatedAt": "2026-07-17T02:11:06.928Z"
+    },
+    "1a41082e-84e8-4925-954e-0dd8a9c19c08": {
+      "id": "1a41082e-84e8-4925-954e-0dd8a9c19c08",
+      "gameId": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "bodyMarkdown": "Игра использует SRAM как расширение оперативы, поэтому MiSTeR с автосейвом SRAM сходит с ума.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T02:14:02.118Z",
+      "updatedAt": "2026-07-17T02:14:02.121Z"
+    },
+    "4cd52441-b2d5-4c12-a957-2fac6133cfba": {
+      "id": "4cd52441-b2d5-4c12-a957-2fac6133cfba",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "- [x] **Yoshi's Island**\n- [x] • Yoshi's House\n- [x] • Yellow Switch Palace\n- [x] • Yoshi's Island 1\n- [x] • Yoshi's Island 2\n- [x] • Yoshi's Island 3\n- [x] • Yoshi's Island 4\n- [x] • #1 Iggy's Castle\n\n- [x] **Donut Plains**\n- [x] • Donut Plains 1\n- [x] • Donut Plains 2\n- [x] • Donut Ghost House\n- [x] • Donut Plains 3\n- [x] • Donut Plains 4\n- [x] • #2 Morton's Castle\n- [x] • Green Switch Palace\n- [x] • Top Secret Area\n- [x] • Donut Secret 1\n- [x] • Donut Secret House\n- [x] • Donut Secret 2\n\n- [x] **Vanilla Dome**\n- [x] • Vanilla Dome 1\n- [x] • Vanilla Dome 2\n- [x] • Vanilla Ghost House\n- [x] • Vanilla Dome 3\n- [x] • Vanilla Dome 4\n- [x] • #3 Lemmy's Castle 😡\n- [x] • Red Switch Palace\n- [x] • Vanilla Secret 1\n- [x] • Vanilla Secret 2\n- [x] • Vanilla Secret 3\n- [x] • Vanilla Fortress\n\n- [x] **Twin Bridges**\n- [x] • Butter Bridge 1 😡\n- [x] • Butter Bridge 2 🧀\n- [x] • Cheese Bridge Area 🧀\n- [x] • Soda Lake\n- [x] • Cookie Mountain\n- [x] • #4 Ludwig's Castle\n\n- [x] **Forest of Illusion**\n- [x] • Forest of Illusion 1\n- [x] • Forest of Illusion 2\n- [x] • Forest of Illusion 3\n- [x] • Forest Ghost House\n- [x] • #5 Roy's Castle\n- [x] • Blue Switch Palace\n- [x] • Forest of Illusion 4\n- [x] • Forest Secret Area\n- [x] • Forest Fortress 😡\n\n- [x] **Chocolate Island**\n- [x] • Chocolate Island 1\n- [x] • Choco-Ghost House\n- [x] • Chocolate Island 2 💯\n- [x] • Chocolate Island 3\n- [x] • Chocolate Fortress\n- [x] • Chocolate Island 4\n- [x] • Chocolate Island 5\n- [x] • Chocolate Secret\n- [x] • #6 Wendy's Castle 😡💯\n\n- [x] **Valley of Bowser**\n- [x] • Sunken Ghost Ship\n- [x] • Valley of Bowser 1\n- [x] • Valley of Bowser 2\n- [x] • Valley Ghost House\n- [x] • Valley of Bowser 3\n- [x] • Valley of Bowser 4\n- [x] • #7 Larry's Castle\n- [x] • Valley Fortress\n- [x] • Front Door\n- [x] • Back Door\n\n- [x] **Star World**\n- [x] • Star World 1\n- [x] • Star World 2\n- [x] • Star World 3\n- [x] • Star World 4\n- [x] • Star World 5\n\n- [x] **Special Zone**\n- [x] • Gnarly\n- [x] • Tubular 😡\n- [x] • Way Cool\n- [x] • Awesome\n- [x] • Groovy\n- [x] • Mondo\n- [x] • Outrageous\n- [x] • Funky 😡",
+      "attachments": [],
+      "rank": 12288,
+      "createdAt": "2026-07-17T01:31:43.837Z",
+      "updatedAt": "2026-07-17T02:07:21.282Z"
+    },
+    "53959f49-482c-4e71-b7cb-08458e1b3568": {
+      "id": "53959f49-482c-4e71-b7cb-08458e1b3568",
+      "gameId": "8a91fe92-faf5-4393-bedf-cc09bd852601",
+      "bodyMarkdown": "Очень красиво, все никак руки не доходят до серии.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T02:10:15.934Z",
+      "updatedAt": "2026-07-17T02:10:15.949Z"
+    },
+    "5fb6ebf3-6048-4300-acb1-5afd25dfb290": {
+      "id": "5fb6ebf3-6048-4300-acb1-5afd25dfb290",
+      "gameId": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "bodyMarkdown": "Игра использует SuperFX, и выглядит поэтому просто обалденно.",
+      "attachments": [],
+      "rank": 3072,
+      "createdAt": "2026-07-17T02:14:07.593Z",
+      "updatedAt": "2026-07-17T02:14:07.594Z"
+    },
+    "8656b583-4657-43b3-9d8f-6cb1370100a5": {
+      "id": "8656b583-4657-43b3-9d8f-6cb1370100a5",
+      "gameId": "ed3fc057-e128-44d7-8723-1be7bbd04840",
+      "bodyMarkdown": "Это никакой не марио, я бы назвал это первой частью в серии игр про Йоши. Классные уровни с кучей загадок, но без динамичного платформинга за марио это не цепляет. Прошел первый мир из 6 (кроме экста-уровня), думаю что допройду, но без особого кайфа.\n\nПлюс для 100% прохождения нужно запариваться на каждом уровне, и это превращается в работу, а не делать этого я тоже не могу.\n\nНачал заново на геймбоее, поинтереснее пошло.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T02:13:11.599Z",
+      "updatedAt": "2026-07-17T02:13:11.642Z"
+    },
+    "b75c4a6c-b22c-46d1-b33f-0c1cd361f993": {
+      "id": "b75c4a6c-b22c-46d1-b33f-0c1cd361f993",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## [Мануал с сайта nintendo.co.jp](https://www.nintendo.co.jp/clvs/manuals/common/pdf/CLV-P-SAAAE.pdf)\n ",
+      "attachments": [],
+      "rank": 512,
+      "createdAt": "2026-07-17T01:27:17.406Z",
+      "updatedAt": "2026-07-17T02:04:11.047Z"
     }
   },
   "assets": {
@@ -563,6 +671,46 @@
       "byteLength": 297824,
       "alt": "IMAGE 2026-07-17 04:28:36",
       "originalName": "IMAGE 2026-07-17 04:28:36.jpg"
+    },
+    "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d": {
+      "id": "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 63052,
+      "alt": "Обложка Super Mario World 2: Yoshi's Island",
+      "originalName": "image.jpeg"
+    },
+    "a62451160f36f2e849a5dc19d176c01b82c5038f4dcd919b04a030e0ef6e0d8f": {
+      "id": "a62451160f36f2e849a5dc19d176c01b82c5038f4dcd919b04a030e0ef6e0d8f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 28968,
+      "alt": "Обложка S.S. Lucifer: Man Overboard!",
+      "originalName": "download.png"
+    },
+    "ae1addf8f3b5294f3df212ed3d327f7b464431d55487f41c0baebfdd84eee580": {
+      "id": "ae1addf8f3b5294f3df212ed3d327f7b464431d55487f41c0baebfdd84eee580",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 75654,
+      "alt": "Обложка Donkey Kong Country",
+      "originalName": "IMAGE 2026-07-17 06:09:38.jpg"
+    },
+    "ea5720f463d17c47d0d559d53b21af04f7a9578e11de9bef3bd36e9f1b41a57d": {
+      "id": "ea5720f463d17c47d0d559d53b21af04f7a9578e11de9bef3bd36e9f1b41a57d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 84144,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 06:10:32.jpg"
     }
   }
 }
