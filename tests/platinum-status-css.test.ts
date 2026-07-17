@@ -10,15 +10,17 @@ function declarations(selector: string): string {
 }
 
 describe("platinum cover treatment", () => {
-  it("uses a non-interactive faceted overlay without changing cover geometry", () => {
+  it("uses a visible non-interactive 100% corner ribbon without changing cover geometry", () => {
     const overlay = declarations(".cover--platinum::after");
 
+    expect(overlay).toContain('content: "100%"');
     expect(overlay).toContain("position: absolute");
-    expect(overlay).toContain("inset: 0");
-    expect(overlay).toContain("border-radius: inherit");
-    expect(overlay.match(/linear-gradient/g)).toHaveLength(4);
-    expect(overlay).toContain("var(--platinum-edge)");
+    expect(overlay).toContain("top: var(--platinum-ribbon-top)");
+    expect(overlay).toContain("right: var(--platinum-ribbon-right)");
+    expect(overlay).toContain("transform: rotate(45deg)");
+    expect(overlay).toContain("linear-gradient");
     expect(overlay).toContain("pointer-events: none");
+    expect(overlay).not.toContain("inset: 0");
   });
 
   it("does not keep the old completed-cover modifier", () => {

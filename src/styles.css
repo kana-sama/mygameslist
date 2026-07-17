@@ -126,8 +126,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-card.is-dragging { z-index: 5; opacity: .55; }
 .game-card__cover { position: relative; width: 100%; aspect-ratio: 1; display: block; overflow: hidden; border-radius: 5px 5px 0 0; background: var(--surface-3); }
 .game-card__cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.cover--platinum { --platinum-edge: 3px; position: relative; }
-.cover--platinum::after { content: ""; position: absolute; z-index: 1; inset: 0; box-sizing: border-box; border: 1px solid rgba(250, 255, 255, .98); border-radius: inherit; background: linear-gradient(90deg, #fff, #78939e 22%, #dcf8ff 50%, #718690 76%, #f8ffff) top / 100% var(--platinum-edge) no-repeat, linear-gradient(270deg, #fff, #78939e 22%, #dcf8ff 50%, #718690 76%, #f8ffff) bottom / 100% var(--platinum-edge) no-repeat, linear-gradient(180deg, #fff, #78939e 22%, #dcf8ff 50%, #718690 76%, #f8ffff) left / var(--platinum-edge) 100% no-repeat, linear-gradient(0deg, #fff, #78939e 22%, #dcf8ff 50%, #718690 76%, #f8ffff) right / var(--platinum-edge) 100% no-repeat; box-shadow: inset 0 0 0 1px rgba(28, 42, 48, .9), inset 0 0 0 calc(var(--platinum-edge) + 1px) rgba(225, 249, 255, .42), inset 0 0 14px 3px rgba(112, 205, 226, .24); pointer-events: none; }
+.cover--platinum { --platinum-ribbon-width: 72px; --platinum-ribbon-top: 8px; --platinum-ribbon-right: -21px; --platinum-ribbon-font-size: 8px; position: relative; }
+.cover--platinum::after { content: "100%"; position: absolute; z-index: 2; top: var(--platinum-ribbon-top); right: var(--platinum-ribbon-right); width: var(--platinum-ribbon-width); padding: 3px 0 2px; border-top: 1px solid rgba(255, 255, 255, .92); border-bottom: 1px solid rgba(54, 80, 88, .8); color: #102027; background: linear-gradient(180deg, #f8ffff 0%, #c9e7ed 45%, #8ebbc6 100%); box-shadow: 0 2px 5px rgba(0, 0, 0, .52); font-size: var(--platinum-ribbon-font-size); font-weight: 800; line-height: 1; letter-spacing: .04em; text-align: center; text-shadow: 0 1px rgba(255, 255, 255, .55); transform: rotate(45deg); transform-origin: center; pointer-events: none; }
 .game-card__placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted-2); background: var(--surface-3); }
 .game-card__placeholder svg { position: absolute; opacity: .2; }
 .game-card__placeholder span { font-size: 28px; font-weight: 700; opacity: .55; }
@@ -201,7 +201,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-sidebar { position: sticky; top: calc(var(--app-header-height) + 6px); min-width: 0; }
 .game-sidebar__cover { width: 100%; aspect-ratio: 1; display: block; overflow: hidden; appearance: none; padding: 0; border: 1px solid var(--line-soft); border-radius: 4px; color: inherit; background: var(--surface-3); cursor: pointer; }
 .game-sidebar__cover:hover { border-color: #4b4e54; }
-.game-sidebar__cover.cover--platinum { --platinum-edge: 4px; }
+.game-sidebar__cover.cover--platinum { --platinum-ribbon-width: 104px; --platinum-ribbon-top: 15px; --platinum-ribbon-right: -30px; --platinum-ribbon-font-size: 10px; }
 .game-sidebar__cover img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .game-sidebar__cover-placeholder { height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px; color: var(--muted-2); font-size: 10px; }
 .game-sidebar__cover-placeholder svg { width: 25px; height: 25px; opacity: .65; }

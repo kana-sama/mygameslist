@@ -283,7 +283,7 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
-  it("shows the platinum frame only on a platinum game cover", () => {
+  it("shows the platinum ribbon only on a platinum game cover", () => {
     const view = render(<GamePage assets={{}} game={makeGame({ status: "platinum" })} mode="game" notes={[]} onSave={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Изменить обложку" })).toHaveClass("cover--platinum");
@@ -1399,7 +1399,7 @@ describe("TierListPage", () => {
     expect(screen.queryByLabelText("1 игр")).not.toBeInTheDocument();
   });
 
-  it("marks platinum cover-only cards with a platinum frame and an accessible status", () => {
+  it("marks platinum cover-only cards with a platinum ribbon and an accessible status", () => {
     render(<TierListPage assets={{}} games={[makeGame({ status: "platinum" })]} onMoveGame={vi.fn()} />);
 
     const cover = screen.getByRole("link", { name: /DuckTales, статус: Платина.*пробел — перетащить/ });
@@ -1409,7 +1409,7 @@ describe("TierListPage", () => {
     expect(card?.querySelector(".status-dot")).not.toBeInTheDocument();
   });
 
-  it("leaves completed cover-only cards without the platinum frame", () => {
+  it("leaves completed cover-only cards without the platinum ribbon", () => {
     render(<TierListPage assets={{}} games={[makeGame({ status: "completed" })]} onMoveGame={vi.fn()} />);
 
     const cover = screen.getByRole("link", { name: /DuckTales, статус: Пройдено.*пробел — перетащить/ });
