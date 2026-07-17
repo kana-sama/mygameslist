@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 
@@ -24,12 +24,24 @@ interface SafariGestureEvent extends Event {
   scale?: number;
 }
 
-const INITIAL_VIEW: ImageView = { scale: 1, x: 0, y: 0 };
-const MIN_SCALE = 1;
 const MAX_SCALE = 8;
+const SCALE_EPSILON = .0001;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function fitScale(stageWidth: number, stageHeight: number, imageWidth: number, imageHeight: number): number {
+  if (stageWidth <= 0 || stageHeight <= 0 || imageWidth <= 0 || imageHeight <= 0) return 1;
+  return Math.min(1, stageWidth / imageWidth, stageHeight / imageHeight);
+}
+
+function maximumScale(fit: number): number {
+  return Math.min(MAX_SCALE, Math.max(1, fit * MAX_SCALE));
+}
+
+function sameScale(first: number, second: number): boolean {
+  return Math.abs(first - second) <= SCALE_EPSILON;
 }
 
 function pinchGesture(points: Point[]): PinchGesture | null {
@@ -51,6 +63,13 @@ export interface ImageLightboxProps {
 }
 
 export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: ImageLightboxProps) {
+  const initialFit = fitScale(
+    typeof window === "undefined" ? 0 : window.innerWidth,
+    typeof window === "undefined" ? 0 : window.innerHeight,
+    width ?? 0,
+    height ?? 0,
+  );
+  const initialView = { scale: initialFit, x: 0, y: 0 };
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -59,27 +78,36 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
   const pointerOriginsRef = useRef(new Map<number, Point>());
   const pinchRef = useRef<PinchGesture | null>(null);
   const pointerMovedRef = useRef(false);
-  const safariGestureStartScaleRef = useRef(MIN_SCALE);
-  const viewRef = useRef<ImageView>(INITIAL_VIEW);
+  const fitScaleRef = useRef(initialFit);
+  const maximumScaleRef = useRef(maximumScale(initialFit));
+  const safariGestureStartScaleRef = useRef(initialFit);
+  const viewRef = useRef<ImageView>(initialView);
   const closeCallbackRef = useRef(onClose);
-  const [view, setView] = useState<ImageView>(INITIAL_VIEW);
+  const [view, setView] = useState<ImageView>(initialView);
   closeCallbackRef.current = onClose;
 
-  const constrainView = useCallback((candidate: ImageView): ImageView => {
-    const scale = clamp(candidate.scale, MIN_SCALE, MAX_SCALE);
-    if (scale === MIN_SCALE) return INITIAL_VIEW;
-    const stage = stageRef.current;
+  const imageDimensions = useCallback(() => {
     const image = imageRef.current;
-    if (!stage || !image) return { ...candidate, scale };
+    return {
+      width: width && width > 0 ? width : image?.naturalWidth || image?.clientWidth || 0,
+      height: height && height > 0 ? height : image?.naturalHeight || image?.clientHeight || 0,
+    };
+  }, [height, width]);
+
+  const constrainView = useCallback((candidate: ImageView): ImageView => {
+    const minimum = fitScaleRef.current;
+    const scale = clamp(candidate.scale, minimum, maximumScaleRef.current);
+    if (sameScale(scale, minimum)) return { scale: minimum, x: 0, y: 0 };
+    const stage = stageRef.current;
+    if (!stage) return { ...candidate, scale };
     const stageWidth = stage.clientWidth || window.innerWidth;
     const stageHeight = stage.clientHeight || window.innerHeight;
-    const imageWidth = image.clientWidth;
-    const imageHeight = image.clientHeight;
+    const { width: imageWidth, height: imageHeight } = imageDimensions();
     if (!stageWidth || !stageHeight || !imageWidth || !imageHeight) return { ...candidate, scale };
     const maxX = Math.max(0, (imageWidth * scale - stageWidth) / 2);
     const maxY = Math.max(0, (imageHeight * scale - stageHeight) / 2);
     return { scale, x: clamp(candidate.x, -maxX, maxX), y: clamp(candidate.y, -maxY, maxY) };
-  }, []);
+  }, [imageDimensions]);
 
   const applyView = useCallback((candidate: ImageView) => {
     const next = constrainView(candidate);
@@ -87,12 +115,35 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
     setView(next);
   }, [constrainView]);
 
-  const resetView = useCallback(() => applyView(INITIAL_VIEW), [applyView]);
+  const resetView = useCallback(() => applyView({ scale: fitScaleRef.current, x: 0, y: 0 }), [applyView]);
+
+  const measureFit = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const stageWidth = stage.clientWidth || window.innerWidth;
+    const stageHeight = stage.clientHeight || window.innerHeight;
+    const dimensions = imageDimensions();
+    const previousFit = fitScaleRef.current;
+    const nextFit = fitScale(stageWidth, stageHeight, dimensions.width, dimensions.height);
+    const wasAtFit = sameScale(viewRef.current.scale, previousFit);
+    fitScaleRef.current = nextFit;
+    maximumScaleRef.current = maximumScale(nextFit);
+    applyView(wasAtFit ? { scale: nextFit, x: 0, y: 0 } : viewRef.current);
+  }, [applyView, imageDimensions]);
+
+  useLayoutEffect(() => {
+    measureFit();
+    const stage = stageRef.current;
+    const observer = stage && typeof ResizeObserver !== "undefined" ? new ResizeObserver(measureFit) : null;
+    if (stage) observer?.observe(stage);
+    return () => observer?.disconnect();
+  }, [measureFit]);
 
   const zoomAt = useCallback((candidateScale: number, clientX?: number, clientY?: number) => {
     const current = viewRef.current;
-    const scale = clamp(candidateScale, MIN_SCALE, MAX_SCALE);
-    if (scale === MIN_SCALE) {
+    const minimum = fitScaleRef.current;
+    const scale = clamp(candidateScale, minimum, maximumScaleRef.current);
+    if (sameScale(scale, minimum)) {
       resetView();
       return;
     }
@@ -167,7 +218,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
       } else if (event.key === "0") {
         event.preventDefault();
         resetView();
-      } else if (viewRef.current.scale > MIN_SCALE && event.key.startsWith("Arrow")) {
+      } else if (viewRef.current.scale > fitScaleRef.current + SCALE_EPSILON && event.key.startsWith("Arrow")) {
         event.preventDefault();
         const distance = 60;
         const current = viewRef.current;
@@ -178,7 +229,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
         });
       }
     };
-    const onResize = () => applyView(viewRef.current);
+    const onResize = () => measureFit();
     document.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", onResize);
     return () => {
@@ -193,7 +244,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
       }
       triggerRef?.current?.focus({ preventScroll: true });
     };
-  }, [applyView, resetView, triggerRef, zoomAt]);
+  }, [applyView, measureFit, resetView, triggerRef, zoomAt]);
 
   const pointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -227,7 +278,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
         const centerY = (stageRect?.top ?? 0) + (stageRect?.height || window.innerHeight) / 2;
         const anchorX = previousPinch.midpoint.x - centerX;
         const anchorY = previousPinch.midpoint.y - centerY;
-        const scale = clamp(current.scale * currentPinch.distance / previousPinch.distance, MIN_SCALE, MAX_SCALE);
+        const scale = clamp(current.scale * currentPinch.distance / previousPinch.distance, fitScaleRef.current, maximumScaleRef.current);
         const ratio = scale / current.scale;
         applyView({
           scale,
@@ -239,7 +290,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
       return;
     }
     pinchRef.current = null;
-    if (viewRef.current.scale > MIN_SCALE) {
+    if (viewRef.current.scale > fitScaleRef.current + SCALE_EPSILON) {
       const current = viewRef.current;
       applyView({ ...current, x: current.x + point.x - previous.x, y: current.y + point.y - previous.y });
     }
@@ -255,16 +306,16 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
   const lightbox = (
     <section aria-describedby={descriptionId} aria-label={`Просмотр изображения: ${alt || "без названия"}`} aria-modal="true" className="image-lightbox" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} role="dialog">
       <p className="visually-hidden" id={descriptionId}>Масштабируйте колесом, трекпадом или жестом двумя пальцами. Клавиши плюс и минус меняют масштаб, 0 сбрасывает его.</p>
-      <div className={`image-lightbox__stage${view.scale > MIN_SCALE ? " is-zoomed" : ""}`} onClick={(event) => {
+      <div className={`image-lightbox__stage${view.scale > fitScaleRef.current + SCALE_EPSILON ? " is-zoomed" : ""}`} onClick={(event) => {
         const moved = pointerMovedRef.current;
         pointerMovedRef.current = false;
         if (!moved && event.target === event.currentTarget) closeCallbackRef.current();
       }} onDoubleClick={(event) => {
         if (pointerMovedRef.current) return;
-        if (viewRef.current.scale > MIN_SCALE) resetView();
-        else zoomAt(2, event.clientX, event.clientY);
+        if (viewRef.current.scale > fitScaleRef.current + SCALE_EPSILON) resetView();
+        else zoomAt(fitScaleRef.current < 1 ? 1 : 2, event.clientX, event.clientY);
       }} onPointerCancel={pointerEnd} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} ref={stageRef}>
-        <img alt={alt} draggable={false} height={height} onClick={(event) => event.stopPropagation()} onDragStart={(event) => event.preventDefault()} ref={imageRef} src={src} style={{ transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})` }} width={width} />
+        <img alt={alt} draggable={false} height={height} onClick={(event) => event.stopPropagation()} onDragStart={(event) => event.preventDefault()} onLoad={measureFit} ref={imageRef} src={src} style={{ height: height ? `${height}px` : undefined, left: width ? `calc(50% - ${width / 2}px)` : "50%", top: height ? `calc(50% - ${height / 2}px)` : "50%", transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, width: width ? `${width}px` : undefined }} width={width} />
       </div>
       <button aria-label="Закрыть просмотр изображения" className="image-lightbox__close" onClick={() => closeCallbackRef.current()} ref={closeButtonRef} title="Закрыть" type="button"><Icon name="close" size={20} /></button>
     </section>

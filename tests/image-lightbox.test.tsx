@@ -147,6 +147,37 @@ describe("note image lightbox", () => {
     fireEvent.pointerUp(stage, { clientX: 350, clientY: 340, pointerId: 1, pointerType: "touch" });
   });
 
+  it("zooms a very tall image from its intrinsic pixels instead of a fitted raster", async () => {
+    const user = userEvent.setup();
+    render(<ImageLightbox alt="Карта переходов" height={3800} onClose={vi.fn()} src="https://example.com/tall-map.webp" width={520} />);
+    const dialog = screen.getByRole("dialog");
+    const stage = dialog.querySelector<HTMLElement>(".image-lightbox__stage")!;
+    const image = within(dialog).getByRole("img", { name: "Карта переходов" });
+    Object.defineProperties(stage, { clientWidth: { configurable: true, value: 974 }, clientHeight: { configurable: true, value: 650 } });
+    vi.spyOn(stage, "getBoundingClientRect").mockReturnValue(domRect(0, 0, 974, 650));
+
+    fireEvent.load(image);
+
+    await waitFor(() => expect(scaleOf(image)).toBeCloseTo(650 / 3800, 5));
+    expect(image.style.width).toBe("520px");
+    expect(image.style.height).toBe("3800px");
+    expect(image.style.left).toBe("calc(50% - 260px)");
+    expect(image.style.top).toBe("calc(50% - 1900px)");
+    expect(image.style.transform).not.toContain("translate3d");
+    expect(520 * scaleOf(image)).toBeCloseTo(88.95, 1);
+    expect(stage).not.toHaveClass("is-zoomed");
+
+    await user.dblClick(image);
+
+    expect(scaleOf(image)).toBe(1);
+    expect(520 * scaleOf(image)).toBe(520);
+    expect(stage).toHaveClass("is-zoomed");
+
+    fireEvent.keyDown(document, { key: "0" });
+    expect(scaleOf(image)).toBeCloseTo(650 / 3800, 5);
+    expect(stage).not.toHaveClass("is-zoomed");
+  });
+
   it("closes only on an un-dragged backdrop click and restores the previous scroll lock", async () => {
     const user = userEvent.setup();
     const appRoot = document.createElement("div");
