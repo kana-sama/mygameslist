@@ -35,8 +35,29 @@ export function readPatchPath(database: LibraryDatabase, path: string): { exists
   return hasOwn(entity, parsed.field) ? { exists: true, value: entity[parsed.field] } : { exists: false };
 }
 
-function opTargetMatches(operation: PatchOperation, actual: { exists: boolean; value?: unknown }): boolean {
-  return operation.operation === "delete" ? !actual.exists : actual.exists && same(actual.value, operation.value);
+function isCreatedDatedEntity(path: string, operation: PatchOperation): boolean {
+  const parsed = parsePatchPath(path);
+  if (!parsed) return false;
+  return operation.operation === "set"
+    && !operation.baseExists
+    && parsed.field === undefined
+    && (parsed.map === "games" || parsed.map === "notes");
+}
+
+function withoutUpdatedAt(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const result = { ...(value as Record<string, unknown>) };
+  delete result.updatedAt;
+  return result;
+}
+
+function sameTargetValue(path: string, operation: PatchOperation, left: unknown, right: unknown): boolean {
+  if (same(left, right)) return true;
+  return isCreatedDatedEntity(path, operation) && same(withoutUpdatedAt(left), withoutUpdatedAt(right));
+}
+
+function opTargetMatches(path: string, operation: PatchOperation, actual: { exists: boolean; value?: unknown }): boolean {
+  return operation.operation === "delete" ? !actual.exists : actual.exists && sameTargetValue(path, operation, actual.value, operation.value);
 }
 
 function baseMatches(operation: PatchOperation, actual: { exists: boolean; value?: unknown }): boolean {
@@ -70,10 +91,16 @@ function freshOperation(base: { exists: boolean; value?: unknown }, operation: "
   };
 }
 
-function retainTimestamp(candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {
+function retainTimestamp(path: string, candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {
   if (!previous || previous.operation !== candidate.operation || previous.baseExists !== candidate.baseExists || previous.baseHash !== candidate.baseHash) return candidate;
-  if (candidate.operation === "set" && !same(candidate.value, previous.value)) return candidate;
+  if (candidate.operation === "set" && !sameTargetValue(path, candidate, candidate.value, previous.value)) return candidate;
   return clone(previous);
+}
+
+function createdEntityValue(mapName: EntityMapName, entity: Entity, changedAt: string): Entity {
+  const value = clone(entity);
+  if (mapName !== "assets") (value as unknown as Record<string, unknown>).updatedAt = changedAt;
+  return value;
 }
 
 /** Blobs live only as long as their metadata-only asset set operation survives. */
@@ -104,14 +131,14 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
       const rootPath = entityPath(mapName, id);
       if (!(id in currentMap)) {
         const candidate = freshOperation({ exists: true, value: baseMap[id] }, "delete", undefined, changedAt, transactionId);
-        operations[rootPath] = retainTimestamp(candidate, options.previousPatch?.operations[rootPath]);
+        operations[rootPath] = retainTimestamp(rootPath, candidate, options.previousPatch?.operations[rootPath]);
       } else if (!(id in baseMap)) {
-        const candidate = freshOperation({ exists: false }, "set", currentMap[id], changedAt, transactionId);
-        operations[rootPath] = retainTimestamp(candidate, options.previousPatch?.operations[rootPath]);
+        const candidate = freshOperation({ exists: false }, "set", createdEntityValue(mapName, currentMap[id], changedAt), changedAt, transactionId);
+        operations[rootPath] = retainTimestamp(rootPath, candidate, options.previousPatch?.operations[rootPath]);
       } else if (mapName === "assets") {
         if (!same(baseMap[id], currentMap[id])) {
           const candidate = freshOperation({ exists: true, value: baseMap[id] }, "set", currentMap[id], changedAt, transactionId);
-          operations[rootPath] = retainTimestamp(candidate, options.previousPatch?.operations[rootPath]);
+          operations[rootPath] = retainTimestamp(rootPath, candidate, options.previousPatch?.operations[rootPath]);
         }
       } else {
         for (const field of LOCALLY_PATCHABLE_FIELDS[mapName]) {
@@ -120,7 +147,7 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
           if (same(before, after)) continue;
           const path = entityPath(mapName, id, field);
           const candidate = freshOperation({ exists: true, value: before }, "set", after, changedAt, transactionId);
-          operations[path] = retainTimestamp(candidate, options.previousPatch?.operations[path]);
+          operations[path] = retainTimestamp(path, candidate, options.previousPatch?.operations[path]);
         }
       }
     }
@@ -195,7 +222,7 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
   for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
     const actual = readPatchPath(staticDatabase, path);
-    if (opTargetMatches(operation, actual) || isCompatiblePublishedAsset(path, operation, actual)) { prunedCount += 1; continue; }
+    if (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual)) { prunedCount += 1; continue; }
     operations[path] = clone(operation);
     if (!baseMatches(operation, actual)) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
     else applicable[path] = clone(operation);
