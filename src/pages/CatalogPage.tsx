@@ -27,7 +27,14 @@ function initialFilters(): CatalogFilters {
 function FilterChecks({ label, values, selected, onChange, renderLabel = (value) => value }: { label: string; values: string[]; selected: string[]; onChange: (values: string[]) => void; renderLabel?: (value: string) => string }) {
   const toggle = (value: string) => onChange(selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]);
   return (
-    <details className="filter-menu">
+    <details
+      className="filter-menu"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          event.currentTarget.open = false;
+        }
+      }}
+    >
       <summary>{label}{selected.length ? <b>{selected.length}</b> : null}<Icon name="chevron-down" size={16} /></summary>
       <div className="filter-menu__panel">
         {values.length ? values.map((value) => <label key={value}><input checked={selected.includes(value)} onChange={() => toggle(value)} type="checkbox" /><span><Icon name="check" size={14} /></span>{renderLabel(value)}</label>) : <p>Пока нет вариантов</p>}
