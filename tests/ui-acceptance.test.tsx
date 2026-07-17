@@ -773,7 +773,7 @@ describe("GamePage", () => {
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
     const iframe = screen.getByTitle("Видео YouTube");
     const card = iframe.closest("article")!;
-    expect(card).toHaveClass("note-card--media-only");
+    expect(card).toHaveClass("note-card--media-only", "note-card--playable-media");
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
 
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
@@ -799,7 +799,7 @@ describe("GamePage", () => {
     const video = screen.getByLabelText("Видео «Boss run»");
     const card = video.closest("article")!;
     expect(video).toHaveAttribute("src", `/mylib/media/${assetId}.mp4`);
-    expect(card).toHaveClass("note-card--media-only");
+    expect(card).toHaveClass("note-card--media-only", "note-card--playable-media");
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Редактировать заметку" })).toBeInTheDocument();
 

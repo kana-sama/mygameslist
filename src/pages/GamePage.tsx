@@ -598,6 +598,8 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const hasText = Boolean(note.bodyMarkdown.trim());
   const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
+  const lastAttachment = note.attachments.at(-1);
+  const playableMediaOnly = Boolean(mediaOnly && lastAttachment && isPlayableMediaAttachment(lastAttachment, assets));
   const cardDragAttributes = mediaOnly ? undefined : dragAttributes;
   const cardDragListeners = mediaOnly ? undefined : dragListeners;
 
@@ -623,7 +625,7 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const collapsed = collapsible && !expanded;
 
   return (
-    <article aria-describedby={cardDragAttributes?.["aria-describedby"]} aria-disabled={cardDragAttributes?.["aria-disabled"]} aria-label={mediaOnly ? "Медиа-заметка" : "Редактировать заметку"} aria-roledescription={cardDragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!mediaOnly && !blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
+    <article aria-describedby={cardDragAttributes?.["aria-describedby"]} aria-disabled={cardDragAttributes?.["aria-disabled"]} aria-label={mediaOnly ? "Медиа-заметка" : "Редактировать заметку"} aria-roledescription={cardDragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${playableMediaOnly ? " note-card--playable-media" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!mediaOnly && !blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
       if (!blocksNoteEdit(event.target)) cardDragListeners?.onKeyDown?.(event);
       if (!mediaOnly && !dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
     }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={mediaOnly ? undefined : cardDragAttributes?.tabIndex ?? 0}>

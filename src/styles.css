@@ -278,7 +278,6 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-card { position: relative; min-width: 0; display: block; align-self: start; overflow: hidden; padding: 0; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing) { cursor: text; }
 .note-card--sortable { cursor: grab !important; touch-action: pan-y; }
-.note-card--media-only { --note-media-footer-height: 29px; }
 .note-card--media-only.note-card--sortable { cursor: default !important; }
 .note-card--sortable.is-dragging { opacity: .28; cursor: grabbing !important; }
 .note-card--sortable.is-drop-target { box-shadow: inset 0 0 0 1px var(--accent); }
@@ -294,15 +293,16 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-card__collapse-toggle svg { transition: transform .12s; }
 .note-card--expanded .note-card__collapse-toggle svg { transform: rotate(180deg); }
 .note-card--collapsed .note-card__collapse-toggle { position: absolute; z-index: 2; bottom: 0; left: 0; height: 38px; align-items: flex-end; padding-bottom: 5px; border-top: 0; background: linear-gradient(to bottom, transparent, #141518 58%); }
-.note-card--media-only.note-card--collapsed .note-card__collapse-toggle { bottom: var(--note-media-footer-height); }
-.note-card__media-actions { min-height: var(--note-media-footer-height); display: flex; align-items: center; gap: 2px; padding: 2px 3px; border-top: 1px solid var(--line-soft); opacity: 0; pointer-events: none; transition: opacity .12s; }
-.note-card__media-actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
+.note-card__media-actions { position: absolute; z-index: 3; right: 0; bottom: 0; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border-top: 1px solid var(--line-soft); background: rgba(20, 21, 24, .92); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.note-card--playable-media .note-card__media-actions { bottom: 42px; border-bottom: 1px solid var(--line-soft); }
+.note-card__media-actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__media-actions button:hover:not(:disabled), .note-card__media-actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-card__media-actions button:disabled { opacity: .28; cursor: default; }
 .note-card__media-actions .note-card__media-drag { margin-right: auto; cursor: grab; }
 .note-card__media-actions .note-card__media-drag:active { cursor: grabbing; }
 .note-card__media-actions .note-card__media-edit { margin-left: auto; }
-.note-card--media-only:hover .note-card__media-actions, .note-card--media-only:focus-within .note-card__media-actions { opacity: 1; pointer-events: auto; }
+.note-card--media-only:hover .note-card__media-actions, .note-card--media-only:focus-within .note-card__media-actions { opacity: 1; }
+.note-card--media-only:hover .note-card__media-actions button, .note-card--media-only:focus-within .note-card__media-actions button { pointer-events: auto; }
 .note-editor-actions button, .note-editor-actions a, .note-youtube-input-row button, .note-attachment-remove { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
 .note-editor-actions button:hover:not(:disabled), .note-editor-actions a:hover, .note-youtube-input-row button:hover, .note-attachment-remove:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-editor-actions > div:first-child button:last-child:hover:not(:disabled) { color: #dc858c; }
@@ -514,8 +514,9 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .app-header { padding-top: env(safe-area-inset-top); }
   .app-header .app-nav__link, .patch-pill { min-width: 44px; min-height: 44px; }
   .note-editor-actions, .note-attachment-remove { opacity: 1; pointer-events: auto; }
-  .note-card--media-only { --note-media-footer-height: 49px; }
-  .note-card__media-actions { opacity: 1; pointer-events: auto; }
+  .note-card__media-actions { min-height: 49px; opacity: 1; }
+  .note-card__media-actions button { pointer-events: auto; }
+  .note-card--playable-media .note-card__media-actions { bottom: 48px; }
   .tier-page .game-card--tier { min-width: 44px; min-height: 44px; }
   .filter-menu summary { min-height: 44px; }
   .select-wrap select, .field-group > input, .field-group > textarea, .tag-input__control { min-height: 44px; }
