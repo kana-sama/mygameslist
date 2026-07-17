@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "ab23f1152b0a5bf72caa68c769b5c9ca97cdabee08292c985aace19da379ed20",
-  "publicationId": "8bee6353-8cc2-4caa-ab81-bbc8181147f9",
+  "revision": "8fb380e2ff69a37139df38451a27ab939c5485e088463720647e400a777e81fd",
+  "publicationId": "7179b53b-ed54-4e46-90c2-d91b87dd4731",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -162,7 +162,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T00:27:03.048Z",
-      "updatedAt": "2026-07-17T11:18:19.228Z"
+      "updatedAt": "2026-07-17T12:10:10.010Z"
     },
     "bf484eba-6d37-48de-80e8-412b9492ced3": {
       "id": "bf484eba-6d37-48de-80e8-412b9492ced3",
@@ -1499,10 +1499,10 @@
           "label": "YouTube"
         }
       ],
-      "rank": 4096,
+      "rank": 1024,
       "createdAt": "2026-07-17T00:33:44.464Z",
-      "updatedAt": "2026-07-17T11:18:12.204Z",
-      "groupRank": 4096
+      "updatedAt": "2026-07-17T12:08:14.701Z",
+      "groupRank": 6144
     },
     "689547e4-6f72-4194-98a8-7f327f6e39c3": {
       "id": "689547e4-6f72-4194-98a8-7f327f6e39c3",
@@ -1525,10 +1525,10 @@
           "label": "YouTube"
         }
       ],
-      "rank": 3072,
+      "rank": 2048,
       "createdAt": "2026-07-17T00:34:51.080Z",
-      "updatedAt": "2026-07-17T11:17:51.643Z",
-      "groupRank": 4096
+      "updatedAt": "2026-07-17T12:08:17.540Z",
+      "groupRank": 6144
     },
     "8c26605d-3cc4-4081-9d97-b1eb2a894c76": {
       "id": "8c26605d-3cc4-4081-9d97-b1eb2a894c76",
@@ -1586,7 +1586,7 @@
     "4cd52441-b2d5-4c12-a957-2fac6133cfba": {
       "id": "4cd52441-b2d5-4c12-a957-2fac6133cfba",
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
-      "bodyMarkdown": "- [x] **Yoshi's Island**\n- [x] • Yoshi's House\n- [x] • Yellow Switch Palace\n- [x] • Yoshi's Island 1\n- [x] • Yoshi's Island 2\n- [x] • Yoshi's Island 3\n- [x] • Yoshi's Island 4\n- [x] • #1 Iggy's Castle\n\n- [x] **Donut Plains**\n- [x] • Donut Plains 1\n- [x] • Donut Plains 2\n- [x] • Donut Ghost House\n- [x] • Donut Plains 3\n- [x] • Donut Plains 4\n- [x] • #2 Morton's Castle\n- [x] • Green Switch Palace\n- [x] • Top Secret Area\n- [x] • Donut Secret 1\n- [x] • Donut Secret House\n- [x] • Donut Secret 2\n\n- [x] **Vanilla Dome**\n- [x] • Vanilla Dome 1\n- [x] • Vanilla Dome 2\n- [x] • Vanilla Ghost House\n- [x] • Vanilla Dome 3\n- [x] • Vanilla Dome 4\n- [x] • #3 Lemmy's Castle 😡\n- [x] • Red Switch Palace\n- [x] • Vanilla Secret 1\n- [x] • Vanilla Secret 2\n- [x] • Vanilla Secret 3\n- [x] • Vanilla Fortress\n\n- [x] **Twin Bridges**\n- [x] • Butter Bridge 1 😡\n- [x] • Butter Bridge 2 🧀\n- [x] • Cheese Bridge Area 🧀\n- [x] • Soda Lake\n- [x] • Cookie Mountain\n- [x] • #4 Ludwig's Castle\n\n- [x] **Forest of Illusion**\n- [x] • Forest of Illusion 1\n- [x] • Forest of Illusion 2\n- [x] • Forest of Illusion 3\n- [x] • Forest Ghost House\n- [x] • #5 Roy's Castle\n- [x] • Blue Switch Palace\n- [x] • Forest of Illusion 4\n- [x] • Forest Secret Area\n- [x] • Forest Fortress 😡\n\n- [x] **Chocolate Island**\n- [x] • Chocolate Island 1\n- [x] • Choco-Ghost House\n- [x] • Chocolate Island 2 💯\n- [x] • Chocolate Island 3\n- [x] • Chocolate Fortress\n- [x] • Chocolate Island 4\n- [x] • Chocolate Island 5\n- [x] • Chocolate Secret\n- [x] • #6 Wendy's Castle 😡💯\n\n- [x] **Valley of Bowser**\n- [x] • Sunken Ghost Ship\n- [x] • Valley of Bowser 1\n- [x] • Valley of Bowser 2\n- [x] • Valley Ghost House\n- [x] • Valley of Bowser 3\n- [x] • Valley of Bowser 4\n- [x] • #7 Larry's Castle\n- [x] • Valley Fortress\n- [x] • Front Door\n- [x] • Back Door\n\n- [x] **Star World**\n- [x] • Star World 1\n- [x] • Star World 2\n- [x] • Star World 3\n- [x] • Star World 4\n- [x] • Star World 5\n\n- [x] **Special Zone**\n- [x] • Gnarly\n- [x] • Tubular 😡\n- [x] • Way Cool\n- [x] • Awesome\n- [x] • Groovy\n- [x] • Mondo\n- [x] • Outrageous\n- [x] • Funky 😡",
+      "bodyMarkdown": "",
       "attachments": [
         {
           "type": "image",
@@ -1596,7 +1596,7 @@
       ],
       "rank": 1408,
       "createdAt": "2026-07-17T01:31:43.837Z",
-      "updatedAt": "2026-07-17T11:17:31.514Z"
+      "updatedAt": "2026-07-17T12:10:10.010Z"
     },
     "53959f49-482c-4e71-b7cb-08458e1b3568": {
       "id": "53959f49-482c-4e71-b7cb-08458e1b3568",
@@ -1620,10 +1620,16 @@
       "id": "b75c4a6c-b22c-46d1-b33f-0c1cd361f993",
       "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
       "bodyMarkdown": "## [Мануал с сайта nintendo.co.jp](https://www.nintendo.co.jp/clvs/manuals/common/pdf/CLV-P-SAAAE.pdf)\n ",
-      "attachments": [],
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "7743d1651a184f46ff72d6c7c16a0d9a9c9a207a0b0e756bdc5c8a77cb7ed214",
+          "alt": "Screenshot 2026-07-17 at 3.19.59 PM"
+        }
+      ],
       "rank": 512,
       "createdAt": "2026-07-17T01:27:17.406Z",
-      "updatedAt": "2026-07-17T02:04:11.047Z"
+      "updatedAt": "2026-07-17T11:20:06.186Z"
     },
     "6e40fdff-c76c-47ac-9d33-153cdfcb178c": {
       "id": "6e40fdff-c76c-47ac-9d33-153cdfcb178c",
@@ -2649,6 +2655,96 @@
       "rank": 1024,
       "createdAt": "2026-07-17T09:53:28.311Z",
       "updatedAt": "2026-07-17T09:53:28.323Z"
+    },
+    "1218156c-84b0-422b-ba28-80ff46b3b6b9": {
+      "id": "1218156c-84b0-422b-ba28-80ff46b3b6b9",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Donut Plains\n- [x] Donut Plains 1\n- [x] Donut Plains 2\n- [x] Donut Ghost House\n- [x] Donut Plains 3\n- [x] Donut Plains 4\n- [x] #2 Morton's Castle\n- [x] Green Switch Palace\n- [x] Top Secret Area\n- [x] Donut Secret 1\n- [x] Donut Secret House\n- [x] Donut Secret 2\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 6144,
+      "createdAt": "2026-07-17T12:08:58.111Z",
+      "updatedAt": "2026-07-17T12:08:58.117Z"
+    },
+    "4db6490a-1e17-41ac-bd94-914ebae03599": {
+      "id": "4db6490a-1e17-41ac-bd94-914ebae03599",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Twin Bridges\n- [x] Butter Bridge 1 😡\n- [x] Butter Bridge 2 🧀\n- [x] Cheese Bridge Area 🧀\n- [x] Soda Lake\n- [x] Cookie Mountain\n- [x] #4 Ludwig's Castle\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 8192,
+      "createdAt": "2026-07-17T12:09:13.785Z",
+      "updatedAt": "2026-07-17T12:09:13.788Z"
+    },
+    "80eef4e0-f487-42e6-8d5d-f9da841b5b90": {
+      "id": "80eef4e0-f487-42e6-8d5d-f9da841b5b90",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Star World\n- [x] Star World 1\n- [x] Star World 2\n- [x] Star World 3\n- [x] Star World 4\n- [x] Star World 5\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 13312,
+      "createdAt": "2026-07-17T12:10:00.557Z",
+      "updatedAt": "2026-07-17T12:10:00.560Z"
+    },
+    "94561d31-442f-4d3c-b724-6a3643ae35bf": {
+      "id": "94561d31-442f-4d3c-b724-6a3643ae35bf",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Chocolate Island\n- [x] Chocolate Island 1\n- [x] Choco-Ghost House\n- [x] Chocolate Island 2 💯\n- [x] Chocolate Island 3\n- [x] Chocolate Fortress\n- [x] Chocolate Island 4\n- [x] Chocolate Island 5\n- [x] Chocolate Secret\n- [x] #6 Wendy's Castle 😡💯\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 10240,
+      "createdAt": "2026-07-17T12:09:28.455Z",
+      "updatedAt": "2026-07-17T12:09:28.458Z"
+    },
+    "9957cd58-c40a-46ac-819c-5bddd73e9b69": {
+      "id": "9957cd58-c40a-46ac-819c-5bddd73e9b69",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Vanilla Dome\n- [x] Vanilla Dome 1\n- [x] Vanilla Dome 2\n- [x] Vanilla Ghost House\n- [x] Vanilla Dome 3\n- [x] Vanilla Dome 4\n- [x] #3 Lemmy's Castle 😡\n- [x] Red Switch Palace\n- [x] Vanilla Secret 1\n- [x] Vanilla Secret 2\n- [x] Vanilla Secret 3\n- [x] Vanilla Fortress\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 7168,
+      "createdAt": "2026-07-17T12:09:05.520Z",
+      "updatedAt": "2026-07-17T12:09:05.523Z"
+    },
+    "9b8746db-8aaf-4b27-b8d6-ffa253a4a5c4": {
+      "id": "9b8746db-8aaf-4b27-b8d6-ffa253a4a5c4",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Yoshi's Island\n- [x] Yoshi's House\n- [x] Yellow Switch Palace\n- [x] Yoshi's Island 1\n- [x] Yoshi's Island 2\n- [x] Yoshi's Island 3\n- [x] Yoshi's Island 4\n- [x] #1 Iggy's Castle",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 5120,
+      "createdAt": "2026-07-17T12:08:06.822Z",
+      "updatedAt": "2026-07-17T12:08:06.825Z"
+    },
+    "ce33e28c-b06d-4252-9fad-e1b51e675f9a": {
+      "id": "ce33e28c-b06d-4252-9fad-e1b51e675f9a",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Forest of Illusion\n- [x] Forest of Illusion 1\n- [x] Forest of Illusion 2\n- [x] Forest of Illusion 3\n- [x] Forest Ghost House\n- [x] #5 Roy's Castle\n- [x] Blue Switch Palace\n- [x] Forest of Illusion 4\n- [x] Forest Secret Area\n- [x] Forest Fortress 😡\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 9216,
+      "createdAt": "2026-07-17T12:09:20.669Z",
+      "updatedAt": "2026-07-17T12:09:20.676Z"
+    },
+    "f4cdae9e-11c9-4a5b-8889-dbb8ab70ea6d": {
+      "id": "f4cdae9e-11c9-4a5b-8889-dbb8ab70ea6d",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Valley of Bowser\n- [x] Sunken Ghost Ship\n- [x] Valley of Bowser 1\n- [x] Valley of Bowser 2\n- [x] Valley Ghost House\n- [x] Valley of Bowser 3\n- [x] Valley of Bowser 4\n- [x] #7 Larry's Castle\n- [x] Valley Fortress\n- [x] Front Door\n- [x] Back Door\n\n",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 11264,
+      "createdAt": "2026-07-17T12:09:36.706Z",
+      "updatedAt": "2026-07-17T12:09:57.369Z"
+    },
+    "fde268f4-bf52-4009-974d-1499f704009e": {
+      "id": "fde268f4-bf52-4009-974d-1499f704009e",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "### Special Zone\n- [x] Gnarly\n- [x] Tubular 😡\n- [x] Way Cool\n- [x] Awesome\n- [x] Groovy\n- [x] Mondo\n- [x] Outrageous\n- [x] Funky 😡",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 12288,
+      "createdAt": "2026-07-17T12:09:42.712Z",
+      "updatedAt": "2026-07-17T12:09:42.716Z"
     }
   },
   "assets": {
@@ -3699,6 +3795,16 @@
       "byteLength": 1101454,
       "alt": "image",
       "originalName": "image.png"
+    },
+    "7743d1651a184f46ff72d6c7c16a0d9a9c9a207a0b0e756bdc5c8a77cb7ed214": {
+      "id": "7743d1651a184f46ff72d6c7c16a0d9a9c9a207a0b0e756bdc5c8a77cb7ed214",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1076,
+      "height": 1394,
+      "byteLength": 1082252,
+      "alt": "Screenshot 2026-07-17 at 3.19.59 PM",
+      "originalName": "Screenshot 2026-07-17 at 3.19.59 PM.png"
     }
   }
 }
