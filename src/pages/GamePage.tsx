@@ -22,6 +22,7 @@ import { moveRanked } from "../domain/ranks";
 import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
+import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { hasMarkdownTasks, MarkdownView, PlainMarkdownTextarea } from "../components/Markdown";
 import { MasonryGrid } from "../components/MasonryGrid";
@@ -116,7 +117,7 @@ function noteTargetMatches(target: EventTarget | null, selector: string): boolea
 }
 
 function blocksNoteDrag(target: EventTarget | null): boolean {
-  return noteTargetMatches(target, "button, input, label, textarea, select, iframe, [contenteditable='true']");
+  return noteTargetMatches(target, "button:not(.note-attachment-image-open), input, label, textarea, select, iframe, [contenteditable='true']");
 }
 
 function blocksNoteEdit(target: EventTarget | null): boolean {
@@ -214,17 +215,21 @@ export interface GamePageProps {
   onDelete?: (gameId: string) => void | Promise<void>;
 }
 
+function ImageAttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: Extract<EditableAttachment, { type: "image" | "pending-image" }>; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const asset = attachment.type === "image" ? assets[attachment.assetId] : undefined;
+  const url = attachment.type === "image" ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset) : `data:image/webp;base64,${attachment.image.base64}`;
+  if (!url) return null;
+  const alt = attachment.alt || (asset && "alt" in asset ? asset.alt : "") || "Изображение к заметке";
+  const dimensions = attachment.type === "image" ? asset : attachment.image;
+  const width = dimensions && "width" in dimensions ? dimensions.width : undefined;
+  const height = dimensions && "height" in dimensions ? dimensions.height : undefined;
+  return <><div className="note-attachment-shell"><figure className="note-attachment note-attachment--image"><button aria-haspopup="dialog" aria-label={`Открыть изображение «${alt}»`} className="note-attachment-image-open" onClick={(event) => { event.stopPropagation(); setOpen(true); }} ref={openButtonRef} title="Открыть изображение" type="button"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></button></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>{open ? <ImageLightbox alt={alt} height={height} onClose={() => setOpen(false)} src={url} triggerRef={openButtonRef} width={width} /> : null}</>;
+}
+
 function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: EditableAttachment; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
-  if (attachment.type === "image" || attachment.type === "pending-image") {
-    const asset = attachment.type === "image" ? assets[attachment.assetId] : undefined;
-    const url = attachment.type === "image" ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset) : `data:image/webp;base64,${attachment.image.base64}`;
-    if (!url) return null;
-    const alt = attachment.alt || (asset && "alt" in asset ? asset.alt : "") || "Изображение к заметке";
-    const dimensions = attachment.type === "image" ? asset : attachment.image;
-    const width = dimensions && "width" in dimensions ? dimensions.width : undefined;
-    const height = dimensions && "height" in dimensions ? dimensions.height : undefined;
-    return <div className="note-attachment-shell"><figure className="note-attachment note-attachment--image"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>;
-  }
+  if (attachment.type === "image" || attachment.type === "pending-image") return <ImageAttachmentView assets={assets} attachment={attachment} onRemove={onRemove} resolveAssetUrl={resolveAssetUrl} />;
   if (attachment.type === "file" || attachment.type === "pending-file") {
     const asset = attachment.type === "file" ? assets[attachment.assetId] : undefined;
     const href = attachment.type === "file"
@@ -575,10 +580,10 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
 
   return (
     <article aria-describedby={dragAttributes?.["aria-describedby"]} aria-disabled={dragAttributes?.["aria-disabled"]} aria-label="Редактировать заметку" aria-roledescription={dragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
-      if (!blocksNoteDrag(event.target)) dragListeners?.onKeyDown?.(event);
+      if (!blocksNoteEdit(event.target)) dragListeners?.onKeyDown?.(event);
       if (!dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
     }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={dragAttributes?.tabIndex ?? 0}>
-      <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
+      <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks && !note.attachments.length} onFocusCapture={(event) => {
         if (!collapsed || event.target === event.currentTarget) return;
         const viewportRect = event.currentTarget.getBoundingClientRect();
         const targetRect = (event.target as HTMLElement).getBoundingClientRect();
