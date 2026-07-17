@@ -595,12 +595,18 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const contentRef = useRef<HTMLDivElement>(null);
   const [collapsible, setCollapsible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const hasText = Boolean(note.bodyMarkdown.trim());
   const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
-  const mediaOnly = !note.bodyMarkdown.trim() && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
+  const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
   const cardDragAttributes = mediaOnly ? undefined : dragAttributes;
   const cardDragListeners = mediaOnly ? undefined : dragListeners;
 
   useLayoutEffect(() => {
+    if (!hasText) {
+      setCollapsible(false);
+      setExpanded(false);
+      return;
+    }
     const content = contentRef.current;
     if (!content) return;
     const measure = () => {
@@ -612,7 +618,7 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
     observer?.observe(content);
     measure();
     return () => observer?.disconnect();
-  }, []);
+  }, [hasText]);
 
   const collapsed = collapsible && !expanded;
 
@@ -621,18 +627,20 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
       if (!blocksNoteEdit(event.target)) cardDragListeners?.onKeyDown?.(event);
       if (!mediaOnly && !dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
     }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={mediaOnly ? undefined : cardDragAttributes?.tabIndex ?? 0}>
-      <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks && !note.attachments.length} onFocusCapture={(event) => {
-        if (!collapsed || event.target === event.currentTarget) return;
-        const viewportRect = event.currentTarget.getBoundingClientRect();
-        const targetRect = (event.target as HTMLElement).getBoundingClientRect();
-        if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
-      }}>
-        <div className="note-card__content" ref={contentRef}>
-          {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
-          {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+      <div className="note-card__text">
+        <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
+          if (!collapsed || event.target === event.currentTarget) return;
+          const viewportRect = event.currentTarget.getBoundingClientRect();
+          const targetRect = (event.target as HTMLElement).getBoundingClientRect();
+          if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
+        }}>
+          <div className="note-card__content" ref={contentRef}>
+            {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+          </div>
         </div>
+        {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
       </div>
-      {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
+      {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
       {mediaOnly ? <div className="note-card__media-actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__media-drag" onClick={(event) => event.stopPropagation()} ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__media-edit" disabled={taskChangesDisabled} onClick={(event) => { event.stopPropagation(); onEdit(); }} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div> : null}
     </article>
   );

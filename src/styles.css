@@ -285,6 +285,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-drag-preview { width: min(360px, calc(100vw - 20px)); max-height: 220px; overflow: hidden; pointer-events: none; cursor: grabbing !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .4); }
 .note-drag-preview .note-card__content { max-height: 220px; overflow: hidden; }
 .note-card:not(.note-card--editing):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.note-card__text { position: relative; min-width: 0; }
 .note-card__content > .markdown { padding: 6px; }
 .note-card--collapsed .note-card__viewport { max-height: 300px; overflow: hidden; }
 .note-card__collapse-toggle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; gap: 3px; appearance: none; padding: 0; border: 0; border-top: 1px solid var(--line-soft); color: var(--muted-2); background: #141518; font-size: 9px; cursor: pointer; }

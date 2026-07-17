@@ -45,7 +45,7 @@ afterEach(() => {
 });
 
 describe("note image lightbox", () => {
-  it("opens a collapsed note image without entering note editing and restores focus on Escape", async () => {
+  it("opens a tall media-only image without collapsing it or entering note editing", async () => {
     const user = userEvent.setup();
     const game: Game = { id: GAME_ID, title: "DuckTales", coverAssetId: null, platforms: ["NES"], tags: [], status: "playing", placement: { tierId: "a", rank: 1024 }, reviewMarkdown: "", createdAt: NOW, updatedAt: NOW };
     const note: Note = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "", attachments: [{ type: "image", assetId: ASSET_ID, alt: "Карта уровня" }], rank: 1024, createdAt: NOW, updatedAt: NOW };
@@ -59,10 +59,11 @@ describe("note image lightbox", () => {
     render(<GamePage assets={{ [ASSET_ID]: asset }} game={game} mode="game" notes={[note]} onSave={onSave} resolveAssetUrl={() => "https://example.com/map.webp"} />);
     const opener = screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" });
     const card = opener.closest("article")!;
-    expect(card).toHaveClass("note-card--collapsed");
+    expect(card).not.toHaveClass("note-card--collapsed");
     expect(card).toHaveClass("note-card--media-only");
     expect(card).not.toHaveAttribute("tabindex");
     expect(card.querySelector(".note-card__viewport")).not.toHaveAttribute("inert");
+    expect(within(card).queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toHaveAttribute("aria-roledescription", "перетаскиваемая заметка");
     const editButton = within(card).getByRole("button", { name: "Редактировать заметку" });
 

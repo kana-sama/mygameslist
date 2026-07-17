@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Game, Note } from "../src/domain/types";
+import type { Asset, Game, Note } from "../src/domain/types";
 import { GamePage } from "../src/pages/GamePage";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
@@ -94,6 +94,35 @@ describe("long note cards", () => {
     expect(editor).toHaveValue("Long note");
     expect(editor.closest("article")).toHaveClass("note-card--editing");
     expect(screen.queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+  });
+
+  it("collapses only long text while keeping attached media fully interactive", async () => {
+    const user = userEvent.setup();
+    const assetId = "a".repeat(64);
+    const asset: Asset = { id: assetId, kind: "image", mime: "image/webp", width: 720, height: 1280, byteLength: 100, alt: "Tall map", originalName: "map.webp" };
+    vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(function (this: Element) {
+      return this.classList.contains("note-card__content") && this.textContent?.includes("Long text") ? 420 : 900;
+    });
+    const longWithMedia: Note = {
+      ...makeNote("22222222-2222-4222-8222-222222222222", "Long text", 1024),
+      attachments: [{ type: "image", assetId, alt: "Tall map" }],
+    };
+    const mediaOnly: Note = {
+      ...makeNote("33333333-3333-4333-8333-333333333333", "", 2048),
+      attachments: [{ type: "image", assetId, alt: "Tall map" }],
+    };
+
+    render(<GamePage assets={{ [assetId]: asset }} game={game} mode="game" notes={[longWithMedia, mediaOnly]} onSave={vi.fn()} resolveAssetUrl={() => "/media/map.webp"} />);
+
+    const longCard = screen.getByText("Long text").closest("article")!;
+    const mediaCard = document.querySelector<HTMLElement>(`[data-note-id="${mediaOnly.id}"]`)!;
+    expect(longCard).toHaveClass("note-card--collapsed");
+    expect(within(longCard).getByRole("button", { name: "Открыть изображение «Tall map»" }).closest(".note-card__viewport")).toBeNull();
+    expect(mediaCard).not.toHaveClass("note-card--collapsed");
+    expect(within(mediaCard).queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+
+    await user.click(within(longCard).getByRole("button", { name: "Открыть изображение «Tall map»" }));
+    expect(screen.getByRole("dialog", { name: "Просмотр изображения: Tall map" })).toBeInTheDocument();
   });
 
   it("keeps visible task controls clickable while a long note is collapsed", async () => {
