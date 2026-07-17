@@ -328,9 +328,14 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-attachment-shell { position: relative; min-width: 0; }
 .note-attachment-shell--link, .note-attachment-shell--file { margin: 5px 6px; }
 .note-attachment--image { margin: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--field); }
+.note-attachment-shell--tall-image.is-collapsed .note-attachment--image { max-height: 420px; }
 .note-attachment-image-open { width: 100%; display: block; appearance: none; padding: 0; border: 0; color: inherit; background: transparent; cursor: zoom-in; }
 .note-attachment-image-open:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 .note-attachment--image img { width: 100%; height: auto; display: block; margin: 0; }
+.note-attachment-tall-toggle { position: absolute; z-index: 2; right: 0; bottom: 0; left: 0; height: 44px; display: flex; align-items: flex-end; justify-content: center; gap: 3px; appearance: none; padding: 0 0 5px; border: 0; color: var(--muted); background: linear-gradient(to bottom, transparent, #141518 78%); font-size: 9px; cursor: pointer; }
+.note-attachment-tall-toggle:hover, .note-attachment-tall-toggle:focus-visible { color: var(--text); }
+.note-attachment-tall-toggle:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.note-attachment-shell--tall-image.is-expanded .note-attachment-tall-toggle svg { transform: rotate(180deg); }
 .note-attachment--link { min-width: 0; display: flex; align-items: center; gap: 5px; padding: 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--accent-strong); background: #171d22; text-decoration: none; }
 .note-attachment--link span { flex: 1; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .note-attachment--link svg { width: 13px; height: 13px; }

@@ -64,6 +64,7 @@ describe("note image lightbox", () => {
     expect(card).not.toHaveAttribute("tabindex");
     expect(card.querySelector(".note-card__viewport")).not.toHaveAttribute("inert");
     expect(within(card).queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Показать изображение полностью" })).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toHaveAttribute("aria-roledescription", "перетаскиваемая заметка");
     const editButton = within(card).getByRole("button", { name: "Редактировать заметку" });
 
@@ -85,6 +86,38 @@ describe("note image lightbox", () => {
     await user.click(editButton);
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
     expect(screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" })).toBeInTheDocument();
+  });
+
+  it("collapses only extreme portrait images while keeping lightbox and editing available", async () => {
+    const user = userEvent.setup();
+    const game: Game = { id: GAME_ID, title: "Wario Land 3", coverAssetId: null, platforms: ["GameBoy Color"], tags: [], status: "playing", placement: { tierId: "b", rank: 1024 }, reviewMarkdown: "", createdAt: NOW, updatedAt: NOW };
+    const note: Note = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "", attachments: [{ type: "image", assetId: ASSET_ID, alt: "Карта переходов" }], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const asset: Asset = { id: ASSET_ID, kind: "image", mime: "image/webp", width: 520, height: 3800, byteLength: 39_000, alt: "Карта переходов", originalName: "map.png" };
+
+    render(<GamePage assets={{ [ASSET_ID]: asset }} game={game} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={() => "https://example.com/tall-map.webp"} />);
+
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    const shell = card.querySelector<HTMLElement>(".note-attachment-shell")!;
+    const expand = within(card).getByRole("button", { name: "Показать изображение полностью" });
+    expect(card).not.toHaveClass("note-card--collapsed");
+    expect(shell).toHaveClass("note-attachment-shell--tall-image", "is-collapsed");
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(within(card).getByRole("button", { name: "Открыть изображение «Карта переходов»" }));
+    expect(screen.getByRole("dialog", { name: "Просмотр изображения: Карта переходов" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Закрыть просмотр изображения" }));
+
+    await user.click(expand);
+    expect(shell).toHaveClass("is-expanded");
+    expect(shell).not.toHaveClass("is-collapsed");
+    expect(within(card).getByRole("button", { name: "Свернуть изображение" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Показать изображение полностью" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Свернуть изображение" })).not.toBeInTheDocument();
   });
 
   it("does not open a text note editor when a portaled lightbox click closes the image", async () => {

@@ -297,9 +297,13 @@ export interface GamePageProps {
   onDelete?: (gameId: string) => void | Promise<void>;
 }
 
+const TALL_NOTE_IMAGE_RATIO = 3;
+
 function ImageAttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: Extract<EditableAttachment, { type: "image" | "pending-image" }>; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
+  const contentId = useId();
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const asset = attachment.type === "image" ? assets[attachment.assetId] : undefined;
   const url = attachment.type === "image" ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset) : `data:image/webp;base64,${attachment.image.base64}`;
   if (!url) return null;
@@ -307,7 +311,8 @@ function ImageAttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: 
   const dimensions = attachment.type === "image" ? asset : attachment.image;
   const width = dimensions && "width" in dimensions ? dimensions.width : undefined;
   const height = dimensions && "height" in dimensions ? dimensions.height : undefined;
-  return <><div className="note-attachment-shell"><figure className="note-attachment note-attachment--image"><button aria-haspopup="dialog" aria-label={`Открыть изображение «${alt}»`} className="note-attachment-image-open" onClick={(event) => { event.stopPropagation(); setOpen(true); }} ref={openButtonRef} title="Открыть изображение" type="button"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></button></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>{open ? <ImageLightbox alt={alt} height={height} onClose={() => setOpen(false)} src={url} triggerRef={openButtonRef} width={width} /> : null}</>;
+  const collapsible = onRemove === undefined && typeof width === "number" && width > 0 && typeof height === "number" && height / width >= TALL_NOTE_IMAGE_RATIO;
+  return <><div className={`note-attachment-shell${collapsible ? ` note-attachment-shell--tall-image ${expanded ? "is-expanded" : "is-collapsed"}` : ""}`}><figure className="note-attachment note-attachment--image" id={collapsible ? contentId : undefined}><button aria-haspopup="dialog" aria-label={`Открыть изображение «${alt}»`} className="note-attachment-image-open" onClick={(event) => { event.stopPropagation(); setOpen(true); }} ref={openButtonRef} title="Открыть изображение" type="button"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></button></figure>{collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть изображение" : "Показать изображение полностью"} className="note-attachment-tall-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>{open ? <ImageLightbox alt={alt} height={height} onClose={() => setOpen(false)} src={url} triggerRef={openButtonRef} width={width} /> : null}</>;
 }
 
 function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: EditableAttachment; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
