@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "e9c12e51ead161cac440eeae6255dd254648cd32bacdd88897dfaa7f2a946e2f",
-  "publicationId": "f5d7cc4e-49ed-4d69-b6c5-47613e8cb3fb",
+  "revision": "2da761defb9d312933eca94c19bee0c3e2ac9e4b96a61095b69c8b06a8878a92",
+  "publicationId": "70908435-c175-43f0-904b-c50b568b3cab",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -11,14 +11,14 @@
         "Sony PlayStation"
       ],
       "tags": [],
-      "status": "completed",
+      "status": "platinum",
       "placement": {
         "tierId": "s",
         "rank": 2048
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T21:27:53.664Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T00:16:48.497Z"
     },
     "1ab7a769-7552-4afb-a6f9-c282416ca3c3": {
       "id": "1ab7a769-7552-4afb-a6f9-c282416ca3c3",
@@ -28,14 +28,14 @@
         "Sega CD"
       ],
       "tags": [],
-      "status": "completed",
+      "status": "platinum",
       "placement": {
         "tierId": "a",
         "rank": 1024
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T21:25:21.887Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T00:17:04.742Z"
     },
     "313958f6-f9a5-41ee-bd04-3e87a0015554": {
       "id": "313958f6-f9a5-41ee-bd04-3e87a0015554",
@@ -81,14 +81,14 @@
       "tags": [
         "Super Mario"
       ],
-      "status": "completed",
+      "status": "platinum",
       "placement": {
         "tierId": "s",
         "rank": 1024
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T00:27:44.577Z"
     },
     "cc5b015a-3fef-41cf-b596-36322578efa4": {
       "id": "cc5b015a-3fef-41cf-b596-36322578efa4",
@@ -142,6 +142,40 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T21:30:14.132Z",
       "updatedAt": "2026-07-16T21:32:25.545Z"
+    },
+    "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5": {
+      "id": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "title": "Super Mario World",
+      "coverAssetId": "4e2da8e0efc734a8cfd29d187229994a50bebf57c3b8b0b8c02f533c7f88ebc7",
+      "platforms": [
+        "Super Nintendo Entertainment System"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 3072
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T00:27:03.048Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "bf484eba-6d37-48de-80e8-412b9492ced3": {
+      "id": "bf484eba-6d37-48de-80e8-412b9492ced3",
+      "title": "S.S. Lucifer: Man Overboard!",
+      "coverAssetId": "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328",
+      "platforms": [
+        "Sega Genesis"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "d",
+        "rank": 1024
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T00:18:31.770Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
     }
   },
   "notes": {
@@ -157,11 +191,11 @@
     "3cc3232a-4ca2-445b-ab8c-df2c75d8e4a2": {
       "id": "3cc3232a-4ca2-445b-ab8c-df2c75d8e4a2",
       "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
-      "bodyMarkdown": "#### 1. Bob-omb Battlefield\nСамый обычный уровень, который знакомил нас с основными механиками.\n\n#### 2. Whomp's Fortress\nПоявляется много интересного платформинга, уровень очень вертикальный.\n\n#### 3. Jolly Roger Bay\nВ этот раз это компактная песочница на несколько зон с загадками.\n\n#### 4. Cool, Cool Mountain\nСнова песочница с загадками и спусками по склону, но уже льду, и очень вертикальная.\n\n#### ⛫. Bowser in the Dark World\nКуча очень классного платформинга просто лучший ост в марио.\n\n#### 5. Big Boo's Haunt\nМного комнат, каждая со своей загадкой, очень атмосферно.\n",
+      "bodyMarkdown": "#### 1. Bob-omb Battlefield\nСамый обычный уровень, который знакомил нас с основными механиками.\n\n#### 2. Whomp's Fortress\nПоявляется много интересного платформинга, уровень очень вертикальный.\n\n#### 3. Jolly Roger Bay\nВ этот раз это компактная песочница на несколько зон с загадками.\n\n#### 4. Cool, Cool Mountain\nСнова песочница с загадками и спусками по склону, но уже льду, и очень вертикальная.\n\n#### ⛫. Bowser in the Dark World\nКуча очень классного платформинга просто лучший ост в марио.\n\n#### 5. Big Boo's Haunt\nМного комнат, каждая со своей загадкой, очень атмосферно.\n\n#### 6. Hazy Maze Cave\nЛабиринт, внутри которого есть свои подлабиринты. Насыщеный уровень.\n\n#### 7. Lethal Lava Land\nКуча задачек в песочнице, но песок это лава!\n\n#### 8. Shifting Sand Land\nА вот этот уровень я ненавижу, слишком много склонов, которые ведут к неотвратимой смерти.\n\n#### ⛫. Bowser in the Fire Sea\nСнова офигенный платформинг, но, возможно из-за моей личной прогрессии, показался попроще.\n\n#### 9. Dire, Dire Docks\nПриятный подводный уровень, но маленький и короткий. Была классная загадка на сразу две шляпы!\n\n#### 10. Snowman's Land\nДостаточно ебучий платформинг, и поэтому было достаточно приятно его победить.\n\n#### 11. Wet-dry World\nКомпактная зона с рядом загадок, но в целом скучновато.\n\n#### 12. Tall, Tall Mountain\nДефолтный вертикальный уровень с местами страшным платформингом.\n\n#### 13. Tiny-Huge Island\nУже идея двух входов очень прикольная. И сам уровень неплохой, но ничего особенного. НО! Из последней звезды за 100 монет я софтдропнул игру на неделю, по полчаса пытаясь пройти этот уровень. Готов уже был и пропустить уровень, и читы заюзать. Решил все случай, я случайно увидел, что определенные мобы дают в пять раз больше монет, если их убить определенным образом. Изи звезда.\n\n#### 14. Tick Tock Clock\nОпять прикольная идея со входом, но в целом уровень средний.\n\n#### 15. Rainbow Ride\nА вот такое я люблю! Песочница с 5-ю уникальными зонами, неплохой платформинг и задачки. Один из любимых уровней.\n",
       "attachments": [],
       "rank": 2048,
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T00:27:40.888Z"
     },
     "477fdb97-3032-4e89-a21b-dd4399ee8daa": {
       "id": "477fdb97-3032-4e89-a21b-dd4399ee8daa",
@@ -181,15 +215,6 @@
       "createdAt": "2026-07-16T21:23:34.775Z",
       "updatedAt": "2026-07-16T21:32:25.545Z"
     },
-    "566c2b32-1cd0-40e1-a1f2-7fb5c12ab8a1": {
-      "id": "566c2b32-1cd0-40e1-a1f2-7fb5c12ab8a1",
-      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
-      "bodyMarkdown": "#### 6. Hazy Maze Cave\nЛабиринт, внутри которого есть свои подлабиринты. Насыщеный уровень.\n\n#### 7. Lethal Lava Land\nКуча задачек в песочнице, но песок это лава!\n\n#### 8. Shifting Sand Land\nА вот этот уровень я ненавижу, слишком много склонов, которые ведут к неотвратимой смерти.\n\n#### ⛫. Bowser in the Fire Sea\nСнова офигенный платформинг, но, возможно из-за моей личной прогрессии, показался попроще.\n\n#### 9. Dire, Dire Docks\nПриятный подводный уровень, но маленький и короткий. Была классная загадка на сразу две шляпы!\n\n#### 10. Snowman's Land\nДостаточно ебучий платформинг, и поэтому было достаточно приятно его победить.\n",
-      "attachments": [],
-      "rank": 5120,
-      "createdAt": "2026-07-16T11:39:50.050Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
-    },
     "68b96366-b858-4d61-9a41-2e3d0393f806": {
       "id": "68b96366-b858-4d61-9a41-2e3d0393f806",
       "gameId": "872e5d6a-a72f-4441-bab4-fa075de62255",
@@ -197,15 +222,6 @@
       "attachments": [],
       "rank": 2048,
       "createdAt": "2026-07-16T21:31:59.552Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
-    },
-    "7c81ef65-1bf8-4f23-8590-23467c4522ae": {
-      "id": "7c81ef65-1bf8-4f23-8590-23467c4522ae",
-      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
-      "bodyMarkdown": "#### 11. Wet-dry World\nКомпактная зона с рядом загадок, но в целом скучновато.\n\n#### 12. Tall, Tall Mountain\nДефолтный вертикальный уровень с местами страшным платформингом.\n\n#### 13. Tiny-Huge Island\nУже идея двух входов очень прикольная. И сам уровень неплохой, но ничего особенного. НО! Из последней звезды за 100 монет я софтдропнул игру на неделю, по полчаса пытаясь пройти этот уровень. Готов уже был и пропустить уровень, и читы заюзать. Решил все случай, я случайно увидел, что определенные мобы дают в пять раз больше монет, если их убить определенным образом. Изи звезда.\n\n#### 14. Tick Tock Clock\nОпять прикольная идея со входом, но в целом уровень средний.\n\n#### 15. Rainbow Ride\nА вот такое я люблю! Песочница с 5-ю уникальными зонами, неплохой платформинг и задачки. Один из любимых уровней.",
-      "attachments": [],
-      "rank": 6144,
-      "createdAt": "2026-07-16T11:39:54.051Z",
       "updatedAt": "2026-07-16T21:32:25.545Z"
     },
     "84000104-66d0-4cc7-98cf-2fca1cf57378": {
@@ -285,6 +301,126 @@
       "rank": 1024,
       "createdAt": "2026-07-16T21:30:14.132Z",
       "updatedAt": "2026-07-16T21:32:25.545Z"
+    },
+    "0cb58aa4-5fce-46f0-8dc4-4b9f2e7e053a": {
+      "id": "0cb58aa4-5fce-46f0-8dc4-4b9f2e7e053a",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## Звездочка за полное прохождение",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "404051c115769c189472ce416fc687f1d21530c189e8aa0695f553e4aceffd1e",
+          "alt": "IMAGE 2026-07-17 04:30:43"
+        }
+      ],
+      "rank": 7168,
+      "createdAt": "2026-07-17T00:30:47.863Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "13094c52-91a9-46b5-b1b2-d68b949ff883": {
+      "id": "13094c52-91a9-46b5-b1b2-d68b949ff883",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "✅ Yoshi's Island\n✅ • Yoshi's House\n✅ • Yellow Switch Palace\n✅ • Yoshi's Island 1\n✅ • Yoshi's Island 2\n✅ • Yoshi's Island 3\n✅ • Yoshi's Island 4\n✅ • #1 Iggy's Castle\n\n✅ Donut Plains\n✅ • Donut Plains 1\n✅ • Donut Plains 2\n✅ • Donut Ghost House\n✅ • Donut Plains 3\n✅ • Donut Plains 4\n✅ • #2 Morton's Castle\n✅ • Green Switch Palace\n✅ • Top Secret Area\n✅ • Donut Secret 1\n✅ • Donut Secret House\n✅ • Donut Secret 2\n\n✅ Vanilla Dome\n✅ • Vanilla Dome 1\n✅ • Vanilla Dome 2\n✅ • Vanilla Ghost House\n✅ • Vanilla Dome 3\n✅ • Vanilla Dome 4\n✅ • #3 Lemmy's Castle 😡\n✅ • Red Switch Palace\n✅ • Vanilla Secret 1\n✅ • Vanilla Secret 2\n✅ • Vanilla Secret 3\n✅ • Vanilla Fortress\n\n✅ Twin Bridges\n✅ • Butter Bridge 1 😡\n✅ • Butter Bridge 2 🧀\n✅ • Cheese Bridge Area 🧀\n✅ • Soda Lake\n✅ • Cookie Mountain\n✅ • #4 Ludwig's Castle\n\n✅ Forest of Illusion\n✅ • Forest of Illusion 1\n✅ • Forest of Illusion 2\n✅ • Forest of Illusion 3\n✅ • Forest Ghost House\n✅ • #5 Roy's Castle\n✅ • Blue Switch Palace\n✅ • Forest of Illusion 4\n✅ • Forest Secret Area\n✅ • Forest Fortress 😡\n\n✅ Chocolate Island\n✅ • Chocolate Island 1\n✅ • Choco-Ghost House\n✅ • Chocolate Island 2 💯\n✅ • Chocolate Island 3\n✅ • Chocolate Fortress\n✅ • Chocolate Island 4\n✅ • Chocolate Island 5\n✅ • Chocolate Secret\n✅ • #6 Wendy's Castle 😡💯\n\n✅ Valley of Bowser\n✅ • Sunken Ghost Ship\n✅ • Valley of Bowser 1\n✅ • Valley of Bowser 2\n✅ • Valley Ghost House\n✅ • Valley of Bowser 3\n✅ • Valley of Bowser 4\n✅ • #7 Larry's Castle\n✅ • Valley Fortress\n✅ • Front Door\n✅ • Back Door\n\n✅ Star World\n✅ • Star World 1\n✅ • Star World 2\n✅ • Star World 3\n✅ • Star World 4\n✅ • Star World 5\n\n✅ Special Zone\n✅ • Gnarly\n✅ • Tubular 😡\n✅ • Way Cool\n✅ • Awesome\n✅ • Groovy\n✅ • Mondo\n✅ • Outrageous\n✅ • Funky 😡",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "f3c67219872d49b3185ce0aa1e17e3eec8bf504fbe89eeb0efebc1e5fba2d3cd",
+          "alt": "IMAGE 2026-07-17 04:28:36"
+        }
+      ],
+      "rank": 4096,
+      "createdAt": "2026-07-17T00:28:45.328Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "411ad4f7-b383-41e1-9e69-525a35dca697": {
+      "id": "411ad4f7-b383-41e1-9e69-525a35dca697",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## Шорткат в конец\n\nУже в начале второго мира можно открыть проход до второй половины последнего мира. Более того, можно уже в начале второго мира перевести мир в состояние осени, пройдя звездные уровни и спешлы.",
+      "attachments": [],
+      "rank": 6144,
+      "createdAt": "2026-07-17T00:30:35.492Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "506439e3-af88-4a54-a775-46ea187f40f0": {
+      "id": "506439e3-af88-4a54-a775-46ea187f40f0",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=bbduaj-DQIQ",
+          "label": "YouTube"
+        }
+      ],
+      "rank": 9216,
+      "createdAt": "2026-07-17T00:33:44.464Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "5e28c2a3-eacd-43c1-9b2f-f22c2462a9cc": {
+      "id": "5e28c2a3-eacd-43c1-9b2f-f22c2462a9cc",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "Игра есть на SNES и GBA. Говорят, что на SNES лучше графика и звук. Много секретиков.\n\nЗа 100% прохождение считается открытие всех 96 выходов из уровней (у некоторых уровней по два выхода).\n\nОчень приятное и цепляющее управление, грустно что я прошел игру, но есть куча ромхаков, которые нужно попробовать.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T00:27:03.048Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "689547e4-6f72-4194-98a8-7f327f6e39c3": {
+      "id": "689547e4-6f72-4194-98a8-7f327f6e39c3",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## Секретные уровни\n\nжесть оказывается практика скрывать половину уровней в марио началась еще как минимум с super mario world на snes\n\nпо приколу нашел секретный выход из уровня, а там секретный уровень, оттуда еще секретный уровень, но в прошлом секретном уровне (то есть в середине этой секретной цепочки) есть секретный выход с секретным боссом, которой ведет в секретный мир",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T00:27:19.361Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "81a4a569-eaa3-49ce-8af2-7e69517aa509": {
+      "id": "81a4a569-eaa3-49ce-8af2-7e69517aa509",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=_oPfzeQz_FM",
+          "label": "YouTube"
+        }
+      ],
+      "rank": 10240,
+      "createdAt": "2026-07-17T00:34:51.080Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "8c26605d-3cc4-4081-9d97-b1eb2a894c76": {
+      "id": "8c26605d-3cc4-4081-9d97-b1eb2a894c76",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## Отличия GBA-версии от SNES\n- она сохраняет жизни\n- больше хп (урон в костюме переводит тебя в super mario состояние)\n- есть экран с уровнями, где видно пропущенные большие монеты\n- выглядит и звучит она хуже",
+      "attachments": [],
+      "rank": 5120,
+      "createdAt": "2026-07-17T00:29:10.962Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "b5b39caf-5e32-4e9b-96c9-809ca5b45d2e": {
+      "id": "b5b39caf-5e32-4e9b-96c9-809ca5b45d2e",
+      "gameId": "bf484eba-6d37-48de-80e8-412b9492ced3",
+      "bodyMarkdown": "На SNES игра называется Sink or Swim. Возможно я дам ей шанс потом, но сейчас возвращаться не хочется, достаточно скучная.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T00:18:31.770Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
+    },
+    "d3984c30-9b0f-4cbc-9a4c-d416a9e5cde9": {
+      "id": "d3984c30-9b0f-4cbc-9a4c-d416a9e5cde9",
+      "gameId": "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5",
+      "bodyMarkdown": "## Осенний режим за прохождение всех спешлов\n\nа еще мир поменялся, я уже подумал что усложненный нг+, но нет, просто цветовая схема + спрайты\n\nна уровнях цветки стали тыквами например",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "9300496724e2aa1637a3dff56a379e6ec733d6b0cda3de31dc9ea02daa8346c1",
+          "alt": "IMAGE 2026-07-17 04:30:57"
+        }
+      ],
+      "rank": 8192,
+      "createdAt": "2026-07-17T00:30:59.815Z",
+      "updatedAt": "2026-07-17T00:37:05.267Z"
     }
   },
   "assets": {
@@ -377,6 +513,56 @@
       "byteLength": 46648,
       "alt": "Обложка MediEvil",
       "originalName": "IMAGE 2026-07-17 01:29:11.jpg"
+    },
+    "404051c115769c189472ce416fc687f1d21530c189e8aa0695f553e4aceffd1e": {
+      "id": "404051c115769c189472ce416fc687f1d21530c189e8aa0695f553e4aceffd1e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 933,
+      "byteLength": 129418,
+      "alt": "IMAGE 2026-07-17 04:30:43",
+      "originalName": "IMAGE 2026-07-17 04:30:43.jpg"
+    },
+    "4e2da8e0efc734a8cfd29d187229994a50bebf57c3b8b0b8c02f533c7f88ebc7": {
+      "id": "4e2da8e0efc734a8cfd29d187229994a50bebf57c3b8b0b8c02f533c7f88ebc7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 29904,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328": {
+      "id": "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 36820,
+      "alt": "Обложка S.S. Lucifer: Man Overboard!",
+      "originalName": "IMAGE 2026-07-17 04:17:59.jpg"
+    },
+    "9300496724e2aa1637a3dff56a379e6ec733d6b0cda3de31dc9ea02daa8346c1": {
+      "id": "9300496724e2aa1637a3dff56a379e6ec733d6b0cda3de31dc9ea02daa8346c1",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 933,
+      "byteLength": 107968,
+      "alt": "IMAGE 2026-07-17 04:30:57",
+      "originalName": "IMAGE 2026-07-17 04:30:57.jpg"
+    },
+    "f3c67219872d49b3185ce0aa1e17e3eec8bf504fbe89eeb0efebc1e5fba2d3cd": {
+      "id": "f3c67219872d49b3185ce0aa1e17e3eec8bf504fbe89eeb0efebc1e5fba2d3cd",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1104,
+      "height": 1104,
+      "byteLength": 297824,
+      "alt": "IMAGE 2026-07-17 04:28:36",
+      "originalName": "IMAGE 2026-07-17 04:28:36.jpg"
     }
   }
 }
