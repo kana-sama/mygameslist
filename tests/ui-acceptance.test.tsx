@@ -346,7 +346,7 @@ describe("GamePage", () => {
     expect(window.history.state.idx).toBe(41);
   });
 
-  it("keeps the game page minimal and opens a note editor inside its card", async () => {
+  it("keeps the game page minimal and edits notes only from their footer actions", async () => {
     const user = userEvent.setup();
     const note: Note = {
       id: NOTE_ID,
@@ -373,7 +373,7 @@ describe("GamePage", () => {
     expect(screen.queryByRole("heading", { name: "Заметки" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "К каталогу" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Редактировать" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Редактировать заметку" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Редактировать заметку" })).toHaveLength(2);
     const layout = document.querySelector(".game-view-layout");
     const sidebar = screen.getByRole("complementary", { name: "DuckTales" });
     const notesSection = screen.getByRole("region", { name: "Заметки" });
@@ -408,6 +408,8 @@ describe("GamePage", () => {
     expect(screen.queryByRole("button", { name: "Переместить заметку выше" })).not.toBeInTheDocument();
 
     await user.click(cards[0] as HTMLElement);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+    await user.click(within(cards[0] as HTMLElement).getByRole("button", { name: "Редактировать заметку" }));
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     expect(editor.closest("article")).toBe(notesSection.querySelectorAll(".note-card")[0]);
     expect(editor).toHaveValue("Хорошая игра");
@@ -419,14 +421,18 @@ describe("GamePage", () => {
     await user.type(editor, " — черновик");
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     await user.click(cards[1] as HTMLElement);
+    expect(confirm).not.toHaveBeenCalled();
+    await user.click(within(cards[1] as HTMLElement).getByRole("button", { name: "Редактировать заметку" }));
     expect(confirm).toHaveBeenCalledWith("Отменить несохранённые изменения заметки?");
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра — черновик");
     await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     const restoredCard = notesSection.querySelectorAll(".note-card")[0] as HTMLElement;
     expect(within(restoredCard).getByText("Хорошая игра")).toBeInTheDocument();
-    restoredCard.focus();
-    await user.keyboard("{Enter}");
+    expect(restoredCard).not.toHaveAttribute("tabindex");
+    fireEvent.keyDown(restoredCard, { key: "Enter" });
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+    await user.click(within(restoredCard).getByRole("button", { name: "Редактировать заметку" }));
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра");
   });
 
@@ -456,7 +462,7 @@ describe("GamePage", () => {
     expect(NOTE_LIST_SORTING_STRATEGY({} as never)).toBeNull();
   });
 
-  it("reorders masonry notes with the whole card and does not open the editor after drop", async () => {
+  it("reorders masonry notes from their footer handle without opening the editor after drop", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     const notes: Note[] = [
@@ -479,14 +485,18 @@ describe("GamePage", () => {
 
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
     const first = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
-    const firstLink = within(first).getByRole("link", { name: "A" });
+    const firstSurface = first.querySelector<HTMLElement>(".note-card__surface")!;
+    const handle = within(first).getByRole("button", { name: "Перетащить заметку" });
 
-    await user.pointer([{ keys: "[MouseLeft>]", target: firstLink, coords: { clientX: 20, clientY: 120 } }]);
+    await user.pointer([{ keys: "[MouseLeft>]", target: firstSurface, coords: { clientX: 20, clientY: 120 } }]);
+    await user.pointer([{ target: firstSurface, coords: { clientX: 40, clientY: 120 } }]);
     expect(first).not.toHaveClass("is-dragging");
-    await user.pointer([{ target: firstLink, coords: { clientX: 40, clientY: 120 } }]);
+    await user.pointer([{ keys: "[/MouseLeft]", target: firstSurface, coords: { clientX: 40, clientY: 120 } }]);
+    await user.pointer([{ keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 195 } }]);
+    await user.pointer([{ target: handle, coords: { clientX: 40, clientY: 195 } }]);
     await waitFor(() => expect(first).toHaveClass("is-dragging"));
-    await user.pointer([{ target: firstLink, coords: { clientX: 40, clientY: 240 } }]);
-    await user.pointer([{ keys: "[/MouseLeft]", target: firstLink, coords: { clientX: 40, clientY: 240 } }]);
+    await user.pointer([{ target: handle, coords: { clientX: 40, clientY: 240 } }]);
+    await user.pointer([{ keys: "[/MouseLeft]", target: handle, coords: { clientX: 40, clientY: 240 } }]);
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     const savedNotes = [...onSave.mock.calls[0][0].notes].sort((a, b) => a.rank - b.rank);
@@ -588,7 +598,7 @@ describe("GamePage", () => {
     await user.pointer([{ keys: "[/MouseLeft]", target: checkbox, coords: { clientX: 50, clientY: 120 } }]);
   });
 
-  it("supports keyboard note sorting while keeping Enter for inline editing", async () => {
+  it("supports keyboard note sorting from every note footer handle", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     const notes: Note[] = [
@@ -611,7 +621,8 @@ describe("GamePage", () => {
 
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
     const first = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
-    first.focus();
+    const handle = within(first).getByRole("button", { name: "Перетащить заметку" });
+    handle.focus();
 
     await user.keyboard("[Space]");
     await waitFor(() => expect(first).toHaveClass("is-dragging"));
@@ -672,7 +683,7 @@ describe("GamePage", () => {
       />,
     );
 
-    await user.click(screen.getByText("Видео прохождения").closest("article")!);
+    await user.click(within(screen.getByText("Видео прохождения").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const upload = screen.getByRole("link", { name: "Загрузить видео на YouTube" });
     expect(upload).toHaveAttribute("href", "https://www.youtube.com/upload");
     expect(upload).toHaveAttribute("target", "_blank");
@@ -747,7 +758,7 @@ describe("GamePage", () => {
     expect(iframe.getAttribute("src")).not.toContain("autoplay");
     expect(screen.getByRole("link", { name: "Карта" })).toHaveAttribute("href", "./files/map.pdf");
 
-    await user.click(screen.getByText("Ссылки").closest("article")!);
+    await user.click(within(screen.getByText("Ссылки").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     await user.click(screen.getByRole("button", { name: "Удалить видео YouTube" }));
     expect(screen.queryByTitle("Видео YouTube")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Карта" })).toBeInTheDocument();
@@ -848,7 +859,7 @@ describe("GamePage", () => {
     });
 
     const view = render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
-    await user.click(screen.getByText("Материалы").closest("article")!);
+    await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
 
     const imageInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать изображения"]')!;
     const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
@@ -912,7 +923,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
-    await user.click(screen.getByText("Материалы").closest("article")!);
+    await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     const dropped = new File(["drop"], "dropped.MP4", { type: "" });
 
@@ -956,7 +967,7 @@ describe("GamePage", () => {
       byteLength: 4,
     });
     const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
-    await user.click(screen.getByText("Материалы").closest("article")!);
+    await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать изображения"]')!;
     const file = new File(["source"], "map.webp", { type: "" });
 
@@ -1013,7 +1024,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
-    await user.click(screen.getByText("Материалы").closest("article")!);
+    await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
 
     fireEvent.change(input, { target: { files: [new File(["1234"], "first.dat")] } });
@@ -1040,7 +1051,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
-    await user.click(screen.getByText("Материалы").closest("article")!);
+    await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const input = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
     fireEvent.change(input, { target: { files: [new File(["oversized"], "video.mov", { type: "video/quicktime" })] } });
 
@@ -1247,7 +1258,7 @@ describe("GamePage", () => {
       />,
     );
 
-    await user.click(screen.getByText("Старая заметка").closest("article")!);
+    await user.click(within(screen.getByText("Старая заметка").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const noteText = screen.getByRole("textbox", { name: "Текст заметки" });
     await user.clear(noteText);
     await user.type(noteText, "Обновлённая заметка");
@@ -1295,7 +1306,7 @@ describe("GamePage", () => {
     vi.mocked(optimizeNoteImage).mockReturnValueOnce(new Promise((resolve) => { finishImage = resolve; }));
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
 
-    await user.click(screen.getByText("Старая заметка").closest("article")!);
+    await user.click(within(screen.getByText("Старая заметка").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     const file = new File(["image"], "secret.png", { type: "image/png" });
     const clipboardData = {
@@ -1345,7 +1356,7 @@ describe("GamePage", () => {
       />,
     );
 
-    await user.click(screen.getByText("Хорошая игра").closest("article")!);
+    await user.click(within(screen.getByText("Хорошая игра").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

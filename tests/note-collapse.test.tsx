@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Asset, Game, Note } from "../src/domain/types";
@@ -82,13 +82,16 @@ describe("long note cards", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
-  it("keeps direct inline editing unchanged", async () => {
+  it("opens inline editing only from the note footer", async () => {
     const user = userEvent.setup();
     vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(420);
     const note = makeNote("22222222-2222-4222-8222-222222222222", "Long note", 1024);
 
     render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
     await user.click(screen.getByText("Long note"));
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+    const card = screen.getByText("Long note").closest<HTMLElement>("article")!;
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
 
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     expect(editor).toHaveValue("Long note");
@@ -158,11 +161,12 @@ describe("long note cards", () => {
 
     const card = screen.getByText("Long introduction").closest("article")!;
     const checkbox = within(card).getByRole("checkbox");
-    card.focus();
-    await user.tab();
+    act(() => checkbox.focus());
 
-    expect(checkbox).toHaveFocus();
     expect(card).toHaveClass("note-card--expanded");
+    const expandedCheckbox = within(card).getByRole("checkbox");
+    act(() => expandedCheckbox.focus());
+    expect(expandedCheckbox).toHaveFocus();
     await user.keyboard("[Space]");
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe("Long introduction\n\n- [x] Hidden task");

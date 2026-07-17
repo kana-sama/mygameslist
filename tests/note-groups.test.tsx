@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -230,11 +230,12 @@ describe("anonymous note groups", () => {
     });
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const handle = within(card).getByRole("button", { name: "Перетащить заметку" });
     const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
 
     await user.pointer([
-      { keys: "[MouseLeft>]", target: card, coords: { clientX: 20, clientY: 120 } },
-      { target: card, coords: { clientX: 40, clientY: 120 } },
+      { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
+      { target: handle, coords: { clientX: 40, clientY: 185 } },
       { target: empty, coords: { clientX: 20, clientY: 235 } },
       { keys: "[/MouseLeft]", target: empty, coords: { clientX: 20, clientY: 235 } },
     ]);
@@ -255,11 +256,12 @@ describe("anonymous note groups", () => {
     });
     render(<StatefulGamePage initialNotes={[note(NOTE_A_ID, 1024)]} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const handle = within(card).getByRole("button", { name: "Перетащить заметку" });
     const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
 
     await user.pointer([
-      { keys: "[MouseLeft>]", target: card, coords: { clientX: 20, clientY: 120 } },
-      { target: card, coords: { clientX: 40, clientY: 120 } },
+      { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
+      { target: handle, coords: { clientX: 40, clientY: 185 } },
       { target: empty, coords: { clientX: 20, clientY: 235 } },
       { keys: "[/MouseLeft]", target: empty, coords: { clientX: 20, clientY: 235 } },
     ]);
@@ -283,11 +285,12 @@ describe("anonymous note groups", () => {
     });
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
     const source = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const handle = within(source).getByRole("button", { name: "Перетащить заметку" });
     const target = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_B_ID}"]`)!;
 
     await user.pointer([
-      { keys: "[MouseLeft>]", target: source, coords: { clientX: 20, clientY: 120 } },
-      { target: source, coords: { clientX: 40, clientY: 120 } },
+      { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
+      { target: handle, coords: { clientX: 40, clientY: 185 } },
       { target, coords: { clientX: 20, clientY: 280 } },
       { keys: "[/MouseLeft]", target, coords: { clientX: 20, clientY: 280 } },
     ]);
@@ -313,11 +316,12 @@ describe("anonymous note groups", () => {
     });
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
     const source = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const handle = within(source).getByRole("button", { name: "Перетащить заметку" });
     const targetGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="2048"]')!;
 
     await user.pointer([
-      { keys: "[MouseLeft>]", target: source, coords: { clientX: 20, clientY: 120 } },
-      { target: source, coords: { clientX: 40, clientY: 120 } },
+      { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
+      { target: handle, coords: { clientX: 40, clientY: 185 } },
       { target: targetGroup, coords: { clientX: 600, clientY: 350 } },
       { keys: "[/MouseLeft]", target: targetGroup, coords: { clientX: 600, clientY: 350 } },
     ]);
@@ -340,7 +344,8 @@ describe("anonymous note groups", () => {
     });
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
-    card.focus();
+    const handle = within(card).getByRole("button", { name: "Перетащить заметку" });
+    handle.focus();
 
     await user.keyboard("[Space]");
     await waitFor(() => expect(card).toHaveClass("is-dragging"));
@@ -363,11 +368,12 @@ describe("anonymous note groups", () => {
     });
     render(<StatefulGamePage initialNotes={[note(NOTE_A_ID, 1024)]} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
-    card.focus();
+    within(card).getByRole("button", { name: "Перетащить заметку" }).focus();
 
     await user.keyboard("[Space][ArrowDown][Enter]");
 
-    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-note-id", NOTE_A_ID));
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Перетащить заметку"));
+    expect(document.activeElement?.closest(`[data-note-id="${NOTE_A_ID}"]`)).not.toBeNull();
     expect(document.activeElement?.closest('.note-group[data-note-group-rank="2048"]')).not.toBeNull();
   });
 

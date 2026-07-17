@@ -181,18 +181,6 @@ export const noteListCollisionDetection: CollisionDetection = (args) => {
   return directHit.length ? directHit : closestCenter(args);
 };
 
-function noteTargetMatches(target: EventTarget | null, selector: string): boolean {
-  return target instanceof Element && Boolean(target.closest(selector));
-}
-
-function blocksNoteDrag(target: EventTarget | null): boolean {
-  return noteTargetMatches(target, "button:not(.note-attachment-image-open), input, label, textarea, select, iframe, video, [contenteditable='true']");
-}
-
-function blocksNoteEdit(target: EventTarget | null): boolean {
-  return noteTargetMatches(target, "a, button, input, label, textarea, select, iframe, video, [contenteditable='true']");
-}
-
 function isMp4Attachment(attachment: EditableAttachment, assets: Record<string, Asset>): boolean {
   if (attachment.type === "pending-file") return isMp4FileMetadata(attachment.file);
   if (attachment.type !== "file") return false;
@@ -611,7 +599,6 @@ function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onT
   onTaskChange: (markdown: string) => void;
   taskChangesDisabled: boolean;
 }) {
-  const suppressEdit = useRef(false);
   const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
     id: `note:${note.clientId}`,
     animateLayoutChanges: () => false,
@@ -620,17 +607,7 @@ function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onT
     disabled,
   });
 
-  useEffect(() => {
-    if (isDragging) {
-      suppressEdit.current = true;
-      return;
-    }
-    if (!suppressEdit.current) return;
-    const timer = window.setTimeout(() => { suppressEdit.current = false; }, 0);
-    return () => window.clearTimeout(timer);
-  }, [isDragging]);
-
-  return <CollapsibleNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={() => { if (!suppressEdit.current) onEdit(); }} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
+  return <CollapsibleNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
 }
 
 function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropTarget = false, nodeRef, sortable = false }: {
@@ -655,8 +632,6 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const hasText = Boolean(note.bodyMarkdown.trim());
   const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
-  const cardDragAttributes = mediaOnly ? undefined : dragAttributes;
-  const cardDragListeners = mediaOnly ? undefined : dragListeners;
 
   useLayoutEffect(() => {
     if (!hasText) {
@@ -680,25 +655,24 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const collapsed = collapsible && !expanded;
 
   return (
-    <article aria-describedby={cardDragAttributes?.["aria-describedby"]} aria-disabled={cardDragAttributes?.["aria-disabled"]} aria-label={mediaOnly ? "Медиа-заметка" : "Редактировать заметку"} aria-roledescription={cardDragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!mediaOnly && !blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
-      if (!blocksNoteEdit(event.target)) cardDragListeners?.onKeyDown?.(event);
-      if (!mediaOnly && !dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
-    }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={mediaOnly ? undefined : cardDragAttributes?.tabIndex ?? 0}>
-      <div className="note-card__text">
-        <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
-          if (!collapsed || event.target === event.currentTarget) return;
-          const viewportRect = event.currentTarget.getBoundingClientRect();
-          const targetRect = (event.target as HTMLElement).getBoundingClientRect();
-          if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
-        }}>
-          <div className="note-card__content" ref={contentRef}>
-            {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+    <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} ref={nodeRef}>
+      <div className="note-card__surface">
+        <div className="note-card__text">
+          <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
+            if (!collapsed || event.target === event.currentTarget) return;
+            const viewportRect = event.currentTarget.getBoundingClientRect();
+            const targetRect = (event.target as HTMLElement).getBoundingClientRect();
+            if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
+          }}>
+            <div className="note-card__content" ref={contentRef}>
+              {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+            </div>
           </div>
+          {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={() => setExpanded((value) => !value)} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
         </div>
-        {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
+        {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
       </div>
-      {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
-      {mediaOnly ? <div className="note-card__media-actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__media-drag" onClick={(event) => event.stopPropagation()} ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__media-edit" disabled={taskChangesDisabled} onClick={(event) => { event.stopPropagation(); onEdit(); }} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div> : null}
+      <div className="note-card__actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__drag" ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__edit" disabled={taskChangesDisabled} onClick={onEdit} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div>
     </article>
   );
 }
@@ -875,7 +849,6 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const taskSaveInFlight = useRef(false);
-  const suppressNoteEditFor = useRef<string | null>(null);
   const initialNoteFiles = useRef(new Map<string, File[]>());
   const noteFileDrag = useNoteFileDragReveal();
   const noteSensors = useSensors(
@@ -967,16 +940,9 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const activeNote = activeNoteId ? editableNotes.find((note) => note.clientId === activeNoteId) ?? null : null;
   const startNoteDrag = ({ active }: DragStartEvent) => {
     const clientId = String(active.data.current?.clientId ?? "");
-    suppressNoteEditFor.current = clientId;
     setActiveNoteId(clientId);
   };
-  const finishNoteDrag = () => {
-    const clientId = suppressNoteEditFor.current;
-    setActiveNoteId(null);
-    window.setTimeout(() => {
-      if (suppressNoteEditFor.current === clientId) suppressNoteEditFor.current = null;
-    }, 0);
-  };
+  const finishNoteDrag = () => setActiveNoteId(null);
   const endNoteDrag = ({ active, activatorEvent, over }: DragEndEvent) => {
     finishNoteDrag();
     if (!over || active.id === over.id || sortingDisabled) return;
@@ -1016,7 +982,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
-          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`}><MasonryGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}:${editingDraft?.clientId ?? "view"}`}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => { if (suppressNoteEditFor.current !== note.clientId) beginNoteEdit(note); }} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</MasonryGrid><NoteGroupAddCard disabled={storageLocked || sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} onFiles={(files) => beginNewNote(group.groupRank, files)} /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={storageLocked || sortingDisabled} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
+          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`}><MasonryGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}:${editingDraft?.clientId ?? "view"}`}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</MasonryGrid><NoteGroupAddCard disabled={storageLocked || sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} onFiles={(files) => beginNewNote(group.groupRank, files)} /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={storageLocked || sortingDisabled} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
         </section>
       </div>
     </div>

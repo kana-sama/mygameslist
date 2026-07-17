@@ -9,35 +9,35 @@ function declarations(selector: string): string {
   return new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(styles)?.[1] ?? "";
 }
 
-describe("media-only note footer", () => {
-  it("places actions below the card without changing masonry geometry", () => {
-    const footer = declarations(".note-card__media-actions");
-    const card = declarations(".note-card--media-only");
-    const media = declarations(".note-card--media-only > .note-attachments");
-    const elevated = declarations(".note-card--media-only:hover, .note-card--media-only:focus-within");
-    const visible = declarations(".note-card--media-only:hover .note-card__media-actions, .note-card--media-only:focus-within .note-card__media-actions");
-    const visibleButtons = declarations(".note-card--media-only:hover .note-card__media-actions button, .note-card--media-only:focus-within .note-card__media-actions button");
+describe("note card footer", () => {
+  it("reserves measured space for every note's actions below its clipped surface", () => {
+    const footer = declarations(".note-card__actions");
+    const card = declarations(".note-card:not(.note-card--editing)");
+    const surface = declarations(".note-card__surface");
+    const drag = declarations(".note-card__actions .note-card__drag");
+    const edit = declarations(".note-card__actions .note-card__edit");
 
     expect(footer).toContain("position: absolute");
-    expect(footer).toContain("top: 100%");
-    expect(footer).toContain("bottom: auto");
+    expect(footer).toContain("bottom: 0");
     expect(footer).toContain("left: 0");
     expect(footer).toContain("opacity: 0");
     expect(footer).toContain("pointer-events: none");
     expect(card).toContain("overflow: visible");
-    expect(media).toContain("overflow: hidden");
-    expect(elevated).toContain("z-index: 4");
-    expect(visible).toContain("opacity: 1");
-    expect(visible).toContain("pointer-events: auto");
-    expect(visibleButtons).toContain("pointer-events: auto");
+    expect(card).toContain("padding-bottom: 29px");
+    expect(surface).toContain("overflow: hidden");
+    expect(surface).toContain("border: 1px solid var(--line-soft)");
+    expect(drag).toContain("cursor: grab");
+    expect(edit).toContain("margin-left: auto");
+    expect(styles).toMatch(/\.note-card(?::not\([^}]+\))?:hover[^{}]*\.note-card__actions[^{}]*,\s*\.note-card(?::not\([^}]+\))?:focus-within[^{}]*\.note-card__actions\s*\{[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
+    expect(styles).not.toMatch(/\.note-card--media-only:hover[^{}]*\.note-card__actions/);
     expect(styles).not.toContain("--note-media-footer-height");
     expect(styles).not.toContain(".note-card--media-only.note-card--collapsed");
     expect(styles).not.toContain("note-card--playable-media");
   });
 
   it("keeps footer actions visible on coarse pointers", () => {
-    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card--media-only \{[^}]*overflow:\s*hidden;/);
-    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__media-actions \{[^}]*position:\s*static;[^}]*min-height:\s*49px;[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
-    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__media-actions button \{[^}]*pointer-events:\s*auto;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card:not\(\.note-card--editing\) \{[^}]*padding-bottom:\s*49px;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__actions \{[^}]*min-height:\s*49px;[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__actions button \{[^}]*pointer-events:\s*auto;/);
   });
 });
