@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "964367c15f5aacf604d938f7c6d900ea0c637fefc8b1a7a868d0ad73ff8d8cf8",
-  "publicationId": "86a4a23a-286e-466c-913b-136504306f79",
+  "revision": "0cb2eeb8e8f2a38ac15402fa759ba6ae624911eef06b6be07ed84b02372135e3",
+  "publicationId": "50d226ad-9e34-4c7c-8d4e-3e2973fac665",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -424,11 +424,11 @@
       "status": "completed",
       "placement": {
         "tierId": "b",
-        "rank": 8192
+        "rank": 8960
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:33:29.953Z",
-      "updatedAt": "2026-07-17T05:33:29.982Z"
+      "updatedAt": "2026-07-17T05:59:12.548Z"
     },
     "4b94d022-dd72-4db6-a41a-ea0b3a1a301e": {
       "id": "4b94d022-dd72-4db6-a41a-ea0b3a1a301e",
@@ -453,12 +453,12 @@
       "tags": [],
       "status": "completed",
       "placement": {
-        "tierId": "c",
-        "rank": 5120
+        "tierId": "b",
+        "rank": 8448
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:32:36.958Z",
-      "updatedAt": "2026-07-17T05:49:04.923Z"
+      "updatedAt": "2026-07-17T05:58:55.913Z"
     },
     "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2": {
       "id": "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2",
@@ -537,11 +537,11 @@
       "status": "completed",
       "placement": {
         "tierId": "b",
-        "rank": 6144
+        "rank": 8576
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:31:31.056Z",
-      "updatedAt": "2026-07-17T05:32:02.011Z"
+      "updatedAt": "2026-07-17T05:59:06.933Z"
     },
     "af7c1db6-78db-4416-a6f9-a958c5424203": {
       "id": "af7c1db6-78db-4416-a6f9-a958c5424203",
@@ -617,12 +617,12 @@
       "tags": [],
       "status": "completed",
       "placement": {
-        "tierId": "c",
-        "rank": 4096
+        "tierId": "b",
+        "rank": 8704
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:31:07.107Z",
-      "updatedAt": "2026-07-17T05:48:42.614Z"
+      "updatedAt": "2026-07-17T05:58:53.869Z"
     },
     "fe7b0d6b-9983-46d1-9530-d1a86742bb97": {
       "id": "fe7b0d6b-9983-46d1-9530-d1a86742bb97",
@@ -935,6 +935,83 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:51:48.531Z",
       "updatedAt": "2026-07-17T05:51:48.595Z"
+    },
+    "5bed0be6-feab-46e7-b890-ecf96abca49d": {
+      "id": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "title": "Xenoblade Chronicles: Definitive Edition",
+      "coverAssetId": "eb8f47f831217ed5e5978c73d10dcc4b03cad3b4f3231105e74150c0eef8e5f2",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:55:26.867Z",
+      "updatedAt": "2026-07-17T06:00:29.746Z"
+    },
+    "75fbbe1c-30a5-4aed-b2c8-b1a66fb3189f": {
+      "id": "75fbbe1c-30a5-4aed-b2c8-b1a66fb3189f",
+      "title": "AI: The Somnium Files – Nirvana Initiative",
+      "coverAssetId": "d6ea7ae0dfd1fb9f6fdd3ede17f0a7b3f0713c64e089a08967c34b9a975d6144",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 13312
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:58:18.851Z",
+      "updatedAt": "2026-07-17T05:58:18.897Z"
+    },
+    "b02de528-e181-4148-8350-0aa8f0afc66d": {
+      "id": "b02de528-e181-4148-8350-0aa8f0afc66d",
+      "title": "Xenoblade Chronicles 3",
+      "coverAssetId": "3e4ca55d5a92c926899ee78b073c24a2d1d5517bf12a2e02ce95305f9a6e8af6",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "s",
+        "rank": 11264
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:02:00.875Z",
+      "updatedAt": "2026-07-17T06:02:45.718Z"
+    },
+    "be82dad0-43c1-454c-a68d-e72edfb9bf9d": {
+      "id": "be82dad0-43c1-454c-a68d-e72edfb9bf9d",
+      "title": "Metroid Prime 4: Beyond",
+      "coverAssetId": "dff67e03998112eff03d7a87f008b834f8270610a3a8f9be5639ff8e0c3532b9",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 14336
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:03:17.018Z",
+      "updatedAt": "2026-07-17T06:03:17.059Z"
+    },
+    "d4ea2f9f-aac0-4b02-8104-ed92ae3e0215": {
+      "id": "d4ea2f9f-aac0-4b02-8104-ed92ae3e0215",
+      "title": "Xenoblade Chronicles 2",
+      "coverAssetId": "86cdd6aef8146fd9745ea482543496adce0840411bfce0163aaaea433caa391e",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 13312
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:01:20.175Z",
+      "updatedAt": "2026-07-17T06:01:30.612Z"
     }
   },
   "notes": {
@@ -1866,6 +1943,145 @@
       "rank": 1024,
       "createdAt": "2026-07-17T05:41:38.870Z",
       "updatedAt": "2026-07-17T05:41:58.343Z"
+    },
+    "009390ce-624c-45e9-b5ea-12db12402180": {
+      "id": "009390ce-624c-45e9-b5ea-12db12402180",
+      "gameId": "b02de528-e181-4148-8350-0aa8f0afc66d",
+      "bodyMarkdown": "четко могу сравнить зеноблейды с солсами, они прям одинаково развивались\n\nочень простой и понятный первый, который цепляет как раз этими качествами\n\nочень странный но по своему классный второй, который запомнился людям как раз из-за этой самобытности\n\nи кардинальное развитие первого с вплетением лора второго - третий, с кучей фансервиса для фанатов оригинала",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T06:02:45.709Z",
+      "updatedAt": "2026-07-17T06:02:45.718Z"
+    },
+    "03a4e570-2c3f-4297-b4b3-d2f61b0ca51d": {
+      "id": "03a4e570-2c3f-4297-b4b3-d2f61b0ca51d",
+      "gameId": "be82dad0-43c1-454c-a68d-e72edfb9bf9d",
+      "bodyMarkdown": "Вышла буквально сегодня, я поиграл немного, в целом это тот же прайм только новый. Новые способности, новая карта, современно сделано.\n\nДве настройки графики: 4k60hz и 1080p120hz. Разницы между 4к и 1080р я не заметил, а вот 120hz очень приятно в активной игре. Займусь после первого метроида.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:03:17.018Z",
+      "updatedAt": "2026-07-17T06:03:17.059Z"
+    },
+    "1d2ee70f-e993-4f43-b479-351bd8de117d": {
+      "id": "1d2ee70f-e993-4f43-b479-351bd8de117d",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "это я всю жизнь",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "b0e5c7ea0cc9e51285d2e468e49a5a5890ce80a07b678569472af7375ec342b7",
+          "alt": "IMAGE 2026-07-17 09:53:56"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:55:26.867Z",
+      "updatedAt": "2026-07-17T05:55:37.168Z"
+    },
+    "29b896f5-d23b-4e57-98b3-ae4da8213edd": {
+      "id": "29b896f5-d23b-4e57-98b3-ae4da8213edd",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "Сюжет не особо интересный. Боевка поменялась не так сильно, тоже ничего интересного. А вот левелдизайн прекрасный: у нас всего одна локация, но она огромная и очень вертикальная, местами можно потеряться, ведь карта все еще двухмерная.\n\nМного РАЗНЫХ сайдовых штук, которые стали интересными: секретки с сундуками гигантов, сбор нопонов, неплохие сайдквесты, интересные озвученные анимированные сценки с раскрытием персонажей (а не как в оригинальной игре короткий диалог).",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "b63cb7db1ac08d8cbb253fe5bf1f906b23306119f38210fdc079788f9603628c",
+          "alt": "IMAGE 2026-07-17 09:59:51"
+        }
+      ],
+      "rank": 3072,
+      "createdAt": "2026-07-17T06:00:11.531Z",
+      "updatedAt": "2026-07-17T06:00:19.475Z"
+    },
+    "3adbf247-46fa-4de8-8003-c1217979a56c": {
+      "id": "3adbf247-46fa-4de8-8003-c1217979a56c",
+      "gameId": "d4ea2f9f-aac0-4b02-8104-ed92ae3e0215",
+      "bodyMarkdown": "По началу очень сильно отличается от первой части, если не знать названия, то можно даже не связать эти две игры в одну серию (сюжетно и лорно они тоже не связаны, по крайней мере по началу).\n\nБоевка крутая, но количество механик и гача меня задушили. Пока что игру отложил, пройду после тройки, когда выйдет апгрейд на свитч 2.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:01:20.175Z",
+      "updatedAt": "2026-07-17T06:01:20.231Z"
+    },
+    "438ad2c7-77d9-4f6f-80e5-7cbe923decea": {
+      "id": "438ad2c7-77d9-4f6f-80e5-7cbe923decea",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "закрыты почти все ачивы, остались или скучные, типа скормить овощи Данбану, или дрочные, типа убить миллиард врагов\n\n- все коллекции собраны\n- все квесты сделаны\n- отношения у всех персонажей с друг другом прокачаны\n- разговоры по душам проговорены\n- все поселения на 5 звезд\n- колония 6 полностью восстановлена \n- почти все рарники убиты\n- все ветки скилов открыты и прокачаны\n- все навыки открыты и прокачаны\n\nиз суппербоссов смог убить только одного, но это я добью еще",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "b65f9cc22177b4d10645f099ea33b7fcdca11960a511cad8460ad522922fd7a7",
+          "alt": "IMAGE 2026-07-17 09:57:00"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 4096,
+      "createdAt": "2026-07-17T05:57:12.222Z",
+      "updatedAt": "2026-07-17T05:57:12.251Z"
+    },
+    "4e5587ba-a643-4121-940d-205912aab6f8": {
+      "id": "4e5587ba-a643-4121-940d-205912aab6f8",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "мой рекорд в крафтинге, но я загуглил, за 400 процентов ничего не дают, это все еще mega heat",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "90fb2f17d15584031ff00bcb4ae53ca3e1196d8d4d1e6511bb4fd025b390ba0e",
+          "alt": "IMAGE 2026-07-17 09:56:14"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-17T05:56:35.906Z",
+      "updatedAt": "2026-07-17T05:56:35.994Z"
+    },
+    "88d875b9-a302-418f-afe7-328cb4e2f84e": {
+      "id": "88d875b9-a302-418f-afe7-328cb4e2f84e",
+      "gameId": "75fbbe1c-30a5-4aed-b2c8-b1a66fb3189f",
+      "bodyMarkdown": "Очень неплохой твист под конец. Но все еще не девятки, ждем следующую игру.\n\nСны стали намного геймплейно разнообразнее относительно первой части, но это не паззлы, а скорее просто игра на ассоциации.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:58:18.851Z",
+      "updatedAt": "2026-07-17T05:58:18.897Z"
+    },
+    "9881cc4b-c830-4a20-85af-09eb8eed4269": {
+      "id": "9881cc4b-c830-4a20-85af-09eb8eed4269",
+      "gameId": "b02de528-e181-4148-8350-0aa8f0afc66d",
+      "bodyMarkdown": "А вот это очень круто. Механик много, но их вводят очень постепенно. Это больше похоже на сиквел первой части, это буквально развитие первой части + боевка из второй. Нравится неимоверно.\n\nНачну заново, когда выйдет ремастер.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:02:00.875Z",
+      "updatedAt": "2026-07-17T06:02:00.920Z"
+    },
+    "a89f88ec-b166-4343-9235-a820aea9017d": {
+      "id": "a89f88ec-b166-4343-9235-a820aea9017d",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "Эту игру я купил ~7 лет назад, по ошибке магазина мне досталась коллекционка (я все равно доплатил правда, так что возможно это не ошибка а подлый ход). И я даже не пытался играть в это, потому что по видосам выглядело все очень сложно, еще и на английском.\n\nНаконец я решился поиграть, и какой же каеф. Игра эталонная jrpg в худшем смысле, но оторваться не мог, впервые за много лет я взял свич в кровать (я ВСЕГДА играю только в док-режиме на телевизоре).\n\nБоевка напоминает ММО-боевки, необычная, мне нравится.\n\nИгра потрясная, 120 часов удовольствия. И я так рад что это не конец, впереди еще дополнения и 2 игры.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "1da6401865820f790ee2ff6d25424679bee709c6af0479e1df1202653154b0d2",
+          "alt": "IMAGE 2026-07-17 09:57:24"
+        }
+      ],
+      "rank": 2048,
+      "createdAt": "2026-07-17T05:57:27.455Z",
+      "updatedAt": "2026-07-17T06:00:29.746Z"
+    },
+    "c52f5827-6df9-4ab6-8f16-34aafb371f8e": {
+      "id": "c52f5827-6df9-4ab6-8f16-34aafb371f8e",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "всем персам собран самый топовый гир, скрафчены топовые гемы VI уровня\n\nвнимание на наручи, в них встроен оружейный гем, имба",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "c87935002182a7ddc0cc7857a3f41b3bb32608f202f79e5af00c3dbc7e66cc88",
+          "alt": "IMAGE 2026-07-17 09:56:40"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-17T05:56:46.401Z",
+      "updatedAt": "2026-07-17T05:56:46.454Z"
     }
   },
   "assets": {
@@ -2536,6 +2752,116 @@
       "byteLength": 45574,
       "alt": "Обложка Judgment",
       "originalName": "IMAGE 2026-07-17 09:50:39.jpg"
+    },
+    "1da6401865820f790ee2ff6d25424679bee709c6af0479e1df1202653154b0d2": {
+      "id": "1da6401865820f790ee2ff6d25424679bee709c6af0479e1df1202653154b0d2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 75152,
+      "alt": "IMAGE 2026-07-17 09:57:24",
+      "originalName": "IMAGE 2026-07-17 09:57:24.jpg"
+    },
+    "3e4ca55d5a92c926899ee78b073c24a2d1d5517bf12a2e02ce95305f9a6e8af6": {
+      "id": "3e4ca55d5a92c926899ee78b073c24a2d1d5517bf12a2e02ce95305f9a6e8af6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 68900,
+      "alt": "Обложка Xenoblade Chronicles 3",
+      "originalName": "IMAGE 2026-07-17 10:01:37.jpg"
+    },
+    "86cdd6aef8146fd9745ea482543496adce0840411bfce0163aaaea433caa391e": {
+      "id": "86cdd6aef8146fd9745ea482543496adce0840411bfce0163aaaea433caa391e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 89156,
+      "alt": "Обложка Xenoblade Chronicles 2",
+      "originalName": "IMAGE 2026-07-17 10:00:53.jpg"
+    },
+    "90fb2f17d15584031ff00bcb4ae53ca3e1196d8d4d1e6511bb4fd025b390ba0e": {
+      "id": "90fb2f17d15584031ff00bcb4ae53ca3e1196d8d4d1e6511bb4fd025b390ba0e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 135688,
+      "alt": "IMAGE 2026-07-17 09:56:14",
+      "originalName": "IMAGE 2026-07-17 09:56:14.jpg"
+    },
+    "b0e5c7ea0cc9e51285d2e468e49a5a5890ce80a07b678569472af7375ec342b7": {
+      "id": "b0e5c7ea0cc9e51285d2e468e49a5a5890ce80a07b678569472af7375ec342b7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 163248,
+      "alt": "IMAGE 2026-07-17 09:53:56",
+      "originalName": "IMAGE 2026-07-17 09:53:56.jpg"
+    },
+    "b63cb7db1ac08d8cbb253fe5bf1f906b23306119f38210fdc079788f9603628c": {
+      "id": "b63cb7db1ac08d8cbb253fe5bf1f906b23306119f38210fdc079788f9603628c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1024,
+      "height": 1024,
+      "byteLength": 138288,
+      "alt": "IMAGE 2026-07-17 09:59:51",
+      "originalName": "IMAGE 2026-07-17 09:59:51.jpg"
+    },
+    "b65f9cc22177b4d10645f099ea33b7fcdca11960a511cad8460ad522922fd7a7": {
+      "id": "b65f9cc22177b4d10645f099ea33b7fcdca11960a511cad8460ad522922fd7a7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 59666,
+      "alt": "IMAGE 2026-07-17 09:57:00",
+      "originalName": "IMAGE 2026-07-17 09:57:00.jpg"
+    },
+    "c87935002182a7ddc0cc7857a3f41b3bb32608f202f79e5af00c3dbc7e66cc88": {
+      "id": "c87935002182a7ddc0cc7857a3f41b3bb32608f202f79e5af00c3dbc7e66cc88",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 91510,
+      "alt": "IMAGE 2026-07-17 09:56:40",
+      "originalName": "IMAGE 2026-07-17 09:56:40.jpg"
+    },
+    "d6ea7ae0dfd1fb9f6fdd3ede17f0a7b3f0713c64e089a08967c34b9a975d6144": {
+      "id": "d6ea7ae0dfd1fb9f6fdd3ede17f0a7b3f0713c64e089a08967c34b9a975d6144",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 69958,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:58:00.jpg"
+    },
+    "dff67e03998112eff03d7a87f008b834f8270610a3a8f9be5639ff8e0c3532b9": {
+      "id": "dff67e03998112eff03d7a87f008b834f8270610a3a8f9be5639ff8e0c3532b9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 52430,
+      "alt": "Обложка Metroid Prime 4: Beyond",
+      "originalName": "IMAGE 2026-07-17 10:03:07.jpg"
+    },
+    "eb8f47f831217ed5e5978c73d10dcc4b03cad3b4f3231105e74150c0eef8e5f2": {
+      "id": "eb8f47f831217ed5e5978c73d10dcc4b03cad3b4f3231105e74150c0eef8e5f2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 105618,
+      "alt": "Обложка Xenoblade Chronicles: Definitive Edition",
+      "originalName": "IMAGE 2026-07-17 09:53:18.jpg"
     }
   }
 }
