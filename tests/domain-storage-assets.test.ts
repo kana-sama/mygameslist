@@ -18,6 +18,7 @@ import {
   validateLibrary,
   webkitStorageBytes,
   withComputedRevision,
+  withVideoPreviewFragment,
   type Game,
   type LibraryDatabase,
 } from "../src/domain";
@@ -185,6 +186,12 @@ describe("assets and revision", () => {
 
     expect(assetDataUrl(prepared.asset, prepared.base64)).toBe(`data:video/mp4;base64,${prepared.base64}`);
     expect(publishedAssetUrl(prepared.asset, "/mylib/")).toBe(`/mylib/media/${prepared.asset.id}.mp4`);
+  });
+
+  it("forces WebKit to decode an MP4 preview frame with a non-zero media fragment", () => {
+    expect(withVideoPreviewFragment("/media/clip.mp4")).toBe("/media/clip.mp4#t=0.001");
+    expect(withVideoPreviewFragment("data:video/mp4;base64,AAAA")).toBe("data:video/mp4;base64,AAAA#t=0.001");
+    expect(withVideoPreviewFragment("/media/clip.mp4#quality=hd&t=2")).toBe("/media/clip.mp4#quality=hd&t=0.001");
   });
 
   it("requires file attachments to reference file assets", () => {

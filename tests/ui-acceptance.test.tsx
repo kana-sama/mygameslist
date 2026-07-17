@@ -798,7 +798,7 @@ describe("GamePage", () => {
     render(<GamePage assets={{ [assetId]: asset }} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={() => `/mylib/media/${assetId}.mp4`} />);
     const video = screen.getByLabelText("Видео «Boss run»");
     const card = video.closest("article")!;
-    expect(video).toHaveAttribute("src", `/mylib/media/${assetId}.mp4`);
+    expect(video).toHaveAttribute("src", `/mylib/media/${assetId}.mp4#t=0.001`);
     expect(card).toHaveClass("note-card--media-only");
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
     expect(within(card).getByRole("button", { name: "Редактировать заметку" })).toBeInTheDocument();
@@ -903,12 +903,12 @@ describe("GamePage", () => {
     expect(droppedVideo).toHaveAttribute("playsinline");
     expect(droppedVideo).toHaveAttribute("preload", "metadata");
     expect(droppedVideo).not.toHaveAttribute("autoplay");
-    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==");
+    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==#t=0.001");
 
     const picked = new File(["picked"], "picked.mp4", { type: "video/mp4" });
     const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
     fireEvent.change(fileInput, { target: { files: [picked] } });
-    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk");
+    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk#t=0.001");
 
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
