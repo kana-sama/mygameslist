@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "62fb4c685f436a8f0c1615bb2cdfe79cc5dc297938d9ea8a4d47a11765d10785",
-  "publicationId": "bbf03d98-958d-49d0-9e01-0d05aded9bf8",
+  "revision": "800fec717ea33e472fc176501be8cea0f66dcaf3086b8ec9d7d4285eb887a005",
+  "publicationId": "2a3ba6e4-fbc6-41d9-a9ac-e305bbbb3953",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -10,7 +10,9 @@
       "platforms": [
         "Sony PlayStation"
       ],
-      "tags": [],
+      "tags": [
+        "Castlevania"
+      ],
       "status": "platinum",
       "placement": {
         "tierId": "s",
@@ -18,7 +20,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T21:27:53.664Z",
-      "updatedAt": "2026-07-17T03:03:06.492Z"
+      "updatedAt": "2026-07-17T04:33:57.558Z"
     },
     "1ab7a769-7552-4afb-a6f9-c282416ca3c3": {
       "id": "1ab7a769-7552-4afb-a6f9-c282416ca3c3",
@@ -160,7 +162,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T00:27:03.048Z",
-      "updatedAt": "2026-07-17T02:07:21.282Z"
+      "updatedAt": "2026-07-17T04:22:40.163Z"
     },
     "bf484eba-6d37-48de-80e8-412b9492ced3": {
       "id": "bf484eba-6d37-48de-80e8-412b9492ced3",
@@ -230,6 +232,169 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T02:13:11.599Z",
       "updatedAt": "2026-07-17T03:50:19.925Z"
+    },
+    "146bf865-cbbd-44f2-acea-59fe05906723": {
+      "id": "146bf865-cbbd-44f2-acea-59fe05906723",
+      "title": "Captain Toad: Treasure Tracker",
+      "coverAssetId": "7143d447975c9e21e4a18083129008310e9b3d899b3394ec4220c3e0f5237cfa",
+      "platforms": [
+        "Nintendo Wii U"
+      ],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "a",
+        "rank": 4096
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:55:47.280Z",
+      "updatedAt": "2026-07-17T04:55:47.314Z"
+    },
+    "2a65d3ab-2736-4624-a1e6-66b11f23ebd1": {
+      "id": "2a65d3ab-2736-4624-a1e6-66b11f23ebd1",
+      "title": "Super Mario 3D World",
+      "coverAssetId": "ac7e15a4590b3a4db747761c3edecd7733920a5f3599426a102c48ef94cad0f5",
+      "platforms": [
+        "Nintendo Wii U"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 5120
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:55:00.194Z",
+      "updatedAt": "2026-07-17T04:56:01.513Z"
+    },
+    "303a2be3-6ea4-427c-82d6-40bb43faa4d5": {
+      "id": "303a2be3-6ea4-427c-82d6-40bb43faa4d5",
+      "title": "Super Mario Odyssey",
+      "coverAssetId": "180aeb9252fd093fda8251371c74b7879d695a2d60f002ee8053c2eb3ff0e084",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 6144
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:57:27.612Z",
+      "updatedAt": "2026-07-17T05:02:10.703Z"
+    },
+    "6a60c30b-d42b-4a6a-8471-6a819be25855": {
+      "id": "6a60c30b-d42b-4a6a-8471-6a819be25855",
+      "title": "Castlevania: Rondo of Blood",
+      "coverAssetId": "9a1640bbf783033537cb825033f87c9870cbf008ee85a9f7a54d21c4031aa290",
+      "platforms": [
+        "PC Engine CD"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 4096
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:33:33.867Z",
+      "updatedAt": "2026-07-17T04:39:08.767Z"
+    },
+    "7578a037-d926-40a6-bbfa-1b4545da8ce3": {
+      "id": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "title": "The Legend of Zelda: Echoes of Wisdom",
+      "coverAssetId": "1941940808d98f2f7ca482160bd0f890d5124f3f96a61ac77ea65eba3f8f1e5f",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 3072
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:52:22.203Z",
+      "updatedAt": "2026-07-17T04:54:00.152Z"
+    },
+    "a1146211-e565-405f-8b27-c5d039659d20": {
+      "id": "a1146211-e565-405f-8b27-c5d039659d20",
+      "title": "The Lost Vikings",
+      "coverAssetId": "7cb95cca13861e320441930902c2cac0d3675bce8df7f84f052c26701e7808c9",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "a",
+        "rank": 2048
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:25:21.302Z",
+      "updatedAt": "2026-07-17T04:32:11.471Z"
+    },
+    "e0eaac29-6ac2-4b69-80c5-2136c55603a6": {
+      "id": "e0eaac29-6ac2-4b69-80c5-2136c55603a6",
+      "title": "Super Mario 3D Land",
+      "coverAssetId": "a034834ac67944ce55b34a74ad8c1d2b11e86af7abf736fa93375d1e2a695078",
+      "platforms": [
+        "Nintendo 3DS"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:02:03.242Z",
+      "updatedAt": "2026-07-17T05:02:03.286Z"
+    },
+    "e2fccef0-1c62-488d-8e6f-340b846db93f": {
+      "id": "e2fccef0-1c62-488d-8e6f-340b846db93f",
+      "title": "Super Mario Bros.",
+      "coverAssetId": "895002822e935fc6da28afddc82277c6524a4c476ada2a83f75b57d69d621516",
+      "platforms": [
+        "Nintendo Entertainment System"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 3072
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:50:28.600Z",
+      "updatedAt": "2026-07-17T04:50:38.463Z"
+    },
+    "ed94769e-bcfd-4a2b-aa98-cbf19f79892b": {
+      "id": "ed94769e-bcfd-4a2b-aa98-cbf19f79892b",
+      "title": "Bowser's Fury",
+      "coverAssetId": "b34ce7083ac611fab0408d689ce56b7686e76c575dc079ca3d2d5aee1d99f820",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 5120
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T04:56:55.315Z",
+      "updatedAt": "2026-07-17T04:56:55.398Z"
     }
   },
   "notes": {
@@ -367,9 +532,10 @@
           "alt": "IMAGE 2026-07-17 04:30:43"
         }
       ],
-      "rank": 7168,
+      "rank": 256,
       "createdAt": "2026-07-17T00:30:47.863Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T04:22:40.163Z",
+      "groupRank": 3072
     },
     "13094c52-91a9-46b5-b1b2-d68b949ff883": {
       "id": "13094c52-91a9-46b5-b1b2-d68b949ff883",
@@ -406,9 +572,10 @@
           "label": "YouTube"
         }
       ],
-      "rank": 9216,
+      "rank": 2048,
       "createdAt": "2026-07-17T00:33:44.464Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T04:21:55.749Z",
+      "groupRank": 2048
     },
     "689547e4-6f72-4194-98a8-7f327f6e39c3": {
       "id": "689547e4-6f72-4194-98a8-7f327f6e39c3",
@@ -430,9 +597,10 @@
           "label": "YouTube"
         }
       ],
-      "rank": 10240,
+      "rank": 1024,
       "createdAt": "2026-07-17T00:34:51.080Z",
-      "updatedAt": "2026-07-17T00:37:05.267Z"
+      "updatedAt": "2026-07-17T04:21:43.892Z",
+      "groupRank": 2048
     },
     "8c26605d-3cc4-4081-9d97-b1eb2a894c76": {
       "id": "8c26605d-3cc4-4081-9d97-b1eb2a894c76",
@@ -565,6 +733,230 @@
       "rank": 6144,
       "createdAt": "2026-07-17T03:50:19.858Z",
       "updatedAt": "2026-07-17T03:50:19.925Z"
+    },
+    "08f680eb-3c2d-4a1c-84ec-1f907f7ca97e": {
+      "id": "08f680eb-3c2d-4a1c-84ec-1f907f7ca97e",
+      "gameId": "6a60c30b-d42b-4a6a-8471-6a819be25855",
+      "bodyMarkdown": "Прошел за Марию. Хочу перепройти всю игру Рихтером.\n\nТопорный геймплей оказался ровно тем, что мне нужно. Очень красивый визуал и отличная музыка. Ветвления на уровнях с разными боссами. Катсцены пришлось смотреть на ютубе с субтитрами, в игре их нет.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:33:33.867Z",
+      "updatedAt": "2026-07-17T04:33:33.897Z"
+    },
+    "16fd6005-0223-40df-b585-e56ff6f49858": {
+      "id": "16fd6005-0223-40df-b585-e56ff6f49858",
+      "gameId": "6a60c30b-d42b-4a6a-8471-6a819be25855",
+      "bodyMarkdown": "После прохождения 5' увидел 96%, загуглил: нужно не просто пройти все уровни, а пройти во всех уровнях на все выходы.\n\nПришлось перепроходить все уровни, но быстро нашел секретку в 3' - скинуть шипастый шар в яму и спрыгнуть за ним же, чтобы попасть в секретный выход.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "f2cc08c62cd027f42f55a5d671b38b7d71f84a4129e1c0cebb35469b2f1e0458",
+          "alt": "IMAGE 2026-07-17 08:34:10"
+        }
+      ],
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:34:26.283Z",
+      "updatedAt": "2026-07-17T04:39:08.767Z"
+    },
+    "1db073ee-54c2-4faa-a4cd-5a0ccc002c91": {
+      "id": "1db073ee-54c2-4faa-a4cd-5a0ccc002c91",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "06af9001de1366b2675550198057d9f7c668b8839df6110b1c4d99c66025a7c6",
+          "alt": "IMAGE 2026-07-17 08:52:34"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:52:42.525Z",
+      "updatedAt": "2026-07-17T04:52:42.597Z"
+    },
+    "2ac9e566-4a0e-4960-8c4d-907d76414ec8": {
+      "id": "2ac9e566-4a0e-4960-8c4d-907d76414ec8",
+      "gameId": "2a65d3ab-2736-4624-a1e6-66b11f23ebd1",
+      "bodyMarkdown": "Моя любимая игра среди 3D-марио. Wii U-версия была жестким апгрейдом после очень классной 3D Land на 3DS. Быстрый геймплей, куча костюмов, куча секретиков и куча уровней. А графон, Wii U-версия все еще выглядит изумительно, \n\nНа свиче персонажей сделали побыстрее, из-за чего некоторые срежиссированные моменты в платформинге сломались, но скорость ощущется очень приятно.\n",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:55:00.194Z",
+      "updatedAt": "2026-07-17T04:55:00.243Z"
+    },
+    "6d4015a7-2e99-4976-bb20-079b2223b5e1": {
+      "id": "6d4015a7-2e99-4976-bb20-079b2223b5e1",
+      "gameId": "146bf865-cbbd-44f2-acea-59fe05906723",
+      "bodyMarkdown": "Еще одна из самых любимых игр. Головоломка, не очень сложная, но очень приятная.\n\nМного лет назад проходил на 3DS, и ограничивал себя в количестве уровней в день, чтобы игра быстро не закончилась, вот настолько она мне нравилась.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:55:47.280Z",
+      "updatedAt": "2026-07-17T04:55:47.314Z"
+    },
+    "6fba4f7a-dc29-418b-b6c7-8e330ceda678": {
+      "id": "6fba4f7a-dc29-418b-b6c7-8e330ceda678",
+      "gameId": "e2fccef0-1c62-488d-8e6f-340b846db93f",
+      "bodyMarkdown": "Финальный 8-ой мир, склейка успешных уровней.",
+      "attachments": [],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-17T04:50:28.600Z",
+      "updatedAt": "2026-07-17T04:50:28.619Z"
+    },
+    "83b68a03-45d0-4ea2-9f38-42f2d3778856": {
+      "id": "83b68a03-45d0-4ea2-9f38-42f2d3778856",
+      "gameId": "a1146211-e565-405f-8b27-c5d039659d20",
+      "bodyMarkdown": "- Визуал несколько грязный\n- Забавные разговоры между викингами, особенно когда часто умираешь\n- На Mega Drive 6 дополнительных уровней\n- Много крутых пазлов\n- Куча ПИДОРСКИХ моментов, когда нужно догадаться, что можно например в цепь стрелять, или по колонне/дереву лазать, или предмет с фоном сливается, а он выключает питание оружия\n- Но все равно, когда прохожу уровень, балдею",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:25:21.302Z",
+      "updatedAt": "2026-07-17T04:25:21.335Z"
+    },
+    "8aa329a7-92dd-41a4-8208-787304020554": {
+      "id": "8aa329a7-92dd-41a4-8208-787304020554",
+      "gameId": "e2fccef0-1c62-488d-8e6f-340b846db93f",
+      "bodyMarkdown": "Сейчас в не вижу ничего особенного, но когда играл, этот уровень казался очень сложным.",
+      "attachments": [],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:50:28.600Z",
+      "updatedAt": "2026-07-17T04:50:28.619Z"
+    },
+    "a10e2243-84e2-475d-a9e6-c150c40255c5": {
+      "id": "a10e2243-84e2-475d-a9e6-c150c40255c5",
+      "gameId": "ed94769e-bcfd-4a2b-aa98-cbf19f79892b",
+      "bodyMarkdown": "Из-за того что игра шла бандлом с ремейком 3D World на свич, я думал что это DLC/расширение игры, и долго не брался, потому что считал что сначала нужно будет перепройти 3D World. А это совсем другая игра, больше в духе Odyssey.\n\nВся игра проходит в одном открытом мире, все уровни являются частью открытого мира.\n\nИгра небольшая, меньше десятка уровней, их нужно перепроходить несколько раз на разные цели, еще несколько десятков паззлов в мире.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:56:55.315Z",
+      "updatedAt": "2026-07-17T04:56:55.398Z"
+    },
+    "ae236b83-1322-4741-9c1b-27d2f0cedd92": {
+      "id": "ae236b83-1322-4741-9c1b-27d2f0cedd92",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "Понравилась, но короткая, простая, мало сложных паззлов, и очень легко стать сильным.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:52:22.203Z",
+      "updatedAt": "2026-07-17T04:52:22.230Z"
+    },
+    "b0c80030-2a78-4be6-bc9a-228e5024b2a6": {
+      "id": "b0c80030-2a78-4be6-bc9a-228e5024b2a6",
+      "gameId": "2a65d3ab-2736-4624-a1e6-66b11f23ebd1",
+      "bodyMarkdown": "Для совсем 100% прохождения нужно пройти каждый уровень каждым персонажем, это я решил опустить, потому что это совсем уж гринд какой-то.\n\nНе пройден ток финальный секретный уровень, но я его и не осилю.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:55:00.194Z",
+      "updatedAt": "2026-07-17T04:55:00.243Z"
+    },
+    "b4fe5545-cca8-45dd-9103-2793603240fe": {
+      "id": "b4fe5545-cca8-45dd-9103-2793603240fe",
+      "gameId": "a1146211-e565-405f-8b27-c5d039659d20",
+      "bodyMarkdown": "## Пароли\n\n```\nStarship:\n01. STRT   02. GR8T   03. TLPT   04. GRND\n\nPrehistoric:\n05. LLM0   06. FL0T   07. TRSS   08. PRHS\n09. CVRN   10. BBLS   11. TR33   12. VLCN\n\nEgypt:\n13. QCKS   14. PHR0   15. C1R0   16. SPKS\n17. JMNN   18. SNDS   19. TMPL   20. TTRS\n\nFactory:\n21. JLLY   22. PLNG   23. BTRY   24. JNKR\n25. RVTS   26. CBLT   27. H0PP   28. SMRT\n29. V8TR\n\nWacky:\n30. NFL8   31. WKYY   32. CMB0   33. 8BLL\n34. TRDR   35. FNTM   36. WRLR   37. PDDY\n38. TRPD\n\nStarship:\n39. TFFF   40. FRGT   41. 4RN4   42. ____\n```\n",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:25:36.926Z",
+      "updatedAt": "2026-07-17T04:32:11.471Z"
+    },
+    "b70f28c8-e2d7-4700-b49e-d5d19fe43462": {
+      "id": "b70f28c8-e2d7-4700-b49e-d5d19fe43462",
+      "gameId": "e0eaac29-6ac2-4b69-80c5-2136c55603a6",
+      "bodyMarkdown": "Та игра, ради которой стоит покупать 3DS. Ни разу не переиздавалась. Считаю ее неотъемлемой частью 3D World.\n\nНо оказалось, что я прошел ее на 100%, я не прошел спешл миры, которые открылись после завершения сюжета.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:02:03.242Z",
+      "updatedAt": "2026-07-17T05:02:03.286Z"
+    },
+    "ba419505-4eab-412b-8113-3babc7ea10e7": {
+      "id": "ba419505-4eab-412b-8113-3babc7ea10e7",
+      "gameId": "303a2be3-6ea4-427c-82d6-40bb43faa4d5",
+      "bodyMarkdown": "### Супер длинное комбо\n\n1. Длинный прыжок\n2. Бросание шляпы\n3. Нырок за шляпой\n4. Отпрыжка от нее\n5. Еще один нырок",
+      "attachments": [
+        {
+          "type": "file",
+          "assetId": "1c4af05df037651584bac43dc864fecfaa3b995fc5c5d4ef34b255ffd0242b53",
+          "label": "FILE 2024-10-10 19-50-39-2.mp4"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:59:57.061Z",
+      "updatedAt": "2026-07-17T05:00:02.938Z"
+    },
+    "c1b1fc5b-1931-45a7-8833-caa99243aca0": {
+      "id": "c1b1fc5b-1931-45a7-8833-caa99243aca0",
+      "gameId": "e2fccef0-1c62-488d-8e6f-340b846db93f",
+      "bodyMarkdown": "Когда пробовал проходить раньше, всегда умирал на этом пидоре. А сейчас случайно обнаружил универсальный способ его убийства, нужно будет только закрепить несколько раз.",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=NSRfdrypNBU",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:50:28.600Z",
+      "updatedAt": "2026-07-17T04:50:28.619Z"
+    },
+    "dec4b6ff-4fa9-4280-a724-e7f03b3af26f": {
+      "id": "dec4b6ff-4fa9-4280-a724-e7f03b3af26f",
+      "gameId": "a1146211-e565-405f-8b27-c5d039659d20",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=ZjXFMQnDalw",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 3072,
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:31:56.997Z",
+      "updatedAt": "2026-07-17T04:31:57.002Z"
+    },
+    "ec115ce1-db56-4066-bf89-475ab839e5aa": {
+      "id": "ec115ce1-db56-4066-bf89-475ab839e5aa",
+      "gameId": "303a2be3-6ea4-427c-82d6-40bb43faa4d5",
+      "bodyMarkdown": "Не собрал все луны из финальных зон, так что игра не совсем пройдена, есть смысл возвращаться допроходить.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:57:27.612Z",
+      "updatedAt": "2026-07-17T04:57:27.655Z"
+    },
+    "f43bdaee-60d3-4ed2-b651-995eec6cb50f": {
+      "id": "f43bdaee-60d3-4ed2-b651-995eec6cb50f",
+      "gameId": "ed94769e-bcfd-4a2b-aa98-cbf19f79892b",
+      "bodyMarkdown": "Скинчик на кота за победу над баузером после сбора 100 солнц.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "9eb387522f2adee411718f853b7cecec3f5737a7b15cc2c4ca44d8e4b2cac7bd",
+          "alt": "IMAGE 2026-07-17 08:56:49"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T04:56:55.315Z",
+      "updatedAt": "2026-07-17T04:56:55.398Z"
+    },
+    "fd58d7f8-309c-44af-9fce-9cddecdfff12": {
+      "id": "fd58d7f8-309c-44af-9fce-9cddecdfff12",
+      "gameId": "a1146211-e565-405f-8b27-c5d039659d20",
+      "bodyMarkdown": "На уровень RVTS я потратил 4 часа траев\n\nFNTM - пока что самый сложный уровень в игре. Постоянно кто-то один умирал в конце, каждая попытка по 6-7 минут (это после всех моих оптимизаций). Не знаю, как долго я его проходил, может день, может два-три. Кучу раз думал о том, чтобы просто дропнуть игру или скипнуть уровень, но каждый раз не получилось договориться с совестью. Когда прошел, не было радости, просто я просто лег и убрал с глаз влагу.",
+      "attachments": [],
+      "groupRank": 3072,
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:26:49.357Z",
+      "updatedAt": "2026-07-17T04:32:08.098Z"
+    },
+    "ff9fe29c-21ae-4b4a-8c91-6129a3b4438c": {
+      "id": "ff9fe29c-21ae-4b4a-8c91-6129a3b4438c",
+      "gameId": "e2fccef0-1c62-488d-8e6f-340b846db93f",
+      "bodyMarkdown": "Играл в All-Stars версию на SNES. Графика замечательная, с музыкой что-то не то, но быстро привык.\n\nИгра неплохая, но сильно хуже World. Последние миры были очень интересно, особенно лабиринты.\n\nНо прошел за адекватное время только из-за того что в all-stars можно продолжить с начала этого же мира, а не с самого начала игры, иначе бы задушился наверное ретраить с самого начала даже с учетом порталов.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T04:50:28.600Z",
+      "updatedAt": "2026-07-17T04:50:38.463Z"
     }
   },
   "assets": {
@@ -768,6 +1160,133 @@
       "mime": "video/mp4",
       "byteLength": 294283,
       "originalName": "341fuzzy.mp4"
+    },
+    "06af9001de1366b2675550198057d9f7c668b8839df6110b1c4d99c66025a7c6": {
+      "id": "06af9001de1366b2675550198057d9f7c668b8839df6110b1c4d99c66025a7c6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 129194,
+      "alt": "IMAGE 2026-07-17 08:52:34",
+      "originalName": "IMAGE 2026-07-17 08:52:34.jpg"
+    },
+    "180aeb9252fd093fda8251371c74b7879d695a2d60f002ee8053c2eb3ff0e084": {
+      "id": "180aeb9252fd093fda8251371c74b7879d695a2d60f002ee8053c2eb3ff0e084",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 71184,
+      "alt": "Обложка Super Mario Odyssey",
+      "originalName": "IMAGE 2026-07-17 08:57:11.jpg"
+    },
+    "1941940808d98f2f7ca482160bd0f890d5124f3f96a61ac77ea65eba3f8f1e5f": {
+      "id": "1941940808d98f2f7ca482160bd0f890d5124f3f96a61ac77ea65eba3f8f1e5f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 51722,
+      "alt": "Обложка The Legend of Zelda: Echoes of Wisdom",
+      "originalName": "IMAGE 2026-07-17 08:51:46.jpg"
+    },
+    "1c4af05df037651584bac43dc864fecfaa3b995fc5c5d4ef34b255ffd0242b53": {
+      "id": "1c4af05df037651584bac43dc864fecfaa3b995fc5c5d4ef34b255ffd0242b53",
+      "kind": "file",
+      "mime": "video/mp4",
+      "byteLength": 485065,
+      "originalName": "FILE 2024-10-10 19-50-39-2.mp4"
+    },
+    "7143d447975c9e21e4a18083129008310e9b3d899b3394ec4220c3e0f5237cfa": {
+      "id": "7143d447975c9e21e4a18083129008310e9b3d899b3394ec4220c3e0f5237cfa",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38884,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 08:55:16.jpg"
+    },
+    "7cb95cca13861e320441930902c2cac0d3675bce8df7f84f052c26701e7808c9": {
+      "id": "7cb95cca13861e320441930902c2cac0d3675bce8df7f84f052c26701e7808c9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 46462,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "895002822e935fc6da28afddc82277c6524a4c476ada2a83f75b57d69d621516": {
+      "id": "895002822e935fc6da28afddc82277c6524a4c476ada2a83f75b57d69d621516",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 24572,
+      "alt": "Обложка Super Mario Bros.",
+      "originalName": "IMAGE 2026-07-17 08:45:51.jpg"
+    },
+    "9a1640bbf783033537cb825033f87c9870cbf008ee85a9f7a54d21c4031aa290": {
+      "id": "9a1640bbf783033537cb825033f87c9870cbf008ee85a9f7a54d21c4031aa290",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 42826,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 08:32:30.jpg"
+    },
+    "9eb387522f2adee411718f853b7cecec3f5737a7b15cc2c4ca44d8e4b2cac7bd": {
+      "id": "9eb387522f2adee411718f853b7cecec3f5737a7b15cc2c4ca44d8e4b2cac7bd",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 80930,
+      "alt": "IMAGE 2026-07-17 08:56:49",
+      "originalName": "IMAGE 2026-07-17 08:56:49.jpg"
+    },
+    "a034834ac67944ce55b34a74ad8c1d2b11e86af7abf736fa93375d1e2a695078": {
+      "id": "a034834ac67944ce55b34a74ad8c1d2b11e86af7abf736fa93375d1e2a695078",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55858,
+      "alt": "Обложка Super Mario 3D Land",
+      "originalName": "IMAGE 2026-07-17 09:00:31.jpg"
+    },
+    "ac7e15a4590b3a4db747761c3edecd7733920a5f3599426a102c48ef94cad0f5": {
+      "id": "ac7e15a4590b3a4db747761c3edecd7733920a5f3599426a102c48ef94cad0f5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 68956,
+      "alt": "Обложка Super Mario 3D World",
+      "originalName": "IMAGE 2026-07-17 08:54:12.jpg"
+    },
+    "b34ce7083ac611fab0408d689ce56b7686e76c575dc079ca3d2d5aee1d99f820": {
+      "id": "b34ce7083ac611fab0408d689ce56b7686e76c575dc079ca3d2d5aee1d99f820",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 63812,
+      "alt": "Обложка Bowser's Fury",
+      "originalName": "IMAGE 2026-07-17 08:56:22.jpg"
+    },
+    "f2cc08c62cd027f42f55a5d671b38b7d71f84a4129e1c0cebb35469b2f1e0458": {
+      "id": "f2cc08c62cd027f42f55a5d671b38b7d71f84a4129e1c0cebb35469b2f1e0458",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 78692,
+      "alt": "IMAGE 2026-07-17 08:34:10",
+      "originalName": "IMAGE 2026-07-17 08:34:10.jpg"
     }
   }
 }
