@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "1e43625dc9893bf7a8e281c84794573a92bc6b040961aee6d9747fcf451fe8d0",
-  "publicationId": "ead813db-b901-48f3-bcc3-d0ad288ae3a0",
+  "revision": "07230be537106914a2d286c1557094320552346bc72e1dd3c556d474f4314482",
+  "publicationId": "2a80ffc9-2cbf-4472-8494-aeea63eb3f29",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -375,7 +375,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:50:28.600Z",
-      "updatedAt": "2026-07-17T04:50:38.463Z"
+      "updatedAt": "2026-07-17T06:29:05.628Z"
     },
     "ed94769e-bcfd-4a2b-aa98-cbf19f79892b": {
       "id": "ed94769e-bcfd-4a2b-aa98-cbf19f79892b",
@@ -1594,11 +1594,17 @@
       "id": "8aa329a7-92dd-41a4-8208-787304020554",
       "gameId": "e2fccef0-1c62-488d-8e6f-340b846db93f",
       "bodyMarkdown": "Сейчас в не вижу ничего особенного, но когда играл, этот уровень казался очень сложным.",
-      "attachments": [],
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=MJzq3hGYxpw",
+          "label": "YouTube"
+        }
+      ],
       "groupRank": 2048,
       "rank": 2048,
       "createdAt": "2026-07-17T04:50:28.600Z",
-      "updatedAt": "2026-07-17T04:50:28.619Z"
+      "updatedAt": "2026-07-17T06:29:05.628Z"
     },
     "a10e2243-84e2-475d-a9e6-c150c40255c5": {
       "id": "a10e2243-84e2-475d-a9e6-c150c40255c5",
