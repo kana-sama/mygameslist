@@ -253,7 +253,7 @@ export function ImageLightbox({ alt, height, onClose, src, triggerRef, width }: 
   };
 
   const lightbox = (
-    <section aria-describedby={descriptionId} aria-label={`Просмотр изображения: ${alt || "без названия"}`} aria-modal="true" className="image-lightbox" role="dialog">
+    <section aria-describedby={descriptionId} aria-label={`Просмотр изображения: ${alt || "без названия"}`} aria-modal="true" className="image-lightbox" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()} onTouchStart={(event) => event.stopPropagation()} role="dialog">
       <p className="visually-hidden" id={descriptionId}>Масштабируйте колесом, трекпадом или жестом двумя пальцами. Клавиши плюс и минус меняют масштаб, 0 сбрасывает его.</p>
       <div className={`image-lightbox__stage${view.scale > MIN_SCALE ? " is-zoomed" : ""}`} onClick={(event) => {
         const moved = pointerMovedRef.current;

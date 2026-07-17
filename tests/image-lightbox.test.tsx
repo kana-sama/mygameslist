@@ -86,6 +86,22 @@ describe("note image lightbox", () => {
     expect(screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" })).toBeInTheDocument();
   });
 
+  it("does not open a text note editor when a portaled lightbox click closes the image", async () => {
+    const user = userEvent.setup();
+    const game: Game = { id: GAME_ID, title: "DuckTales", coverAssetId: null, platforms: ["NES"], tags: [], status: "playing", placement: { tierId: "a", rank: 1024 }, reviewMarkdown: "", createdAt: NOW, updatedAt: NOW };
+    const note: Note = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "Маршрут уровня", attachments: [{ type: "image", assetId: ASSET_ID, alt: "Карта уровня" }], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const asset: Asset = { id: ASSET_ID, kind: "image", mime: "image/webp", width: 1280, height: 720, byteLength: 100, alt: "Карта уровня", originalName: "map.webp" };
+
+    render(<GamePage assets={{ [ASSET_ID]: asset }} game={game} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={() => "https://example.com/map.webp"} />);
+    await user.click(screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" }));
+
+    const stage = screen.getByRole("dialog").querySelector<HTMLElement>(".image-lightbox__stage")!;
+    fireEvent.click(stage);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
   it("zooms around the pointer, supports pinch and pan, and resets with 0", async () => {
     const user = userEvent.setup();
     render(<LightboxHarness />);
