@@ -260,6 +260,11 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item) { padding-inline-start: 0; }
 .markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol { margin-top: .15em; margin-bottom: .15em; padding-inline-start: 18px; border-inline-start: 1px solid var(--line-soft); }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
+.markdown-checklist-heading { display: flex; align-items: baseline; gap: 6px; }
+.markdown-checklist-heading__title { min-width: 0; flex: 1; }
+.markdown-checklist-progress { flex: 0 0 auto; margin-inline-start: auto; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .82em; font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: 0; }
+.markdown .markdown-checklist-heading--complete { color: var(--success); }
+.markdown-checklist-heading--complete .markdown-checklist-progress { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .markdown code { padding: 1px 3px; border-radius: 3px; color: #cbd9e3; background: #252a2f; }
 .markdown pre { padding: 8px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--field); }

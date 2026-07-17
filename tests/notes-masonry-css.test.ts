@@ -71,4 +71,16 @@ describe("notes masonry CSS", () => {
     expect(completed).not.toMatch(/text-decoration:\s*line-through/);
     expect(declarationsFor(".markdown-task-checkbox:checked")).toMatch(/accent-color:\s*var\(--success\)/);
   });
+
+  it("keeps checklist progress compact and marks complete headings green", () => {
+    const heading = declarationsFor(".markdown-checklist-heading");
+    const title = declarationsFor(".markdown-checklist-heading__title");
+    const progress = declarationsFor(".markdown-checklist-progress");
+
+    expect(heading).toMatch(/display:\s*flex/);
+    expect(title).toMatch(/flex:\s*1/);
+    expect(progress).toMatch(/margin-inline-start:\s*auto/);
+    expect(progress).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(declarationsFor(".markdown .markdown-checklist-heading--complete")).toMatch(/color:\s*var\(--success\)/);
+  });
 });

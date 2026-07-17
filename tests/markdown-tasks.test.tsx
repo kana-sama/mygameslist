@@ -187,6 +187,58 @@ describe("Markdown task lists", () => {
     expect(second?.closest("ul")?.parentElement).toHaveClass("markdown");
   });
 
+  it("shows independent progress for each heading immediately followed by a checklist", () => {
+    const markdown = [
+      "# Worlds",
+      "- [x] World one",
+      "  - [ ] Secret exit",
+      "    - [x] Hidden route",
+      "- Ordinary context",
+      "## Bosses",
+      "1. [x] First boss",
+      "2. [X] Final boss",
+      "### Items",
+      "- Ordinary item",
+      "### Notes",
+      "Some context between the heading and list.",
+      "- [x] Unrelated task",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const worlds = screen.getByRole("heading", { name: /Worlds/ });
+    const bosses = screen.getByRole("heading", { name: /Bosses/ });
+    const items = screen.getByRole("heading", { name: "Items" });
+    const notes = screen.getByRole("heading", { name: "Notes" });
+    const worldsProgress = worlds.querySelector(".markdown-checklist-progress");
+    const bossesProgress = bosses.querySelector(".markdown-checklist-progress");
+
+    expect(worldsProgress).toHaveTextContent("2/3");
+    expect(worldsProgress).toHaveAttribute("aria-label", "Выполнено 2 из 3");
+    expect(worlds).toHaveAccessibleName("Worlds Выполнено 2 из 3");
+    expect(worlds).not.toHaveClass("markdown-checklist-heading--complete");
+    expect(bossesProgress).toHaveTextContent("2/2");
+    expect(bosses).toHaveClass("markdown-checklist-heading--complete");
+    expect(items.querySelector(".markdown-checklist-progress")).toBeNull();
+    expect(notes.querySelector(".markdown-checklist-progress")).toBeNull();
+  });
+
+  it("updates heading progress when the last nested task is checked", async () => {
+    const user = userEvent.setup();
+    const initialMarkdown = "# Route\n- [x] Start\n  - [ ] Finish";
+    let currentMarkdown = initialMarkdown;
+    const view = render(<MarkdownView markdown={currentMarkdown} onTaskChange={(nextMarkdown) => {
+      currentMarkdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={currentMarkdown} onTaskChange={() => undefined} />);
+    }} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Finish" }));
+
+    const heading = screen.getByRole("heading", { name: /Route/ });
+    expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/2");
+    expect(heading).toHaveClass("markdown-checklist-heading--complete");
+  });
+
   it("saves a clicked task without opening the note editor or changing note metadata", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();

@@ -48,6 +48,12 @@ interface MarkdownBlock {
   value?: string;
   items?: MarkdownListItem[];
   depth?: number;
+  checklistProgress?: ChecklistProgress;
+}
+
+interface ChecklistProgress {
+  checked: number;
+  total: number;
 }
 
 interface MarkdownListItem {
@@ -141,6 +147,21 @@ function parseList(lines: string[], startIndex: number, minimumIndent = 0): { bl
   return { block, nextIndex: index };
 }
 
+function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
+  return (block.items ?? []).reduce<ChecklistProgress>((progress, item) => {
+    if (item.taskChecked !== undefined) {
+      progress.total += 1;
+      if (item.taskChecked) progress.checked += 1;
+    }
+    for (const child of item.children) {
+      const childProgress = getChecklistProgress(child);
+      progress.checked += childProgress.checked;
+      progress.total += childProgress.total;
+    }
+    return progress;
+  }, { checked: 0, total: 0 });
+}
+
 export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
   const parts = markdown.split(/(\r\n?|\n)/);
   const lineIndex = sourceLine * 2;
@@ -220,14 +241,19 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     blocks.push({ type: "paragraph", value: paragraph.join("\n") });
   }
+  for (let blockIndex = 0; blockIndex < blocks.length - 1; blockIndex += 1) {
+    const block = blocks[blockIndex];
+    const nextBlock = blocks[blockIndex + 1];
+    if (block.type !== "heading" || nextBlock.type !== "list" && nextBlock.type !== "ordered-list") continue;
+    const progress = getChecklistProgress(nextBlock);
+    if (progress.total > 0) block.checklistProgress = progress;
+  }
+
   return blocks;
 }
 
 export function hasMarkdownTasks(markdown: string): boolean {
-  const hasTasks = (block: MarkdownBlock): boolean => block.items?.some(
-    (item) => item.taskChecked !== undefined || item.children.some(hasTasks),
-  ) ?? false;
-  return parseBlocks(markdown).some(hasTasks);
+  return parseBlocks(markdown).some((block) => getChecklistProgress(block).total > 0);
 }
 
 export interface MarkdownViewProps {
@@ -293,9 +319,12 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
         }
         if (block.type === "heading") {
           const children = renderInline(block.value ?? "", key);
-          if (block.depth === 1) return <h2 key={key}>{children}</h2>;
-          if (block.depth === 2) return <h3 key={key}>{children}</h3>;
-          return <h4 key={key}>{children}</h4>;
+          const progress = block.checklistProgress;
+          const headingClassName = progress ? `markdown-checklist-heading${progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}` : undefined;
+          const headingChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">{progress.checked}/{progress.total}</span></> : children;
+          if (block.depth === 1) return <h2 className={headingClassName} key={key}>{headingChildren}</h2>;
+          if (block.depth === 2) return <h3 className={headingClassName} key={key}>{headingChildren}</h3>;
+          return <h4 className={headingClassName} key={key}>{headingChildren}</h4>;
         }
         return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
       })}
