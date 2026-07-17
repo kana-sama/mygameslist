@@ -26,4 +26,9 @@ describe("notes masonry CSS", () => {
   it("collapses the masonry to one column on narrow screens", () => {
     expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*grid-template-columns:\s*1fr;/);
   });
+
+  it("keeps top-level Markdown lists flush with the note content", () => {
+    expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
+  });
 });

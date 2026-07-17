@@ -255,6 +255,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
 .markdown p, .markdown ul, .markdown ol { margin-top: .55em; margin-bottom: .55em; }
+.markdown > ul, .markdown > ol { padding-inline-start: 18px; }
+.markdown > ul:has(> .markdown-task-item) { padding-inline-start: 0; }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .markdown code { padding: 1px 3px; border-radius: 3px; color: #cbd9e3; background: #252a2f; }
