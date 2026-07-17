@@ -16,9 +16,11 @@ import {
   webkitStringBytes,
   type Game,
   type LibraryDatabase,
+  type Note,
 } from "../src/domain";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
+const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const NOW = "2026-07-16T10:00:00.000Z";
 
 function empty(): LibraryDatabase {
@@ -27,6 +29,10 @@ function empty(): LibraryDatabase {
 
 function game(title = "DuckTales"): Game {
   return { id: GAME_ID, title, coverAssetId: null, platforms: ["NES"], tags: ["platformer"], status: "playing", placement: { tierId: "a", rank: 1024 }, reviewMarkdown: "Хорошая игра", createdAt: NOW, updatedAt: NOW };
+}
+
+function note(groupRank?: number): Note {
+  return { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "Маршрут", attachments: [], ...(groupRank === undefined ? {} : { groupRank }), rank: 1024, createdAt: NOW, updatedAt: NOW };
 }
 
 describe("canonical JSON and SHA-256", () => {
@@ -57,6 +63,15 @@ describe("library validation", () => {
     database.games[GAME_ID] = { ...game(), status: "platinum" };
 
     expect(validateLibrary(database).ok).toBe(true);
+  });
+
+  it("accepts legacy and grouped notes while rejecting invalid group ranks", () => {
+    const database = empty(); database.games[GAME_ID] = game(); database.notes[NOTE_ID] = note();
+    expect(validateLibrary(database).ok).toBe(true);
+    database.notes[NOTE_ID] = note(2048);
+    expect(validateLibrary(database).ok).toBe(true);
+    database.notes[NOTE_ID] = note(-1);
+    expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/groupRank` }));
   });
 });
 
@@ -93,6 +108,21 @@ describe("patch lifecycle", () => {
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/games/${GAME_ID}/updatedAt`]: operation };
     expect(validatePatch(patch).ok).toBe(false);
+  });
+
+  it("publishes and prunes a sparse note-group move", () => {
+    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const current = structuredClone(base); current.notes[NOTE_ID].groupRank = 2048;
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "move-note-group" });
+    expect(Object.keys(patch.operations)).toEqual([`/notes/${NOTE_ID}/groupRank`]);
+    const published = applyPatch(base, patch);
+    expect(published.notes[NOTE_ID].groupRank).toBe(2048);
+    expect(reconcilePatch(published, patch)).toMatchObject({ conflicts: [], patch: { operations: {} }, prunedCount: 1 });
+
+    const returned = structuredClone(published); delete returned.notes[NOTE_ID].groupRank;
+    const returnPatch = diffLibrary(published, returned, { changedAt: NOW, transactionId: "return-note-group" });
+    expect(returnPatch.operations[`/notes/${NOTE_ID}/groupRank`]).toMatchObject({ operation: "delete", baseExists: true });
+    expect(applyPatch(published, returnPatch).notes[NOTE_ID]).not.toHaveProperty("groupRank");
   });
 
   it("requires root set values to use the entity ID from their operation path", () => {

@@ -15,6 +15,7 @@ import type { GameSaveInput, PreparedFile } from "../src/pages/GamePage";
 import { LibraryProvider, useLibrary } from "../src/state/LibraryContext";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
+const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const NOW = "2026-07-16T10:00:00.000Z";
 
 class MemoryStorage implements Storage {
@@ -143,6 +144,32 @@ function FileProbe({ preparedFile }: { preparedFile: PreparedFile }) {
   </div>;
 }
 
+function NoteGroupProbe() {
+  const library = useLibrary();
+  const current = library.effective.games[GAME_ID];
+  const currentNote = library.effective.notes[NOTE_ID];
+  return <div>
+    <span data-testid="group-loading">{String(library.loading)}</span>
+    <span data-testid="group-rank">{currentNote?.groupRank ?? 1024}</span>
+    <span data-testid="group-operation-paths">{Object.keys(library.patch.operations).sort().join(",")}</span>
+    <button onClick={() => {
+      if (!current || !currentNote) return;
+      void library.saveGame({
+        id: current.id,
+        title: current.title,
+        coverAssetId: current.coverAssetId,
+        pendingCover: null,
+        platforms: current.platforms,
+        tags: current.tags,
+        status: current.status,
+        tierId: current.placement.tierId,
+        reviewMarkdown: current.reviewMarkdown,
+        notes: [{ id: currentNote.id, clientId: currentNote.id, bodyMarkdown: currentNote.bodyMarkdown, attachments: [...currentNote.attachments], groupRank: 2048, rank: currentNote.rank }],
+      });
+    }} type="button">Переместить заметку в группу</button>
+  </div>;
+}
+
 beforeEach(() => {
   vi.stubGlobal("localStorage", new MemoryStorage());
 });
@@ -154,6 +181,21 @@ afterEach(() => {
 });
 
 describe("LibraryProvider patch reload and reconciliation", () => {
+  it("persists a note group move as a sparse field operation", async () => {
+    const draftBase = empty();
+    draftBase.games[GAME_ID] = game("Grouped game");
+    draftBase.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "Guide", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const base = withComputedRevision(draftBase);
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><NoteGroupProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("group-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Переместить заметку в группу" }));
+
+    await waitFor(() => expect(screen.getByTestId("group-rank")).toHaveTextContent("2048"));
+    expect(screen.getByTestId("group-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/groupRank`);
+  });
+
   it("migrates schema-1 game changes and drops obsolete collection operations", async () => {
     const draftBase = empty();
     draftBase.games[GAME_ID] = game("Static game");

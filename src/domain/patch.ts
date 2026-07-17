@@ -142,11 +142,21 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
         }
       } else {
         for (const field of LOCALLY_PATCHABLE_FIELDS[mapName]) {
-          const before = (baseMap[id] as unknown as Record<string, unknown>)[field];
-          const after = (currentMap[id] as unknown as Record<string, unknown>)[field];
-          if (same(before, after)) continue;
+          const baseEntity = baseMap[id] as unknown as Record<string, unknown>;
+          const currentEntity = currentMap[id] as unknown as Record<string, unknown>;
+          const beforeExists = hasOwn(baseEntity, field);
+          const afterExists = hasOwn(currentEntity, field);
+          const before = baseEntity[field];
+          const after = currentEntity[field];
+          if (beforeExists === afterExists && (!beforeExists || same(before, after))) continue;
           const path = entityPath(mapName, id, field);
-          const candidate = freshOperation({ exists: true, value: before }, "set", after, changedAt, transactionId);
+          const candidate = freshOperation(
+            { exists: beforeExists, ...(beforeExists ? { value: before } : {}) },
+            afterExists ? "set" : "delete",
+            after,
+            changedAt,
+            transactionId,
+          );
           operations[path] = retainTimestamp(path, candidate, options.previousPatch?.operations[path]);
         }
       }

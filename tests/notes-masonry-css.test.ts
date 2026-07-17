@@ -28,6 +28,19 @@ describe("notes masonry CSS", () => {
     expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*grid-template-columns:\s*1fr;/);
   });
 
+  it("splits notes into unboxed masonry groups with one compact empty target", () => {
+    const groups = declarationsFor(".note-groups");
+    const group = declarationsFor(".note-group");
+    const empty = declarationsFor(".note-group-empty");
+
+    expect(groups).toMatch(/display:\s*flex/);
+    expect(groups).toMatch(/flex-direction:\s*column/);
+    expect(group).not.toMatch(/background|border-radius/);
+    expect(empty).toMatch(/width:\s*100%/);
+    expect(empty).toMatch(/min-height:\s*30px/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-group-empty \{[^}]*min-height:\s*44px;/);
+  });
+
   it("keeps top-level Markdown lists flush with the note content", () => {
     expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown > ul:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);

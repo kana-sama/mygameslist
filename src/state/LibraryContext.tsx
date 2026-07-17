@@ -33,6 +33,7 @@ import {
   validatePatch,
   webkitStorageBytes,
   webkitStringBytes,
+  DEFAULT_NOTE_GROUP_RANK,
   LIBRARY_SCHEMA_VERSION,
   type Asset,
   type LibraryDatabase,
@@ -314,11 +315,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           return attachment;
         });
         const previousNote = database.notes[noteId];
+        const groupRank = draft.groupRank ?? DEFAULT_NOTE_GROUP_RANK;
         database.notes[noteId] = {
           id: noteId,
           gameId: id,
           bodyMarkdown: draft.bodyMarkdown,
           attachments,
+          ...(groupRank === DEFAULT_NOTE_GROUP_RANK ? {} : { groupRank }),
           rank: draft.rank,
           createdAt: previousNote?.createdAt ?? now,
           updatedAt: previousNote?.updatedAt ?? now,

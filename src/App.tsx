@@ -42,6 +42,7 @@ const fieldLabels: Record<string, string> = {
   reviewMarkdown: "Заметка",
   bodyMarkdown: "Текст заметки",
   attachments: "Вложения",
+  groupRank: "Группа",
   rank: "Порядок",
   gameId: "Игра",
 };
@@ -81,7 +82,7 @@ function classifyDiff(path: string, operation: PatchOperation): DiffGroupId {
   const parsed = parsePatchPath(path);
   if (!parsed) return "changed";
   if (parsed.map === "assets") return "assets";
-  if (parsed.field === "placement" || parsed.field === "rank") return "moved";
+  if (parsed.field === "placement" || parsed.field === "groupRank" || parsed.field === "rank") return "moved";
   if (!parsed.field && operation.operation === "set" && !operation.baseExists) return "added";
   if (!parsed.field && operation.operation === "delete") return "deleted";
   return "changed";

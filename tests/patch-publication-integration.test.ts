@@ -80,6 +80,21 @@ describe("browser patch publication lifecycle", () => {
     expect(reconciled.prunedCount).toBe(3);
   });
 
+  it("publishes a note group move through the CLI patch path", () => {
+    const draftBase = emptyDatabase();
+    draftBase.games[NEW_GAME_ID] = game(NEW_GAME_ID, "New game");
+    draftBase.notes[NOTE_A_ID] = note(NOTE_A_ID, "Grouped note");
+    const base = withComputedRevision(draftBase);
+    const local = structuredClone(base);
+    local.notes[NOTE_A_ID].groupRank = 2048;
+    const patch = diffLibrary(base, local, { changedAt: T1, transactionId: TX_1 });
+
+    expect(Object.keys(patch.operations)).toEqual([`/notes/${NOTE_A_ID}/groupRank`]);
+    const published = applyCliPatch(base, patch);
+    expect(published.notes[NOTE_A_ID].groupRank).toBe(2048);
+    expect(reconcilePatch(published, patch)).toMatchObject({ conflicts: [], patch: { operations: {} } });
+  });
+
   it("keeps earlier create timestamps when another note is added later", () => {
     const base = emptyDatabase();
     const firstLocal = structuredClone(base);

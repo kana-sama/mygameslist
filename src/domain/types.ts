@@ -5,6 +5,7 @@ export const TIER_IDS = ["s", "a", "b", "c", "d", "f", "unranked"] as const;
 export type TierId = (typeof TIER_IDS)[number];
 
 export const LIBRARY_SCHEMA_VERSION = 2 as const;
+export const DEFAULT_NOTE_GROUP_RANK = 1024;
 
 export interface Placement {
   tierId: TierId;
@@ -49,6 +50,7 @@ export interface Note {
   gameId: string;
   bodyMarkdown: string;
   attachments: NoteAttachment[];
+  groupRank?: number;
   rank: number;
   createdAt: string;
   updatedAt: string;

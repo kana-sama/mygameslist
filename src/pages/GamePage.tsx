@@ -8,6 +8,7 @@ import {
   pointerWithin,
   PointerSensor,
   TouchSensor,
+  useDroppable,
   useSensor,
   useSensors,
   type CollisionDetection,
@@ -15,11 +16,12 @@ import {
   type DragStartEvent,
   type DraggableAttributes,
   type DraggableSyntheticListeners,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
 import { isMp4FileMetadata, optimizeNoteImage, withVideoPreviewFragment } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
-import { STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
+import { DEFAULT_NOTE_GROUP_RANK, STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { ImageLightbox } from "../components/ImageLightbox";
@@ -40,7 +42,7 @@ export interface PreparedFile {
 export type EditableAttachment = NoteAttachment
   | { type: "pending-image"; image: PreparedImage; alt: string }
   | { type: "pending-file"; file: PreparedFile; label: string };
-export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; rank: number }
+export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; groupRank?: number; rank: number }
 export interface GameSaveInput {
   id?: string;
   title: string;
@@ -54,22 +56,64 @@ export interface GameSaveInput {
   notes: EditableNote[];
 }
 
-function moveDraftNote(notes: EditableNote[], clientId: string, targetIndex: number): EditableNote[] {
-  return moveRanked(notes.map((note) => ({ id: note.clientId, rank: note.rank, note })), clientId, targetIndex).items
-    .map((item) => ({ ...item.note, rank: item.rank }));
+export interface EditableNoteGroup { groupRank: number; notes: EditableNote[] }
+export interface NoteDropPlacement { groupRank: number; index: number }
+
+export function noteGroupRank(note: Pick<EditableNote, "groupRank">): number {
+  return note.groupRank ?? DEFAULT_NOTE_GROUP_RANK;
+}
+
+export function groupDraftNotes(notes: EditableNote[]): EditableNoteGroup[] {
+  const groups = new Map<number, EditableNote[]>();
+  for (const note of notes) {
+    const groupRank = noteGroupRank(note);
+    const group = groups.get(groupRank) ?? [];
+    group.push(note);
+    groups.set(groupRank, group);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([groupRank, groupNotes]) => ({
+      groupRank,
+      notes: groupNotes.sort((left, right) => left.rank - right.rank || left.clientId.localeCompare(right.clientId)),
+    }));
+}
+
+export function nextEmptyNoteGroupRank(notes: EditableNote[]): number {
+  if (!notes.length) return DEFAULT_NOTE_GROUP_RANK;
+  return Math.max(...notes.map(noteGroupRank)) + 1024;
+}
+
+export function moveDraftNoteToGroup(notes: EditableNote[], clientId: string, groupRank: number, targetIndex: number): EditableNote[] {
+  const moving = notes.find((note) => note.clientId === clientId);
+  if (!moving) return notes;
+  const targetNotes = notes.filter((note) => note.clientId !== clientId && noteGroupRank(note) === groupRank);
+  const ranked = moveRanked(
+    [...targetNotes, { ...moving, groupRank }].map((note) => ({ id: note.clientId, rank: note.rank, note })),
+    clientId,
+    targetIndex,
+  ).items;
+  const updates = new Map(ranked.map((item) => [item.id, { ...item.note, groupRank, rank: item.rank }]));
+  return notes.map((note) => updates.get(note.clientId) ?? note);
+}
+
+export function getNoteDropPlacement(notes: EditableNote[], activeClientId: string, overClientId: string): NoteDropPlacement | null {
+  if (activeClientId === overClientId) return null;
+  const active = notes.find((note) => note.clientId === activeClientId);
+  const over = notes.find((note) => note.clientId === overClientId);
+  if (!active || !over) return null;
+  const groupRank = noteGroupRank(over);
+  const ordered = groupDraftNotes(notes).find((group) => group.groupRank === groupRank)?.notes ?? [];
+  const sourceIndex = ordered.findIndex((note) => note.clientId === activeClientId);
+  const destination = ordered.filter((note) => note.clientId !== activeClientId);
+  let targetIndex = destination.findIndex((note) => note.clientId === overClientId);
+  if (targetIndex < 0) return null;
+  if (noteGroupRank(active) === groupRank && sourceIndex >= 0 && sourceIndex < ordered.findIndex((note) => note.clientId === overClientId)) targetIndex += 1;
+  return { groupRank, index: Math.min(targetIndex, destination.length) };
 }
 
 export function getNoteDropIndex(notes: EditableNote[], activeClientId: string, overClientId: string): number | null {
-  if (activeClientId === overClientId) return null;
-  const ordered = [...notes].sort((a, b) => a.rank - b.rank || a.clientId.localeCompare(b.clientId));
-  const sourceIndex = ordered.findIndex((note) => note.clientId === activeClientId);
-  const overIndex = ordered.findIndex((note) => note.clientId === overClientId);
-  if (sourceIndex < 0 || overIndex < 0) return null;
-
-  const destination = ordered.filter((note) => note.clientId !== activeClientId);
-  let targetIndex = destination.findIndex((note) => note.clientId === overClientId);
-  if (sourceIndex < overIndex) targetIndex += 1;
-  return Math.min(targetIndex, destination.length);
+  return getNoteDropPlacement(notes, activeClientId, overClientId)?.index ?? null;
 }
 
 export class NonTouchNotePointerSensor extends PointerSensor {
@@ -88,11 +132,36 @@ export const NOTE_LIST_SENSOR_TYPES = {
   keyboard: KeyboardSensor,
 } as const;
 
+export const noteKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+  const coordinates = sortableKeyboardCoordinates(event, args);
+  if (event.code !== KeyboardCode.Down || !args.context.collisionRect) return coordinates;
+
+  const { collisionRect, droppableContainers, droppableRects } = args.context;
+  const hasNoteBelow = droppableContainers.getEnabled().some((container) => {
+    if (container.id === args.active || container.data.current?.type !== "note") return false;
+    const rect = droppableRects.get(container.id);
+    return Boolean(rect && rect.top > collisionRect.top);
+  });
+  if (hasNoteBelow) return coordinates;
+
+  const emptyGroup = droppableContainers.getEnabled()
+    .filter((container) => container.data.current?.type === "note-group")
+    .map((container) => ({ container, rect: droppableRects.get(container.id) }))
+    .filter((entry): entry is { container: typeof entry.container; rect: NonNullable<typeof entry.rect> } => Boolean(entry.rect && entry.rect.top > collisionRect.top))
+    .sort((left, right) => left.rect.top - right.rect.top)[0];
+  if (!emptyGroup) return coordinates;
+
+  return {
+    x: emptyGroup.rect.left + (emptyGroup.rect.width - collisionRect.width) / 2,
+    y: emptyGroup.rect.top + (emptyGroup.rect.height - collisionRect.height) / 2,
+  };
+};
+
 export const NOTE_LIST_SENSOR_OPTIONS = {
   pointer: { activationConstraint: { distance: 8 } },
   touch: { activationConstraint: { delay: 180, tolerance: 8 } },
   keyboard: {
-    coordinateGetter: sortableKeyboardCoordinates,
+    coordinateGetter: noteKeyboardCoordinates,
     keyboardCodes: {
       start: [KeyboardCode.Space],
       cancel: [KeyboardCode.Esc],
@@ -145,8 +214,8 @@ function isInlineMediaAttachment(attachment: EditableAttachment, assets: Record<
 
 function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNote[] {
   let editable = [...notes]
-    .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
-    .map((note) => ({ id: note.id, clientId: note.id, bodyMarkdown: note.bodyMarkdown, attachments: [...note.attachments] as EditableAttachment[], rank: note.rank }));
+    .sort((a, b) => (a.groupRank ?? DEFAULT_NOTE_GROUP_RANK) - (b.groupRank ?? DEFAULT_NOTE_GROUP_RANK) || a.rank - b.rank || a.id.localeCompare(b.id))
+    .map((note) => ({ id: note.id, clientId: note.id, bodyMarkdown: note.bodyMarkdown, attachments: [...note.attachments] as EditableAttachment[], ...(note.groupRank === undefined ? {} : { groupRank: note.groupRank }), rank: note.rank }));
   if (!game?.reviewMarkdown.trim()) return editable;
 
   let reviewRank = 1024;
@@ -559,7 +628,7 @@ function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onT
     id: `note:${note.clientId}`,
     animateLayoutChanges: () => false,
     attributes: { roleDescription: "перетаскиваемая заметка" },
-    data: { type: "note", clientId: note.clientId },
+    data: { type: "note", clientId: note.clientId, groupRank: noteGroupRank(note) },
     disabled,
   });
 
@@ -683,6 +752,51 @@ function NoteDragPreview({ note }: { note: EditableNote }) {
   return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
 }
 
+function EmptyNoteGroup({ groupRank, disabled, onCreate }: { groupRank: number; disabled: boolean; onCreate: () => void }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `note-group:${groupRank}`,
+    data: { type: "note-group", groupRank },
+    disabled,
+  });
+  return <button aria-label="Добавить заметку в новую группу" className={`note-group-empty${isOver ? " is-over" : ""}`} data-note-group-rank={groupRank} disabled={disabled} onClick={onCreate} ref={setNodeRef} title="Добавить заметку в новую группу" type="button"><Icon name="plus" size={14} /></button>;
+}
+
+function DroppableNoteGroup({ groupRank, count, disabled, label, children }: {
+  groupRank: number;
+  count: number;
+  disabled: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `note-group:${groupRank}`,
+    data: { type: "note-group", groupRank, index: count },
+    disabled,
+  });
+  return <div aria-label={label} className={`note-group${isOver ? " is-over" : ""}`} data-note-group-rank={groupRank} ref={setNodeRef} role="group">{children}</div>;
+}
+
+function SortableDraftNoteEditor({ note, disabled, assets, storageLocked, canAddBlob, resolveAssetUrl, extraActions, onChange, onProcessingChange }: {
+  note: EditableNote;
+  disabled: boolean;
+  assets: Record<string, Asset>;
+  storageLocked: boolean;
+  canAddBlob?: (byteLength: number) => string | null;
+  resolveAssetUrl?: (assetId: string) => string | null;
+  extraActions: ReactNode;
+  onChange: (note: EditableNote) => void;
+  onProcessingChange: (processing: boolean) => void;
+}) {
+  const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
+    id: `note:${note.clientId}`,
+    animateLayoutChanges: () => false,
+    attributes: { roleDescription: "перетаскиваемая заметка" },
+    data: { type: "note", clientId: note.clientId, groupRank: noteGroupRank(note) },
+    disabled,
+  });
+  return <div className={`note-editor-sortable${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={setNodeRef}><PlainNoteEditor assets={assets} canAddBlob={canAddBlob} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} /></div>;
+}
+
 function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -750,7 +864,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       taskSaveInFlight.current = false;
     }
   };
-  const moveNote = async (clientId: string, targetIndex: number) => { await persist({ notes: moveDraftNote(editableNotes, clientId, targetIndex) }); };
+  const moveNote = (clientId: string, groupRank: number, targetIndex: number) => persist({ notes: moveDraftNoteToGroup(editableNotes, clientId, groupRank, targetIndex) });
   const deleteNote = async (clientId: string) => {
     if (await persist({ notes: editableNotes.filter((note) => note.clientId !== clientId) }) && editingDraft?.clientId === clientId) { setEditingDraft(null); setNoteDirty(false); }
   };
@@ -759,20 +873,27 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     if (noteDirty && !window.confirm("Отменить несохранённые изменения заметки?")) return;
     setEditingDraft({ ...note, attachments: [...note.attachments] }); setNoteDirty(false);
   };
-  const beginNewNote = () => {
+  const beginNewNote = (groupRank = nextEmptyNoteGroupRank(editableNotes)) => {
     if (storageLocked || saving) return;
     const currentIsNew = editingDraft && !editableNotes.some((note) => note.clientId === editingDraft.clientId);
     if (currentIsNew && !noteDirty) return;
     if (noteDirty && !window.confirm("Отменить несохранённые изменения заметки?")) return;
-    const note = { clientId: crypto.randomUUID(), bodyMarkdown: "", attachments: [] as EditableAttachment[], rank: Math.max(0, ...editableNotes.map((item) => item.rank)) + 1024 };
+    const note = {
+      clientId: crypto.randomUUID(),
+      bodyMarkdown: "",
+      attachments: [] as EditableAttachment[],
+      groupRank,
+      rank: Math.max(0, ...editableNotes.filter((item) => noteGroupRank(item) === groupRank).map((item) => item.rank)) + 1024,
+    };
     setEditingDraft(note); setNoteDirty(false);
   };
   const draftIsExisting = editingDraft && editableNotes.some((note) => note.clientId === editingDraft.clientId);
   const visibleNotes = editableNotes.map((note) => editingDraft?.clientId === note.clientId ? editingDraft : note);
   if (editingDraft && !draftIsExisting) visibleNotes.push(editingDraft);
+  const noteGroups = groupDraftNotes(visibleNotes);
+  const emptyGroupRank = nextEmptyNoteGroupRank(visibleNotes);
   const sortingDisabled = saving || editingDraft !== null;
   const activeNote = activeNoteId ? editableNotes.find((note) => note.clientId === activeNoteId) ?? null : null;
-  const noteLayoutKey = `${visibleNotes.map((note) => note.clientId).join("|")}:${editingDraft?.clientId ?? "view"}`;
   const startNoteDrag = ({ active }: DragStartEvent) => {
     const clientId = String(active.data.current?.clientId ?? "");
     suppressNoteEditFor.current = clientId;
@@ -785,13 +906,23 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       if (suppressNoteEditFor.current === clientId) suppressNoteEditFor.current = null;
     }, 0);
   };
-  const endNoteDrag = ({ active, over }: DragEndEvent) => {
+  const endNoteDrag = ({ active, activatorEvent, over }: DragEndEvent) => {
     finishNoteDrag();
     if (!over || active.id === over.id || sortingDisabled) return;
     const clientId = String(active.data.current?.clientId ?? "");
-    const overClientId = String(over.data.current?.clientId ?? "");
-    const targetIndex = getNoteDropIndex(editableNotes, clientId, overClientId);
-    if (targetIndex !== null) void moveNote(clientId, targetIndex);
+    const target = over.data.current?.type === "note-group"
+      ? { groupRank: Number(over.data.current.groupRank), index: Number(over.data.current.index ?? 0) }
+      : getNoteDropPlacement(editableNotes, clientId, String(over.data.current?.clientId ?? ""));
+    if (!target || !Number.isSafeInteger(target.groupRank) || target.groupRank < 0 || !Number.isSafeInteger(target.index) || target.index < 0) return;
+    const restoreFocus = activatorEvent.type === "keydown";
+    void moveNote(clientId, target.groupRank, target.index).then((saved) => {
+      if (!saved || !restoreFocus) return;
+      window.requestAnimationFrame(() => {
+        const card = [...document.querySelectorAll<HTMLElement>("[data-note-id]")].find((element) => element.dataset.noteId === clientId);
+        const focusTarget = card?.querySelector<HTMLElement>('button[aria-label="Перетащить заметку"]') ?? card;
+        focusTarget?.focus();
+      });
+    });
   };
 
   return (
@@ -810,11 +941,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" onBegin={() => !saving && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
-          <div className="game-sidebar__tools"><button aria-label="Добавить заметку" disabled={storageLocked || saving} onClick={beginNewNote} title="Добавить заметку" type="button"><Icon name="plus" size={15} /></button>{onDelete ? <button aria-label="Удалить игру" disabled={saving} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button> : null}</div>
+          {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={saving} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section aria-label="Заметки" className="game-notes">
-          {visibleNotes.length ? <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><MasonryGrid className="notes-list" layoutKey={noteLayoutKey}>{visibleNotes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={visibleNotes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => { if (suppressNoteEditFor.current !== note.clientId) beginNoteEdit(note); }} onMove={(targetIndex) => void moveNote(note.clientId, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} />)}</MasonryGrid></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext> : null}
+          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className="note-groups">{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`}><MasonryGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}:${editingDraft?.clientId ?? "view"}`}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => { if (suppressNoteEditFor.current !== note.clientId) beginNoteEdit(note); }} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} />)}</MasonryGrid></DroppableNoteGroup>)}<EmptyNoteGroup disabled={storageLocked || sortingDisabled} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
         </section>
       </div>
     </div>
@@ -829,6 +960,12 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   const [coverDraftDirty, setCoverDraftDirty] = useState(false);
   const coverPreview = pendingCover ? `data:image/webp;base64,${pendingCover.base64}` : null;
   const [dirty, setDirty] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [activeDraftNoteId, setActiveDraftNoteId] = useState<string | null>(null);
+  const draftNoteSensors = useSensors(
+    useSensor(NOTE_LIST_SENSOR_TYPES.pointer, NOTE_LIST_SENSOR_OPTIONS.pointer),
+    useSensor(NOTE_LIST_SENSOR_TYPES.touch, NOTE_LIST_SENSOR_OPTIONS.touch),
+    useSensor(NOTE_LIST_SENSOR_TYPES.keyboard, NOTE_LIST_SENSOR_OPTIONS.keyboard),
+  );
   const change = <T,>(setter: (value: T) => void) => (value: T) => { setter(value); setDirty(true); };
   useUnsavedChangesGuard(dirty || coverDraftDirty);
   const updateNote = (clientId: string, note: EditableNote) => { setDraftNotes((values) => values.map((value) => value.clientId === clientId ? note : value)); setDirty(true); };
@@ -836,6 +973,36 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
     if (current.has(clientId) === processing) return current;
     const next = new Set(current); if (processing) next.add(clientId); else next.delete(clientId); return next;
   });
+  const draftNoteGroups = groupDraftNotes(draftNotes);
+  const emptyDraftGroupRank = nextEmptyNoteGroupRank(draftNotes);
+  const draftSortingDisabled = saving || processingNoteIds.size > 0;
+  const activeDraftNote = activeDraftNoteId ? draftNotes.find((note) => note.clientId === activeDraftNoteId) ?? null : null;
+  const addDraftNote = (groupRank: number) => {
+    setDraftNotes((values) => [...values, {
+      clientId: crypto.randomUUID(),
+      bodyMarkdown: "",
+      attachments: [],
+      groupRank,
+      rank: Math.max(0, ...values.filter((item) => noteGroupRank(item) === groupRank).map((item) => item.rank)) + 1024,
+    }]);
+    setDirty(true);
+  };
+  const finishDraftNoteDrag = () => setActiveDraftNoteId(null);
+  const endDraftNoteDrag = ({ active, activatorEvent, over }: DragEndEvent) => {
+    finishDraftNoteDrag();
+    if (!over || active.id === over.id || draftSortingDisabled) return;
+    const clientId = String(active.data.current?.clientId ?? "");
+    const target = over.data.current?.type === "note-group"
+      ? { groupRank: Number(over.data.current.groupRank), index: Number(over.data.current.index ?? 0) }
+      : getNoteDropPlacement(draftNotes, clientId, String(over.data.current?.clientId ?? ""));
+    if (!target || !Number.isSafeInteger(target.groupRank) || target.groupRank < 0 || !Number.isSafeInteger(target.index) || target.index < 0) return;
+    setDraftNotes(moveDraftNoteToGroup(draftNotes, clientId, target.groupRank, target.index));
+    setDirty(true);
+    if (activatorEvent.type === "keydown") window.requestAnimationFrame(() => {
+      const editor = [...document.querySelectorAll<HTMLElement>("[data-note-id]")].find((element) => element.dataset.noteId === clientId);
+      editor?.querySelector<HTMLElement>('button[aria-label="Перетащить заметку"]')?.focus();
+    });
+  };
   const submit = async () => {
     if (processingNoteIds.size || coverDraftDirty) return;
     if (!title.trim()) { setError("Укажите название игры."); return; }
@@ -850,7 +1017,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
       <form aria-label="Новая игра" className="game-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <section className="form-card form-card--cover"><ImagePicker alt={title ? `Обложка ${title}` : "Обложка игры"} canAddBlob={canAddBlob} currentPreviewUrl={coverPreview} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={(image) => { setPendingCover(image); setDirty(true); }} onRemove={() => { setPendingCover(null); setCoverDraftDirty(false); setDirty(true); }} /></section>
         <section className="form-card form-card--main"><label className="field-group"><span className="field-label">Название *</span><input autoFocus onChange={(event) => change(setTitle)(event.currentTarget.value)} placeholder="Например, DuckTales" value={title} /></label><div className="form-grid"><TagInput label="Платформы" onChange={change(setPlatforms)} placeholder="NES, Switch, PC…" suggestions={platformSuggestions} values={platforms} /><TagInput label="Теги" onChange={change(setTags)} placeholder="platformer, mario…" suggestions={tagSuggestions} values={tags} /><label className="field-group"><span className="field-label">Статус</span><span className="select-wrap"><select onChange={(event) => change(setStatus)(event.currentTarget.value as StatusId)} value={status}>{STATUS_IDS.map((item) => <option key={item} value={item}>{STATUS_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label><label className="field-group"><span className="field-label">Тир</span><span className="select-wrap"><select onChange={(event) => change(setTierId)(event.currentTarget.value as TierId)} value={tierId}>{TIER_IDS.map((item) => <option key={item} value={item}>{TIER_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label></div></section>
-        <section aria-label="Заметки" className="form-card--wide notes-editor"><button className="button button--ghost note-add-button" disabled={storageLocked} onClick={() => { setDraftNotes((values) => [...values, { clientId: crypto.randomUUID(), bodyMarkdown: "", attachments: [], rank: Math.max(0, ...values.map((item) => item.rank)) + 1024 }]); setDirty(true); }} type="button"><Icon name="plus" size={15} />Добавить заметку</button>{draftNotes.length ? <MasonryGrid className="note-editors-grid">{draftNotes.map((note, index) => <PlainNoteEditor assets={assets} canAddBlob={canAddBlob} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === draftNotes.length - 1} onClick={() => { setDraftNotes(moveDraftNote(draftNotes, note.clientId, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />)}</MasonryGrid> : null}</section>
+        <section aria-label="Заметки" className="form-card--wide notes-editor"><DndContext autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishDraftNoteDrag} onDragEnd={endDraftNoteDrag} onDragStart={({ active }) => setActiveDraftNoteId(String(active.data.current?.clientId ?? ""))} sensors={draftNoteSensors}><SortableContext items={draftNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className="note-groups">{draftNoteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={draftSortingDisabled} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`}><MasonryGrid className="note-editors-grid" layoutKey={group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}>{group.notes.map((note, index) => <SortableDraftNoteEditor assets={assets} canAddBlob={canAddBlob} disabled={draftSortingDisabled} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === group.notes.length - 1} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} />)}</MasonryGrid></DroppableNoteGroup>)}<EmptyNoteGroup disabled={storageLocked || saving} groupRank={emptyDraftGroupRank} onCreate={() => addDraftNote(emptyDraftGroupRank)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} /> : null}</DragOverlay></DndContext></section>
         {error ? <p className="field-error form-error" role="alert">{error}</p> : null}<footer className="form-actions"><button className="button button--secondary" onClick={() => { if ((!dirty && !coverDraftDirty) || window.confirm("Отменить несохранённые изменения?")) onCancel?.(); }} type="button">Отмена</button><button className="button button--primary" disabled={saving || processingNoteIds.size > 0 || coverDraftDirty} type="submit"><Icon name="check" size={18} />{saving ? "Сохраняем…" : "Сохранить"}</button></footer>
       </form>
     </div>

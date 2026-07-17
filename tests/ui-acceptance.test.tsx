@@ -13,6 +13,7 @@ import {
   GamePage,
   getNoteDropIndex,
   NonTouchNotePointerSensor,
+  noteKeyboardCoordinates,
   NOTE_LIST_SENSOR_OPTIONS,
   NOTE_LIST_SENSOR_TYPES,
   NOTE_LIST_SORTING_STRATEGY,
@@ -307,7 +308,7 @@ describe("GamePage", () => {
     );
 
     expect(screen.queryByText(/Хранилище Safari заполнено/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить заметку" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toBeDisabled();
   });
 
   it("guards the shared header navigation while a draft is unsaved", async () => {
@@ -446,7 +447,7 @@ describe("GamePage", () => {
     expect(NonTouchNotePointerSensor.prototype).toBeInstanceOf(PointerSensor);
     expect(NOTE_LIST_SENSOR_OPTIONS.pointer).toEqual({ activationConstraint: { distance: 8 } });
     expect(NOTE_LIST_SENSOR_OPTIONS.touch).toEqual({ activationConstraint: { delay: 180, tolerance: 8 } });
-    expect(NOTE_LIST_SENSOR_OPTIONS.keyboard.coordinateGetter).toBe(sortableKeyboardCoordinates);
+    expect(NOTE_LIST_SENSOR_OPTIONS.keyboard.coordinateGetter).toBe(noteKeyboardCoordinates);
     expect(NOTE_LIST_SENSOR_OPTIONS.keyboard.keyboardCodes).toEqual({
       start: [KeyboardCode.Space],
       cancel: [KeyboardCode.Esc],
@@ -1075,7 +1076,7 @@ describe("GamePage", () => {
     expect(notesEditor).not.toHaveClass("form-card");
     expect(screen.queryByRole("heading", { name: "Заметки" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Добавить заметку" }));
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
     const noteEditor = within(notesEditor).getByRole("textbox", { name: "Текст заметки" });
     await user.type(noteEditor, "Секреты [[гайд](https://example.com/ducktales)");
     expect(within(notesEditor).queryByRole("button", { name: "Предпросмотр" })).not.toBeInTheDocument();

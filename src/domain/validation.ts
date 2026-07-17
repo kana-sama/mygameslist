@@ -18,13 +18,13 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
-  notes: ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"],
+  notes: ["id", "gameId", "bodyMarkdown", "attachments", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"],
-  notes: ["bodyMarkdown", "attachments", "rank"],
+  notes: ["bodyMarkdown", "attachments", "groupRank", "rank"],
   assets: [],
 };
 
@@ -40,8 +40,8 @@ function issue(issues: ValidationIssue[], path: string, message: string): void {
   issues.push({ path, message });
 }
 
-function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string, issues: ValidationIssue[]): void {
-  const expected = new Set(keys);
+function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string, issues: ValidationIssue[], optionalKeys: readonly string[] = []): void {
+  const expected = new Set([...keys, ...optionalKeys]);
   for (const key of Object.keys(value)) if (!expected.has(key)) issue(issues, `${path}/${key}`, "Неизвестное поле");
   for (const key of keys) if (!(key in value)) issue(issues, `${path}/${key}`, "Обязательное поле отсутствует");
 }
@@ -145,7 +145,7 @@ function validateGame(value: unknown, path: string, issues: ValidationIssue[]): 
 
 function validateNote(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект заметки"); return; }
-  exactKeys(value, ENTITY_FIELDS.notes, path, issues);
+  exactKeys(value, ENTITY_FIELDS.notes.filter((field) => field !== "groupRank"), path, issues, ["groupRank"]);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
   markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues);
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
@@ -166,6 +166,7 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
       string(attachment.label, `${attachmentPath}/label`, issues, false, 1_000);
     } else issue(issues, `${attachmentPath}/type`, "Неизвестный тип вложения");
   });
+  if (value.groupRank !== undefined) rank(value.groupRank, `${path}/groupRank`, issues);
   rank(value.rank, `${path}/rank`, issues);
   isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);
 }

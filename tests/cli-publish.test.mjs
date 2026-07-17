@@ -276,6 +276,7 @@ describe("publish patch payload", () => {
       ...after.notes[CELESTE_NOTE_ID],
       bodyMarkdown: "Take the hidden route",
       attachments: [{ type: "link", url: "https://example.com/route", label: "Route" }],
+      groupRank: 2048,
     };
     delete after.notes[CONTRA_NOTE_ID];
     after.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "Boss route");
@@ -293,7 +294,7 @@ describe("publish patch payload", () => {
 
 Notes:
 - Add note for "DuckTales" ("Boss route")
-- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments
+- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments, group
 - Remove note from "Contra" ("Secret path")
 
 Images:
@@ -309,7 +310,7 @@ Games:
 
 Notes:
 - Add note for "DuckTales" ("Boss route")
-- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments
+- Update note for "Celeste Classic" ("Take the hidden route"): text, attachments, group
 - Remove note from "Contra" ("Secret path")
 
 Images:

@@ -1,0 +1,322 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Note } from "../src/domain";
+import {
+  GamePage,
+  getNoteDropPlacement,
+  groupDraftNotes,
+  moveDraftNoteToGroup,
+  nextEmptyNoteGroupRank,
+  type EditableNote,
+  type GameSaveInput,
+} from "../src/pages/GamePage";
+
+const GAME_ID = "11111111-1111-4111-8111-111111111111";
+const NOTE_A_ID = "22222222-2222-4222-8222-222222222222";
+const NOTE_B_ID = "33333333-3333-4333-8333-333333333333";
+const NOTE_C_ID = "44444444-4444-4444-8444-444444444444";
+const NOW = "2026-07-17T10:00:00.000Z";
+
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0));
+vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+function editable(clientId: string, rank: number, groupRank?: number): EditableNote {
+  return { clientId, bodyMarkdown: clientId, attachments: [], ...(groupRank === undefined ? {} : { groupRank }), rank };
+}
+
+function note(id: string, rank: number, groupRank?: number): Note {
+  return { id, gameId: GAME_ID, bodyMarkdown: id, attachments: [], ...(groupRank === undefined ? {} : { groupRank }), rank, createdAt: NOW, updatedAt: NOW };
+}
+
+function StatefulGamePage({ initialNotes, onSave = vi.fn() }: { initialNotes: Note[]; onSave?: (input: GameSaveInput) => void }) {
+  const [notes, setNotes] = useState(initialNotes);
+  return <GamePage assets={{}} game={game} mode="game" notes={notes} onSave={(input) => {
+    onSave(input);
+    setNotes(input.notes.map((draft) => ({
+      id: draft.id ?? draft.clientId,
+      gameId: GAME_ID,
+      bodyMarkdown: draft.bodyMarkdown,
+      attachments: draft.attachments as Note["attachments"],
+      ...(draft.groupRank === undefined ? {} : { groupRank: draft.groupRank }),
+      rank: draft.rank,
+      createdAt: NOW,
+      updatedAt: NOW,
+    })));
+  }} />;
+}
+
+const game = {
+  id: GAME_ID,
+  title: "Game",
+  coverAssetId: null,
+  platforms: [],
+  tags: [],
+  status: "playing" as const,
+  placement: { tierId: "unranked" as const, rank: 1024 },
+  reviewMarkdown: "",
+  createdAt: NOW,
+  updatedAt: NOW,
+};
+
+function rect(left: number, top: number, width: number, height: number): DOMRect {
+  return { x: left, y: top, left, top, width, height, right: left + width, bottom: top + height, toJSON: () => ({ left, top, width, height }) } as DOMRect;
+}
+
+describe("anonymous note groups", () => {
+  it("groups legacy notes together and derives one trailing empty group", () => {
+    const notes = [
+      editable(NOTE_B_ID, 2048),
+      editable(NOTE_A_ID, 1024),
+      editable(NOTE_C_ID, 1024, 3072),
+    ];
+
+    expect(groupDraftNotes(notes)).toEqual([
+      { groupRank: 1024, notes: [notes[1], notes[0]] },
+      { groupRank: 3072, notes: [notes[2]] },
+    ]);
+    expect(nextEmptyNoteGroupRank([])).toBe(1024);
+    expect(nextEmptyNoteGroupRank(notes)).toBe(4096);
+  });
+
+  it("reorders inside a group and moves notes between existing or empty groups", () => {
+    const notes = [
+      editable(NOTE_A_ID, 1024),
+      editable(NOTE_B_ID, 2048),
+      editable(NOTE_C_ID, 1024, 2048),
+    ];
+
+    expect(getNoteDropPlacement(notes, NOTE_A_ID, NOTE_B_ID)).toEqual({ groupRank: 1024, index: 1 });
+    expect(getNoteDropPlacement(notes, NOTE_C_ID, NOTE_A_ID)).toEqual({ groupRank: 1024, index: 0 });
+    const moved = moveDraftNoteToGroup(notes, NOTE_A_ID, 3072, 0);
+    expect(groupDraftNotes(moved).map((group) => [group.groupRank, group.notes.map((item) => item.clientId)])).toEqual([
+      [1024, [NOTE_B_ID]],
+      [2048, [NOTE_C_ID]],
+      [3072, [NOTE_A_ID]],
+    ]);
+    expect(moved.find((item) => item.clientId === NOTE_A_ID)).toMatchObject({ groupRank: 3072, rank: 1024 });
+  });
+
+  it("shows only one virtual empty group and creates the next one as a draft", async () => {
+    const user = userEvent.setup();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[]} onSave={vi.fn()} />);
+
+    const firstEmpty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+    expect(firstEmpty).toHaveAttribute("data-note-group-rank", "1024");
+    expect(document.querySelectorAll(".notes-list")).toHaveLength(0);
+
+    await user.click(firstEmpty);
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+
+    await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "1024");
+  });
+
+  it("renders each persisted group as an independent masonry heap", () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
+
+    expect(document.querySelectorAll(".note-group")).toHaveLength(2);
+    expect(document.querySelectorAll(".notes-list")).toHaveLength(2);
+    expect(screen.getAllByRole("group", { name: /Группа заметок/ })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Добавить заметку в новую группу" })).toHaveLength(1);
+  });
+
+  it("drops the last note into the virtual empty group", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.matches(".note-group-empty")) return rect(0, 220, 727, 40);
+      if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: card, coords: { clientX: 20, clientY: 120 } },
+      { target: card, coords: { clientX: 40, clientY: 120 } },
+      { target: empty, coords: { clientX: 20, clientY: 235 } },
+      { keys: "[/MouseLeft]", target: empty, coords: { clientX: 20, clientY: 235 } },
+    ]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ clientId: NOTE_A_ID, groupRank: 2048, rank: 1024 });
+  });
+
+  it("removes an emptied group after persistence and keeps one new trailing group", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.matches(".note-group-empty")) return rect(0, 220, 727, 40);
+      if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<StatefulGamePage initialNotes={[note(NOTE_A_ID, 1024)]} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: card, coords: { clientX: 20, clientY: 120 } },
+      { target: card, coords: { clientX: 40, clientY: 120 } },
+      { target: empty, coords: { clientX: 20, clientY: 235 } },
+      { keys: "[/MouseLeft]", target: empty, coords: { clientX: 20, clientY: 235 } },
+    ]);
+
+    await waitFor(() => expect(screen.getByRole("group", { name: "Группа заметок 1" })).toHaveAttribute("data-note-group-rank", "2048"));
+    expect(document.querySelectorAll(".note-group")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "3072");
+  });
+
+  it("drags a note into an existing masonry group", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.dataset.noteId === NOTE_B_ID) return rect(0, 260, 360, 90);
+      if (this.matches(".notes-list")) return this.parentElement?.getAttribute("aria-label") === "Группа заметок 1" ? rect(0, 100, 727, 100) : rect(0, 260, 727, 100);
+      if (this.matches(".note-group-empty")) return rect(0, 420, 727, 40);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
+    const source = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const target = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_B_ID}"]`)!;
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: source, coords: { clientX: 20, clientY: 120 } },
+      { target: source, coords: { clientX: 40, clientY: 120 } },
+      { target, coords: { clientX: 20, clientY: 280 } },
+      { keys: "[/MouseLeft]", target, coords: { clientX: 20, clientY: 280 } },
+    ]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const moved = onSave.mock.calls[0][0].notes.find((item) => item.clientId === NOTE_A_ID);
+    expect(moved).toMatchObject({ groupRank: 2048, rank: 512 });
+  });
+
+  it("appends a note by dropping into free space of an existing group", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.dataset.noteId === NOTE_B_ID) return rect(0, 260, 360, 90);
+      if (this.matches('.note-group[data-note-group-rank="1024"]')) return rect(0, 100, 727, 100);
+      if (this.matches('.note-group[data-note-group-rank="2048"]')) return rect(0, 260, 727, 120);
+      if (this.matches(".notes-list")) return rect(0, 0, 727, 100);
+      if (this.matches(".note-group-empty")) return rect(0, 420, 727, 40);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
+    const source = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const targetGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="2048"]')!;
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: source, coords: { clientX: 20, clientY: 120 } },
+      { target: source, coords: { clientX: 40, clientY: 120 } },
+      { target: targetGroup, coords: { clientX: 600, clientY: 350 } },
+      { keys: "[/MouseLeft]", target: targetGroup, coords: { clientX: 600, clientY: 350 } },
+    ]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const targetNotes = onSave.mock.calls[0][0].notes.filter((item) => (item.groupRank ?? 1024) === 2048).sort((left, right) => left.rank - right.rank);
+    expect(targetNotes.map((item) => item.clientId)).toEqual([NOTE_B_ID, NOTE_A_ID]);
+  });
+
+  it("moves a note into the empty group with the keyboard sensor", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
+      if (this.matches(".note-group-empty")) return rect(0, 240, 727, 44);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    card.focus();
+
+    await user.keyboard("[Space]");
+    await waitFor(() => expect(card).toHaveClass("is-dragging"));
+    await user.keyboard("[ArrowDown]");
+    await user.keyboard("[Enter]");
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ groupRank: 2048, rank: 1024 });
+  });
+
+  it("restores keyboard focus after moving a note between masonry groups", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.matches(".notes-list")) return rect(0, 100, 727, 100);
+      if (this.matches(".note-group-empty")) return rect(0, 240, 727, 44);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<StatefulGamePage initialNotes={[note(NOTE_A_ID, 1024)]} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    card.focus();
+
+    await user.keyboard("[Space][ArrowDown][Enter]");
+
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-note-id", NOTE_A_ID));
+    expect(document.activeElement?.closest('.note-group[data-note-group-rank="2048"]')).not.toBeNull();
+  });
+
+  it("groups draft notes with drag and drop before a new game is saved", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      const rank = this.closest<HTMLElement>(".note-group")?.dataset.noteGroupRank;
+      if (this.dataset.noteId) return rank === "2048" ? rect(0, 300, 360, 130) : rect(0, 100, 360, 130);
+      if (this.matches('.note-group[data-note-group-rank="1024"]')) return rect(0, 100, 727, 160);
+      if (this.matches('.note-group[data-note-group-rank="2048"]')) return rect(0, 300, 727, 160);
+      if (this.matches(".note-editors-grid")) return rank === "2048" ? rect(0, 300, 727, 140) : rect(0, 100, 727, 140);
+      if (this.matches(".note-group-empty")) return rect(0, 500, 727, 40);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    const editors = [...document.querySelectorAll<HTMLElement>(".note-editor-sortable")];
+    const secondHandle = editors[1].querySelector<HTMLElement>('button[aria-label="Перетащить заметку"]')!;
+    const firstGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="1024"]')!;
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: secondHandle, coords: { clientX: 20, clientY: 420 } },
+      { target: secondHandle, coords: { clientX: 40, clientY: 420 } },
+      { target: firstGroup, coords: { clientX: 600, clientY: 220 } },
+      { keys: "[/MouseLeft]", target: firstGroup, coords: { clientX: 600, clientY: 220 } },
+    ]);
+
+    await waitFor(() => expect(document.querySelectorAll(".note-group")).toHaveLength(1));
+    expect(firstGroup.querySelectorAll(".note-editor-sortable")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+  });
+});

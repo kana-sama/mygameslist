@@ -44,11 +44,11 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const FIELDS = {
   games: new Set(["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"]),
-  notes: new Set(["bodyMarkdown", "attachments", "rank"]),
+  notes: new Set(["bodyMarkdown", "attachments", "groupRank", "rank"]),
   assets: new Set(),
 };
 const GAME_FIELDS = ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"];
-const NOTE_FIELDS = ["bodyMarkdown", "attachments", "rank"];
+const NOTE_FIELDS = ["bodyMarkdown", "attachments", "groupRank", "rank"];
 const ASSET_FIELDS = ["kind", "mime", "width", "height", "byteLength", "alt", "originalName"];
 const COMMIT_SECTION_LIMIT = 20;
 const COMMIT_SUBJECT_LIMIT = 72;
@@ -63,6 +63,7 @@ const FIELD_LABELS = {
   reviewMarkdown: "review",
   bodyMarkdown: "text",
   attachments: "attachments",
+  groupRank: "group",
   rank: "order",
   mime: "format",
   width: "width",

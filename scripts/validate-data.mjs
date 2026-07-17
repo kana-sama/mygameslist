@@ -187,10 +187,11 @@ function validateGame(key, game, assets, at, error) {
 function validateNote(key, note, games, assets, at, error) {
   const keys = ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"];
   if (!isPlainObject(note)) return error(at, "must be an object");
-  exactKeys(note, keys, at, error);
+  exactKeys(note, keys, at, error, ["groupRank"]);
   validateEntityId(key, note.id, `${at}.id`, error);
   if (!isUuid(note.gameId) || !Object.hasOwn(games, note.gameId)) error(`${at}.gameId`, "references a missing game");
   markdown(note.bodyMarkdown, `${at}.bodyMarkdown`, error);
+  if (note.groupRank !== undefined) rank(note.groupRank, `${at}.groupRank`, error);
   rank(note.rank, `${at}.rank`, error);
   isoDate(note.createdAt, `${at}.createdAt`, error);
   isoDate(note.updatedAt, `${at}.updatedAt`, error);
@@ -336,11 +337,12 @@ function validateEntityId(key, value, at, error) {
   if (!isUuid(key) || value !== key) error(at, "must equal its UUID map key");
 }
 
-function exactKeys(value, expected, at, error) {
+function exactKeys(value, expected, at, error, optional = []) {
   if (!isPlainObject(value)) return;
   const actual = Object.keys(value).sort();
   const wanted = [...expected].sort();
-  for (const key of actual) if (!wanted.includes(key)) error(`${at}.${key}`, "unknown field");
+  const allowed = new Set([...wanted, ...optional]);
+  for (const key of actual) if (!allowed.has(key)) error(`${at}.${key}`, "unknown field");
   for (const key of wanted) if (!Object.hasOwn(value, key)) error(`${at}.${key}`, "missing required field");
 }
 
