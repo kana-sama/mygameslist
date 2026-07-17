@@ -10,12 +10,14 @@ function declarations(selector: string): string {
 }
 
 describe("platinum cover treatment", () => {
-  it("uses a non-interactive inset overlay without changing cover geometry", () => {
+  it("uses a non-interactive faceted overlay without changing cover geometry", () => {
     const overlay = declarations(".cover--platinum::after");
 
     expect(overlay).toContain("position: absolute");
     expect(overlay).toContain("inset: 0");
-    expect(overlay).toContain("box-shadow: inset");
+    expect(overlay).toContain("border-radius: inherit");
+    expect(overlay.match(/linear-gradient/g)).toHaveLength(4);
+    expect(overlay).toContain("var(--platinum-edge)");
     expect(overlay).toContain("pointer-events: none");
   });
 
