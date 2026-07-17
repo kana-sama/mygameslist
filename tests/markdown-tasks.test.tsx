@@ -142,6 +142,51 @@ describe("Markdown task lists", () => {
     ].join("\n"));
   });
 
+  it("renders and toggles ordered checklist items", async () => {
+    const user = userEvent.setup();
+    const onTaskChange = vi.fn();
+    const markdown = "1. [ ] First step\n2. [x] Finished step";
+
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: First step" }));
+    expect(onTaskChange).toHaveBeenCalledWith("1. [x] First step\n2. [x] Finished step");
+    expect(hasMarkdownTasks(markdown)).toBe(true);
+  });
+
+  it("keeps loose and continued child lists under their parent item", () => {
+    const markdown = [
+      "- Loose parent",
+      "",
+      "  - Child after a blank line",
+      "- Continued parent",
+      "  continuation text",
+      "  1. Ordered child",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const looseParent = screen.getByText("Loose parent").closest("li");
+    const looseChild = screen.getByText("Child after a blank line").closest("li");
+    const continuedParent = screen.getByText(/Continued parent/).closest("li");
+    const orderedChild = screen.getByText("Ordered child").closest("li");
+
+    expect(looseChild?.closest("ul")?.parentElement).toBe(looseParent);
+    expect(continuedParent).toHaveTextContent("Continued parent continuation text");
+    expect(orderedChild?.closest("ol")?.parentElement).toBe(continuedParent);
+  });
+
+  it("treats a one-space list marker as a sibling rather than a child", () => {
+    render(<MarkdownView markdown={"- First\n - Second"} />);
+
+    const first = screen.getByText("First").closest("li");
+    const second = screen.getByText("Second").closest("li");
+
+    expect(first?.parentElement).toBe(second?.parentElement);
+    expect(second?.closest("ul")?.parentElement).toHaveClass("markdown");
+  });
+
   it("saves a clicked task without opening the note editor or changing note metadata", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();

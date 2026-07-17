@@ -61,25 +61,31 @@ const TASK_MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
 
 interface ParsedListLine {
   indent: number;
+  contentIndent: number;
   type: "list" | "ordered-list";
   value: string;
 }
 
-function indentationWidth(value: string): number {
-  return Array.from(value).reduce((width, character) => width + (character === "\t" ? 4 : 1), 0);
+function indentationWidth(value: string, initialWidth = 0): number {
+  return Array.from(value).reduce(
+    (width, character) => character === "\t" ? width + (4 - width % 4) : width + 1,
+    initialWidth,
+  );
 }
 
 function parseListLine(line: string): ParsedListLine | null {
-  const match = /^([ \t]*)([-*+]|\d+[.)])[ \t]+(.*)$/.exec(line);
+  const match = /^([ \t]*)([-*+]|\d+[.)])([ \t]+)(.*)$/.exec(line);
   if (!match) return null;
+  const indent = indentationWidth(match[1]);
   return {
-    indent: indentationWidth(match[1]),
+    indent,
+    contentIndent: indentationWidth(match[3], indent + match[2].length),
     type: /^\d/.test(match[2]) ? "ordered-list" : "list",
-    value: match[3],
+    value: match[4],
   };
 }
 
-function parseList(lines: string[], startIndex: number): { block: MarkdownBlock; nextIndex: number } {
+function parseList(lines: string[], startIndex: number, minimumIndent = 0): { block: MarkdownBlock; nextIndex: number } {
   const firstLine = parseListLine(lines[startIndex]);
   if (!firstLine) throw new Error("Expected a Markdown list line");
 
@@ -88,10 +94,10 @@ function parseList(lines: string[], startIndex: number): { block: MarkdownBlock;
 
   while (index < lines.length) {
     const line = parseListLine(lines[index]);
-    if (!line || line.indent !== firstLine.indent || line.type !== firstLine.type) break;
+    if (!line || line.indent < minimumIndent || line.indent >= firstLine.contentIndent || line.type !== firstLine.type) break;
 
     const sourceLine = index;
-    const task = line.type === "list" ? TASK_MARKER.exec(line.value) : null;
+    const task = TASK_MARKER.exec(line.value);
     const item: MarkdownListItem = {
       value: task ? line.value.slice(task[0].length) : line.value,
       sourceLine,
@@ -102,10 +108,31 @@ function parseList(lines: string[], startIndex: number): { block: MarkdownBlock;
 
     while (index < lines.length) {
       const childLine = parseListLine(lines[index]);
-      if (!childLine || childLine.indent <= firstLine.indent) break;
-      const child = parseList(lines, index);
-      item.children.push(child.block);
-      index = child.nextIndex;
+      if (childLine?.indent !== undefined && childLine.indent >= line.contentIndent) {
+        const child = parseList(lines, index, line.contentIndent);
+        item.children.push(child.block);
+        index = child.nextIndex;
+        continue;
+      }
+      if (childLine) break;
+
+      if (!lines[index].trim()) {
+        let lookahead = index;
+        while (lookahead < lines.length && !lines[lookahead].trim()) lookahead += 1;
+        const nextLine = lookahead < lines.length ? parseListLine(lines[lookahead]) : null;
+        const nextIsChild = nextLine !== null && nextLine.indent >= line.contentIndent;
+        const nextIsSibling = nextLine !== null && nextLine.type === firstLine.type && nextLine.indent >= minimumIndent && nextLine.indent < firstLine.contentIndent;
+        if (nextIsChild || nextIsSibling) {
+          index = lookahead;
+          if (nextIsChild) continue;
+        }
+        break;
+      }
+
+      const leadingWhitespace = /^[ \t]*/.exec(lines[index])?.[0] ?? "";
+      if (indentationWidth(leadingWhitespace) < line.contentIndent) break;
+      item.value += `\n${lines[index].trim()}`;
+      index += 1;
     }
 
     block.items?.push(item);
@@ -121,7 +148,7 @@ export function setMarkdownTaskChecked(markdown: string, sourceLine: number, che
   if (line === undefined) return markdown;
 
   const nextLine = line.replace(
-    /^([ \t]*[-*+][ \t]+\[)[ xX](\])(?=[ \t]|$)/,
+    /^([ \t]*(?:[-*+]|\d+[.)])[ \t]+\[)[ xX](\])(?=[ \t]|$)/,
     (_match, prefix: string, suffix: string) => `${prefix}${checked ? "x" : " "}${suffix}`,
   );
   if (nextLine === line) return markdown;
