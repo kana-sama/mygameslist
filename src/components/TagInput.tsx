@@ -7,7 +7,6 @@ export interface TagInputProps {
   values: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
-  prefix?: string;
   suggestions?: string[];
 }
 
@@ -17,7 +16,6 @@ export function TagInput({
   values,
   onChange,
   placeholder = "Введите и нажмите Enter",
-  prefix = "",
   suggestions = [],
 }: TagInputProps) {
   const [draft, setDraft] = useState("");
@@ -54,7 +52,7 @@ export function TagInput({
       <div className="tag-input__control">
         {values.map((value) => (
           <span className="tag-chip" key={value}>
-            {prefix}{value}
+            {value}
             <button
               aria-label={`Удалить ${value}`}
               onClick={() => onChange(values.filter((item) => item !== value))}

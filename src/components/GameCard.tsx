@@ -81,7 +81,7 @@ export const GameCard = forwardRef<HTMLElement, GameCardProps>(function GameCard
           <>
             <span className={`status-label status-label--${game.status}`}>{STATUS_LABELS[game.status]}</span>
             <div className="game-card__tags">
-              {game.tags.slice(0, 4).map((tag) => <span key={tag}>#{tag}</span>)}
+              {game.tags.slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}
               {game.tags.length > 4 ? <span>+{game.tags.length - 4}</span> : null}
             </div>
           </>

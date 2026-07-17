@@ -71,7 +71,7 @@ export function CatalogPage({ games, assets, onOpenGame, resolveAssetUrl }: Cata
           <FilterChecks label="Статус" onChange={(statuses) => setFilters((value) => ({ ...value, statuses: statuses as StatusId[] }))} renderLabel={(value) => STATUS_LABELS[value as StatusId]} selected={filters.statuses} values={[...STATUS_IDS]} />
           <FilterChecks label="Тир" onChange={(tiers) => setFilters((value) => ({ ...value, tiers: tiers as TierId[] }))} renderLabel={(value) => TIER_LABELS[value as TierId]} selected={filters.tiers} values={[...TIER_IDS]} />
           <FilterChecks label="Платформа" onChange={(value) => setFilters((current) => ({ ...current, platforms: value }))} selected={filters.platforms} values={platforms} />
-          <FilterChecks label="Тег" onChange={(value) => setFilters((current) => ({ ...current, tags: value }))} renderLabel={(value) => `#${value}`} selected={filters.tags} values={tags} />
+          <FilterChecks label="Тег" onChange={(value) => setFilters((current) => ({ ...current, tags: value }))} selected={filters.tags} values={tags} />
           {activeFilterCount ? <button className="clear-filters" onClick={clearFilters} type="button">Сбросить · {activeFilterCount}</button> : null}
         </div>
         <label className="search-field"><Icon name="search" /><input aria-label="Поиск игр" onChange={(event) => { const q = event.currentTarget.value; setFilters((value) => ({ ...value, q })); }} placeholder="Поиск…" type="search" value={filters.q} />{filters.q ? <button aria-label="Очистить поиск" onClick={() => setFilters((value) => ({ ...value, q: "" }))} type="button"><Icon name="close" size={17} /></button> : null}</label>

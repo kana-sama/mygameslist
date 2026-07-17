@@ -192,6 +192,9 @@ describe("CatalogPage", () => {
 
     expect(search).toHaveValue("du");
     expect(screen.getByText("DuckTales")).toBeInTheDocument();
+    const renderedTag = document.querySelector(".game-card__tags span");
+    expect(renderedTag).toHaveTextContent("platformer");
+    expect(renderedTag).not.toHaveTextContent("#platformer");
     await waitFor(() => expect(window.location.hash).toBe("#/games?q=du"));
   });
 
@@ -237,7 +240,7 @@ describe("CatalogPage", () => {
     await user.click(screen.getByLabelText("Switch"));
     expect(screen.getByText("Super Mario Odyssey")).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText("#mario"));
+    await user.click(screen.getByLabelText("mario"));
     expect(screen.queryByText("DuckTales")).not.toBeInTheDocument();
     expect(screen.getByText("Super Mario Odyssey")).toBeInTheDocument();
 
@@ -347,7 +350,8 @@ describe("GamePage", () => {
     expect(within(sidebar).getByText("Играю")).toBeInTheDocument();
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("ТирA");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("ПлатформыNES");
-    expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("#platformer");
+    expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("platformer");
+    expect(sidebar.querySelector("dl.game-sidebar__meta")).not.toHaveTextContent("#platformer");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("Изменено");
     const shortMetadata = sidebar.querySelectorAll(".game-sidebar__meta-short");
     expect(shortMetadata).toHaveLength(2);
@@ -831,7 +835,10 @@ describe("GamePage", () => {
     await user.click(screen.getByRole("button", { name: "Теги" }));
     const tagInput = screen.getByRole("combobox", { name: "Теги" });
     const tagList = document.getElementById(tagInput.getAttribute("list") ?? "");
+    const existingTag = tagInput.closest(".tag-input")?.querySelector(".tag-chip");
     expect(tagInput).toHaveFocus();
+    expect(existingTag).toHaveTextContent("platformer");
+    expect(existingTag).not.toHaveTextContent("#platformer");
     expect(Array.from(tagList?.querySelectorAll("option") ?? []).map((option) => option.value)).toEqual(["mario", "metroidvania"]);
     await user.type(tagInput, "MARIO{Enter}");
 
