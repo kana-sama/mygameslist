@@ -1402,6 +1402,37 @@ describe("GamePage", () => {
 describe("DiffDialog", () => {
   const item = { id: "title-op", group: "changed" as const, title: "DuckTales: название" };
 
+  it("keeps the hidden import picker from intercepting export clicks", async () => {
+    const user = userEvent.setup();
+    const onExport = vi.fn();
+
+    const { container } = render(
+      <DiffDialog
+        items={[]}
+        onClose={vi.fn()}
+        onExport={onExport}
+        onImport={vi.fn()}
+        open
+        patchBytes={0}
+        payload=""
+        publishCommand="npm run publish:clipboard"
+      />,
+    );
+
+    const importInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    expect(importInput).not.toBeNull();
+    expect(importInput).toHaveAttribute("hidden");
+
+    const openImportPicker = vi.spyOn(importInput!, "click");
+    await user.click(screen.getByRole("button", { name: "Экспорт" }));
+    expect(onExport).toHaveBeenCalledTimes(1);
+    expect(openImportPicker).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Импорт" }));
+    expect(openImportPicker).toHaveBeenCalledTimes(1);
+    expect(onExport).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a real action error on demand without local-only or storage diagnostics", async () => {
     const user = userEvent.setup();
     const onDismissError = vi.fn();

@@ -194,7 +194,7 @@ export function DiffDialog({
           <div className="diff-toolbar">
             <button className="button button--secondary" onClick={onExport} type="button"><Icon name="download" size={17} />Экспорт</button>
             <button className="button button--secondary" onClick={() => fileInputRef.current?.click()} type="button"><Icon name="upload" size={17} />Импорт</button>
-            <input accept="application/json,.json,.patch" onChange={(event) => void importFile(event)} ref={fileInputRef} type="file" />
+            <input accept="application/json,.json,.patch" hidden onChange={(event) => void importFile(event)} ref={fileInputRef} type="file" />
           </div>
           {importError ? (
             <div className="inline-alert inline-alert--error" role="alert">
