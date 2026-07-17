@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "0cb2eeb8e8f2a38ac15402fa759ba6ae624911eef06b6be07ed84b02372135e3",
-  "publicationId": "50d226ad-9e34-4c7c-8d4e-3e2973fac665",
+  "revision": "1e43625dc9893bf7a8e281c84794573a92bc6b040961aee6d9747fcf451fe8d0",
+  "publicationId": "ead813db-b901-48f3-bcc3-d0ad288ae3a0",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -174,12 +174,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
+        "tierId": "f",
         "rank": 1024
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T00:18:31.770Z",
-      "updatedAt": "2026-07-17T01:23:39.537Z"
+      "updatedAt": "2026-07-17T06:08:41.636Z"
     },
     "8a91fe92-faf5-4393-bedf-cc09bd852601": {
       "id": "8a91fe92-faf5-4393-bedf-cc09bd852601",
@@ -1012,6 +1012,168 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T06:01:20.175Z",
       "updatedAt": "2026-07-17T06:01:30.612Z"
+    },
+    "06fa060e-74ed-4aca-9c6b-b4734b90b776": {
+      "id": "06fa060e-74ed-4aca-9c6b-b4734b90b776",
+      "title": "Yakuza Kiwami",
+      "coverAssetId": "efc4ce4f3d2e9f2f2aa0d350ae594047c0981094139868600d49868667c18550",
+      "platforms": [],
+      "tags": [
+        "Like a Dragon"
+      ],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 18432
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:08:08.883Z",
+      "updatedAt": "2026-07-17T06:08:08.937Z"
+    },
+    "2e26020e-0bdb-44c5-84fa-41d2a104ae71": {
+      "id": "2e26020e-0bdb-44c5-84fa-41d2a104ae71",
+      "title": "Phoenix Wright Ace Attorney",
+      "coverAssetId": "c5e906467a74ac84d069b46788fa0f837ce147b36a51c89f89457040d63c37fc",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 21504
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:06:49.537Z",
+      "updatedAt": "2026-07-17T06:06:49.579Z"
+    },
+    "4b2da015-1f04-4972-9a60-7e2125ab6477": {
+      "id": "4b2da015-1f04-4972-9a60-7e2125ab6477",
+      "title": "Mega Man Zero 3",
+      "coverAssetId": "72d2c2c715b5877120171e7ff732492e1a57130e0bf697bc0db4dd72c5d00ea6",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:06:08.453Z",
+      "updatedAt": "2026-07-17T06:06:08.491Z"
+    },
+    "68eb74b5-115e-4718-a529-88ec490554d1": {
+      "id": "68eb74b5-115e-4718-a529-88ec490554d1",
+      "title": "Metroid Fusion",
+      "coverAssetId": "5e971acad096e8cd23970461d0b082bf5c189c560d6180f86d7c318d7c695ced",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 15360
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:07:38.871Z",
+      "updatedAt": "2026-07-17T06:07:38.923Z"
+    },
+    "83391aac-2a5c-4f0c-b698-b227deb371f1": {
+      "id": "83391aac-2a5c-4f0c-b698-b227deb371f1",
+      "title": "Mega Man Zero",
+      "coverAssetId": "536ce200a4a43e7a80551f9ee15d8598a7a2d6ed815d405047af4b1190701649",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 15360
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:05:13.565Z",
+      "updatedAt": "2026-07-17T06:05:38.189Z"
+    },
+    "a0586b25-611c-42ff-88a1-0a81791b42ce": {
+      "id": "a0586b25-611c-42ff-88a1-0a81791b42ce",
+      "title": "Clair Obscur: Expedition 33",
+      "coverAssetId": "23c59a31369ee0696859230a870c4f3f8e8a5d406f0fbba4fc03b2c82d2aefa2",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "d",
+        "rank": 3072
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:08:31.852Z",
+      "updatedAt": "2026-07-17T06:08:31.893Z"
+    },
+    "a4d41f18-0f41-45e1-90c0-e483dc9ce054": {
+      "id": "a4d41f18-0f41-45e1-90c0-e483dc9ce054",
+      "title": "Mega Man Zero 2",
+      "coverAssetId": "951638b8ff04c5194e6bf27031dcc0fd54a93b2df1f30127f40c03f9894feff5",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 14336
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:05:32.277Z",
+      "updatedAt": "2026-07-17T06:05:32.316Z"
+    },
+    "b58db8c5-6932-4ac4-8f7f-84c0cfc722c0": {
+      "id": "b58db8c5-6932-4ac4-8f7f-84c0cfc722c0",
+      "title": "Fever Meme",
+      "coverAssetId": "81f0131e882db3d0e95908d30e5f6b399492cfa4bf27a156c54ef87fb71fb1b1",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:10:05.894Z",
+      "updatedAt": "2026-07-17T06:10:08.975Z"
+    },
+    "c2aafaaa-3a11-4302-b0d7-64e666910c78": {
+      "id": "c2aafaaa-3a11-4302-b0d7-64e666910c78",
+      "title": "Silent Hill",
+      "coverAssetId": "aa7cd7d2b0ac871fb9fe8d845eb9b06fa9c2c62d120115e957e4691d1a0944c6",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 20480
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:04:05.172Z",
+      "updatedAt": "2026-07-17T06:04:05.208Z"
+    },
+    "c56a09e9-1b6b-4bb9-9f72-25860ad6562c": {
+      "id": "c56a09e9-1b6b-4bb9-9f72-25860ad6562c",
+      "title": "Mega Man Zero 4",
+      "coverAssetId": "21440d654513bbbe8743af37daf7cd6b2d39532b2cc97f177df31e169b9257b3",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T06:06:22.877Z",
+      "updatedAt": "2026-07-17T06:06:22.888Z"
     }
   },
   "notes": {
@@ -2082,6 +2244,69 @@
       "rank": 3072,
       "createdAt": "2026-07-17T05:56:46.401Z",
       "updatedAt": "2026-07-17T05:56:46.454Z"
+    },
+    "06464c42-c4e5-4e9e-bbb3-c03c5c9300fd": {
+      "id": "06464c42-c4e5-4e9e-bbb3-c03c5c9300fd",
+      "gameId": "68eb74b5-115e-4718-a529-88ec490554d1",
+      "bodyMarkdown": "Очень достойный метроид, многими считается лучшим среди двухмерных.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:07:38.871Z",
+      "updatedAt": "2026-07-17T06:07:38.923Z"
+    },
+    "0c92587f-a019-4b76-a291-1b8fa572a008": {
+      "id": "0c92587f-a019-4b76-a291-1b8fa572a008",
+      "gameId": "c2aafaaa-3a11-4302-b0d7-64e666910c78",
+      "bodyMarkdown": "Было интересно, но пожалел что проходил на легкой сложности, закончил с бескончным числом хилок и патронов.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:04:05.172Z",
+      "updatedAt": "2026-07-17T06:04:05.208Z"
+    },
+    "1a2b280e-e9f2-43d4-8247-e53a92cd8a00": {
+      "id": "1a2b280e-e9f2-43d4-8247-e53a92cd8a00",
+      "gameId": "2e26020e-0bdb-44c5-84fa-41d2a104ae71",
+      "bodyMarkdown": "Помню что было не очень просто и что мне понравилось.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:06:49.537Z",
+      "updatedAt": "2026-07-17T06:06:49.579Z"
+    },
+    "2981a00c-b836-4806-8be9-6e63e5d4c876": {
+      "id": "2981a00c-b836-4806-8be9-6e63e5d4c876",
+      "gameId": "a0586b25-611c-42ff-88a1-0a81791b42ce",
+      "bodyMarkdown": "Понравился визуальный стиль, музыка, сюжет, но не понравился геймплей. Унылый левелдизайн, унылая боевка, унылая игра.\n\nСчитаю что это первая GOTY у TGA в которой нет геймплея.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:08:31.852Z",
+      "updatedAt": "2026-07-17T06:08:31.893Z"
+    },
+    "9f9d82ea-8254-4308-9860-54fae762e588": {
+      "id": "9f9d82ea-8254-4308-9860-54fae762e588",
+      "gameId": "83391aac-2a5c-4f0c-b698-b227deb371f1",
+      "bodyMarkdown": "Это было первое что я прошел на аналог-покете, потому что почему-то запомнилось что там был обалденный графон. И там действительно обалденный графон, и неплохой геймплей. Но вся серия MMZ очень казуальная, я прошел все игры за несколько часов.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:05:13.565Z",
+      "updatedAt": "2026-07-17T06:05:13.602Z"
+    },
+    "ec52903a-dd05-4da0-895b-fddbc3937aff": {
+      "id": "ec52903a-dd05-4da0-895b-fddbc3937aff",
+      "gameId": "06fa060e-74ed-4aca-9c6b-b4734b90b776",
+      "bodyMarkdown": "Вышли ремастеры ремейков первых четырех (хронологически) якудз (0-3), и даже с русским переводом. Веская причина перепройти и допройти серию.\n\nСюжет простенький, боевка сломана Tiger Drop-ом как обычно.\n\nПроходить на платину не буду, потому что есть уровень со стрельбой из машины, и проходить это на Легенде у меня желания нет, это меня выбесило даже на харде. Все остальное я +- сделал, коллектаблы собраны, миниигр не очень много.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:08:08.883Z",
+      "updatedAt": "2026-07-17T06:08:08.937Z"
+    },
+    "f1af93b9-5522-43f4-9ca1-407c3a7b9350": {
+      "id": "f1af93b9-5522-43f4-9ca1-407c3a7b9350",
+      "gameId": "b58db8c5-6932-4ac4-8f7f-84c0cfc722c0",
+      "bodyMarkdown": "Весело",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T06:10:05.894Z",
+      "updatedAt": "2026-07-17T06:10:05.905Z"
     }
   },
   "assets": {
@@ -2862,6 +3087,106 @@
       "byteLength": 105618,
       "alt": "Обложка Xenoblade Chronicles: Definitive Edition",
       "originalName": "IMAGE 2026-07-17 09:53:18.jpg"
+    },
+    "21440d654513bbbe8743af37daf7cd6b2d39532b2cc97f177df31e169b9257b3": {
+      "id": "21440d654513bbbe8743af37daf7cd6b2d39532b2cc97f177df31e169b9257b3",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 50604,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 10:06:12.jpg"
+    },
+    "23c59a31369ee0696859230a870c4f3f8e8a5d406f0fbba4fc03b2c82d2aefa2": {
+      "id": "23c59a31369ee0696859230a870c4f3f8e8a5d406f0fbba4fc03b2c82d2aefa2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 46158,
+      "alt": "Обложка Clair Obscur: Expedition 33",
+      "originalName": "IMAGE 2026-07-17 10:08:16.jpg"
+    },
+    "536ce200a4a43e7a80551f9ee15d8598a7a2d6ed815d405047af4b1190701649": {
+      "id": "536ce200a4a43e7a80551f9ee15d8598a7a2d6ed815d405047af4b1190701649",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47984,
+      "alt": "Обложка Mega Man Zero",
+      "originalName": "IMAGE 2026-07-17 10:05:11.jpg"
+    },
+    "5e971acad096e8cd23970461d0b082bf5c189c560d6180f86d7c318d7c695ced": {
+      "id": "5e971acad096e8cd23970461d0b082bf5c189c560d6180f86d7c318d7c695ced",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 71736,
+      "alt": "Обложка Metroid Fusion",
+      "originalName": "IMAGE 2026-07-17 10:07:11.jpg"
+    },
+    "72d2c2c715b5877120171e7ff732492e1a57130e0bf697bc0db4dd72c5d00ea6": {
+      "id": "72d2c2c715b5877120171e7ff732492e1a57130e0bf697bc0db4dd72c5d00ea6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47162,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 10:05:57.jpg"
+    },
+    "81f0131e882db3d0e95908d30e5f6b399492cfa4bf27a156c54ef87fb71fb1b1": {
+      "id": "81f0131e882db3d0e95908d30e5f6b399492cfa4bf27a156c54ef87fb71fb1b1",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 4148,
+      "alt": "Обложка Fever Meme",
+      "originalName": "Untitled 10.png"
+    },
+    "951638b8ff04c5194e6bf27031dcc0fd54a93b2df1f30127f40c03f9894feff5": {
+      "id": "951638b8ff04c5194e6bf27031dcc0fd54a93b2df1f30127f40c03f9894feff5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 50068,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 10:05:17.jpg"
+    },
+    "aa7cd7d2b0ac871fb9fe8d845eb9b06fa9c2c62d120115e957e4691d1a0944c6": {
+      "id": "aa7cd7d2b0ac871fb9fe8d845eb9b06fa9c2c62d120115e957e4691d1a0944c6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 37336,
+      "alt": "Обложка Silent Hill",
+      "originalName": "IMAGE 2026-07-17 10:03:49.jpg"
+    },
+    "c5e906467a74ac84d069b46788fa0f837ce147b36a51c89f89457040d63c37fc": {
+      "id": "c5e906467a74ac84d069b46788fa0f837ce147b36a51c89f89457040d63c37fc",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 56702,
+      "alt": "Обложка Phoenix Wright Ace Attorney",
+      "originalName": "IMAGE 2026-07-17 10:06:36.jpg"
+    },
+    "efc4ce4f3d2e9f2f2aa0d350ae594047c0981094139868600d49868667c18550": {
+      "id": "efc4ce4f3d2e9f2f2aa0d350ae594047c0981094139868600d49868667c18550",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 75004,
+      "alt": "Обложка Yakuza Kiwami",
+      "originalName": "IMAGE 2026-07-17 10:07:46.jpg"
     }
   }
 }
