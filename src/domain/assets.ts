@@ -75,8 +75,9 @@ export function isMp4FileMetadata(file: Pick<FileAsset, "mime" | "originalName">
   return file.mime.toLowerCase() === "video/mp4";
 }
 
-/** WebKit needs a non-zero media fragment to decode an MP4 frame before playback. */
+/** Adds WebKit's preview-frame hint to seekable URLs without breaking local data URLs. */
 export function withVideoPreviewFragment(href: string): string {
+  if (/^data:/i.test(href)) return href;
   const hashIndex = href.indexOf("#");
   if (hashIndex < 0) return `${href}#t=0.001`;
   const base = href.slice(0, hashIndex);

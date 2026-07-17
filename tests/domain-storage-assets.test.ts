@@ -188,9 +188,9 @@ describe("assets and revision", () => {
     expect(publishedAssetUrl(prepared.asset, "/mylib/")).toBe(`/mylib/media/${prepared.asset.id}.mp4`);
   });
 
-  it("forces WebKit to decode an MP4 preview frame with a non-zero media fragment", () => {
+  it("adds the WebKit preview-frame hint only to seekable MP4 URLs", () => {
     expect(withVideoPreviewFragment("/media/clip.mp4")).toBe("/media/clip.mp4#t=0.001");
-    expect(withVideoPreviewFragment("data:video/mp4;base64,AAAA")).toBe("data:video/mp4;base64,AAAA#t=0.001");
+    expect(withVideoPreviewFragment("data:video/mp4;base64,AAAA")).toBe("data:video/mp4;base64,AAAA");
     expect(withVideoPreviewFragment("/media/clip.mp4#quality=hd&t=2")).toBe("/media/clip.mp4#quality=hd&t=0.001");
   });
 

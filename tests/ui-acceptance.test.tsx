@@ -810,6 +810,24 @@ describe("GamePage", () => {
     expect(screen.getByLabelText("Видео «Boss run»")).toBeInTheDocument();
   });
 
+  it("keeps an MP4 from the local delta playable as an unchanged data URL", () => {
+    const assetId = "f".repeat(64);
+    const asset: Asset = { id: assetId, kind: "file", mime: "video/mp4", byteLength: 4, originalName: "local.mp4" };
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "",
+      attachments: [{ type: "file", assetId, label: "Local run" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(<GamePage assets={{ [assetId]: asset }} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} resolveAssetUrl={() => "data:video/mp4;base64,AAAA"} />);
+
+    expect(screen.getByLabelText("Видео «Local run»")).toHaveAttribute("src", "data:video/mp4;base64,AAAA");
+  });
+
   it("opens compact attachment actions and adds multiple images and files through mounted inputs", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
@@ -903,12 +921,12 @@ describe("GamePage", () => {
     expect(droppedVideo).toHaveAttribute("playsinline");
     expect(droppedVideo).toHaveAttribute("preload", "metadata");
     expect(droppedVideo).not.toHaveAttribute("autoplay");
-    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==#t=0.001");
+    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==");
 
     const picked = new File(["picked"], "picked.mp4", { type: "video/mp4" });
     const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
     fireEvent.change(fileInput, { target: { files: [picked] } });
-    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk#t=0.001");
+    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk");
 
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
