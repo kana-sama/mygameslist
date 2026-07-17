@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "07230be537106914a2d286c1557094320552346bc72e1dd3c556d474f4314482",
-  "publicationId": "2a80ffc9-2cbf-4472-8494-aeea63eb3f29",
+  "revision": "22b88f2538db5449b4d0168a754d5a71e6e2cff6ccaabbc14bf97ea36600ed24",
+  "publicationId": "19f2476f-e704-41db-86bf-c807107f69ca",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -1174,6 +1174,21 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T06:06:22.877Z",
       "updatedAt": "2026-07-17T06:06:22.888Z"
+    },
+    "9eb21690-4409-43dd-baf6-a24b4e9d3ca8": {
+      "id": "9eb21690-4409-43dd-baf6-a24b4e9d3ca8",
+      "title": "Mina the Hollower",
+      "coverAssetId": "8ba35fc1dbd28af6322e97e686806deff354250643ecb1597c50c6a477da1c16",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "a",
+        "rank": 22528
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T09:36:47.874Z",
+      "updatedAt": "2026-07-17T09:36:47.918Z"
     }
   },
   "notes": {
@@ -2313,6 +2328,15 @@
       "rank": 1024,
       "createdAt": "2026-07-17T06:10:05.894Z",
       "updatedAt": "2026-07-17T06:10:05.905Z"
+    },
+    "53102dee-89ef-4a56-9639-98c2ea8089e1": {
+      "id": "53102dee-89ef-4a56-9639-98c2ea8089e1",
+      "gameId": "9eb21690-4409-43dd-baf6-a24b4e9d3ca8",
+      "bodyMarkdown": "Начало каеф, под конец герой становится слишком сильным и боссов можно фейсроллить, стало скучно.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T09:36:47.874Z",
+      "updatedAt": "2026-07-17T09:36:47.918Z"
     }
   },
   "assets": {
@@ -3193,6 +3217,16 @@
       "byteLength": 75004,
       "alt": "Обложка Yakuza Kiwami",
       "originalName": "IMAGE 2026-07-17 10:07:46.jpg"
+    },
+    "8ba35fc1dbd28af6322e97e686806deff354250643ecb1597c50c6a477da1c16": {
+      "id": "8ba35fc1dbd28af6322e97e686806deff354250643ecb1597c50c6a477da1c16",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 63896,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 13:35:54.jpg"
     }
   }
 }
