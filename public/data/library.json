@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "800fec717ea33e472fc176501be8cea0f66dcaf3086b8ec9d7d4285eb887a005",
-  "publicationId": "2a3ba6e4-fbc6-41d9-a9ac-e305bbbb3953",
+  "revision": "03159c359ee6d92ca11f8b2f4fa3fe98b69a5fe2b3411bc12a76d14436f03241",
+  "publicationId": "9f964dc9-7902-498f-aa6d-3fbbf39df1f9",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -119,14 +119,14 @@
       "tags": [
         "Super Mario"
       ],
-      "status": "played",
+      "status": "dropped",
       "placement": {
         "tierId": "b",
         "rank": 1024
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T21:23:34.775Z",
-      "updatedAt": "2026-07-16T21:32:25.545Z"
+      "updatedAt": "2026-07-17T05:27:01.553Z"
     },
     "fe85ccd2-f6fd-4d98-a571-66a2d7a37cf7": {
       "id": "fe85ccd2-f6fd-4d98-a571-66a2d7a37cf7",
@@ -395,6 +395,251 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:56:55.315Z",
       "updatedAt": "2026-07-17T04:56:55.398Z"
+    },
+    "0ff649e1-9f3e-455a-9566-3fb11dfd8615": {
+      "id": "0ff649e1-9f3e-455a-9566-3fb11dfd8615",
+      "title": "Resident Evil 2",
+      "coverAssetId": "9510af5795e81646ed38827e552065bbc88149b4edb458a63d0ed87c51e2220b",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 9216
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:29:16.036Z",
+      "updatedAt": "2026-07-17T05:29:16.072Z"
+    },
+    "198cba02-338f-4886-a1a0-fc8925172636": {
+      "id": "198cba02-338f-4886-a1a0-fc8925172636",
+      "title": "Metal Gear Solid",
+      "coverAssetId": "c886782dc6d6e8b412dec3c766616a332f2903a7dfd0ce720e8551f401828c26",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 8192
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:33:29.953Z",
+      "updatedAt": "2026-07-17T05:33:29.982Z"
+    },
+    "4b94d022-dd72-4db6-a41a-ea0b3a1a301e": {
+      "id": "4b94d022-dd72-4db6-a41a-ea0b3a1a301e",
+      "title": "The Witness",
+      "coverAssetId": "47763374443fb183509782fbc90c43be6e3159a697918a810d55d371712221af",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 8192
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:30:35.481Z",
+      "updatedAt": "2026-07-17T05:30:35.506Z"
+    },
+    "4e6b1eb9-d312-410f-b052-9668cfef46f0": {
+      "id": "4e6b1eb9-d312-410f-b052-9668cfef46f0",
+      "title": "Danganronpa V3: Killing Harmony",
+      "coverAssetId": "0745d409826206c61fa4fcc2f689c51c9e8c4c8baa482d4069676eadb51edb7c",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:32:36.958Z",
+      "updatedAt": "2026-07-17T05:32:37.016Z"
+    },
+    "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2": {
+      "id": "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2",
+      "title": "Super Mario Bros.: The Lost Levels",
+      "coverAssetId": "a495bed903f6bdd91efdafa310171e6b5ca33e800576bf655b05c3f7cb9a3f3e",
+      "platforms": [
+        "Nintendo Entertainment System"
+      ],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 8192
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:22:16.422Z",
+      "updatedAt": "2026-07-17T05:22:16.456Z"
+    },
+    "7a362513-f98c-4a79-9a75-76e10ab61baf": {
+      "id": "7a362513-f98c-4a79-9a75-76e10ab61baf",
+      "title": "Resident Evil: Director's Cut",
+      "coverAssetId": "d46b2bf2a70bc618fab9ee884f6a1ee02e2a464479205bf6a56b251a32ae1f50",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 6144
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:12:30.551Z",
+      "updatedAt": "2026-07-17T05:17:31.882Z"
+    },
+    "844e5094-9d7f-46d2-b5a3-a0d9afabc377": {
+      "id": "844e5094-9d7f-46d2-b5a3-a0d9afabc377",
+      "title": "Metal Gear Solid: Peace Walker",
+      "coverAssetId": "a556713b01931f9135edaec0c03046f4f7359c6dcfc769040544ddebe8d23840",
+      "platforms": [
+        "Sony PlayStation Portable"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 10240
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:38:11.575Z",
+      "updatedAt": "2026-07-17T05:38:11.615Z"
+    },
+    "934bdedf-009d-420d-87be-bfdddab1b96e": {
+      "id": "934bdedf-009d-420d-87be-bfdddab1b96e",
+      "title": "Metal Gear Solid 3: Snake Eater",
+      "coverAssetId": "d00261bab7924f5232f388c25db3b303e6ca390410f8fcb728db6eff9b0cb455",
+      "platforms": [
+        "Sony PlayStation 3"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 10240
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:35:23.983Z",
+      "updatedAt": "2026-07-17T05:35:24.031Z"
+    },
+    "9ba8c99f-0334-4ca6-911b-8dc836873e75": {
+      "id": "9ba8c99f-0334-4ca6-911b-8dc836873e75",
+      "title": "Danganronpa 2: Goodbye Despair",
+      "coverAssetId": "cddb50a1b385690f9e11adaba99b9eaa922a3dab14809d7f3db6a568b8e191dd",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 6144
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:31:31.056Z",
+      "updatedAt": "2026-07-17T05:32:02.011Z"
+    },
+    "af7c1db6-78db-4416-a6f9-a958c5424203": {
+      "id": "af7c1db6-78db-4416-a6f9-a958c5424203",
+      "title": "Metal Gear Solid 2: Sons of Liberty",
+      "coverAssetId": "17e732234ca7fe16bc1f02686460a3dc9034955da43ab2ab2584491b4c73adcc",
+      "platforms": [
+        "Sony PlayStation 2"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 9216
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:34:32.267Z",
+      "updatedAt": "2026-07-17T05:37:14.354Z"
+    },
+    "b34190bd-9380-4942-8418-e2dff1a7cec2": {
+      "id": "b34190bd-9380-4942-8418-e2dff1a7cec2",
+      "title": "The Witcher 3: Wild Hunt",
+      "coverAssetId": "581d838c8e93a4d0ab6450e51cfc725a68838d2ca10920986444e46380bf49e9",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "a",
+        "rank": 8192
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:28:12.047Z",
+      "updatedAt": "2026-07-17T05:28:12.081Z"
+    },
+    "b44b2982-f7f0-4fbf-bfef-e6185cf87cd7": {
+      "id": "b44b2982-f7f0-4fbf-bfef-e6185cf87cd7",
+      "title": "Path of Exile 2",
+      "coverAssetId": "bd6772536a2dd4414faf0d79c047e1f1ac16c27374d2e1416eb253b106eded6d",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "a",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:24:57.885Z",
+      "updatedAt": "2026-07-17T05:26:43.407Z"
+    },
+    "d048193a-d529-40e9-b48e-a3dd1fe91357": {
+      "id": "d048193a-d529-40e9-b48e-a3dd1fe91357",
+      "title": "Banjo-Kazooie",
+      "coverAssetId": "3ab6e7499c10cf10bf88fda464a481334e874a9d2455af99ae8ff1342114e23a",
+      "platforms": [
+        "Nintendo 64"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:11:19.372Z",
+      "updatedAt": "2026-07-17T05:11:19.412Z"
+    },
+    "e0ab9d69-8ce5-4aa9-a56f-2792da06dd89": {
+      "id": "e0ab9d69-8ce5-4aa9-a56f-2792da06dd89",
+      "title": "Danganronpa: Trigger Happy Havoc",
+      "coverAssetId": "8a7ac4a0e65260a8fa0cd8820c23779f33584e3256348a780f8b90063809f008",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 5120
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:31:07.107Z",
+      "updatedAt": "2026-07-17T05:31:11.634Z"
+    },
+    "fe7b0d6b-9983-46d1-9530-d1a86742bb97": {
+      "id": "fe7b0d6b-9983-46d1-9530-d1a86742bb97",
+      "title": "Astrobot",
+      "coverAssetId": "9d2d092dfe81b5ef497e9aad44249166e5c36624599ffd39f92abfc935a21d09",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "b",
+        "rank": 4096
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-17T05:25:35.330Z",
+      "updatedAt": "2026-07-17T05:26:33.380Z"
     }
   },
   "notes": {
@@ -957,6 +1202,207 @@
       "rank": 2048,
       "createdAt": "2026-07-17T04:50:28.600Z",
       "updatedAt": "2026-07-17T04:50:38.463Z"
+    },
+    "0ef57cde-450f-4a5c-a364-c6dd2aa1eda8": {
+      "id": "0ef57cde-450f-4a5c-a364-c6dd2aa1eda8",
+      "gameId": "d048193a-d529-40e9-b48e-a3dd1fe91357",
+      "bodyMarkdown": "Многие считают эту игру одним из лучших платформеров. Штош, чекну когда-нибудь",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:11:19.372Z",
+      "updatedAt": "2026-07-17T05:11:19.412Z"
+    },
+    "121d6b46-1e45-4512-a1b7-a2155e0deb4a": {
+      "id": "121d6b46-1e45-4512-a1b7-a2155e0deb4a",
+      "gameId": "198cba02-338f-4886-a1a0-fc8925172636",
+      "bodyMarkdown": "защита от пиратства в мгс1: нам чел дает коробку с диском и говорит, что частота для связи с сюжетным нпс на обратной стороне коробки\n\nно в игре никак диск заюзать и посмотреть на обратную сторону нельзя, я все нахуй перепробовал и загуглил\n\nа ответ находится в реальном кейсе от диска с игрой\n\nно если у тебя болванка, то и коробки у тебя нет оригинальной, да и интернета скорее всего тоже",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T05:33:29.953Z",
+      "updatedAt": "2026-07-17T05:33:29.982Z"
+    },
+    "14497f8e-30f5-413c-8268-095bbdbbb9fa": {
+      "id": "14497f8e-30f5-413c-8268-095bbdbbb9fa",
+      "gameId": "844e5094-9d7f-46d2-b5a3-a0d9afabc377",
+      "bodyMarkdown": "Понравился формат коротких миссий и развития базы. Неплохой сюжет, больше боевиковый, чем драматичный. Геймпей примитивный. Много гринда. Прошел на тру концовку.\n\nИграл на psp-эмуляторе с патчем текстур и фпс до 60.\n\nНе очень важная сюжетная часть, но интересно было посмотреть, как Снейк превратился в Биг Босса, и как был основан Outer Haven. Прямой сиквел к Snake Eater. Играть стоит хотя бы сюжет.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:38:11.575Z",
+      "updatedAt": "2026-07-17T05:38:11.615Z"
+    },
+    "15e87953-be08-47cb-83f0-4f33cb41d00a": {
+      "id": "15e87953-be08-47cb-83f0-4f33cb41d00a",
+      "gameId": "9ba8c99f-0334-4ca6-911b-8dc836873e75",
+      "bodyMarkdown": "В целом все то же самое что и про первую часть, то есть это тоже не девятки.\n\nДобавлю что посмотрел еще аниме по второй игре, что значительно расширяет сюжет и лор этой части.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:31:31.056Z",
+      "updatedAt": "2026-07-17T05:31:31.121Z"
+    },
+    "3ef75d10-4f25-47cc-bbc2-c90b42df1757": {
+      "id": "3ef75d10-4f25-47cc-bbc2-c90b42df1757",
+      "gameId": "0ff649e1-9f3e-455a-9566-3fb11dfd8615",
+      "bodyMarkdown": "Прошел за Клэр, осталось пройти за Леона. Игра нравится меньше первой части, та была покамернее и поэтому поприятнее, было понятнее как игру победить.\n\nUPD: Прошел и за Леона. Как обычно, сохранял все топовое оружие на самый конец, так что финальных боссов даже не почувствовал. Но в итоге игру распробовал и понравилась игра не меньше первой части.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:29:16.036Z",
+      "updatedAt": "2026-07-17T05:29:16.072Z"
+    },
+    "4c0368a3-83c6-445c-997d-818c06d97bfc": {
+      "id": "4c0368a3-83c6-445c-997d-818c06d97bfc",
+      "gameId": "934bdedf-009d-420d-87be-bfdddab1b96e",
+      "bodyMarkdown": "Для этой игры уже нет русского перевода, поэтому я решил играть в ремастер на PS5 - Master Collection.\n\nСкоро у игры будет ремейк бтв, не ремастер как master collection, а полноценный ремейк как у резиков.\n\nЭта часть абсолютно не похожа на прошлые две. И геймплеем, и сюжетом. Но мне понравилась больше всех.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:35:23.983Z",
+      "updatedAt": "2026-07-17T05:35:24.031Z"
+    },
+    "53b980f4-4770-4c90-99d5-780c2182a55c": {
+      "id": "53b980f4-4770-4c90-99d5-780c2182a55c",
+      "gameId": "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=ac7zpq7BVjo",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:22:16.422Z",
+      "updatedAt": "2026-07-17T05:22:16.456Z"
+    },
+    "5ce32f54-b79d-4e07-ab1a-0840a32e5c6f": {
+      "id": "5ce32f54-b79d-4e07-ab1a-0840a32e5c6f",
+      "gameId": "7a362513-f98c-4a79-9a75-76e10ab61baf",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=fQ1OatfK0xc",
+          "label": "YouTube"
+        }
+      ],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:12:30.551Z",
+      "updatedAt": "2026-07-17T05:12:30.572Z"
+    },
+    "665c6882-0567-41e5-8c74-be54fcae5236": {
+      "id": "665c6882-0567-41e5-8c74-be54fcae5236",
+      "gameId": "7a362513-f98c-4a79-9a75-76e10ab61baf",
+      "bodyMarkdown": "Прошел на нормале за Криса и на харде за Джилл.\n\nНо не проходил босс-раш, челенджи и так далее, лучший скор тоже не выбивал.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-17T05:17:05.621Z",
+      "updatedAt": "2026-07-17T05:17:31.882Z"
+    },
+    "69deac4b-024d-43b8-b995-50b905a85576": {
+      "id": "69deac4b-024d-43b8-b995-50b905a85576",
+      "gameId": "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2",
+      "bodyMarkdown": "Тоже проходил в All-Stars на SNES.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:22:16.422Z",
+      "updatedAt": "2026-07-17T05:22:16.456Z"
+    },
+    "75345e91-a6d1-42f4-ab70-01b1d5d5fb67": {
+      "id": "75345e91-a6d1-42f4-ab70-01b1d5d5fb67",
+      "gameId": "af7c1db6-78db-4416-a6f9-a958c5424203",
+      "bodyMarkdown": "### [Забавный пост про катсцены в мгс2](https://www.reddit.com/r/metalgearsolid/comments/t35rbv/decided_to_replay_mgs2_and_holy_hell_the/)\n\n> In replaying the game too, I swear, I had maybe 2 to 4 hours of gameplay, and around 6 hours of only cutscenes and codec… what can I say, don’t let Hideo cook again\n",
+      "attachments": [],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:35:36.969Z",
+      "updatedAt": "2026-07-17T05:37:08.613Z"
+    },
+    "76229c62-f6f3-4df5-bf20-1dfb567f904d": {
+      "id": "76229c62-f6f3-4df5-bf20-1dfb567f904d",
+      "gameId": "fe7b0d6b-9983-46d1-9530-d1a86742bb97",
+      "bodyMarkdown": "Средний платформер, но очень качественно сделан технически, приятно играть. Но скучно. Прошел 5/6 миров.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:25:35.330Z",
+      "updatedAt": "2026-07-17T05:25:35.364Z"
+    },
+    "81153704-13d1-4870-94bd-e8e65c1ea2e2": {
+      "id": "81153704-13d1-4870-94bd-e8e65c1ea2e2",
+      "gameId": "e0ab9d69-8ce5-4aa9-a56f-2792da06dd89",
+      "bodyMarkdown": "Играл после девяток, и поэтому сильно не хватило интерактивности, игра целиком линейная. И одному играть в это было бы уныло я думаю. \n\nНО, я играл компанией, и мы каждое дело и улики долго разбирали самостоятельно, строя гипотезы, это сделало игру очень интересной.\n\nНо все равно это не девятки и близко.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:31:07.107Z",
+      "updatedAt": "2026-07-17T05:31:07.112Z"
+    },
+    "b7cbe8b0-b1b2-4538-b2d7-00de904a74f8": {
+      "id": "b7cbe8b0-b1b2-4538-b2d7-00de904a74f8",
+      "gameId": "198cba02-338f-4886-a1a0-fc8925172636",
+      "bodyMarkdown": "Геймплей состоит из стелса и битв с боссами. Стелс достаточно обычный, но много всяких интересных инструментов. А вот битвы с боссами абсолютно все очень хороши и уникальны. Психо Мантис это гениально.\n\nСюжет запутан, и иногда даже будто перезапутан, но все в пределах нормы. Жестко накидывают драмы на ровном месте.\n\nИгра достаточно плотная, передышки между событиями небольшие. Но из-за этого короткая, часов 12 максимум.\n\nСчитается одной из худших игр в серии, очень интересно узнать че там будет дальше тогда.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:33:29.953Z",
+      "updatedAt": "2026-07-17T05:33:29.982Z"
+    },
+    "ca5b167a-519d-41a4-80d5-c39ecd51aa5d": {
+      "id": "ca5b167a-519d-41a4-80d5-c39ecd51aa5d",
+      "gameId": "af7c1db6-78db-4416-a6f9-a958c5424203",
+      "bodyMarkdown": "хороший обзор как кодзима всех наебал и в этом и был смысл\n\nвесь видос это сюжетный спойлер, смотреть советую только после прохождения",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=j8-9nAG3CYs",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 512,
+      "createdAt": "2026-07-17T05:36:31.703Z",
+      "updatedAt": "2026-07-17T05:37:14.354Z"
+    },
+    "dae67cbd-6dca-4936-968d-83f562171596": {
+      "id": "dae67cbd-6dca-4936-968d-83f562171596",
+      "gameId": "4e6b1eb9-d312-410f-b052-9668cfef46f0",
+      "bodyMarkdown": "Сейм, добавить нечего. Играть одному не стоит, играть в компании охуенно. Но это все еще не девятки.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:32:36.958Z",
+      "updatedAt": "2026-07-17T05:32:37.016Z"
+    },
+    "e1303c8a-1d10-4726-b0ee-d6a16432e929": {
+      "id": "e1303c8a-1d10-4726-b0ee-d6a16432e929",
+      "gameId": "af7c1db6-78db-4416-a6f9-a958c5424203",
+      "bodyMarkdown": "4 часа геймплея, 6 часов катсцен. Чем дальше тем хуже.\n\nОтличное начало за снейка, а потом разрабы решили, что мы должны ненавидеть нового протогониста, и сделали все, что с ним связано, бесячим. Во время катсцен и диалогов нельзя ставить паузу, поэтому игра буквально не позволяет тебе отойти поссать.\n\nПервая часть в геймплейном плане намного лучше, но во второй куда более ебанутый сюжет.\n\nЕще игра очень активно использует фичу дуалшоков старых - все кнопки имеют степень нажатия, очень прикольно, но не так удобно.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:34:32.267Z",
+      "updatedAt": "2026-07-17T05:34:32.311Z"
+    },
+    "f03787d8-dee2-4397-89ab-632f26e58b15": {
+      "id": "f03787d8-dee2-4397-89ab-632f26e58b15",
+      "gameId": "b34190bd-9380-4942-8418-e2dff1a7cec2",
+      "bodyMarkdown": "Проходил множество раз, чистый каеф. Но боевка скучная, баги, неприятно управлять персонажем, таланты несбалансированные.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:28:12.047Z",
+      "updatedAt": "2026-07-17T05:28:12.081Z"
+    },
+    "f64db3f9-ce84-405c-956e-504de341abda": {
+      "id": "f64db3f9-ce84-405c-956e-504de341abda",
+      "gameId": "4b94d022-dd72-4db6-a41a-ea0b3a1a301e",
+      "bodyMarkdown": "Суперская головолмка, но собрать все \"тени\" я уже не осилил.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:30:35.481Z",
+      "updatedAt": "2026-07-17T05:30:35.506Z"
+    },
+    "fa648db0-1499-49c6-bc5d-98e2b160dcc9": {
+      "id": "fa648db0-1499-49c6-bc5d-98e2b160dcc9",
+      "gameId": "b44b2982-f7f0-4fbf-bfef-e6185cf87cd7",
+      "bodyMarkdown": "Играл на первом релизе, когда было доступно только 3 акта. Прошел их множество раз, разными билдами. Но чистить карты показалось нудным делом.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-17T05:24:57.885Z",
+      "updatedAt": "2026-07-17T05:24:57.917Z"
     }
   },
   "assets": {
@@ -1287,6 +1733,156 @@
       "byteLength": 78692,
       "alt": "IMAGE 2026-07-17 08:34:10",
       "originalName": "IMAGE 2026-07-17 08:34:10.jpg"
+    },
+    "0745d409826206c61fa4fcc2f689c51c9e8c4c8baa482d4069676eadb51edb7c": {
+      "id": "0745d409826206c61fa4fcc2f689c51c9e8c4c8baa482d4069676eadb51edb7c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 83308,
+      "alt": "Обложка Danganronpa V3: Killing Harmony",
+      "originalName": "IMAGE 2026-07-17 09:32:22.jpg"
+    },
+    "17e732234ca7fe16bc1f02686460a3dc9034955da43ab2ab2584491b4c73adcc": {
+      "id": "17e732234ca7fe16bc1f02686460a3dc9034955da43ab2ab2584491b4c73adcc",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 61030,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:33:51.jpg"
+    },
+    "3ab6e7499c10cf10bf88fda464a481334e874a9d2455af99ae8ff1342114e23a": {
+      "id": "3ab6e7499c10cf10bf88fda464a481334e874a9d2455af99ae8ff1342114e23a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55098,
+      "alt": "Обложка Banjo-Kazooie",
+      "originalName": "IMAGE 2026-07-17 09:11:11.jpg"
+    },
+    "47763374443fb183509782fbc90c43be6e3159a697918a810d55d371712221af": {
+      "id": "47763374443fb183509782fbc90c43be6e3159a697918a810d55d371712221af",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 28416,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:29:25.jpg"
+    },
+    "581d838c8e93a4d0ab6450e51cfc725a68838d2ca10920986444e46380bf49e9": {
+      "id": "581d838c8e93a4d0ab6450e51cfc725a68838d2ca10920986444e46380bf49e9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 46282,
+      "alt": "Обложка The Witcher 3: Wild Hunt",
+      "originalName": "IMAGE 2026-07-17 09:27:15.jpg"
+    },
+    "8a7ac4a0e65260a8fa0cd8820c23779f33584e3256348a780f8b90063809f008": {
+      "id": "8a7ac4a0e65260a8fa0cd8820c23779f33584e3256348a780f8b90063809f008",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 65946,
+      "alt": "Обложка Danganronpa: Trigger Happy Havoc",
+      "originalName": "IMAGE 2026-07-17 09:31:10.jpg"
+    },
+    "9510af5795e81646ed38827e552065bbc88149b4edb458a63d0ed87c51e2220b": {
+      "id": "9510af5795e81646ed38827e552065bbc88149b4edb458a63d0ed87c51e2220b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 46684,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:28:22.jpg"
+    },
+    "9d2d092dfe81b5ef497e9aad44249166e5c36624599ffd39f92abfc935a21d09": {
+      "id": "9d2d092dfe81b5ef497e9aad44249166e5c36624599ffd39f92abfc935a21d09",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 41132,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:25:07.jpg"
+    },
+    "a495bed903f6bdd91efdafa310171e6b5ca33e800576bf655b05c3f7cb9a3f3e": {
+      "id": "a495bed903f6bdd91efdafa310171e6b5ca33e800576bf655b05c3f7cb9a3f3e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40532,
+      "alt": "Обложка Super Mario Bros.: The Lost",
+      "originalName": "IMAGE 2026-07-17 09:17:42.jpg"
+    },
+    "a556713b01931f9135edaec0c03046f4f7359c6dcfc769040544ddebe8d23840": {
+      "id": "a556713b01931f9135edaec0c03046f4f7359c6dcfc769040544ddebe8d23840",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 49454,
+      "alt": "Обложка Metal Gear Solid: Peace Walker",
+      "originalName": "IMAGE 2026-07-17 09:37:38.jpg"
+    },
+    "bd6772536a2dd4414faf0d79c047e1f1ac16c27374d2e1416eb253b106eded6d": {
+      "id": "bd6772536a2dd4414faf0d79c047e1f1ac16c27374d2e1416eb253b106eded6d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 42344,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:23:46.jpg"
+    },
+    "c886782dc6d6e8b412dec3c766616a332f2903a7dfd0ce720e8551f401828c26": {
+      "id": "c886782dc6d6e8b412dec3c766616a332f2903a7dfd0ce720e8551f401828c26",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35010,
+      "alt": "Обложка Metal Gear Solid",
+      "originalName": "IMAGE 2026-07-17 09:33:08.jpg"
+    },
+    "cddb50a1b385690f9e11adaba99b9eaa922a3dab14809d7f3db6a568b8e191dd": {
+      "id": "cddb50a1b385690f9e11adaba99b9eaa922a3dab14809d7f3db6a568b8e191dd",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 101486,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:31:17.jpg"
+    },
+    "d00261bab7924f5232f388c25db3b303e6ca390410f8fcb728db6eff9b0cb455": {
+      "id": "d00261bab7924f5232f388c25db3b303e6ca390410f8fcb728db6eff9b0cb455",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 64298,
+      "alt": "Обложка Metal Gear Solid 3: Snake Eater",
+      "originalName": "IMAGE 2026-07-17 09:34:42.jpg"
+    },
+    "d46b2bf2a70bc618fab9ee884f6a1ee02e2a464479205bf6a56b251a32ae1f50": {
+      "id": "d46b2bf2a70bc618fab9ee884f6a1ee02e2a464479205bf6a56b251a32ae1f50",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 20414,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-17 09:11:24.jpg"
     }
   }
 }
