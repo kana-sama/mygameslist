@@ -144,12 +144,15 @@ describe("anonymous note groups", () => {
   it("renders each persisted group as an independent masonry heap", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
 
-    expect(document.querySelectorAll(".note-group")).toHaveLength(2);
+    const groups = document.querySelectorAll(".note-group");
+    expect(groups).toHaveLength(2);
     expect(document.querySelectorAll(".notes-list")).toHaveLength(2);
     expect(screen.getAllByRole("group", { name: /Группа заметок/ })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Добавить заметку в новую группу" })).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить заметку в группу 2" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toHaveClass("note-group-add-button");
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 2" })).toHaveClass("note-group-add-button");
+    expect(groups[0]).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("tabindex", "-1");
   });
 
   it("creates a note directly inside an existing group", async () => {
@@ -167,18 +170,36 @@ describe("anonymous note groups", () => {
     expect(onSave.mock.calls[0][0].notes.find((item) => item.bodyMarkdown === "Новая заметка")).toMatchObject({ groupRank: 1024, rank: 2048 });
   });
 
-  it("reveals every group add card while files are over the notes area", () => {
+  it("reveals compact add buttons globally and marks only the file target group", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
     const notesArea = screen.getByRole("region", { name: "Заметки" });
+    const firstGroup = screen.getByRole("group", { name: "Группа заметок 1" });
+    const secondGroup = screen.getByRole("group", { name: "Группа заметок 2" });
     const transfer = fileTransfer();
 
     fireEvent(notesArea, fileDragEvent("dragenter", transfer));
     expect(notesArea).toHaveClass("is-file-dragging");
     expect(notesArea.querySelector(".note-groups")).toHaveClass("is-file-dragging");
-    expect(notesArea.querySelectorAll(".note-group-add-card")).toHaveLength(3);
+    expect(notesArea.querySelectorAll(".note-group-add-button")).toHaveLength(3);
+
+    fireEvent(secondGroup, fileDragEvent("dragenter", transfer));
+    expect(firstGroup).not.toHaveClass("is-file-over");
+    expect(secondGroup).toHaveClass("is-file-over");
+    fireEvent(secondGroup, fileDragEvent("dragleave", transfer));
+    expect(secondGroup).not.toHaveClass("is-file-over");
 
     fireEvent(notesArea, fileDragEvent("dragleave", transfer));
     expect(notesArea).not.toHaveClass("is-file-dragging");
+  });
+
+  it("focuses a group from touch so its absolute add button can be revealed", () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} />);
+    const group = screen.getByRole("group", { name: "Группа заметок 1" });
+
+    fireEvent.pointerDown(group, { pointerType: "touch" });
+
+    expect(group).toHaveFocus();
+    expect(group).toHaveAttribute("tabindex", "-1");
   });
 
   it("creates one unsaved note from a mixed file drop and checks quota cumulatively", async () => {
@@ -186,11 +207,11 @@ describe("anonymous note groups", () => {
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     const canAddBlob = vi.fn((byteLength: number) => byteLength > 5 ? "Файл не помещается в localStorage Safari" : null);
     render(<GamePage assets={{}} canAddBlob={canAddBlob} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
-    const addCard = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
+    const group = screen.getByRole("group", { name: "Группа заметок 1" });
     const first = new File(["1234"], "run.MP4", { type: "" });
     const second = new File(["12"], "guide.pdf", { type: "application/pdf" });
 
-    fireEvent(addCard, fileDragEvent("drop", fileTransfer([first, second])));
+    fireEvent(group, fileDragEvent("drop", fileTransfer([first, second])));
 
     const video = await screen.findByLabelText("Видео «run.MP4»");
     expect(video).toHaveAttribute("src", "data:video/mp4;base64,MTIzNA==");
@@ -206,15 +227,84 @@ describe("anonymous note groups", () => {
     expect(created.attachments).toEqual([expect.objectContaining({ type: "pending-file", label: "run.MP4" })]);
   });
 
-  it("creates an attachment draft from the empty-group card on a new game", async () => {
+  it("creates an attachment draft by dropping anywhere in the trailing empty group", async () => {
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
-    const addCard = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+    const emptyGroup = screen.getByRole("group", { name: "Новая группа заметок" });
 
-    fireEvent(addCard, fileDragEvent("drop", fileTransfer([new File(["video"], "clip.mp4", { type: "video/mp4" })])));
+    fireEvent(emptyGroup, fileDragEvent("drop", fileTransfer([new File(["video"], "clip.mp4", { type: "video/mp4" })])));
 
     const video = await screen.findByLabelText("Видео «clip.mp4»");
     expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
     expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+  });
+
+  it("creates a file note in the second group when its body receives the drop", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
+    const secondGroup = screen.getByRole("group", { name: "Группа заметок 2" });
+
+    fireEvent(secondGroup, fileDragEvent("drop", fileTransfer([new File(["video"], "second.mp4", { type: "video/mp4" })])));
+
+    const video = await screen.findByLabelText("Видео «second.mp4»");
+    expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "2048");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const created = onSave.mock.calls[0][0].notes.find((item) => item.clientId !== NOTE_A_ID && item.clientId !== NOTE_B_ID)!;
+    expect(created).toMatchObject({ groupRank: 2048, rank: 2048 });
+  });
+
+  it("keeps a textarea file drop in the edited note instead of creating another note", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const drop = fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })]));
+
+    fireEvent(editor, drop);
+
+    expect(drop.defaultPrevented).toBe(true);
+    expect(await screen.findByRole("link", { name: /guide\.pdf/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("textbox", { name: "Текст заметки" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes).toHaveLength(1);
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ clientId: NOTE_A_ID, attachments: [expect.objectContaining({ type: "pending-file", label: "guide.pdf" })] });
+  });
+
+  it("ignores non-file drags over a group", () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} />);
+    const group = screen.getByRole("group", { name: "Группа заметок 1" });
+    const transfer = fileTransfer([], ["text/plain"]);
+    const enter = fileDragEvent("dragenter", transfer);
+    const drop = fileDragEvent("drop", transfer);
+
+    fireEvent(group, enter);
+    fireEvent(group, drop);
+
+    expect(enter.defaultPrevented).toBe(false);
+    expect(drop.defaultPrevented).toBe(false);
+    expect(group).not.toHaveClass("is-file-over");
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("prevents Safari file navigation but does not create a draft when storage is locked", () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} storageLocked />);
+    const group = screen.getByRole("group", { name: "Группа заметок 1" });
+    const transfer = fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })]);
+    const dragOver = fileDragEvent("dragover", transfer);
+    const drop = fileDragEvent("drop", transfer);
+
+    fireEvent(group, dragOver);
+    fireEvent(group, drop);
+
+    expect(dragOver.defaultPrevented).toBe(true);
+    expect(drop.defaultPrevented).toBe(true);
+    expect(group).not.toHaveClass("is-file-over");
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeDisabled();
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
   it("drops the last note into the virtual empty group", async () => {

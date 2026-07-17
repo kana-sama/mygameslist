@@ -28,24 +28,32 @@ describe("notes masonry CSS", () => {
     expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*grid-template-columns:\s*1fr;/);
   });
 
-  it("keeps add cards outside masonry and reveals them without reserving a column", () => {
+  it("overlays compact add buttons without changing group layout", () => {
     const groups = declarationsFor(".note-groups");
     const group = declarationsFor(".note-group");
     const empty = declarationsFor(".note-empty-group");
     const slot = declarationsFor(".note-group-add-slot");
-    const card = declarationsFor(".note-group-add-card");
+    const button = declarationsFor(".note-group-add-button");
 
     expect(groups).toMatch(/display:\s*flex/);
     expect(groups).toMatch(/flex-direction:\s*column/);
+    expect(group).toMatch(/position:\s*relative/);
     expect(group).not.toMatch(/background|border-radius/);
+    expect(empty).toMatch(/position:\s*relative/);
     expect(empty).toMatch(/min-height:\s*30px/);
-    expect(slot).toMatch(/max-height:\s*0/);
+    expect(slot).toMatch(/position:\s*absolute/);
+    expect(slot).toMatch(/width:\s*28px/);
+    expect(slot).toMatch(/height:\s*28px/);
     expect(slot).toMatch(/opacity:\s*0/);
-    expect(card).toMatch(/width:\s*min\(144px,\s*100%\)/);
-    expect(card).toMatch(/aspect-ratio:\s*4\s*\/\s*3/);
-    expect(styles).toMatch(/\.note-group:hover > \.note-group-add-slot,[^}]*\.note-groups\.is-file-dragging \.note-group-add-slot[^}]*\{[^}]*opacity:\s*1/);
+    expect(slot).toMatch(/pointer-events:\s*none/);
+    expect(slot).not.toMatch(/max-height|padding/);
+    expect(button).toMatch(/width:\s*28px/);
+    expect(button).toMatch(/height:\s*28px/);
+    expect(styles).toMatch(/\.note-group:hover > \.note-group-add-slot,[^}]*\.note-group:focus > \.note-group-add-slot,[^}]*\.note-group-add-slot:focus-within[^}]*\{[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto/);
+    expect(declarationsFor(".note-group.is-file-over, .note-empty-group.is-file-over")).toMatch(/outline:\s*1px solid var\(--accent\)/);
     expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-empty-group \{[^}]*min-height:\s*44px;/);
-    expect(styles).not.toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-group-add-slot \{[^}]*opacity:\s*1;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-group-add-slot \{[^}]*width:\s*44px;[^}]*height:\s*44px;/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-group-add-button \{[^}]*width:\s*44px;[^}]*height:\s*44px;/);
   });
 
   it("keeps top-level Markdown lists flush with the note content", () => {
