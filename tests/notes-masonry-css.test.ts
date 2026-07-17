@@ -63,4 +63,12 @@ describe("notes masonry CSS", () => {
     expect(declarationsFor(".markdown-task-item")).not.toMatch(/display:\s*flex/);
     expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
   });
+
+  it("uses positive green styling for completed checklist rows", () => {
+    const completed = declarationsFor(".markdown-task-item--checked > .markdown-task-row > .markdown-task-content");
+
+    expect(completed).toMatch(/color:\s*var\(--success\)/);
+    expect(completed).not.toMatch(/text-decoration:\s*line-through/);
+    expect(declarationsFor(".markdown-task-checkbox:checked")).toMatch(/accent-color:\s*var\(--success\)/);
+  });
 });
