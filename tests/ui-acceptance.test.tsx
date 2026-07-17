@@ -494,6 +494,80 @@ describe("GamePage", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
+  it("reorders a YouTube-only note from its dedicated drag handle", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const notes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "", attachments: [{ type: "link", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", label: "YouTube" }], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "B", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "C", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const rects = new Map([
+      [NOTE_ID, domRect(0, 100, 360, 230)],
+      [NOTE_TWO_ID, domRect(367, 100, 360, 100)],
+      [NOTE_THREE_ID, domRect(367, 207, 360, 100)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".notes-list")) return domRect(0, 100, 727, 500);
+      if (this.matches(".note-drag-preview")) return domRect(0, 0, 360, 100);
+      if (this.dataset.noteId) return rects.get(this.dataset.noteId) ?? domRect(0, 0, 360, 100);
+      if (this.matches(".note-card__content")) return domRect(0, 0, 360, 203);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
+    const first = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    const handle = within(first).getByRole("button", { name: "Перетащить заметку" });
+    expect(first).toHaveClass("note-card--media-only");
+    expect(first).not.toHaveAttribute("tabindex");
+    expect(screen.getByTitle("Видео YouTube")).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1");
+
+    await user.pointer([{ keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 315 } }]);
+    expect(first).not.toHaveClass("is-dragging");
+    await user.pointer([{ target: handle, coords: { clientX: 40, clientY: 315 } }]);
+    await waitFor(() => expect(first).toHaveClass("is-dragging"));
+    await user.pointer([{ target: handle, coords: { clientX: 400, clientY: 260 } }]);
+    await user.pointer([{ keys: "[/MouseLeft]", target: handle, coords: { clientX: 400, clientY: 260 } }]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect([...onSave.mock.calls[0][0].notes].sort((a, b) => a.rank - b.rank).map((note) => note.clientId)).toEqual([NOTE_TWO_ID, NOTE_THREE_ID, NOTE_ID]);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("supports keyboard sorting from a media-only note handle", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const notes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "", attachments: [{ type: "link", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", label: "YouTube" }], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "B", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "C", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const rects = new Map([
+      [NOTE_ID, domRect(0, 100, 360, 230)],
+      [NOTE_TWO_ID, domRect(367, 100, 360, 100)],
+      [NOTE_THREE_ID, domRect(734, 100, 360, 100)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".notes-list")) return domRect(0, 100, 1094, 240);
+      if (this.matches(".note-drag-preview")) return domRect(0, 0, 360, 100);
+      if (this.dataset.noteId) return rects.get(this.dataset.noteId) ?? domRect(0, 0, 360, 100);
+      if (this.matches(".note-card__content")) return domRect(0, 0, 360, 203);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={onSave} />);
+    const handle = within(document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!).getByRole("button", { name: "Перетащить заметку" });
+    handle.focus();
+    await user.keyboard("[Space]");
+    await waitFor(() => expect(handle.closest("article")).toHaveClass("is-dragging"));
+    await user.keyboard("[ArrowRight]");
+    await user.keyboard("[Enter]");
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect([...onSave.mock.calls[0][0].notes].sort((a, b) => a.rank - b.rank).map((note) => note.clientId)).toEqual([NOTE_TWO_ID, NOTE_ID, NOTE_THREE_ID]);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
   it("does not start note dragging from an interactive task checkbox", async () => {
     const user = userEvent.setup();
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] Найти секрет", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
@@ -682,6 +756,29 @@ describe("GamePage", () => {
     expect(onSave.mock.calls[0][0].notes[0].attachments).toEqual([
       { type: "link", url: "./files/map.pdf", label: "Карта" },
     ]);
+  });
+
+  it("edits a YouTube-only note from its media footer without changing the embed", async () => {
+    const user = userEvent.setup();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "",
+      attachments: [{ type: "link", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", label: "YouTube" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    const iframe = screen.getByTitle("Видео YouTube");
+    const card = iframe.closest("article")!;
+    expect(card).toHaveClass("note-card--media-only");
+    expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
+
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(screen.getByTitle("Видео YouTube")).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1");
   });
 
   it("opens compact attachment actions and adds multiple images and files through mounted inputs", async () => {

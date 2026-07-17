@@ -60,7 +60,11 @@ describe("note image lightbox", () => {
     const opener = screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" });
     const card = opener.closest("article")!;
     expect(card).toHaveClass("note-card--collapsed");
+    expect(card).toHaveClass("note-card--media-only");
+    expect(card).not.toHaveAttribute("tabindex");
     expect(card.querySelector(".note-card__viewport")).not.toHaveAttribute("inert");
+    expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toHaveAttribute("aria-roledescription", "перетаскиваемая заметка");
+    const editButton = within(card).getByRole("button", { name: "Редактировать заметку" });
 
     opener.focus();
     await user.click(opener);
@@ -76,6 +80,10 @@ describe("note image lightbox", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(opener).toHaveFocus();
+
+    await user.click(editButton);
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" })).toBeInTheDocument();
   });
 
   it("zooms around the pointer, supports pinch and pan, and resets with 0", async () => {

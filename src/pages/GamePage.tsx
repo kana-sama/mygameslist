@@ -124,6 +124,13 @@ function blocksNoteEdit(target: EventTarget | null): boolean {
   return noteTargetMatches(target, "a, button, input, label, textarea, select, iframe, [contenteditable='true']");
 }
 
+function isInlineMediaAttachment(attachment: EditableAttachment): boolean {
+  if (attachment.type === "image" || attachment.type === "pending-image") return true;
+  if (attachment.type !== "link") return false;
+  const href = safeUrl(attachment.url);
+  return Boolean(href && getYouTubeEmbedUrl(href));
+}
+
 function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNote[] {
   let editable = [...notes]
     .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
@@ -521,7 +528,7 @@ function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onT
   taskChangesDisabled: boolean;
 }) {
   const suppressEdit = useRef(false);
-  const { attributes, isDragging, isOver, listeners, setNodeRef } = useSortable({
+  const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
     id: `note:${note.clientId}`,
     animateLayoutChanges: () => false,
     attributes: { roleDescription: "перетаскиваемая заметка" },
@@ -539,16 +546,17 @@ function SortableNoteCard({ note, assets, disabled, resolveAssetUrl, onEdit, onT
     return () => window.clearTimeout(timer);
   }, [isDragging]);
 
-  return <CollapsibleNoteCard assets={assets} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={() => { if (!suppressEdit.current) onEdit(); }} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
+  return <CollapsibleNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={() => { if (!suppressEdit.current) onEdit(); }} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
 }
 
-function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragAttributes, dragListeners, dragging = false, dropTarget = false, nodeRef, sortable = false }: {
+function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropTarget = false, nodeRef, sortable = false }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
   taskChangesDisabled: boolean;
+  dragActivatorRef?: (node: HTMLElement | null) => void;
   dragAttributes?: DraggableAttributes;
   dragListeners?: DraggableSyntheticListeners;
   dragging?: boolean;
@@ -561,6 +569,9 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const [collapsible, setCollapsible] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
+  const mediaOnly = !note.bodyMarkdown.trim() && note.attachments.length > 0 && note.attachments.every(isInlineMediaAttachment);
+  const cardDragAttributes = mediaOnly ? undefined : dragAttributes;
+  const cardDragListeners = mediaOnly ? undefined : dragListeners;
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -579,10 +590,10 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   const collapsed = collapsible && !expanded;
 
   return (
-    <article aria-describedby={dragAttributes?.["aria-describedby"]} aria-disabled={dragAttributes?.["aria-disabled"]} aria-label="Редактировать заметку" aria-roledescription={dragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
-      if (!blocksNoteEdit(event.target)) dragListeners?.onKeyDown?.(event);
-      if (!dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
-    }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) dragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={dragAttributes?.tabIndex ?? 0}>
+    <article aria-describedby={cardDragAttributes?.["aria-describedby"]} aria-disabled={cardDragAttributes?.["aria-disabled"]} aria-label={mediaOnly ? "Медиа-заметка" : "Редактировать заметку"} aria-roledescription={cardDragAttributes?.["aria-roledescription"]} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} onClick={(event) => { if (!mediaOnly && !blocksNoteEdit(event.target)) onEdit(); }} onKeyDown={(event) => {
+      if (!blocksNoteEdit(event.target)) cardDragListeners?.onKeyDown?.(event);
+      if (!mediaOnly && !dragging && !event.defaultPrevented && event.target === event.currentTarget && event.key === "Enter") { event.preventDefault(); onEdit(); }
+    }} onPointerDown={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onPointerDown?.(event); }} onTouchStart={(event) => { if (!blocksNoteDrag(event.target)) cardDragListeners?.onTouchStart?.(event); }} ref={nodeRef} tabIndex={mediaOnly ? undefined : cardDragAttributes?.tabIndex ?? 0}>
       <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks && !note.attachments.length} onFocusCapture={(event) => {
         if (!collapsed || event.target === event.currentTarget) return;
         const viewportRect = event.currentTarget.getBoundingClientRect();
@@ -595,6 +606,7 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
         </div>
       </div>
       {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={(event) => { event.stopPropagation(); setExpanded((value) => !value); }} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
+      {mediaOnly ? <div className="note-card__media-actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__media-drag" onClick={(event) => event.stopPropagation()} ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__media-edit" disabled={taskChangesDisabled} onClick={(event) => { event.stopPropagation(); onEdit(); }} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div> : null}
     </article>
   );
 }
