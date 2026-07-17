@@ -54,9 +54,65 @@ interface MarkdownListItem {
   value: string;
   sourceLine: number;
   taskChecked?: boolean;
+  children: MarkdownBlock[];
 }
 
 const TASK_MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
+
+interface ParsedListLine {
+  indent: number;
+  type: "list" | "ordered-list";
+  value: string;
+}
+
+function indentationWidth(value: string): number {
+  return Array.from(value).reduce((width, character) => width + (character === "\t" ? 4 : 1), 0);
+}
+
+function parseListLine(line: string): ParsedListLine | null {
+  const match = /^([ \t]*)([-*+]|\d+[.)])[ \t]+(.*)$/.exec(line);
+  if (!match) return null;
+  return {
+    indent: indentationWidth(match[1]),
+    type: /^\d/.test(match[2]) ? "ordered-list" : "list",
+    value: match[3],
+  };
+}
+
+function parseList(lines: string[], startIndex: number): { block: MarkdownBlock; nextIndex: number } {
+  const firstLine = parseListLine(lines[startIndex]);
+  if (!firstLine) throw new Error("Expected a Markdown list line");
+
+  const block: MarkdownBlock = { type: firstLine.type, items: [] };
+  let index = startIndex;
+
+  while (index < lines.length) {
+    const line = parseListLine(lines[index]);
+    if (!line || line.indent !== firstLine.indent || line.type !== firstLine.type) break;
+
+    const sourceLine = index;
+    const task = line.type === "list" ? TASK_MARKER.exec(line.value) : null;
+    const item: MarkdownListItem = {
+      value: task ? line.value.slice(task[0].length) : line.value,
+      sourceLine,
+      taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+      children: [],
+    };
+    index += 1;
+
+    while (index < lines.length) {
+      const childLine = parseListLine(lines[index]);
+      if (!childLine || childLine.indent <= firstLine.indent) break;
+      const child = parseList(lines, index);
+      item.children.push(child.block);
+      index = child.nextIndex;
+    }
+
+    block.items?.push(item);
+  }
+
+  return { block, nextIndex: index };
+}
 
 export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
   const parts = markdown.split(/(\r\n?|\n)/);
@@ -107,29 +163,10 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
       index += 1;
       continue;
     }
-    if (/^\s*[-*+]\s+/.test(line)) {
-      const items: MarkdownListItem[] = [];
-      while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
-        const sourceLine = index;
-        const rawValue = lines[index].replace(/^\s*[-*+]\s+/, "");
-        const task = TASK_MARKER.exec(rawValue);
-        items.push({
-          value: task ? rawValue.slice(task[0].length) : rawValue,
-          sourceLine,
-          taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
-        });
-        index += 1;
-      }
-      blocks.push({ type: "list", items });
-      continue;
-    }
-    if (/^\s*\d+[.)]\s+/.test(line)) {
-      const items: MarkdownListItem[] = [];
-      while (index < lines.length && /^\s*\d+[.)]\s+/.test(lines[index])) {
-        items.push({ value: lines[index].replace(/^\s*\d+[.)]\s+/, ""), sourceLine: index });
-        index += 1;
-      }
-      blocks.push({ type: "ordered-list", items });
+    if (parseListLine(line)) {
+      const list = parseList(lines, index);
+      blocks.push(list.block);
+      index = list.nextIndex;
       continue;
     }
     if (/^\s*>\s?/.test(line)) {
@@ -160,7 +197,10 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
 }
 
 export function hasMarkdownTasks(markdown: string): boolean {
-  return parseBlocks(markdown).some((block) => block.type === "list" && block.items?.some((item) => item.taskChecked !== undefined));
+  const hasTasks = (block: MarkdownBlock): boolean => block.items?.some(
+    (item) => item.taskChecked !== undefined || item.children.some(hasTasks),
+  ) ?? false;
+  return parseBlocks(markdown).some(hasTasks);
 }
 
 export interface MarkdownViewProps {
@@ -175,6 +215,43 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
   if (!blocks.length) return <p className={`markdown-empty ${className}`}>{emptyText}</p>;
 
+  const renderList = (block: MarkdownBlock, key: string): ReactNode => {
+    const Tag = block.type === "list" ? "ul" : "ol";
+    return (
+      <Tag key={key}>
+        {block.items?.map((item, itemIndex) => {
+          const itemKey = `${key}-${item.sourceLine}-${itemIndex}`;
+          const children = item.children.map((child, childIndex) => renderList(child, `${itemKey}-child-${childIndex}`));
+          if (item.taskChecked === undefined) {
+            return <li key={itemKey}>{renderInline(item.value, itemKey)}{children}</li>;
+          }
+          return (
+            <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemKey}>
+              <div className="markdown-task-row">
+                <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
+                  <input
+                    aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`}
+                    checked={item.taskChecked}
+                    className="markdown-task-checkbox"
+                    disabled={!onTaskChange || taskChangesDisabled}
+                    onChange={(event) => {
+                      const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
+                      if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    type="checkbox"
+                  />
+                </label>
+                <span className="markdown-task-content">{renderInline(item.value, itemKey)}</span>
+              </div>
+              {children}
+            </li>
+          );
+        })}
+      </Tag>
+    );
+  };
+
   return (
     <div className={`markdown ${className}`}>
       {blocks.map((block, index) => {
@@ -185,11 +262,7 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
           return <blockquote key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</blockquote>;
         }
         if (block.type === "list" || block.type === "ordered-list") {
-          const Tag = block.type === "list" ? "ul" : "ol";
-          return <Tag key={key}>{block.items?.map((item, itemIndex) => item.taskChecked === undefined ? <li key={itemIndex}>{renderInline(item.value, `${key}-${itemIndex}`)}</li> : <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemIndex}><label className="markdown-task-control" onClick={(event) => event.stopPropagation()}><input aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`} checked={item.taskChecked} className="markdown-task-checkbox" disabled={!onTaskChange || taskChangesDisabled} onChange={(event) => {
-            const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
-            if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
-          }} onClick={(event) => event.stopPropagation()} type="checkbox" /></label><span>{renderInline(item.value, `${key}-${itemIndex}`)}</span></li>)}</Tag>;
+          return renderList(block, key);
         }
         if (block.type === "heading") {
           const children = renderInline(block.value ?? "", key);

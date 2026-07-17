@@ -97,6 +97,51 @@ describe("Markdown task lists", () => {
     expect(setMarkdownTaskChecked(markdown, 99, true)).toBe(markdown);
   });
 
+  it("preserves nested unordered and ordered list structure", () => {
+    const markdown = [
+      "- [x] **Yoshi's Island**",
+      "  - [x] Yoshi's House",
+      "  - [ ] Yellow Switch Palace",
+      "- [ ] Donut Plains",
+      "  1. Secret exit",
+      "  2. Bonus room",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} onTaskChange={vi.fn()} />);
+
+    const parentItem = screen.getByText("Yoshi's Island").closest("li");
+    const nestedTaskItem = screen.getByText("Yellow Switch Palace").closest("li");
+    const secondParentItem = screen.getByText("Donut Plains").closest("li");
+    const nestedOrderedItem = screen.getByText("Secret exit").closest("li");
+
+    expect(parentItem).not.toBeNull();
+    expect(nestedTaskItem?.closest("ul")?.parentElement).toBe(parentItem);
+    expect(nestedTaskItem?.closest("ul")).not.toBe(parentItem?.closest("ul"));
+    expect(nestedOrderedItem?.closest("ol")?.parentElement).toBe(secondParentItem);
+  });
+
+  it("toggles the selected nested task without changing its parent or indentation", async () => {
+    const user = userEvent.setup();
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "- [ ] Parent",
+      "  - [ ] First child",
+      "    - [ ] Grandchild",
+      "  - [ ] Second child",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Grandchild" }));
+
+    expect(onTaskChange).toHaveBeenCalledWith([
+      "- [ ] Parent",
+      "  - [ ] First child",
+      "    - [x] Grandchild",
+      "  - [ ] Second child",
+    ].join("\n"));
+  });
+
   it("saves a clicked task without opening the note editor or changing note metadata", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();

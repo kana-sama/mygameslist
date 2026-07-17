@@ -59,5 +59,8 @@ describe("notes masonry CSS", () => {
   it("keeps top-level Markdown lists flush with the note content", () => {
     expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown > ul:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol")).toMatch(/padding-inline-start:\s*18px/);
+    expect(declarationsFor(".markdown-task-item")).not.toMatch(/display:\s*flex/);
+    expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
   });
 });

@@ -258,6 +258,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown p, .markdown ul, .markdown ol { margin-top: .55em; margin-bottom: .55em; }
 .markdown > ul, .markdown > ol { padding-inline-start: 18px; }
 .markdown > ul:has(> .markdown-task-item) { padding-inline-start: 0; }
+.markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol { margin-top: .15em; margin-bottom: .15em; padding-inline-start: 18px; border-inline-start: 1px solid var(--line-soft); }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .markdown code { padding: 1px 3px; border-radius: 3px; color: #cbd9e3; background: #252a2f; }
@@ -265,12 +266,13 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown pre code { padding: 0; background: none; }
 .markdown blockquote { margin-left: 0; padding-left: 9px; border-left: 2px solid #5a7488; color: var(--muted); }
 .markdown hr { border: 0; border-top: 1px solid var(--line); }
-.markdown-task-item { display: flex; align-items: flex-start; gap: 5px; list-style: none; }
+.markdown-task-item { list-style: none; }
+.markdown-task-row { display: flex; align-items: flex-start; gap: 5px; }
 .markdown-task-control { width: 16px; height: 18px; display: grid; flex: 0 0 auto; place-items: center; cursor: pointer; }
 .markdown-task-checkbox { width: 14px; height: 14px; margin: 0; accent-color: #6e91aa; cursor: pointer; }
 .markdown-task-checkbox:disabled { cursor: default; }
 .markdown-task-control:has(.markdown-task-checkbox:disabled) { cursor: default; }
-.markdown-task-item--checked > span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted-2); }
+.markdown-task-item--checked > .markdown-task-row > .markdown-task-content { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted-2); }
 .markdown-empty { margin: 0; color: var(--muted-2); font-size: 11px; font-style: italic; }
 
 .notes-list, .note-editors-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); grid-auto-rows: 1px; gap: 7px; align-items: start; }
@@ -523,7 +525,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 
 @media (pointer: coarse) {
   input, textarea, select { font-size: 16px; }
-  .markdown-task-item { min-height: 44px; align-items: center; }
+  .markdown-task-row { min-height: 44px; align-items: center; }
   .markdown-task-control { width: 44px; height: 44px; margin-inline: -12px; }
   .markdown-task-checkbox { width: 18px; height: 18px; }
   button, summary, .button, .filter-menu__panel label { min-width: 44px; min-height: 44px; }
