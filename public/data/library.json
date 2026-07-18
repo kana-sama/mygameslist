@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "069a0c48f84851cc2c5a6712c988d94b998fcd90c599f10c03711e0bf48b4ee6",
-  "publicationId": "d9a76888-a25d-441d-a22f-0b5f9bdee3d3",
+  "revision": "be68a57f0178d4252ee1a04c6e792e503c24115d562b1fbdf3be39a5fdef7136",
+  "publicationId": "d8be07e7-503b-4f58-8024-22f97730cc56",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -1336,6 +1336,23 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T09:51:35.142Z",
       "updatedAt": "2026-07-17T09:51:35.173Z"
+    },
+    "808fa677-6ff0-4bd9-85ec-2658ed26ac5d": {
+      "id": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "title": "Metroid: Samus Returns",
+      "coverAssetId": "d3ea6dadb5ac9eb0802570eb1c43aa4457de2631a3a80d43c83fbbdd7414b837",
+      "platforms": [
+        "Nintendo 3DS"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 5120
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
     }
   },
   "notes": {
@@ -3043,6 +3060,193 @@
       "rank": 1024,
       "createdAt": "2026-07-18T09:11:32.154Z",
       "updatedAt": "2026-07-18T09:11:32.158Z"
+    },
+    "079f00dc-bafa-4fd0-938f-c0936c3efc1b": {
+      "id": "079f00dc-bafa-4fd0-938f-c0936c3efc1b",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Ключ на оригинальную игру на Game Boy и инструкция по установке оригинальной игры на 3DS.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "947d482cedaaaf382cbf70876563102f3d2fd304045b9487fd69d5cd438f626d",
+          "alt": "IMAGE 2026-07-18 13:14:44"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 5120,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "1562e743-a646-41b4-9ab2-ef2b7a6ec01e": {
+      "id": "1562e743-a646-41b4-9ab2-ef2b7a6ec01e",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Стилбук, снаружи стилизованный под картридж геймбоя, и довольно скучный внутри, у Pokemon: Sun внутри еще классный разворот.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "48438c4b90ac8ca10dc2edd173fa9ba0694f0b13bfadccb2c4d0c5290786912d",
+          "alt": "IMAGE 2026-07-18 13:14:52"
+        },
+        {
+          "type": "image",
+          "assetId": "e495a63f756ba6e370f48f4dce41fd08eea572801302e516168ca15fa8918415",
+          "alt": "IMAGE 2026-07-18 13:14:54"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 6144,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "1963e0ad-8378-404e-9164-b471e7d9344c": {
+      "id": "1963e0ad-8378-404e-9164-b471e7d9344c",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Собственно коробка с игрой, карик и куча макулатуры.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "ebdc447a81f17355b617c5870d3028f8aaea9f02cb5bec0958e784ce2e30d0c0",
+          "alt": "IMAGE 2026-07-18 13:15:31"
+        },
+        {
+          "type": "image",
+          "assetId": "47a7c8e129d8af31374d53ea1f329e6918d7bf7c3ee5cccbe2d94a351ed6ace2",
+          "alt": "IMAGE 2026-07-18 13:15:33"
+        },
+        {
+          "type": "image",
+          "assetId": "39e3f3f31dd8b599d0c62dedfc793a1e6cc215e81db1bdd2014b2e8fb359f1b7",
+          "alt": "IMAGE 2026-07-18 13:15:35"
+        },
+        {
+          "type": "image",
+          "assetId": "76a2efeb22eee3f52101fb610af533c7a10cbb441157209b39f7c340ce654275",
+          "alt": "IMAGE 2026-07-18 13:15:37"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 8192,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "398ee2ab-e82c-4bc8-9054-e6d8ee182d3b": {
+      "id": "398ee2ab-e82c-4bc8-9054-e6d8ee182d3b",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Распаковка Metroid: Samus Returns Legacy Edition для Nintendo 3DS",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "5792aa836476e312a3978d9f005013172650aeacf4f95eb5ee2a635ce302dcd7",
+          "alt": "IMAGE 2026-07-18 13:13:42"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "5f7b1d63-ad48-499e-9fdc-bdd5649d5209": {
+      "id": "5f7b1d63-ad48-499e-9fdc-bdd5649d5209",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Маленький двухсторонний артбук на 50 страниц, где с одной стороны арты оригинальной игры, а с другой - переиздания.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "9743c9fd2b2492a01a49b892d734f5b83a28efd886fb518e6fc0b2b138e3ccd7",
+          "alt": "IMAGE 2026-07-18 13:14:30"
+        },
+        {
+          "type": "image",
+          "assetId": "3c665504a93b1a380c88b32159b64ac9899dc4c999a86c81c3ade77a0dc9879d",
+          "alt": "IMAGE 2026-07-18 13:14:31"
+        },
+        {
+          "type": "image",
+          "assetId": "7f99d7b7c6e5213a57d586951bfc8fa2cfa6de857e6198da8d020eb72e5f2567",
+          "alt": "IMAGE 2026-07-18 13:14:33"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 4096,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "84167742-7b91-484b-8ad9-468c553edcd5": {
+      "id": "84167742-7b91-484b-8ad9-468c553edcd5",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Небольшой красивый брелок в виде одной из форм Самус - **морфошар**.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "d57c19a700102dfeb83493507bdd553fbbe8e8a19537f47a0cb0f8df1d5d381c",
+          "alt": "IMAGE 2026-07-18 13:14:06"
+        },
+        {
+          "type": "image",
+          "assetId": "fa9e110907e3e5a314d89af612eb620e32c73f935a4af37272a8f9b79929357b",
+          "alt": "IMAGE 2026-07-18 13:14:07"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "a683a160-0acd-4acd-b16a-0d8c9623edff": {
+      "id": "a683a160-0acd-4acd-b16a-0d8c9623edff",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Диск с саундтреками.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "f62d23dfe6610ddd0a46998b14cbdf9c33588acc1176e23e63ba727003c8c153",
+          "alt": "IMAGE 2026-07-18 13:15:04"
+        },
+        {
+          "type": "image",
+          "assetId": "94e5b6d6bf13773495526ac0a5ba1de431aa8690914c00ce1464cc1b43ed7123",
+          "alt": "IMAGE 2026-07-18 13:15:06"
+        },
+        {
+          "type": "image",
+          "assetId": "f76e426581e2f72b1fd355372ec4694c71e5447219bb866f88d1f4ab88db7e03",
+          "alt": "IMAGE 2026-07-18 13:15:08"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 7168,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "c468dd72-67ef-476e-9e48-9b072827a93e": {
+      "id": "c468dd72-67ef-476e-9e48-9b072827a93e",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Самое первое, что можно достать из коробки: маленькая коробочка, а внутри **Специальный значок** на бархате.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "debc7f38f7356ab99f6f721b27a6e8cb482087a01a6e96aa0a0fa74dc5830799",
+          "alt": "IMAGE 2026-07-18 13:13:51"
+        },
+        {
+          "type": "image",
+          "assetId": "06e1f36ac58ec0fa32966a5bc898494d8d6f2419223182a807f3534eed9bf260",
+          "alt": "IMAGE 2026-07-18 13:13:52"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "dfef1d09-7a8c-4cc7-9d2d-0d14c493826f": {
+      "id": "dfef1d09-7a8c-4cc7-9d2d-0d14c493826f",
+      "gameId": "808fa677-6ff0-4bd9-85ec-2658ed26ac5d",
+      "bodyMarkdown": "Это ремейк **Metroid II: Return of Samus** с геймбоя. Отличается от оригинала значительно, в том числе и боевкой.\n\nОдна из первых моих игр на 3DS, купил когда-то коллекционку. Играл давно, мнение не помню, но не особо впечатлился.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-18T09:15:41.230Z",
+      "updatedAt": "2026-07-18T09:15:41.235Z"
     }
   },
   "assets": {
@@ -4080,6 +4284,196 @@
       "mime": "application/octet-stream",
       "byteLength": 64,
       "originalName": "GMSE01.gct"
+    },
+    "06e1f36ac58ec0fa32966a5bc898494d8d6f2419223182a807f3534eed9bf260": {
+      "id": "06e1f36ac58ec0fa32966a5bc898494d8d6f2419223182a807f3534eed9bf260",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 194662,
+      "alt": "IMAGE 2026-07-18 13:13:52",
+      "originalName": "IMAGE 2026-07-18 13:13:52.jpg"
+    },
+    "39e3f3f31dd8b599d0c62dedfc793a1e6cc215e81db1bdd2014b2e8fb359f1b7": {
+      "id": "39e3f3f31dd8b599d0c62dedfc793a1e6cc215e81db1bdd2014b2e8fb359f1b7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 353972,
+      "alt": "IMAGE 2026-07-18 13:15:35",
+      "originalName": "IMAGE 2026-07-18 13:15:35.jpg"
+    },
+    "3c665504a93b1a380c88b32159b64ac9899dc4c999a86c81c3ade77a0dc9879d": {
+      "id": "3c665504a93b1a380c88b32159b64ac9899dc4c999a86c81c3ade77a0dc9879d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 296634,
+      "alt": "IMAGE 2026-07-18 13:14:31",
+      "originalName": "IMAGE 2026-07-18 13:14:31.jpg"
+    },
+    "47a7c8e129d8af31374d53ea1f329e6918d7bf7c3ee5cccbe2d94a351ed6ace2": {
+      "id": "47a7c8e129d8af31374d53ea1f329e6918d7bf7c3ee5cccbe2d94a351ed6ace2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 708938,
+      "alt": "IMAGE 2026-07-18 13:15:33",
+      "originalName": "IMAGE 2026-07-18 13:15:33.jpg"
+    },
+    "48438c4b90ac8ca10dc2edd173fa9ba0694f0b13bfadccb2c4d0c5290786912d": {
+      "id": "48438c4b90ac8ca10dc2edd173fa9ba0694f0b13bfadccb2c4d0c5290786912d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 459906,
+      "alt": "IMAGE 2026-07-18 13:14:52",
+      "originalName": "IMAGE 2026-07-18 13:14:52.jpg"
+    },
+    "5792aa836476e312a3978d9f005013172650aeacf4f95eb5ee2a635ce302dcd7": {
+      "id": "5792aa836476e312a3978d9f005013172650aeacf4f95eb5ee2a635ce302dcd7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 663452,
+      "alt": "IMAGE 2026-07-18 13:13:42",
+      "originalName": "IMAGE 2026-07-18 13:13:42.jpg"
+    },
+    "76a2efeb22eee3f52101fb610af533c7a10cbb441157209b39f7c340ce654275": {
+      "id": "76a2efeb22eee3f52101fb610af533c7a10cbb441157209b39f7c340ce654275",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 382086,
+      "alt": "IMAGE 2026-07-18 13:15:37",
+      "originalName": "IMAGE 2026-07-18 13:15:37.jpg"
+    },
+    "7f99d7b7c6e5213a57d586951bfc8fa2cfa6de857e6198da8d020eb72e5f2567": {
+      "id": "7f99d7b7c6e5213a57d586951bfc8fa2cfa6de857e6198da8d020eb72e5f2567",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 438640,
+      "alt": "IMAGE 2026-07-18 13:14:33",
+      "originalName": "IMAGE 2026-07-18 13:14:33.jpg"
+    },
+    "947d482cedaaaf382cbf70876563102f3d2fd304045b9487fd69d5cd438f626d": {
+      "id": "947d482cedaaaf382cbf70876563102f3d2fd304045b9487fd69d5cd438f626d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 677954,
+      "alt": "IMAGE 2026-07-18 13:14:44",
+      "originalName": "IMAGE 2026-07-18 13:14:44.jpg"
+    },
+    "94e5b6d6bf13773495526ac0a5ba1de431aa8690914c00ce1464cc1b43ed7123": {
+      "id": "94e5b6d6bf13773495526ac0a5ba1de431aa8690914c00ce1464cc1b43ed7123",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 404466,
+      "alt": "IMAGE 2026-07-18 13:15:06",
+      "originalName": "IMAGE 2026-07-18 13:15:06.jpg"
+    },
+    "9743c9fd2b2492a01a49b892d734f5b83a28efd886fb518e6fc0b2b138e3ccd7": {
+      "id": "9743c9fd2b2492a01a49b892d734f5b83a28efd886fb518e6fc0b2b138e3ccd7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 308628,
+      "alt": "IMAGE 2026-07-18 13:14:30",
+      "originalName": "IMAGE 2026-07-18 13:14:30.jpg"
+    },
+    "d3ea6dadb5ac9eb0802570eb1c43aa4457de2631a3a80d43c83fbbdd7414b837": {
+      "id": "d3ea6dadb5ac9eb0802570eb1c43aa4457de2631a3a80d43c83fbbdd7414b837",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 57198,
+      "alt": "Обложка игры",
+      "originalName": "IMAGE 2026-07-18 13:13:00.jpg"
+    },
+    "d57c19a700102dfeb83493507bdd553fbbe8e8a19537f47a0cb0f8df1d5d381c": {
+      "id": "d57c19a700102dfeb83493507bdd553fbbe8e8a19537f47a0cb0f8df1d5d381c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 907910,
+      "alt": "IMAGE 2026-07-18 13:14:06",
+      "originalName": "IMAGE 2026-07-18 13:14:06.jpg"
+    },
+    "debc7f38f7356ab99f6f721b27a6e8cb482087a01a6e96aa0a0fa74dc5830799": {
+      "id": "debc7f38f7356ab99f6f721b27a6e8cb482087a01a6e96aa0a0fa74dc5830799",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 329592,
+      "alt": "IMAGE 2026-07-18 13:13:51",
+      "originalName": "IMAGE 2026-07-18 13:13:51.jpg"
+    },
+    "e495a63f756ba6e370f48f4dce41fd08eea572801302e516168ca15fa8918415": {
+      "id": "e495a63f756ba6e370f48f4dce41fd08eea572801302e516168ca15fa8918415",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 252630,
+      "alt": "IMAGE 2026-07-18 13:14:54",
+      "originalName": "IMAGE 2026-07-18 13:14:54.jpg"
+    },
+    "ebdc447a81f17355b617c5870d3028f8aaea9f02cb5bec0958e784ce2e30d0c0": {
+      "id": "ebdc447a81f17355b617c5870d3028f8aaea9f02cb5bec0958e784ce2e30d0c0",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 595004,
+      "alt": "IMAGE 2026-07-18 13:15:31",
+      "originalName": "IMAGE 2026-07-18 13:15:31.jpg"
+    },
+    "f62d23dfe6610ddd0a46998b14cbdf9c33588acc1176e23e63ba727003c8c153": {
+      "id": "f62d23dfe6610ddd0a46998b14cbdf9c33588acc1176e23e63ba727003c8c153",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 691242,
+      "alt": "IMAGE 2026-07-18 13:15:04",
+      "originalName": "IMAGE 2026-07-18 13:15:04.jpg"
+    },
+    "f76e426581e2f72b1fd355372ec4694c71e5447219bb866f88d1f4ab88db7e03": {
+      "id": "f76e426581e2f72b1fd355372ec4694c71e5447219bb866f88d1f4ab88db7e03",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 960,
+      "byteLength": 359700,
+      "alt": "IMAGE 2026-07-18 13:15:08",
+      "originalName": "IMAGE 2026-07-18 13:15:08.jpg"
+    },
+    "fa9e110907e3e5a314d89af612eb620e32c73f935a4af37272a8f9b79929357b": {
+      "id": "fa9e110907e3e5a314d89af612eb620e32c73f935a4af37272a8f9b79929357b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 581474,
+      "alt": "IMAGE 2026-07-18 13:14:07",
+      "originalName": "IMAGE 2026-07-18 13:14:07.jpg"
     }
   }
 }
