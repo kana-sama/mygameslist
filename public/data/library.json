@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "325cd44e95b9589aa895d5c3b329a28f2da7d95eb4bf912cf2cf39cc403f2634",
-  "publicationId": "e359deb8-a1dd-432c-88cd-995e896b5ef1",
+  "revision": "1dc5fa8e22ad239c8704941380f4bc26c631ba2b00993de3eb02fc18c533e408",
+  "publicationId": "f18e4910-b5a9-4c24-9770-50639e166951",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -1028,7 +1028,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T06:08:08.883Z",
-      "updatedAt": "2026-07-17T06:08:08.937Z"
+      "updatedAt": "2026-07-18T15:00:41.369Z"
     },
     "2e26020e-0bdb-44c5-84fa-41d2a104ae71": {
       "id": "2e26020e-0bdb-44c5-84fa-41d2a104ae71",
@@ -1286,7 +1286,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T09:56:35.034Z",
-      "updatedAt": "2026-07-18T14:54:22.554Z"
+      "updatedAt": "2026-07-18T14:59:24.937Z"
     },
     "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c": {
       "id": "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c",
@@ -3494,6 +3494,37 @@
       "rank": 2048,
       "createdAt": "2026-07-18T14:51:10.991Z",
       "updatedAt": "2026-07-18T14:51:22.249Z"
+    },
+    "2b0f7b96-e228-4459-a69b-13d1e8e8d1bb": {
+      "id": "2b0f7b96-e228-4459-a69b-13d1e8e8d1bb",
+      "gameId": "06fa060e-74ed-4aca-9c6b-b4734b90b776",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "file",
+          "assetId": "dacdce98d30e97a7d2184fff2bcef424d291a7d4a398ddc7d45f786a2463b8a1",
+          "label": "Yakuza Kiwami_20251212131729.mp4"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T15:00:41.364Z",
+      "updatedAt": "2026-07-18T15:00:41.369Z"
+    },
+    "ba27303f-5844-4345-b575-3c21e8f6445d": {
+      "id": "ba27303f-5844-4345-b575-3c21e8f6445d",
+      "gameId": "4a22bf4f-3f13-4065-b302-32c8cf0c7801",
+      "bodyMarkdown": "[Download manual](https://www.videogamemanual.com/gbc/Wario%20Land%203%20%28USA%29.pdf)",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "b9aa5d7be203aae1b733460b1ae4dce91a77821af7ed20c320a16568b71b4308",
+          "alt": "Screenshot 2026-07-18 at 6.59.18 PM"
+        }
+      ],
+      "rank": 2048,
+      "createdAt": "2026-07-18T14:59:24.932Z",
+      "updatedAt": "2026-07-18T14:59:24.937Z"
     }
   },
   "assets": {
@@ -4781,6 +4812,23 @@
       "byteLength": 454250,
       "alt": "IMAGE 2026-07-18 18:53:25",
       "originalName": "IMAGE 2026-07-18 18:53:25.jpg"
+    },
+    "b9aa5d7be203aae1b733460b1ae4dce91a77821af7ed20c320a16568b71b4308": {
+      "id": "b9aa5d7be203aae1b733460b1ae4dce91a77821af7ed20c320a16568b71b4308",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1088,
+      "height": 820,
+      "byteLength": 1127292,
+      "alt": "Screenshot 2026-07-18 at 6.59.18 PM",
+      "originalName": "Screenshot 2026-07-18 at 6.59.18 PM.png"
+    },
+    "dacdce98d30e97a7d2184fff2bcef424d291a7d4a398ddc7d45f786a2463b8a1": {
+      "id": "dacdce98d30e97a7d2184fff2bcef424d291a7d4a398ddc7d45f786a2463b8a1",
+      "kind": "file",
+      "mime": "video/mp4",
+      "byteLength": 1921771,
+      "originalName": "Yakuza Kiwami_20251212131729.mp4"
     }
   }
 }
