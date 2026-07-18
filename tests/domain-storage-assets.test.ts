@@ -13,6 +13,7 @@ import {
   libraryRevisionIsValid,
   loadPatch,
   makeExternalWebPAsset,
+  makeImageAssetMetadata,
   makeFileAsset,
   makeWebPAsset,
   optimizeNoteImage,
@@ -148,6 +149,19 @@ describe("patch creation/revert and storage recovery", () => {
     expect(reconcilePatch(published, patch).patch.blobs).toEqual({});
   });
 
+  it("never persists legacy blob payloads in localStorage", () => {
+    const storage = new MemoryStorage();
+    const base = empty();
+    const prepared = makeFileAsset(new TextEncoder().encode("local binary"), "application/octet-stream", "local.bin");
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "binary", blobs: { [prepared.asset.id]: prepared.base64 } });
+
+    expect(savePatch(storage, patch).ok).toBe(true);
+    const raw = storage.getItem(PATCH_STORAGE_KEY) ?? "";
+    expect(raw).not.toContain(prepared.base64);
+    expect(JSON.parse(raw).blobs).toEqual({});
+  });
+
   it("reuses compatible static asset metadata by SHA and keeps incompatible kinds conflicted", () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "local", "local.webp");
@@ -227,7 +241,7 @@ describe("assets and revision", () => {
 
     const optimized = await optimizeNoteImage(file, "original", encoder);
 
-    expect(optimized.asset).toEqual(makeWebPAsset(webp, 960, 1280, "original", "already.webp"));
+    expect(optimized.asset).toEqual(makeImageAssetMetadata(webp, 960, 1280, "original", "already.webp"));
     expect(optimized.byteLength).toBe(webp.byteLength);
     expect(encoder).not.toHaveBeenCalled();
   });

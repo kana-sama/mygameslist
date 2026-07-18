@@ -6,4 +6,6 @@ export * from "./storage";
 export * from "./ranks";
 export * from "./catalogue";
 export * from "./assets";
+export * from "./localAssets";
+export * from "./storageQuota";
 export * from "./youtube";

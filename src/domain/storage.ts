@@ -86,10 +86,11 @@ export function savePatch(storage: Pick<Storage, "length" | "key" | "getItem" | 
   try {
     const result = validatePatch(patch);
     if (!result.ok) return { ok: false, usage: classifyStorageUsage(webkitStorageBytes(storage)), error: new Error("Патч не прошёл проверку") };
-    const raw = JSON.stringify(patch);
+    const storedPatch: PatchEnvelope = { ...patch, blobs: {} };
+    const raw = JSON.stringify(storedPatch);
     const currentBytes = webkitStorageBytes(storage); const usage = projectedStorageUsage(storage, key, raw);
     if (!storageIncreaseAllowed(currentBytes, usage.bytes)) return { ok: false, blocked: true, usage, error: new Error("Локальное хранилище Safari заполнено на 95%") };
-    if (Object.keys(patch.operations).length === 0 && Object.keys(patch.blobs).length === 0) storage.removeItem(key); else storage.setItem(key, raw);
+    if (Object.keys(patch.operations).length === 0) storage.removeItem(key); else storage.setItem(key, raw);
     return { ok: true, usage: classifyStorageUsage(webkitStorageBytes(storage)) };
   } catch (error) {
     let usage: StorageUsage;

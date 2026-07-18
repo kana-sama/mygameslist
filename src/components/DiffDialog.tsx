@@ -28,6 +28,15 @@ export interface DiffConflictItem {
   canMergeManually?: boolean;
 }
 
+export interface LocalAssetsSummary {
+  count: number;
+  bytes: number;
+  quotaLevel: "unknown" | "ok" | "warning" | "critical" | "blocked";
+  persistent: boolean;
+  oldestCreatedAt?: number | null;
+  onFreeSpace?: () => void;
+}
+
 export interface DiffDialogProps {
   open: boolean;
   items: DiffItem[];
@@ -48,6 +57,7 @@ export interface DiffDialogProps {
   onDismissError?: () => void;
   copyPatch?: () => Promise<boolean>;
   sync?: DiffSyncController;
+  localAssets?: LocalAssetsSummary;
 }
 
 const groupLabels: Record<DiffGroupId, string> = {
@@ -95,6 +105,7 @@ export function DiffDialog({
   onDismissError,
   copyPatch,
   sync,
+  localAssets,
 }: DiffDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,6 +170,16 @@ export function DiffDialog({
       ? "Сначала разрешите все конфликты."
       : undefined;
   const syncBusy = syncSubmitting || Boolean(sync?.busy) || isDiffSyncBusy(sync?.stage);
+  const oldestLocalAssetAgeDays = localAssets?.oldestCreatedAt
+    ? Math.floor((Date.now() - localAssets.oldestCreatedAt) / (24 * 60 * 60 * 1000))
+    : 0;
+  const localAssetsLevel = localAssets?.quotaLevel === "blocked"
+    ? "blocked"
+    : localAssets?.quotaLevel === "critical" || (localAssets?.bytes ?? 0) >= 250 * 1024 * 1024
+      ? "critical"
+      : localAssets && localAssets.count > 0 && (localAssets.quotaLevel === "warning" || !localAssets.persistent || localAssets.bytes >= 100 * 1024 * 1024 || oldestLocalAssetAgeDays >= 7)
+        ? "warning"
+        : "ok";
 
   const closeSyncPanel = () => {
     setSyncOpen(false);
@@ -224,8 +245,22 @@ export function DiffDialog({
         <div className="diff-dialog__body">
           {sync ? <DiffSyncPanel blockedReason={syncBlockedReason} controller={sync} onBusyChange={setSyncSubmitting} onClose={closeSyncPanel} open={syncOpen} /> : null}
           {error ? <div className="inline-alert inline-alert--error" role="alert"><Icon name="warning" /><span>{error}</span>{onDismissError ? <button onClick={onDismissError} type="button">Скрыть</button> : null}</div> : null}
+          {localAssets ? (
+            <section aria-labelledby="local-assets-title" className={`local-assets-panel local-assets-panel--${localAssetsLevel}`}>
+              <div className="local-assets-panel__heading">
+                <div>
+                  <h3 id="local-assets-title">Локальные вложения</h3>
+                  <strong>Только на этом устройстве: {localAssets.count} {localAssets.count === 1 ? "файл" : localAssets.count > 1 && localAssets.count < 5 ? "файла" : "файлов"}, {formatBytes(localAssets.bytes)}</strong>
+                </div>
+                <span>{localAssets.quotaLevel === "unknown" ? "Лимит неизвестен" : localAssets.quotaLevel === "blocked" ? "Новые вложения заблокированы" : localAssets.quotaLevel === "critical" ? "Хранилище почти заполнено" : localAssets.quotaLevel === "warning" ? "Мало свободного места" : "Квота в норме"}</span>
+              </div>
+              {localAssets.count > 0 && !localAssets.persistent ? <p>Браузер не гарантирует постоянное хранение. Закоммитьте или экспортируйте данные.</p> : null}
+              {oldestLocalAssetAgeDays >= 7 ? <p>Самому старому локальному файлу {oldestLocalAssetAgeDays} дн.</p> : null}
+            </section>
+          ) : null}
           <div className="diff-toolbar">
-            <button className="button button--secondary" onClick={onExport} type="button"><Icon name="download" size={17} />Экспорт</button>
+            <button className="button button--secondary" onClick={onExport} type="button"><Icon name="download" size={17} />Экспортировать локальную копию</button>
+            {localAssets?.onFreeSpace ? <button className="button button--secondary button--danger-text" disabled={!localAssets.count} onClick={localAssets.onFreeSpace} type="button"><Icon name="trash" size={17} />Освободить место</button> : null}
             <button className="button button--secondary" onClick={() => fileInputRef.current?.click()} type="button"><Icon name="upload" size={17} />Импорт</button>
             <input accept="application/json,.json,.patch" hidden onChange={(event) => void importFile(event)} ref={fileInputRef} type="file" />
           </div>

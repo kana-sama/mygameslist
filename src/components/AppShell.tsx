@@ -7,6 +7,11 @@ export type AppRoute = "tiers" | "catalog" | "game" | "new";
 export interface StorageSummary {
   bytes: number;
   budgetBytes?: number;
+  localAssetCount?: number;
+  localAssetBytes?: number;
+  quotaLevel?: "unknown" | "ok" | "warning" | "critical" | "blocked";
+  persistent?: boolean;
+  oldestLocalAssetAt?: number | null;
   operationCount: number;
   conflictCount?: number;
   error?: string;
@@ -55,8 +60,22 @@ export function AppShell({
 }: AppShellProps) {
   const budget = storage.budgetBytes ?? 4 * 1024 * 1024;
   const ratio = budget ? storage.bytes / budget : 0;
-  const storageLevel = storage.error ? "error" : ratio >= 0.95 ? "blocked" : ratio >= 0.85 ? "critical" : ratio >= 0.7 ? "warning" : "ok";
-  const storageAlmostFull = storageLevel === "critical" || storageLevel === "blocked";
+  const localAssetCount = storage.localAssetCount ?? 0;
+  const localAssetBytes = storage.localAssetBytes ?? 0;
+  const localLevel = storage.quotaLevel ?? "unknown";
+  const localAgeDays = storage.oldestLocalAssetAt ? Math.floor((Date.now() - storage.oldestLocalAssetAt) / (24 * 60 * 60 * 1000)) : 0;
+  const localWarning = localAssetCount > 0 && (localLevel === "warning" || localLevel === "critical" || localLevel === "blocked" || !storage.persistent || localAssetBytes >= 100 * 1024 * 1024 || localAgeDays >= 7);
+  const storageLevel = storage.error
+    ? "error"
+    : localLevel === "blocked" || ratio >= 0.95
+      ? "blocked"
+      : localLevel === "critical" || localAssetBytes >= 250 * 1024 * 1024 || ratio >= 0.85
+        ? "critical"
+        : localWarning || ratio >= 0.7
+          ? "warning"
+          : "ok";
+  const storageNeedsAttention = storageLevel === "warning" || storageLevel === "critical" || storageLevel === "blocked";
+  const displayedBytes = storage.bytes + localAssetBytes;
 
   return (
     <div className="app-shell" data-route={route}>
@@ -68,7 +87,7 @@ export function AppShell({
         </nav>
         <div className="app-header__actions">
           <button
-            aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(storage.bytes)}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageAlmostFull ? ", хранилище почти заполнено" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}
+            aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(displayedBytes)}${localAssetCount ? `, локальных файлов: ${localAssetCount}` : ""}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageNeedsAttention ? ", хранилище требует внимания" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}
             className={`patch-pill patch-pill--${storageLevel}`}
             onClick={onOpenDiff}
             title={storage.error}
@@ -77,9 +96,10 @@ export function AppShell({
             <span className="patch-pill__pulse" aria-hidden="true" />
             <span>Локальные правки</span>
             <strong>{storage.operationCount}</strong>
-            <span className="patch-pill__size">{formatBytes(storage.bytes)}</span>
+            <span className="patch-pill__size">{formatBytes(displayedBytes)}</span>
             {storage.conflictCount ? <span className="patch-pill__conflicts" aria-label={`${storage.conflictCount} конфликтов`}><Icon name="warning" size={15} /></span> : null}
           </button>
+          {storage.error ? <span className="visually-hidden" role="alert">{storage.error}</span> : null}
           <a className="button button--primary button--new-game" href="#/games/new" onClick={onNavigate ? (event) => { event.preventDefault(); onNavigate("#/games/new"); } : undefined}>
             <Icon name="plus" size={18} />Добавить игру
           </a>

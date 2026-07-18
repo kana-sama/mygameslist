@@ -4,10 +4,11 @@ import { Icon } from "./Icon";
 
 export interface PreparedImage {
   clientId: string;
+  assetId: string;
   mime: "image/webp";
   width: number;
   height: number;
-  base64: string;
+  blob: Blob;
   alt: string;
   originalName: string;
   byteLength: number;
@@ -18,7 +19,7 @@ export interface ImagePickerProps {
   label?: string;
   alt?: string;
   currentPreviewUrl?: string | null;
-  canAddBlob?: (byteLength: number) => string | null;
+  canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
   onPrepare: (image: PreparedImage) => boolean | void | Promise<boolean | void>;
   onDraftChange?: (dirty: boolean) => void;
   onRemove?: () => void;
@@ -61,18 +62,18 @@ export function ImagePicker({
     try {
       const imageAlt = alt.trim() || file.name.replace(/\.[^.]+$/, "");
       const optimized = mode === "cover" ? await optimizeCover(file, imageAlt) : await optimizeNoteImage(file, imageAlt);
-      if (optimized.asset.kind !== undefined) throw new Error("Не удалось подготовить изображение");
-      const storageError = canAddBlob?.(optimized.byteLength);
+      const storageError = await canAddBlob?.(optimized.byteLength);
       if (storageError) {
         setError(storageError);
         return;
       }
       const prepared: PreparedImage = {
         clientId: crypto.randomUUID(),
+        assetId: optimized.asset.id,
         mime: "image/webp",
         width: optimized.asset.width,
         height: optimized.asset.height,
-        base64: optimized.asset.base64,
+        blob: optimized.blob,
         alt: optimized.asset.alt,
         originalName: optimized.asset.originalName,
         byteLength: optimized.byteLength,
@@ -145,7 +146,7 @@ export function ImagePicker({
             type="file"
           />
           {currentPreviewUrl && onRemove ? (
-            <button className="button button--ghost button--danger-text" disabled={disabled || busy} onClick={onRemove} type="button">
+            <button className="button button--ghost button--danger-text" disabled={busy} onClick={onRemove} type="button">
               <Icon name="trash" size={17} />Удалить
             </button>
           ) : null}

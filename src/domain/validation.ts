@@ -335,7 +335,6 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     if (asset.byteLength !== bytes.byteLength) issue(issues, `/operations/assets/${id}/value/byteLength`, "Размер asset не совпадает с blob");
     if (asset.kind === "image" && (bytes.length < 12 || String.fromCharCode(...bytes.subarray(0, 4)) !== "RIFF" || String.fromCharCode(...bytes.subarray(8, 12)) !== "WEBP")) issue(issues, `/blobs/${id}`, "Изображение blob не является WebP");
   }
-  for (const id of blobAssets.keys()) if (!(id in blobs)) issue(issues, `/blobs/${id}`, "Для локального asset отсутствует blob");
   return issues.length ? { ok: false, issues } : { ok: true, value: value as unknown as PatchEnvelope, issues };
 }
 

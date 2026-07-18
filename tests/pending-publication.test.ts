@@ -109,6 +109,11 @@ describe("pending GitHub publication", () => {
     const empty = diffLibrary(pending.database, pending.database);
     expect(installPendingPublication(storage, pending, empty)).toEqual({ ok: true });
     expect(storage.getItem("my-game-library.patch.v1")).toBeNull();
+    const stored = JSON.parse(storage.getItem(PENDING_PUBLICATION_STORAGE_KEY) ?? "null");
+    expect(stored.version).toBe(2);
+    expect(stored.assetIds).toEqual(Object.keys(pending.blobs));
+    expect(stored).not.toHaveProperty("blobs");
+    expect(storage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toContain(Object.values(pending.blobs)[0]);
     expect(loadPendingPublication(storage).receipt?.commitSha).toBe("a".repeat(40));
     expect(clearPendingPublication(storage)).toBe(true);
     expect(storage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).toBeNull();

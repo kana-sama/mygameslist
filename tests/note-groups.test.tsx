@@ -205,8 +205,7 @@ describe("anonymous note groups", () => {
     expect(group).toHaveAttribute("tabindex", "-1");
   });
 
-  it("creates one unsaved note from a mixed file drop and checks quota cumulatively", async () => {
-    const user = userEvent.setup();
+  it("preflights a mixed file drop as one batch before reading any file", async () => {
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     const canAddBlob = vi.fn((byteLength: number) => byteLength > 5 ? "Файл не помещается в localStorage Safari" : null);
     render(<GamePage assets={{}} canAddBlob={canAddBlob} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
@@ -216,18 +215,10 @@ describe("anonymous note groups", () => {
 
     fireEvent(group, fileDragEvent("drop", fileTransfer([first, second])));
 
-    const video = await screen.findByLabelText("Видео «run.MP4»");
-    expect(video).toHaveAttribute("src", "data:video/mp4;base64,MTIzNA==");
-    expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
     expect(await screen.findByRole("alert")).toHaveTextContent("Файл не помещается в localStorage Safari");
-    expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([4, 6]);
+    expect(screen.queryByLabelText("Видео «run.MP4»")).not.toBeInTheDocument();
+    expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([6]);
     expect(onSave).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    const created = onSave.mock.calls[0][0].notes.find((item) => item.clientId !== NOTE_A_ID)!;
-    expect(created).toMatchObject({ groupRank: 1024, rank: 2048 });
-    expect(created.attachments).toEqual([expect.objectContaining({ type: "pending-file", label: "run.MP4" })]);
   });
 
   it("creates an attachment draft by dropping anywhere in the trailing empty group", async () => {
@@ -306,7 +297,7 @@ describe("anonymous note groups", () => {
     expect(dragOver.defaultPrevented).toBe(true);
     expect(drop.defaultPrevented).toBe(true);
     expect(group).not.toHaveClass("is-file-over");
-    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeEnabled();
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 

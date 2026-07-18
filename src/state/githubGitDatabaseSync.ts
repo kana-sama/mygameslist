@@ -6,6 +6,7 @@ import {
   finalizePublishedDatabase,
   isCanonicalBase64,
   reconcilePatch,
+  sha256Bytes,
   type Asset,
   type LibraryDatabase,
   type PatchConflict,
@@ -196,14 +197,30 @@ function resolveCommitMessage(value: GitHubCommitMessage | undefined, before: Li
 interface MediaWrite {
   id: string;
   path: string;
-  base64: string;
+  source: string | Blob;
 }
 
-function materializeMedia(database: LibraryDatabase, patch: PatchEnvelope): MediaWrite[] {
-  return Object.entries(patch.blobs).sort(([left], [right]) => left.localeCompare(right)).map(([id, base64]) => {
+function localAssetOperationIds(patch: PatchEnvelope): string[] {
+  return Object.entries(patch.operations).flatMap(([path, operation]) => {
+    const match = /^\/assets\/([0-9a-f]{64})$/.exec(path);
+    return match && operation.operation === "set" && operation.baseExists === false ? [match[1]] : [];
+  });
+}
+
+function bytesToCanonicalBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunk) binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + chunk)));
+  return btoa(binary);
+}
+
+function materializeMedia(database: LibraryDatabase, patch: PatchEnvelope, localMedia: Record<string, Blob>): MediaWrite[] {
+  return localAssetOperationIds(patch).sort().map((id) => {
     const asset = database.assets[id];
     if (!asset) throw new GitHubSyncError("invalid_response", "Patch blob has no matching published asset");
-    return { id, path: mediaPath(id, asset), base64 };
+    const source = localMedia[id] ?? patch.blobs[id];
+    if (!source) throw new GitHubSyncError("invalid_response", "Для локального asset отсутствует Blob в IndexedDB");
+    return { id, path: mediaPath(id, asset), source };
   });
 }
 
@@ -322,7 +339,7 @@ export class GitHubGitDatabaseSyncClient {
     return { database: structuredClone(database), headSha, treeSha, libraryBlobSha };
   }
 
-  async publishPatch(patch: PatchEnvelope): Promise<GitHubSyncResult> {
+  async publishPatch(patch: PatchEnvelope, localMedia: Record<string, Blob> = {}): Promise<GitHubSyncResult> {
     const latest = await this.fetchLatestLibrary();
     this.stage("validating");
     assertValidPatch(patch);
@@ -351,15 +368,23 @@ export class GitHubGitDatabaseSyncClient {
     const published = finalizePublishedDatabase(applied, publicationId);
     assertValidPublishedLibrary(published);
     const message = resolveCommitMessage(this.commitMessage, latest.database, published, this.token);
-    const mediaWrites = materializeMedia(published, reconciliation.patch);
+    const mediaWrites = materializeMedia(published, reconciliation.patch, localMedia);
     const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string }> = [];
 
     this.stage("uploading");
     for (const media of mediaWrites) {
       assertWritablePath(media.path);
+      let base64: string;
+      if (typeof media.source === "string") base64 = media.source;
+      else {
+        const bytes = new Uint8Array(await media.source.arrayBuffer());
+        const asset = published.assets[media.id];
+        if (bytes.byteLength !== asset.byteLength || sha256Bytes(bytes) !== media.id) throw new GitHubSyncError("invalid_response", "Локальный Blob не совпадает с metadata перед публикацией");
+        base64 = bytesToCanonicalBase64(bytes);
+      }
       const created = expectObject(await this.request(`${this.repositoryPath}/git/blobs`, {
         method: "POST",
-        body: JSON.stringify({ content: media.base64, encoding: "base64" }),
+        body: JSON.stringify({ content: base64, encoding: "base64" }),
       }), "created media blob");
       treeEntries.push({ path: media.path, mode: "100644", type: "blob", sha: expectGitSha(created.sha, "created media blob SHA") });
     }

@@ -126,7 +126,7 @@ describe("AppShell", () => {
   it("keeps low-storage feedback in the header instead of rendering notifications", () => {
     render(<AppShell onOpenDiff={vi.fn()} route="catalog" storage={{ bytes: 86, budgetBytes: 100, operationCount: 3 }}><div>Каталог</div></AppShell>);
 
-    expect(screen.getByRole("button", { name: "Локальные правки: 3, 86 Б, хранилище почти заполнено" })).toHaveClass("patch-pill--critical");
+    expect(screen.getByRole("button", { name: "Локальные правки: 3, 86 Б, хранилище требует внимания" })).toHaveClass("patch-pill--critical");
     expect(screen.queryByText("Осталось мало места")).not.toBeInTheDocument();
     expect(screen.queryByText("Правки живут только в этом Safari")).not.toBeInTheDocument();
   });
@@ -135,7 +135,7 @@ describe("AppShell", () => {
     render(<AppShell onOpenDiff={vi.fn()} route="tiers" storage={{ bytes: 12, error: "Safari отклонил запись", operationCount: 2 }}><div>Тирлист</div></AppShell>);
 
     expect(screen.getByRole("button", { name: "Локальные правки: 2, 12 Б, ошибка: Safari отклонил запись" })).toHaveClass("patch-pill--error");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Safari отклонил запись");
   });
 });
 
@@ -308,7 +308,7 @@ describe("GamePage", () => {
     );
 
     expect(screen.queryByText(/Хранилище Safari заполнено/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toBeEnabled();
   });
 
   it("guards the shared header navigation while a draft is unsaved", async () => {
@@ -881,7 +881,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     vi.mocked(optimizeNoteImage).mockResolvedValue({
-      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.png" },
+      asset: { id: "a".repeat(64), kind: "image", mime: "image/webp", width: 20, height: 10, byteLength: 4, alt: "Карта", originalName: "map.png" },
       blob: new Blob(["webp"], { type: "image/webp" }),
       byteLength: 4,
     });
@@ -961,12 +961,12 @@ describe("GamePage", () => {
     expect(droppedVideo).toHaveAttribute("playsinline");
     expect(droppedVideo).toHaveAttribute("preload", "metadata");
     expect(droppedVideo).not.toHaveAttribute("autoplay");
-    expect(droppedVideo).toHaveAttribute("src", "data:video/mp4;base64,ZHJvcA==");
+    expect(droppedVideo.getAttribute("src")).toMatch(/^blob:.*#t=0\.001$/);
 
     const picked = new File(["picked"], "picked.mp4", { type: "video/mp4" });
     const fileInput = view.container.querySelector<HTMLInputElement>('input[aria-label="Выбрать файлы"]')!;
     fireEvent.change(fileInput, { target: { files: [picked] } });
-    expect(await screen.findByLabelText("Видео «picked.mp4»")).toHaveAttribute("src", "data:video/mp4;base64,cGlja2Vk");
+    expect((await screen.findByLabelText("Видео «picked.mp4»")).getAttribute("src")).toMatch(/^blob:.*#t=0\.001$/);
 
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -979,6 +979,7 @@ describe("GamePage", () => {
 
   it("preflights the optimized image size even when Safari leaves its MIME empty", async () => {
     const user = userEvent.setup();
+    vi.mocked(optimizeNoteImage).mockClear();
     const canAddBlob = vi.fn(() => "Изображение не помещается в локальное хранилище Safari");
     const note: Note = {
       id: NOTE_ID,
@@ -990,7 +991,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     vi.mocked(optimizeNoteImage).mockResolvedValue({
-      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.webp" },
+      asset: { id: "a".repeat(64), kind: "image", mime: "image/webp", width: 20, height: 10, byteLength: 4, alt: "Карта", originalName: "map.webp" },
       blob: new Blob(["webp"], { type: "image/webp" }),
       byteLength: 4,
     });
@@ -1002,8 +1003,8 @@ describe("GamePage", () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Изображение не помещается в локальное хранилище Safari");
-    expect(optimizeNoteImage).toHaveBeenCalledWith(file, "map");
-    expect(canAddBlob).toHaveBeenCalledWith(4);
+    expect(optimizeNoteImage).not.toHaveBeenCalled();
+    expect(canAddBlob).toHaveBeenCalledWith(file.size);
     expect(screen.queryByRole("img", { name: "map" })).not.toBeInTheDocument();
   });
 
@@ -1021,7 +1022,7 @@ describe("GamePage", () => {
       updatedAt: NOW,
     };
     vi.mocked(optimizeNoteImage).mockResolvedValue({
-      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "Карта", originalName: "map.webp" },
+      asset: { id: "a".repeat(64), kind: "image", mime: "image/webp", width: 20, height: 10, byteLength: 4, alt: "Карта", originalName: "map.webp" },
       blob: new Blob(["webp"], { type: "image/webp" }),
       byteLength: 4,
     });
@@ -1034,7 +1035,7 @@ describe("GamePage", () => {
     const image = await screen.findByRole("img", { name: "map" });
     expect(image.closest(".note-group")).toHaveAttribute("data-note-group-rank", "2048");
     expect(optimizeNoteImage).toHaveBeenCalledWith(file, "map");
-    expect(canAddBlob).toHaveBeenCalledWith(4);
+    expect(canAddBlob).toHaveBeenCalledWith(file.size);
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -1061,7 +1062,7 @@ describe("GamePage", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Файл не помещается в localStorage Safari");
     expect(canAddBlob.mock.calls.map(([byteLength]) => byteLength)).toEqual([4, 6]);
-    expect(read).toHaveBeenCalledTimes(1);
+    expect(read).not.toHaveBeenCalled();
     expect(screen.queryByRole("link", { name: /second\.dat/ })).not.toBeInTheDocument();
   });
 
@@ -1350,7 +1351,7 @@ describe("GamePage", () => {
     expect(editor.closest("article")).toHaveAttribute("aria-busy", "true");
     await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
     finishImage({
-      asset: { id: "a".repeat(64), mime: "image/webp", width: 20, height: 10, base64: "V0VCUA==", alt: "secret", originalName: "secret.png" },
+      asset: { id: "a".repeat(64), kind: "image", mime: "image/webp", width: 20, height: 10, byteLength: 4, alt: "secret", originalName: "secret.png" },
       blob: new Blob(["webp"], { type: "image/webp" }),
       byteLength: 4,
     });
@@ -1452,7 +1453,7 @@ describe("DiffDialog", () => {
     expect(importInput).toHaveAttribute("hidden");
 
     const openImportPicker = vi.spyOn(importInput!, "click");
-    await user.click(screen.getByRole("button", { name: "Экспорт" }));
+    await user.click(screen.getByRole("button", { name: "Экспортировать локальную копию" }));
     expect(onExport).toHaveBeenCalledTimes(1);
     expect(openImportPicker).not.toHaveBeenCalled();
 

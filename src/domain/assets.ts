@@ -62,12 +62,22 @@ export function makeExternalWebPAsset(bytes: Uint8Array, width: number, height: 
   return externalizeWebPAsset(makeWebPAsset(bytes, width, height, alt, originalName));
 }
 
+export function makeImageAssetMetadata(bytes: Uint8Array, width: number, height: number, alt = "", originalName = "image.webp"): ImageAsset {
+  if (!isWebP(bytes)) throw new Error("Файл не является WebP");
+  return { id: sha256Bytes(bytes), kind: "image", mime: "image/webp", width, height, byteLength: bytes.byteLength, alt, originalName };
+}
+
 export function makeFileAsset(bytes: Uint8Array, mime: string, originalName: string): { asset: FileAsset; base64: string } {
   const normalizedMime = mime.trim() || "application/octet-stream";
   return {
     asset: { id: sha256Bytes(bytes), kind: "file", mime: normalizedMime, byteLength: bytes.byteLength, originalName },
     base64: bytesToBase64(bytes),
   };
+}
+
+export function makeFileAssetMetadata(bytes: Uint8Array, mime: string, originalName: string): FileAsset {
+  const normalizedMime = mime.trim() || "application/octet-stream";
+  return { id: sha256Bytes(bytes), kind: "file", mime: normalizedMime, byteLength: bytes.byteLength, originalName };
 }
 
 export function isImageAsset(asset: Asset): asset is ImageAsset { return asset.kind === "image"; }
@@ -98,7 +108,7 @@ export function publishedAssetUrl(asset: Asset, baseUrl: string): string {
   return `${root}media/${asset.id}.${extension}`;
 }
 
-export interface OptimizedImage { asset: LegacyImageAsset; blob: Blob; byteLength: number }
+export interface OptimizedImage { asset: ImageAsset; blob: Blob; byteLength: number }
 
 interface CropRect { x: number; y: number; width: number; height: number }
 export type WebPEncoder = (image: ImageData, quality: number) => Promise<Uint8Array>;
@@ -165,7 +175,7 @@ async function render(file: File, image: HTMLImageElement, outputWidth: number, 
   context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
   context.drawImage(image, source.x, source.y, source.width, source.height, 0, 0, outputWidth, outputHeight);
   const bytes = await canvasToWebPBytes(canvas); const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
-  return { asset: makeWebPAsset(bytes, outputWidth, outputHeight, alt, file.name), blob, byteLength: bytes.byteLength };
+  return { asset: makeImageAssetMetadata(bytes, outputWidth, outputHeight, alt, file.name), blob, byteLength: bytes.byteLength };
 }
 
 export async function optimizeCover(file: File, alt = ""): Promise<OptimizedImage> {
@@ -185,7 +195,7 @@ export async function optimizeNoteImage(file: File, alt = "", encoder: LosslessW
   const originalBytes = new Uint8Array(await file.arrayBuffer());
   if (isWebP(originalBytes)) {
     const blob = new Blob([originalBytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
-    return { asset: makeWebPAsset(originalBytes, width, height, alt, file.name), blob, byteLength: originalBytes.byteLength };
+    return { asset: makeImageAssetMetadata(originalBytes, width, height, alt, file.name), blob, byteLength: originalBytes.byteLength };
   }
 
   const canvas = document.createElement("canvas");
@@ -196,5 +206,5 @@ export async function optimizeNoteImage(file: File, alt = "", encoder: LosslessW
   context.drawImage(image, 0, 0, width, height);
   const bytes = await canvasToLosslessWebPBytes(canvas, encoder);
   const blob = new Blob([bytes.slice().buffer as ArrayBuffer], { type: "image/webp" });
-  return { asset: makeWebPAsset(bytes, width, height, alt, file.name), blob, byteLength: bytes.byteLength };
+  return { asset: makeImageAssetMetadata(bytes, width, height, alt, file.name), blob, byteLength: bytes.byteLength };
 }

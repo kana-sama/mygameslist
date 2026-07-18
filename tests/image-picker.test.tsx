@@ -13,10 +13,11 @@ vi.mock("../src/domain/assets", () => assetMocks);
 const optimized = {
   asset: {
     id: "asset-id",
+    kind: "image" as const,
     mime: "image/webp" as const,
     width: 512,
     height: 512,
-    base64: "UklGRgAAAABXRUJQ",
+    byteLength: 12,
     alt: "Обложка игры",
     originalName: "cover.png",
   },
@@ -46,7 +47,7 @@ describe("ImagePicker", () => {
 
     await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(1));
     expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "Обложка игры");
-    expect(onPrepare).toHaveBeenCalledWith(expect.objectContaining({ mime: "image/webp", width: 512, height: 512, base64: optimized.asset.base64 }));
+    expect(onPrepare).toHaveBeenCalledWith(expect.objectContaining({ assetId: optimized.asset.id, mime: "image/webp", width: 512, height: 512, blob: optimized.blob }));
     expect(onDraftChange.mock.calls).toEqual([[true], [false]]);
     expect(screen.queryByRole("button", { name: /Подготовить WebP/ })).not.toBeInTheDocument();
     expect(view.container.querySelector('input[type="range"]')).not.toBeInTheDocument();

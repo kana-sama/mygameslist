@@ -19,7 +19,7 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const GIT_OBJECT_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 
 export interface PendingPublicationReceipt {
-  version: 1;
+  version: 1 | 2;
   owner: string;
   repo: string;
   branch: string;
@@ -27,13 +27,18 @@ export interface PendingPublicationReceipt {
   commitSha: string;
   createdAt: string;
   database: LibraryDatabase;
-  blobs: Record<string, string>;
+  assetIds?: string[];
+  blobs?: Record<string, string>;
 }
 
 export interface PendingPublicationLoadResult {
   receipt: PendingPublicationReceipt | null;
   raw: string | null;
   error: Error | null;
+}
+
+export function pendingPublicationAssetIds(receipt: PendingPublicationReceipt): string[] {
+  return receipt.assetIds ?? Object.keys(receipt.blobs ?? {});
 }
 
 type PublicationStorage = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">;
@@ -48,10 +53,13 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[]):
 }
 
 export function assertValidPendingPublication(value: unknown): asserts value is PendingPublicationReceipt {
-  if (!isObject(value) || !exactKeys(value, ["version", "owner", "repo", "branch", "sourceRevision", "commitSha", "createdAt", "database", "blobs"])) {
+  if (!isObject(value) || value.version !== 1 && value.version !== 2) {
     throw new Error("Некорректная запись ожидающей публикации");
   }
-  if (value.version !== 1) throw new Error("Неподдерживаемая версия ожидающей публикации");
+  const expected = value.version === 1
+    ? ["version", "owner", "repo", "branch", "sourceRevision", "commitSha", "createdAt", "database", "blobs"]
+    : ["version", "owner", "repo", "branch", "sourceRevision", "commitSha", "createdAt", "database", "assetIds"];
+  if (!exactKeys(value, expected)) throw new Error("Некорректная запись ожидающей публикации");
   if (typeof value.owner !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(value.owner)) throw new Error("Некорректный владелец репозитория");
   if (typeof value.repo !== "string" || !/^[A-Za-z0-9._-]+$/.test(value.repo)) throw new Error("Некорректный репозиторий");
   if (typeof value.branch !== "string" || !/^[A-Za-z0-9._/-]+$/.test(value.branch)) throw new Error("Некорректная ветка");
@@ -60,12 +68,17 @@ export function assertValidPendingPublication(value: unknown): asserts value is 
   if (typeof value.createdAt !== "string" || Number.isNaN(Date.parse(value.createdAt))) throw new Error("Некорректная дата публикации");
   assertValidPublishedLibrary(value.database);
   if (value.database.publicationId === null) throw new Error("У ожидающей публикации отсутствует publicationId");
-  if (!isObject(value.blobs)) throw new Error("Некорректный кеш файлов публикации");
-  for (const [id, encoded] of Object.entries(value.blobs)) {
-    if (!SHA256.test(id) || typeof encoded !== "string" || !isCanonicalBase64(encoded)) throw new Error("Некорректный файл ожидающей публикации");
-    const bytes = base64ToBytes(encoded);
-    const asset = value.database.assets[id];
-    if (!asset || sha256Bytes(bytes) !== id || asset.byteLength !== bytes.byteLength) throw new Error("Файл ожидающей публикации не совпадает с базой");
+  if (value.version === 1) {
+    if (!isObject(value.blobs)) throw new Error("Некорректный кеш файлов публикации");
+    for (const [id, encoded] of Object.entries(value.blobs)) {
+      if (!SHA256.test(id) || typeof encoded !== "string" || !isCanonicalBase64(encoded)) throw new Error("Некорректный файл ожидающей публикации");
+      const bytes = base64ToBytes(encoded);
+      const asset = value.database.assets[id];
+      if (!asset || sha256Bytes(bytes) !== id || asset.byteLength !== bytes.byteLength) throw new Error("Файл ожидающей публикации не совпадает с базой");
+    }
+  } else {
+    if (!Array.isArray(value.assetIds) || new Set(value.assetIds).size !== value.assetIds.length) throw new Error("Некорректный список файлов публикации");
+    for (const id of value.assetIds) if (typeof id !== "string" || !SHA256.test(id) || !value.database.assets[id]) throw new Error("Файл ожидающей публикации не совпадает с базой");
   }
 }
 
@@ -118,9 +131,11 @@ export function installPendingPublication(
     return { ok: false, error: new Error("Safari не разрешил доступ к localStorage") };
   }
 
-  const pendingRaw = JSON.stringify(receipt);
-  const patchIsEmpty = Object.keys(remainingPatch.operations).length === 0 && Object.keys(remainingPatch.blobs).length === 0;
-  const patchRaw = patchIsEmpty ? null : JSON.stringify(remainingPatch);
+  const normalizedReceipt: PendingPublicationReceipt = { ...receipt, version: 2, assetIds: pendingPublicationAssetIds(receipt) };
+  delete normalizedReceipt.blobs;
+  const pendingRaw = JSON.stringify(normalizedReceipt);
+  const patchIsEmpty = Object.keys(remainingPatch.operations).length === 0;
+  const patchRaw = patchIsEmpty ? null : JSON.stringify({ ...remainingPatch, blobs: {} });
   try {
     const currentBytes = webkitStorageBytes(storage);
     const previousBytes = (previousPatch === null ? 0 : webkitStringBytes(PATCH_STORAGE_KEY, previousPatch))

@@ -6,7 +6,9 @@ import {
   bytesToBase64,
   diffLibrary,
   makeExternalWebPAsset,
+  readLocalAsset,
   savePatch,
+  sha256Bytes,
   withComputedRevision,
   type Asset,
   type Game,
@@ -94,6 +96,7 @@ function Probe() {
     <span data-testid="title">{Object.values(library.effective.games)[0]?.title ?? "empty"}</span>
     <span data-testid="operations">{Object.keys(library.patch.operations).length}</span>
     <span data-testid="conflicts">{library.conflicts.length}</span>
+    <span data-testid="local-assets">{library.localAssets.length}</span>
     <button onClick={() => {
       try { library.moveGame(GAME_ID, "s", 0); }
       catch (error) { (document.querySelector("[data-testid='mutation-error']") as HTMLElement).textContent = error instanceof Error ? error.message : String(error); }
@@ -159,7 +162,7 @@ function FileProbe({ preparedFile }: { preparedFile: PreparedFile }) {
   return <div>
     <span data-testid="file-loading">{String(library.loading)}</span>
     <span data-testid="file-kind">{fileAsset?.kind ?? "none"}</span>
-    <span data-testid="file-blob-count">{Object.keys(library.patch.blobs).length}</span>
+    <span data-testid="file-blob-count">{library.localAssets.length}</span>
     <span data-testid="file-url">{fileAsset ? library.resolveAssetUrl(fileAsset.id) : "none"}</span>
     <button onClick={() => saveNotes(true)} type="button">Прикрепить файл</button>
     <button onClick={() => saveNotes(false)} type="button">Удалить файл</button>
@@ -285,6 +288,21 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     expect(Object.keys(stored.operations)).toEqual([`/games/${GAME_ID}/title`]);
   });
 
+  it("migrates legacy patch blobs into IndexedDB before stripping localStorage", async () => {
+    const base = empty();
+    const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 8, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "legacy", "legacy.webp");
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "legacy-blob", blobs: { [prepared.asset.id]: prepared.base64 } });
+    localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patch));
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    await waitFor(() => expect(screen.getByTestId("local-assets")).toHaveTextContent("1"));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).not.toContain(prepared.base64);
+    expect((await readLocalAsset(prepared.asset.id))?.byteLength).toBe(prepared.asset.byteLength);
+  });
+
   it("restores a local patch after remount and prunes it once the same value is published", async () => {
     const base = empty();
     const local = structuredClone(base);
@@ -306,6 +324,7 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     const published = withComputedRevision({ ...local, publicationId: "22222222-2222-4222-8222-222222222222" });
     mockStaticDatabase(published);
     render(<LibraryProvider><Probe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
     await waitFor(() => expect(screen.getByTestId("operations")).toHaveTextContent("0"));
     expect(screen.getByTestId("title")).toHaveTextContent("Local DuckTales");
     expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
@@ -337,7 +356,8 @@ describe("LibraryProvider asset garbage collection", () => {
   it("keeps an unreferenced static asset after deleting its seeded game", async () => {
     const staticAsset = webpAsset(0, "static cover");
     mockStaticDatabase(seededDatabase(staticAsset));
-    render(<LibraryProvider><AssetProbe localCover={{ base64: "", width: 1, height: 1, alt: "", originalName: "unused.webp" }} /></LibraryProvider>);
+    const unusedBytes = new Uint8Array([82, 73, 70, 70, 9, 0, 0, 0, 87, 69, 66, 80]);
+    render(<LibraryProvider><AssetProbe localCover={{ clientId: "unused", assetId: sha256Bytes(unusedBytes), blob: new Blob([unusedBytes]), mime: "image/webp", width: 1, height: 1, alt: "", originalName: "unused.webp", byteLength: unusedBytes.byteLength }} /></LibraryProvider>);
 
     await waitFor(() => expect(screen.getByTestId("asset-loading")).toHaveTextContent("false"));
     fireEvent.click(screen.getByRole("button", { name: "Удалить seeded game" }));
@@ -350,8 +370,9 @@ describe("LibraryProvider asset garbage collection", () => {
   it("retains the static cover across replacement and collects a newly unused local cover", async () => {
     const staticAsset = webpAsset(0, "static cover");
     const localAsset = webpAsset(1, "local cover");
+    const localBytes = new Uint8Array([82, 73, 70, 70, 1, 0, 0, 0, 87, 69, 66, 80]);
     mockStaticDatabase(seededDatabase(staticAsset));
-    render(<LibraryProvider><AssetProbe localCover={{ base64: bytesToBase64(new Uint8Array([82, 73, 70, 70, 1, 0, 0, 0, 87, 69, 66, 80])), width: 1, height: 1, alt: localAsset.alt, originalName: localAsset.originalName }} /></LibraryProvider>);
+    render(<LibraryProvider><AssetProbe localCover={{ clientId: "local", assetId: localAsset.id, blob: new Blob([localBytes], { type: "image/webp" }), mime: "image/webp", width: 1, height: 1, alt: localAsset.alt, originalName: localAsset.originalName, byteLength: localBytes.byteLength }} /></LibraryProvider>);
 
     await waitFor(() => expect(screen.getByTestId("asset-loading")).toHaveTextContent("false"));
     fireEvent.click(screen.getByRole("button", { name: "Поставить локальную обложку" }));
@@ -367,25 +388,25 @@ describe("LibraryProvider asset garbage collection", () => {
     expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${staticAsset.id}`);
   });
 
-  it("stores file bytes only in V2 blobs and garbage-collects the local asset", async () => {
+  it("stores file bytes only in IndexedDB and retains a safe orphan after metadata removal", async () => {
     const draft = empty(); draft.games[GAME_ID] = game("Static game");
     mockStaticDatabase(withComputedRevision(draft));
     const bytes = new Uint8Array([1, 2, 3, 4]);
-    render(<LibraryProvider><FileProbe preparedFile={{ clientId: "file", mime: "application/octet-stream", base64: bytesToBase64(bytes), originalName: "save.dat", byteLength: bytes.byteLength }} /></LibraryProvider>);
+    render(<LibraryProvider><FileProbe preparedFile={{ clientId: "file", assetId: sha256Bytes(bytes), mime: "application/octet-stream", blob: new Blob([bytes]), originalName: "save.dat", byteLength: bytes.byteLength }} /></LibraryProvider>);
 
     await waitFor(() => expect(screen.getByTestId("file-loading")).toHaveTextContent("false"));
     fireEvent.click(screen.getByRole("button", { name: "Прикрепить файл" }));
     await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("file"));
     expect(screen.getByTestId("file-blob-count")).toHaveTextContent("1");
-    expect(screen.getByTestId("file-url")).toHaveTextContent("data:application/octet-stream;base64,AQIDBA==");
+    expect(screen.getByTestId("file-url")).toHaveTextContent("blob:");
     const stored = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as { patchVersion: number; blobs: Record<string, string>; operations: Record<string, { value?: unknown }> };
     expect(stored.patchVersion).toBe(2);
-    expect(Object.values(stored.blobs)).toEqual(["AQIDBA=="]);
+    expect(stored.blobs).toEqual({});
     expect(JSON.stringify(stored.operations)).not.toContain("AQIDBA==");
 
     fireEvent.click(screen.getByRole("button", { name: "Удалить файл" }));
     await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("none"));
-    expect(screen.getByTestId("file-blob-count")).toHaveTextContent("0");
+    expect(screen.getByTestId("file-blob-count")).toHaveTextContent("1");
     expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
   });
 });

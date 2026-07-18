@@ -30,7 +30,6 @@ import {
   PUBLISH_CLIPBOARD_COMMAND,
   copyText,
   createPublishPayload,
-  downloadPatch,
 } from "./state/publishCommand";
 import {
   GITHUB_REPOSITORY_NAME,
@@ -225,7 +224,11 @@ function LibraryRoutes() {
 
   const showError = (error: unknown) => setActionError(error instanceof Error ? error.message : String(error));
   const navigateHref = (href: string) => navigate(href.startsWith("#") ? href.slice(1) || "/" : href);
-  const exportPatch = () => downloadPatch(library.patch);
+  const exportPatch = () => { void library.exportRecoveryArchive().catch(showError); };
+  const freeLocalAssetSpace = () => {
+    if (!window.confirm("Удалить все локальные копии вложений? Неопубликованные ссылки на них также будут удалены; текст сохранится.")) return;
+    void library.deleteAllLocalAssets().catch(showError);
+  };
   const copyPatch = async () => {
     try {
       await copyText(publishPayload);
@@ -336,6 +339,11 @@ function LibraryRoutes() {
       storage={{
         bytes: library.usage.bytes,
         budgetBytes: library.usage.budget,
+        localAssetCount: library.localAssets.length,
+        localAssetBytes: library.localAssetBytes,
+        quotaLevel: library.attachmentsBlocked ? "blocked" : library.quotaStatus.level,
+        persistent: library.persistentStorage,
+        oldestLocalAssetAt: library.localAssets[0]?.createdAt ?? null,
         operationCount: operationEntries.length,
         conflictCount: library.conflicts.length,
         error: actionError ?? library.persistenceError ?? undefined,
@@ -375,6 +383,14 @@ function LibraryRoutes() {
         copyPatch={copyPatch}
         error={actionError ?? publishError ?? library.persistenceError ?? undefined}
         items={items}
+        localAssets={{
+          bytes: library.localAssetBytes,
+          count: library.localAssets.length,
+          oldestCreatedAt: library.localAssets[0]?.createdAt ?? null,
+          onFreeSpace: freeLocalAssetSpace,
+          persistent: library.persistentStorage,
+          quotaLevel: library.attachmentsBlocked ? "blocked" : library.quotaStatus.level,
+        }}
         onClearAll={() => {
           if (!window.confirm("Отменить все локальные правки?")) return;
           try { library.clearPatch(); } catch (error) { showError(error); }
@@ -383,7 +399,7 @@ function LibraryRoutes() {
         onDownloadCorruptedRaw={library.corruptedPatchRaw === null ? undefined : library.downloadCorruptedPatch}
         onDismissError={actionError ? () => setActionError(null) : undefined}
         onExport={exportPatch}
-        onImport={(text) => library.importPatch(text)}
+        onImport={(text) => { void library.importPatch(text).catch(showError); }}
         onResolveConflict={(id, resolution, manualValue) => {
           try { library.resolvePatchConflict(id, resolution, manualValue); } catch (error) { showError(error); }
         }}
@@ -436,7 +452,7 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
     }}
     platformSuggestions={platformSuggestions}
     resolveAssetUrl={library.resolveAssetUrl}
-    storageLocked={library.usage.level === "blocked"}
+    storageLocked={library.attachmentsBlocked}
     tagSuggestions={tagSuggestions}
   />;
 }

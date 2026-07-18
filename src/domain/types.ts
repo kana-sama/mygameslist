@@ -121,7 +121,7 @@ export interface PatchEnvelopeV1 {
   operations: Record<string, PatchOperation>;
 }
 
-/** Browser state and exported patches always use this normalized wire shape. */
+/** `blobs` is accepted only for legacy patch import and CLI transport. Browser persistence always strips it. */
 export interface PatchEnvelope {
   patchVersion: 2;
   schemaVersion: typeof LIBRARY_SCHEMA_VERSION;

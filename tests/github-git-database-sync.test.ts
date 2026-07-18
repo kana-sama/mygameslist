@@ -266,7 +266,8 @@ describe("GitHub Git Database publication", () => {
 
   it("stores local MP4 bytes at a content-addressed allowlisted path", async () => {
     const base = databaseWithGame();
-    const prepared = makeFileAsset(new TextEncoder().encode("test mp4 bytes"), "video/mp4", "../../escape.mp4");
+    const mediaBytes = new TextEncoder().encode("test mp4 bytes");
+    const prepared = makeFileAsset(mediaBytes, "video/mp4", "../../escape.mp4");
     const local = structuredClone(base);
     local.assets[prepared.asset.id] = prepared.asset;
     local.notes[NOTE_ID] = {
@@ -281,11 +282,10 @@ describe("GitHub Git Database publication", () => {
     const patch = diffLibrary(base, local, {
       changedAt: CHANGED_AT,
       transactionId: "add-video",
-      blobs: { [prepared.asset.id]: prepared.base64 },
     });
     const api = apiMock(base);
 
-    const result = await client(api.fetch).publishPatch(patch);
+    const result = await client(api.fetch).publishPatch(patch, { [prepared.asset.id]: new Blob([mediaBytes], { type: "video/mp4" }) });
 
     const expectedPath = `public/media/${prepared.asset.id}.mp4`;
     expect(result.mediaPaths).toEqual([expectedPath]);
