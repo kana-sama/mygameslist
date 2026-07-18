@@ -20,6 +20,25 @@ function noteDiagnosticLabel(markdown: string): string {
   return quotedDiagnosticLabel(firstContentLine, "заметка без текста", 64);
 }
 
+export function assetGameTitles(database: Pick<LibraryDatabase, "games" | "notes">, assetId: string): string[] {
+  const gameIds = new Set<string>();
+  for (const game of Object.values(database.games)) {
+    if (game.coverAssetId === assetId) gameIds.add(game.id);
+  }
+  for (const note of Object.values(database.notes)) {
+    if (note.attachments.some((attachment) => attachment.type !== "link" && attachment.assetId === assetId)) gameIds.add(note.gameId);
+  }
+  return [...gameIds]
+    .map((gameId) => diagnosticLabel(database.games[gameId]?.title, "неизвестная игра", 64))
+    .sort((left, right) => left.localeCompare(right, "ru"));
+}
+
+export function describeAssetChange(database: LibraryDatabase, assetId: string, originalName = database.assets[assetId]?.originalName): string {
+  const games = assetGameTitles(database, assetId);
+  const gameSummary = games.length ? ` · ${games.slice(0, 3).join(", ")}${games.length > 3 ? ` и ещё ${games.length - 3}` : ""}` : "";
+  return `${diagnosticLabel(originalName, "файл без имени", 96)}${gameSummary}`;
+}
+
 export function describeAssetForRecovery(database: LibraryDatabase, assetId: string): string {
   const asset = database.assets[assetId];
   const references: string[] = [];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeAssetChange,
   describeAssetForRecovery,
   garbageCollectUnreferencedAssets,
   referencedAssetIds,
@@ -86,5 +87,12 @@ describe("asset reachability invariant", () => {
 
     expect(describeAssetForRecovery(current, COVER_ID)).toBe(`«${COVER_ID}.webp» (asset ${COVER_ID}; обложка игры «Game»)`);
     expect(describeAssetForRecovery(current, FILE_ID)).toBe(`«${FILE_ID}.bin» (asset ${FILE_ID}; вложение «File» в заметке «заметка без текста» игры «Game»)`);
+  });
+
+  it("labels asset changes with the original file name and owning game", () => {
+    const current = database();
+
+    expect(describeAssetChange(current, COVER_ID)).toBe(`${COVER_ID}.webp · Game`);
+    expect(describeAssetChange(current, FILE_ID)).toBe(`${FILE_ID}.bin · Game`);
   });
 });

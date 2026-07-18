@@ -17,6 +17,7 @@ import {
 } from "./components";
 import {
   PATCH_STORAGE_KEY,
+  describeAssetChange,
   parsePatchPath,
   webkitStringBytes,
   type Asset,
@@ -82,7 +83,8 @@ function entityName(
   }
   if (map === "assets") {
     const asset = effective.assets[id] ?? base.assets[id] ?? rootValue as Asset | undefined;
-    return asset?.kind === "file" ? asset.originalName || "Файл" : "Изображение";
+    const database = effective.assets[id] ? effective : base.assets[id] ? base : effective;
+    return describeAssetChange(database, id, asset?.originalName);
   }
   return "Изображение";
 }
