@@ -5,6 +5,7 @@ import {
   PATCH_STORAGE_KEY,
   bytesToBase64,
   diffLibrary,
+  localAssetDataKey,
   makeExternalWebPAsset,
   makeLocalAsset,
   readLocalAsset,
@@ -293,7 +294,7 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     expect(Object.keys(stored.operations)).toEqual([`/games/${GAME_ID}/title`]);
   });
 
-  it("migrates legacy patch blobs into IndexedDB before stripping localStorage", async () => {
+  it("migrates legacy Base64 blobs into separate localStorage records", async () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 8, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "legacy", "legacy.webp");
     const current = structuredClone(base);
@@ -376,7 +377,7 @@ describe("LibraryProvider asset garbage collection", () => {
     expect(requiredLocalAssetIds(patch, withoutNote)).toEqual([]);
   });
 
-  it("deletes an orphaned IndexedDB blob immediately during startup", async () => {
+  it("deletes an orphaned localStorage file immediately during startup", async () => {
     const bytes = new Uint8Array([9, 8, 7, 6]);
     const id = sha256Bytes(bytes);
     await writeLocalAssetsAtomic([makeLocalAsset(id, new Blob([bytes]), "application/octet-stream", "local", Date.now())]);
@@ -424,11 +425,12 @@ describe("LibraryProvider asset garbage collection", () => {
     expect(screen.getByTestId("asset-operation-paths")).toHaveTextContent(`/assets/${staticAsset.id}`);
   });
 
-  it("stores file bytes only in IndexedDB and deletes them after the final reference", async () => {
+  it("stores file bytes separately in localStorage and deletes them after the final reference", async () => {
     const draft = empty(); draft.games[GAME_ID] = game("Static game");
     mockStaticDatabase(withComputedRevision(draft));
     const bytes = new Uint8Array([1, 2, 3, 4]);
-    render(<LibraryProvider><FileProbe preparedFile={{ clientId: "file", assetId: sha256Bytes(bytes), mime: "application/octet-stream", blob: new Blob([bytes]), originalName: "save.dat", byteLength: bytes.byteLength }} /></LibraryProvider>);
+    const assetId = sha256Bytes(bytes);
+    render(<LibraryProvider><FileProbe preparedFile={{ clientId: "file", assetId, mime: "application/octet-stream", blob: new Blob([bytes]), originalName: "save.dat", byteLength: bytes.byteLength }} /></LibraryProvider>);
 
     await waitFor(() => expect(screen.getByTestId("file-loading")).toHaveTextContent("false"));
     fireEvent.click(screen.getByRole("button", { name: "Прикрепить файл" }));
@@ -439,11 +441,14 @@ describe("LibraryProvider asset garbage collection", () => {
     expect(stored.patchVersion).toBe(2);
     expect(stored.blobs).toEqual({});
     expect(JSON.stringify(stored.operations)).not.toContain("AQIDBA==");
+    expect(localStorage.getItem(localAssetDataKey(assetId))).not.toBe("AQIDBA==");
+    expect(new Uint8Array(await (await readLocalAsset(assetId))!.blob.arrayBuffer())).toEqual(bytes);
 
     fireEvent.click(screen.getByRole("button", { name: "Удалить файл" }));
     await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("none"));
     await waitFor(() => expect(screen.getByTestId("file-blob-count")).toHaveTextContent("0"));
     expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(localAssetDataKey(assetId))).toBeNull();
   });
 });
 
@@ -649,7 +654,7 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(await readLocalAsset(image.id)).toMatchObject({ state: "awaiting-verification" });
   });
 
-  it("names a missing IndexedDB file and the game that must be repaired", async () => {
+  it("names a missing localStorage file and the game that must be repaired", async () => {
     const base = empty();
     const missing = webpAsset(12, "missing cover");
     const local = structuredClone(base);

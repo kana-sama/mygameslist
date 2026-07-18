@@ -223,7 +223,7 @@ function materializeMedia(database: LibraryDatabase, patch: PatchEnvelope, local
     const asset = database.assets[id];
     if (!asset) throw new GitHubSyncError("invalid_response", "Patch blob has no matching published asset");
     const source = localMedia[id] ?? patch.blobs[id];
-    if (!source) throw new GitHubSyncError("invalid_response", `В IndexedDB отсутствует Blob для ${describeAssetForRecovery(database, id)}. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
+    if (!source) throw new GitHubSyncError("invalid_response", `В localStorage отсутствует файл для ${describeAssetForRecovery(database, id)}. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
     return { id, path: mediaPath(id, asset), source };
   });
 }
@@ -401,7 +401,7 @@ export class GitHubGitDatabaseSyncClient {
         let bytes: Uint8Array;
         try { bytes = new Uint8Array(await media.source.arrayBuffer()); }
         catch (reason) {
-          throw new GitHubSyncError("invalid_response", `Safari не может прочитать локальный файл ${description}. Blob в IndexedDB потерян или повреждён. Удалите указанную обложку или вложение и загрузите исходный файл заново. Техническая причина: ${reasonMessage(reason, this.token)}`);
+          throw new GitHubSyncError("invalid_response", `Safari не может прочитать локальный файл ${description}. Данные в localStorage повреждены. Удалите указанную обложку или вложение и загрузите исходный файл заново. Техническая причина: ${reasonMessage(reason, this.token)}`);
         }
         if (bytes.byteLength !== asset.byteLength || sha256Bytes(bytes) !== media.id) throw new GitHubSyncError("invalid_response", `Локальный файл ${description} не совпадает с сохранёнными metadata. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
         base64 = bytesToCanonicalBase64(bytes);

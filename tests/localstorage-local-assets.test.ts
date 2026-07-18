@@ -1,5 +1,4 @@
 import {
-  LOCAL_ASSET_DATABASE_NAME,
   attachmentPreflight,
   classifyOriginStorage,
   deleteLocalAssetsAtomic,
@@ -7,6 +6,7 @@ import {
   inspectLocalAssetIntegrity,
   isQuotaExceededError,
   listLocalAssets,
+  localAssetDataKey,
   makeLocalAsset,
   readLocalAsset,
   requestPersistentOriginStorage,
@@ -30,15 +30,25 @@ function emptyLibrary(): LibraryDatabase {
   return { schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} };
 }
 
-afterEach(async () => {
-  vi.restoreAllMocks();
-  await new Promise<void>((resolve) => {
-    const request = indexedDB.deleteDatabase(LOCAL_ASSET_DATABASE_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => resolve();
-    request.onblocked = () => resolve();
-  });
-});
+class FailingStorage implements Storage {
+  private readonly values = new Map<string, string>();
+  private writes = 0;
+
+  constructor(private readonly failOnWrite: number) {}
+
+  get length(): number { return this.values.size; }
+  clear(): void { this.values.clear(); }
+  getItem(key: string): string | null { return this.values.get(key) ?? null; }
+  key(index: number): string | null { return [...this.values.keys()][index] ?? null; }
+  removeItem(key: string): void { this.values.delete(key); }
+  setItem(key: string, value: string): void {
+    this.writes += 1;
+    if (this.writes === this.failOnWrite) throw new DOMException("write failed", "UnknownError");
+    this.values.set(key, String(value));
+  }
+}
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("origin storage policy", () => {
   it("calculates remaining quota and every warning level", () => {
@@ -63,7 +73,22 @@ describe("origin storage policy", () => {
   });
 });
 
-describe("atomic IndexedDB local assets", () => {
+describe("atomic localStorage assets", () => {
+  it("stores binary bytes and metadata separately without Base64", async () => {
+    const content = Uint8Array.from({ length: 256 }, (_, index) => index);
+    const item = makeLocalAsset(sha256Bytes(content), new Blob([content]), "application/octet-stream", "local", 1000);
+    await writeLocalAssetsAtomic([item]);
+
+    const storedData = localStorage.getItem(localAssetDataKey(item.id));
+    expect(storedData).not.toBeNull();
+    const base64 = btoa(String.fromCharCode(...content));
+    expect(storedData).not.toBe(base64);
+    expect(storedData).toHaveLength(Math.ceil(content.byteLength * 8 / 15));
+    expect(storedData!.length).toBeLessThan(base64.length);
+    expect([...storedData!].every((value) => value.charCodeAt(0) <= 0x7fff)).toBe(true);
+    expect(new Uint8Array(await (await readLocalAsset(item.id))!.blob.arrayBuffer())).toEqual(content);
+  });
+
   it("stores Blob and metadata together and counts exact bytes", async () => {
     const first = asset("first");
     const second = asset("second-file");
@@ -75,11 +100,22 @@ describe("atomic IndexedDB local assets", () => {
     expect(stored.every((item) => item.byteLength === item.blob.size)).toBe(true);
   });
 
-  it("aborts the whole batch when one record cannot be cloned", async () => {
+  it("reports an out-of-alphabet localStorage code unit as corrupt", async () => {
+    const item = asset("file");
+    await writeLocalAssetsAtomic([item]);
+    localStorage.setItem(localAssetDataKey(item.id), `\ud800${localStorage.getItem(localAssetDataKey(item.id))!.slice(1)}`);
+
+    const report = await inspectLocalAssetIntegrity([item.id]);
+    expect(report.valid).toEqual([]);
+    expect(report.corrupt[0]?.asset.id).toBe(item.id);
+  });
+
+  it("rolls back the whole batch when one localStorage write fails", async () => {
     const first = asset("first");
-    const invalid = Object.assign(asset("second"), { uncloneable: () => undefined });
-    await expect(writeLocalAssetsAtomic([first, invalid])).rejects.toBeTruthy();
-    expect(await listLocalAssets()).toEqual([]);
+    const second = asset("second");
+    const storage = new FailingStorage(4);
+    await expect(writeLocalAssetsAtomic([first, second], storage)).rejects.toThrow("write failed");
+    expect(await listLocalAssets(storage)).toEqual([]);
   });
 
   it("rejects a SHA mismatch before writing any metadata", async () => {
@@ -118,7 +154,7 @@ describe("atomic IndexedDB local assets", () => {
     expect((await listLocalAssets()).map((item) => item.id)).toEqual([retained.id]);
   });
 
-  it("recognizes authoritative IndexedDB quota failures", () => {
+  it("recognizes authoritative localStorage quota failures", () => {
     expect(isQuotaExceededError(new DOMException("full", "QuotaExceededError"))).toBe(true);
     expect(isQuotaExceededError(new Error("other"))).toBe(false);
   });

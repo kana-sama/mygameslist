@@ -79,7 +79,7 @@ export function AppShell({
           ? "warning"
           : "ok";
   const storageNeedsAttention = storageLevel === "warning" || storageLevel === "critical" || storageLevel === "blocked";
-  const displayedBytes = storage.bytes + localAssetBytes;
+  const displayedBytes = storage.bytes;
 
   return (
     <div className="app-shell" data-route={route}>

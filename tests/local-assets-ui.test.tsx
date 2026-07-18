@@ -15,7 +15,8 @@ describe("local-only storage UI", () => {
     const oldestCreatedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
     render(<>
       <AppShell onOpenDiff={onOpenDiff} route="catalog" storage={{
-        bytes: 120,
+        bytes: 286 * 1024 * 1024,
+        budgetBytes: 400 * 1024 * 1024,
         localAssetCount: 14,
         localAssetBytes: 286 * 1024 * 1024,
         quotaLevel: "critical",

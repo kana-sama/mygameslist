@@ -300,7 +300,7 @@ describe("GitHub Git Database publication", () => {
     expect(JSON.stringify(treeWrite?.body)).not.toContain("../");
   });
 
-  it("identifies a Safari Blob that lost its IndexedDB backing file", async () => {
+  it("identifies unreadable local file data", async () => {
     const base = databaseWithGame();
     const mediaBytes = new TextEncoder().encode("broken local video");
     const prepared = makeFileAsset(mediaBytes, "video/mp4", "boss-run.mp4");

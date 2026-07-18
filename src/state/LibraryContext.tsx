@@ -13,7 +13,6 @@ import {
   PATCH_STORAGE_KEY,
   SAFARI_SAFE_BUDGET_BYTES,
   assertValidLibrary,
-  attachmentPreflight,
   base64ToBytes,
   classifyStorageUsage,
   computeLibraryRevision,
@@ -27,6 +26,7 @@ import {
   inspectLocalAssetIntegrity,
   isQuotaExceededError,
   listLocalAssets,
+  localAssetWritePreflight,
   loadPatch,
   makeLocalAsset,
   moveGameToTier,
@@ -399,7 +399,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
                 }
                 base = structuredClone(receipt.database);
                 pendingPublication = receipt;
-                setPersistenceError(`Публикация не подтверждена, локальные Blob сохранены. ${reason instanceof Error ? reason.message : ""}`.trim());
+                setPersistenceError(`Публикация не подтверждена, локальные файлы сохранены. ${reason instanceof Error ? reason.message : ""}`.trim());
               }
             } else if (sameTarget) {
               if (receipt.version === 1 && receipt.blobs) {
@@ -466,7 +466,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           ]);
           const integrity = await inspectLocalAssetIntegrity(localIds);
           if (integrity.corrupt.length || integrity.missing.length) {
-            const details = [...integrity.missing.map((id) => `нет Blob ${id}`), ...integrity.corrupt.map(({ asset }) => `повреждён Blob ${asset.id}`)].join(", ");
+            const details = [...integrity.missing.map((id) => `нет локального файла ${id}`), ...integrity.corrupt.map(({ asset }) => `повреждён локальный файл ${asset.id}`)].join(", ");
             setPersistenceError(`Проверка локальных вложений не пройдена: ${details}`);
           }
           const removedOrphans = await deleteSafeOrphans(localIds, Date.now());
@@ -475,7 +475,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           if (removedOrphans.length) await refreshQuota();
         } catch (reason) {
           if (Object.keys(reconciled.effective.assets).some((id) => !Object.prototype.hasOwnProperty.call(base.assets, id))) {
-            setPersistenceError(reason instanceof Error ? reason.message : "IndexedDB недоступен для локальных вложений");
+            setPersistenceError(reason instanceof Error ? reason.message : "localStorage недоступен для локальных вложений");
           }
         }
         setLibraryState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication });
@@ -662,9 +662,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         const granted = await requestPersistentOriginStorage();
         setPersistentStorage(granted || await storageIsPersisted());
       }
-      const status = await refreshQuota();
-      const preflight = attachmentPreflight(status, preparedAssets.reduce((total, asset) => total + asset.byteLength, 0));
-      if (!preflight.allowed) throw new Error(preflight.reason ?? "Недостаточно места для вложений");
+      const storageError = localAssetWritePreflight(localStorage, preparedAssets.reduce((total, asset) => total + asset.byteLength, 0));
+      if (storageError) throw new Error(storageError);
       try {
         await writeLocalAssetsAtomic(preparedAssets);
         setAttachmentWriteBlocked(false);
@@ -672,8 +671,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         await refreshQuota();
         if (isQuotaExceededError(reason)) {
           setAttachmentWriteBlocked(true);
-          setPersistenceError("IndexedDB отклонил запись из-за квоты. Текст не потерян: закоммитьте, экспортируйте или удалите локальные вложения.");
-          throw new Error("Недостаточно места в IndexedDB. Закоммитьте, экспортируйте или удалите локальные вложения.");
+          setPersistenceError("localStorage отклонил запись из-за квоты. Текст не потерян: закоммитьте, экспортируйте или удалите локальные вложения.");
+          throw new Error("Недостаточно места в localStorage. Закоммитьте, экспортируйте или удалите локальные вложения.");
         }
         throw reason;
       }
@@ -794,14 +793,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     let patch = validation.value;
     if (Object.keys(patch.blobs).length) {
       const assets = localAssetsFromLegacyBlobs(patch.blobs, patchAssetMetadata(patch));
-      const status = await refreshQuota();
-      const preflight = attachmentPreflight(status, assets.reduce((total, asset) => total + asset.byteLength, 0));
-      if (!preflight.allowed) throw new Error(preflight.reason ?? "Недостаточно места для импорта");
+      const storageError = localAssetWritePreflight(localStorage, assets.reduce((total, asset) => total + asset.byteLength, 0));
+      if (storageError) throw new Error(storageError);
       try { await writeLocalAssetsAtomic(assets); }
       catch (reason) {
         if (isQuotaExceededError(reason)) {
           setAttachmentWriteBlocked(true);
-          setPersistenceError("IndexedDB отклонил импорт из-за квоты. Исходный файл импорта не изменён.");
+          setPersistenceError("localStorage отклонил импорт из-за квоты. Исходный файл импорта не изменён.");
         }
         throw reason;
       }
@@ -848,7 +846,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       mediaRecords = await readLocalAssets(snapshotLocalAssetIds);
       const availableMediaIds = new Set(mediaRecords.map((record) => record.id));
       const missingMedia = snapshotLocalAssetIds.filter((id) => !availableMediaIds.has(id));
-      if (missingMedia.length) throw new Error(`В IndexedDB отсутствуют локальные файлы: ${missingMedia.map((id) => describeAssetForRecovery(snapshotEffective, id)).join("; ")}. Удалите указанные обложки или вложения и загрузите исходные файлы заново.`);
+      if (missingMedia.length) throw new Error(`В localStorage отсутствуют локальные файлы: ${missingMedia.map((id) => describeAssetForRecovery(snapshotEffective, id)).join("; ")}. Удалите указанные обложки или вложения и загрузите исходные файлы заново.`);
       for (const record of mediaRecords) if (record.byteLength !== record.blob.size) throw new Error(`Локальный файл ${describeAssetForRecovery(snapshotEffective, record.id)} повреждён: сохранённый размер не совпадает с Blob. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
       await updateLocalAssetState(snapshotLocalAssetIds, "publishing");
       await refreshLocalAssets();
@@ -977,14 +975,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
   const canAddBlob = useCallback(async (byteLength: number): Promise<string | null> => {
     if (!Number.isSafeInteger(byteLength) || byteLength < 0) return "Некорректный размер файла";
-    if (attachmentWriteBlocked) return "Новые вложения заблокированы после отказа IndexedDB. Закоммитьте, экспортируйте или освободите место.";
+    if (attachmentWriteBlocked) return "Новые вложения заблокированы после отказа localStorage. Закоммитьте, экспортируйте или освободите место.";
     if (!persistRequestedRef.current) {
       persistRequestedRef.current = true;
       const granted = await requestPersistentOriginStorage();
       setPersistentStorage(granted || await storageIsPersisted());
     }
-    const preflight = attachmentPreflight(await refreshQuota(), byteLength);
-    return preflight.allowed ? null : preflight.reason;
+    const storageError = localAssetWritePreflight(localStorage, byteLength);
+    await refreshQuota();
+    return storageError;
   }, [attachmentWriteBlocked, refreshQuota]);
   const resolveAssetUrl = useCallback((assetId: string): string | null => {
     const asset = resolvedState.effective.assets[assetId];
