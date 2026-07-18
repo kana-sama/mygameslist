@@ -48,6 +48,27 @@ function receipt(): PendingPublicationReceipt {
   const prepared = makeFileAsset(bytes, "application/octet-stream", "save.bin");
   const draft = base();
   draft.assets[prepared.asset.id] = prepared.asset;
+  draft.games["00000000-0000-4000-8000-000000000002"] = {
+    id: "00000000-0000-4000-8000-000000000002",
+    title: "Saved game",
+    coverAssetId: null,
+    platforms: [],
+    tags: [],
+    status: "playing",
+    placement: { tierId: "unranked", rank: 1024 },
+    reviewMarkdown: "",
+    createdAt: "2026-07-17T00:00:00.000Z",
+    updatedAt: "2026-07-17T00:00:00.000Z",
+  };
+  draft.notes["00000000-0000-4000-8000-000000000003"] = {
+    id: "00000000-0000-4000-8000-000000000003",
+    gameId: "00000000-0000-4000-8000-000000000002",
+    bodyMarkdown: "",
+    attachments: [{ type: "file", assetId: prepared.asset.id, label: "Save" }],
+    rank: 1024,
+    createdAt: "2026-07-17T00:00:00.000Z",
+    updatedAt: "2026-07-17T00:00:00.000Z",
+  };
   const database = finalizePublishedDatabase(draft, "00000000-0000-4000-8000-000000000001");
   return {
     version: 1,

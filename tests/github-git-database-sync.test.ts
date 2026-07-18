@@ -300,6 +300,50 @@ describe("GitHub Git Database publication", () => {
     expect(JSON.stringify(treeWrite?.body)).not.toContain("../");
   });
 
+  it("collects asset metadata and deletes remote media after the final reference is removed", async () => {
+    const mediaBytes = new TextEncoder().encode("published save");
+    const prepared = makeFileAsset(mediaBytes, "application/octet-stream", "save.bin");
+    const draft = databaseWithGame();
+    draft.assets[prepared.asset.id] = prepared.asset;
+    draft.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "",
+      attachments: [{ type: "file", assetId: prepared.asset.id, label: "Save" }],
+      rank: 1024,
+      createdAt: CHANGED_AT,
+      updatedAt: CHANGED_AT,
+    };
+    const base = withComputedRevision(draft);
+    const local = empty();
+    const patch = diffLibrary(base, local, { changedAt: CHANGED_AT, transactionId: "delete-game" });
+    delete patch.operations[`/assets/${prepared.asset.id}`];
+    const mediaPath = `public/media/${prepared.asset.id}.bin`;
+    const api = apiMock(base, {
+      tree: {
+        sha: TREE_SHA,
+        truncated: false,
+        tree: [
+          { path: GITHUB_LIBRARY_PATH, mode: "100644", type: "blob", sha: LIBRARY_BLOB_SHA },
+          { path: mediaPath, mode: "100644", type: "blob", sha: "8".repeat(40) },
+        ],
+      },
+    });
+
+    const result = await client(api.fetch).publishPatch(patch);
+
+    expect(result.database.games).toEqual({});
+    expect(result.database.notes).toEqual({});
+    expect(result.database.assets).toEqual({});
+    expect(result.mediaPaths).toEqual([mediaPath]);
+    expect(result.reconciledPatch.operations).toHaveProperty(`/assets/${prepared.asset.id}`);
+    const treeWrite = api.requests.find((request) => request.method === "POST" && request.url.pathname.endsWith("/git/trees"));
+    expect(treeWrite?.body?.tree).toEqual([
+      { path: GITHUB_LIBRARY_PATH, mode: "100644", type: "blob", sha: CREATED_LIBRARY_BLOB_SHA },
+      { path: mediaPath, mode: "100644", type: "blob", sha: null },
+    ]);
+  });
+
   it("rejects missing or truncated library trees without writes", async () => {
     const base = databaseWithGame();
     const cases = [

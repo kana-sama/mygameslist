@@ -204,7 +204,7 @@ export async function inspectLocalAssetIntegrity(referencedIds: Iterable<string>
 
 export async function deleteSafeOrphans(referencedIds: Iterable<string>, olderThan: number, database?: IDBDatabase): Promise<string[]> {
   const referenced = new Set(referencedIds);
-  const orphans = (await listLocalAssets(database)).filter((asset) => !referenced.has(asset.id) && asset.createdAt <= olderThan && asset.state === "local");
+  const orphans = (await listLocalAssets(database)).filter((asset) => !referenced.has(asset.id) && asset.createdAt <= olderThan);
   await deleteLocalAssetsAtomic(orphans.map((asset) => asset.id), database);
   return orphans.map((asset) => asset.id);
 }

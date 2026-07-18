@@ -3,6 +3,7 @@ import {
   attachmentPreflight,
   classifyOriginStorage,
   deleteLocalAssetsAtomic,
+  deleteSafeOrphans,
   inspectLocalAssetIntegrity,
   isQuotaExceededError,
   listLocalAssets,
@@ -105,6 +106,16 @@ describe("atomic IndexedDB local assets", () => {
     expect(report.missing).toEqual(["f".repeat(64)]);
     expect(report.orphans.map((item) => item.id)).toEqual([orphan.id]);
     expect(report.totalBytes).toBe(orphan.byteLength);
+  });
+
+  it("collects unreferenced records left in any publication state", async () => {
+    const local = asset("orphan-local");
+    const publishing = asset("orphan-publishing", "publishing");
+    const retained = asset("retained-pending", "awaiting-verification");
+    await writeLocalAssetsAtomic([local, publishing, retained]);
+
+    expect((await deleteSafeOrphans([retained.id], 1000)).sort()).toEqual([local.id, publishing.id].sort());
+    expect((await listLocalAssets()).map((item) => item.id)).toEqual([retained.id]);
   });
 
   it("recognizes authoritative IndexedDB quota failures", () => {

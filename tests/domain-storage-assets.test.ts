@@ -34,6 +34,15 @@ const DATE = "2026-07-16T10:00:00.000Z";
 const game = (): Game => ({ id: GAME_ID, title: "Mario", coverAssetId: null, platforms: ["NES"], tags: [], status: "wishlist", placement: { tierId: "unranked", rank: 1024 }, reviewMarkdown: "", createdAt: DATE, updatedAt: DATE });
 const empty = (): LibraryDatabase => ({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
 
+function referenceImage(database: LibraryDatabase, assetId: string): void {
+  database.games[GAME_ID] = { ...game(), coverAssetId: assetId };
+}
+
+function referenceFile(database: LibraryDatabase, assetId: string): void {
+  database.games[GAME_ID] = game();
+  database.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "", attachments: [{ type: "file", assetId, label: "File" }], rank: 1024, createdAt: DATE, updatedAt: DATE };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -140,7 +149,7 @@ describe("patch creation/revert and storage recovery", () => {
   it("keeps blobs with asset operations and prunes them on discard or publication", () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 3, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "note", "note.webp");
-    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset; referenceImage(current, prepared.asset.id);
     const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "image", blobs: { [prepared.asset.id]: prepared.base64 } });
 
     expect(patch.blobs).toEqual({ [prepared.asset.id]: prepared.base64 });
@@ -153,7 +162,7 @@ describe("patch creation/revert and storage recovery", () => {
     const storage = new MemoryStorage();
     const base = empty();
     const prepared = makeFileAsset(new TextEncoder().encode("local binary"), "application/octet-stream", "local.bin");
-    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset; referenceFile(current, prepared.asset.id);
     const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "binary", blobs: { [prepared.asset.id]: prepared.base64 } });
 
     expect(savePatch(storage, patch).ok).toBe(true);
@@ -165,11 +174,12 @@ describe("patch creation/revert and storage recovery", () => {
   it("reuses compatible static asset metadata by SHA and keeps incompatible kinds conflicted", () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "local", "local.webp");
-    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset; referenceImage(current, prepared.asset.id);
     const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "image", blobs: { [prepared.asset.id]: prepared.base64 } });
 
     const compatible = empty();
     compatible.assets[prepared.asset.id] = { ...prepared.asset, alt: "static", originalName: "static.webp" };
+    referenceImage(compatible, prepared.asset.id);
     const reused = reconcilePatch(withComputedRevision({ ...compatible, publicationId: NOTE_ID }), patch);
     expect(reused.conflicts).toEqual([]);
     expect(reused.patch.operations).toEqual({});
@@ -178,8 +188,9 @@ describe("patch creation/revert and storage recovery", () => {
 
     const incompatible = empty();
     incompatible.assets[prepared.asset.id] = { id: prepared.asset.id, kind: "file", mime: "application/octet-stream", byteLength: prepared.asset.byteLength, originalName: "static.bin" };
+    referenceFile(incompatible, prepared.asset.id);
     const conflicted = reconcilePatch(withComputedRevision({ ...incompatible, publicationId: NOTE_ID }), patch);
-    expect(conflicted.conflicts).toHaveLength(1);
+    expect(conflicted.conflicts).toEqual(expect.arrayContaining([expect.objectContaining({ path: `/assets/${prepared.asset.id}` })]));
     expect(conflicted.patch.operations).toHaveProperty(`/assets/${prepared.asset.id}`);
     expect(conflicted.patch.blobs).toEqual({ [prepared.asset.id]: prepared.base64 });
   });
@@ -249,7 +260,7 @@ describe("assets and revision", () => {
   it("accepts note image dimensions above the old 1280 px limit", () => {
     const bytes = new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80]);
     const asset = makeExternalWebPAsset(bytes, 420, 3072, "map", "map.webp").asset;
-    const database = empty(); database.assets[asset.id] = asset;
+    const database = empty(); database.assets[asset.id] = asset; referenceImage(database, asset.id);
     expect(validateLibrary(database).ok).toBe(true);
 
     database.assets[asset.id] = { ...asset, height: MAX_WEBP_DIMENSION + 1 };
@@ -261,7 +272,7 @@ describe("assets and revision", () => {
     const first = makeExternalWebPAsset(bytes, 1, 1, "cover", "a.webp").asset;
     const second = makeExternalWebPAsset(bytes, 1, 1, "cover", "b.webp").asset;
     expect(first.id).toBe(second.id);
-    const database = empty(); database.assets[first.id] = first;
+    const database = empty(); database.assets[first.id] = first; referenceImage(database, first.id);
     expect(validateLibrary(database).ok).toBe(true);
     (database.assets[first.id] as unknown as Record<string, unknown>).base64 = bytesToBase64(bytes);
     expect(validateLibrary(database).ok).toBe(false);
@@ -270,7 +281,7 @@ describe("assets and revision", () => {
   it("validates metadata-only file assets independently from their patch blobs", () => {
     const prepared = makeFileAsset(new TextEncoder().encode("save data"), "application/octet-stream", "save.dat");
     expect(makeFileAsset(new TextEncoder().encode("save data"), "text/plain", "copy.txt").asset.id).toBe(prepared.asset.id);
-    const database = empty(); database.assets[prepared.asset.id] = prepared.asset;
+    const database = empty(); database.assets[prepared.asset.id] = prepared.asset; referenceFile(database, prepared.asset.id);
     expect(validateLibrary(database).ok).toBe(true);
 
     const current = structuredClone(database);

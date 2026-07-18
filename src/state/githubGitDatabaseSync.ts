@@ -3,7 +3,9 @@ import {
   assertValidPatch,
   assertValidPublishedLibrary,
   base64ToBytes,
+  diffLibrary,
   finalizePublishedDatabase,
+  garbageCollectUnreferencedAssets,
   isCanonicalBase64,
   reconcilePatch,
   sha256Bytes,
@@ -48,6 +50,7 @@ export interface GitHubLibrarySnapshot {
   headSha: string;
   treeSha: string;
   libraryBlobSha: string;
+  mediaPaths: string[];
 }
 
 export interface GitHubSyncResult {
@@ -320,6 +323,13 @@ export class GitHubGitDatabaseSyncClient {
     const libraryEntry = libraryEntries[0];
     if (libraryEntry.type !== "blob") throw new GitHubSyncError("invalid_response", "GitHub library path is not a blob");
     const libraryBlobSha = expectGitSha(libraryEntry.sha, "library blob SHA");
+    const mediaPaths = tree.tree.flatMap((entry) => {
+      if (!isObject(entry) || typeof entry.path !== "string" || !entry.path.startsWith("public/media/")) return [];
+      if (!GITHUB_MEDIA_PATH.test(entry.path)) throw new GitHubSyncError("invalid_response", "GitHub media directory contains an unexpected path");
+      if (entry.type !== "blob") throw new GitHubSyncError("invalid_response", "GitHub media path is not a blob");
+      return [entry.path];
+    });
+    if (new Set(mediaPaths).size !== mediaPaths.length) throw new GitHubSyncError("invalid_response", "GitHub tree contains duplicate media paths");
 
     const blob = expectObject(await this.request(`${this.repositoryPath}/git/blobs/${libraryBlobSha}`), "library blob");
     if (blob.encoding !== "base64") throw new GitHubSyncError("invalid_response", "GitHub library blob is not base64 encoded");
@@ -335,8 +345,12 @@ export class GitHubGitDatabaseSyncClient {
     catch { throw new GitHubSyncError("invalid_response", "GitHub library blob is not valid JSON"); }
     try { assertValidPublishedLibrary(database); }
     catch { throw new GitHubSyncError("invalid_response", "GitHub library data failed validation"); }
+    const publishedMedia = new Set(mediaPaths);
+    if (Object.entries(database.assets).some(([id, asset]) => !publishedMedia.has(mediaPath(id, asset)))) {
+      throw new GitHubSyncError("invalid_response", "GitHub library references a missing media file");
+    }
 
-    return { database: structuredClone(database), headSha, treeSha, libraryBlobSha };
+    return { database: structuredClone(database), headSha, treeSha, libraryBlobSha, mediaPaths: mediaPaths.sort() };
   }
 
   async publishPatch(patch: PatchEnvelope, localMedia: Record<string, Blob> = {}): Promise<GitHubSyncResult> {
@@ -358,7 +372,9 @@ export class GitHubGitDatabaseSyncClient {
       };
     }
 
-    const applied = applyPatch(latest.database, reconciliation.patch);
+    const applied = applyPatch(latest.database, reconciliation.patch, { validateResult: false });
+    garbageCollectUnreferencedAssets(applied);
+    const normalizedPatch = diffLibrary(latest.database, applied, { previousPatch: reconciliation.patch });
     let publicationId: string;
     try { publicationId = this.createPublicationId(); }
     catch (reason) {
@@ -368,8 +384,10 @@ export class GitHubGitDatabaseSyncClient {
     const published = finalizePublishedDatabase(applied, publicationId);
     assertValidPublishedLibrary(published);
     const message = resolveCommitMessage(this.commitMessage, latest.database, published, this.token);
-    const mediaWrites = materializeMedia(published, reconciliation.patch, localMedia);
-    const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string }> = [];
+    const mediaWrites = materializeMedia(published, normalizedPatch, localMedia);
+    const expectedMediaPaths = new Set(Object.entries(published.assets).map(([id, asset]) => mediaPath(id, asset)));
+    const mediaDeletes = latest.mediaPaths.filter((path) => !expectedMediaPaths.has(path));
+    const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string | null }> = mediaDeletes.map((path) => ({ path, mode: "100644", type: "blob", sha: null }));
 
     this.stage("uploading");
     for (const media of mediaWrites) {
@@ -415,8 +433,8 @@ export class GitHubGitDatabaseSyncClient {
       previousHeadSha: latest.headSha,
       commitSha,
       treeSha: createdTreeSha,
-      mediaPaths: mediaWrites.map((media) => media.path),
-      reconciledPatch: reconciliation.patch,
+      mediaPaths: [...mediaWrites.map((media) => media.path), ...mediaDeletes].sort(),
+      reconciledPatch: normalizedPatch,
       prunedOperationCount: reconciliation.prunedCount,
     };
 

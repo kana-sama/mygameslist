@@ -10,8 +10,31 @@ function databaseWithImage(width, height) {
     schemaVersion: 2,
     revision: "",
     publicationId: "11111111-1111-4111-8111-111111111111",
-    games: {},
-    notes: {},
+    games: {
+      "22222222-2222-4222-8222-222222222222": {
+        id: "22222222-2222-4222-8222-222222222222",
+        title: "Map",
+        coverAssetId: null,
+        platforms: [],
+        tags: [],
+        status: "wishlist",
+        placement: { tierId: "unranked", rank: 1024 },
+        reviewMarkdown: "",
+        createdAt: "2026-07-17T00:00:00.000Z",
+        updatedAt: "2026-07-17T00:00:00.000Z",
+      },
+    },
+    notes: {
+      "33333333-3333-4333-8333-333333333333": {
+        id: "33333333-3333-4333-8333-333333333333",
+        gameId: "22222222-2222-4222-8222-222222222222",
+        bodyMarkdown: "",
+        attachments: [{ type: "image", assetId: id, alt: "Map" }],
+        rank: 1024,
+        createdAt: "2026-07-17T00:00:00.000Z",
+        updatedAt: "2026-07-17T00:00:00.000Z",
+      },
+    },
     assets: {
       [id]: {
         id,

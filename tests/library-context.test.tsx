@@ -6,10 +6,12 @@ import {
   bytesToBase64,
   diffLibrary,
   makeExternalWebPAsset,
+  makeLocalAsset,
   readLocalAsset,
   savePatch,
   sha256Bytes,
   withComputedRevision,
+  writeLocalAssetsAtomic,
   type Asset,
   type Game,
   type LibraryDatabase,
@@ -291,7 +293,9 @@ describe("LibraryProvider patch reload and reconciliation", () => {
   it("migrates legacy patch blobs into IndexedDB before stripping localStorage", async () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 8, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "legacy", "legacy.webp");
-    const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset;
+    const current = structuredClone(base);
+    current.assets[prepared.asset.id] = prepared.asset;
+    current.games[GAME_ID] = { ...game("Legacy image"), coverAssetId: prepared.asset.id };
     const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "legacy-blob", blobs: { [prepared.asset.id]: prepared.base64 } });
     localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patch));
     mockStaticDatabase(base);
@@ -353,7 +357,20 @@ describe("LibraryProvider patch reload and reconciliation", () => {
 });
 
 describe("LibraryProvider asset garbage collection", () => {
-  it("keeps an unreferenced static asset after deleting its seeded game", async () => {
+  it("deletes an orphaned IndexedDB blob immediately during startup", async () => {
+    const bytes = new Uint8Array([9, 8, 7, 6]);
+    const id = sha256Bytes(bytes);
+    await writeLocalAssetsAtomic([makeLocalAsset(id, new Blob([bytes]), "application/octet-stream", "local", Date.now())]);
+    mockStaticDatabase(empty());
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    await waitFor(async () => expect(await readLocalAsset(id)).toBeNull());
+    expect(screen.getByTestId("local-assets")).toHaveTextContent("0");
+  });
+
+  it("deletes an unreferenced static asset together with its seeded game", async () => {
     const staticAsset = webpAsset(0, "static cover");
     mockStaticDatabase(seededDatabase(staticAsset));
     const unusedBytes = new Uint8Array([82, 73, 70, 70, 9, 0, 0, 0, 87, 69, 66, 80]);
@@ -363,11 +380,11 @@ describe("LibraryProvider asset garbage collection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Удалить seeded game" }));
 
     await waitFor(() => expect(screen.getByTestId("asset-game-count")).toHaveTextContent("0"));
-    expect(screen.getByTestId("asset-ids")).toHaveTextContent(staticAsset.id);
-    expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${staticAsset.id}`);
+    expect(screen.getByTestId("asset-ids")).not.toHaveTextContent(staticAsset.id);
+    expect(screen.getByTestId("asset-operation-paths")).toHaveTextContent(`/assets/${staticAsset.id}`);
   });
 
-  it("retains the static cover across replacement and collects a newly unused local cover", async () => {
+  it("collects both replaced static covers and newly unused local covers", async () => {
     const staticAsset = webpAsset(0, "static cover");
     const localAsset = webpAsset(1, "local cover");
     const localBytes = new Uint8Array([82, 73, 70, 70, 1, 0, 0, 0, 87, 69, 66, 80]);
@@ -377,18 +394,18 @@ describe("LibraryProvider asset garbage collection", () => {
     await waitFor(() => expect(screen.getByTestId("asset-loading")).toHaveTextContent("false"));
     fireEvent.click(screen.getByRole("button", { name: "Поставить локальную обложку" }));
     await waitFor(() => expect(screen.getByTestId("asset-cover-id")).toHaveTextContent(localAsset.id));
-    expect(screen.getByTestId("asset-ids")).toHaveTextContent(staticAsset.id);
+    expect(screen.getByTestId("asset-ids")).not.toHaveTextContent(staticAsset.id);
     expect(screen.getByTestId("asset-ids")).toHaveTextContent(localAsset.id);
 
     fireEvent.click(screen.getByRole("button", { name: "Убрать обложку" }));
     await waitFor(() => expect(screen.getByTestId("asset-cover-id")).toHaveTextContent("none"));
-    expect(screen.getByTestId("asset-ids")).toHaveTextContent(staticAsset.id);
+    expect(screen.getByTestId("asset-ids")).not.toHaveTextContent(staticAsset.id);
     expect(screen.getByTestId("asset-ids")).not.toHaveTextContent(localAsset.id);
     expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${localAsset.id}`);
-    expect(screen.getByTestId("asset-operation-paths")).not.toHaveTextContent(`/assets/${staticAsset.id}`);
+    expect(screen.getByTestId("asset-operation-paths")).toHaveTextContent(`/assets/${staticAsset.id}`);
   });
 
-  it("stores file bytes only in IndexedDB and retains a safe orphan after metadata removal", async () => {
+  it("stores file bytes only in IndexedDB and deletes them after the final reference", async () => {
     const draft = empty(); draft.games[GAME_ID] = game("Static game");
     mockStaticDatabase(withComputedRevision(draft));
     const bytes = new Uint8Array([1, 2, 3, 4]);
@@ -406,7 +423,7 @@ describe("LibraryProvider asset garbage collection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Удалить файл" }));
     await waitFor(() => expect(screen.getByTestId("file-kind")).toHaveTextContent("none"));
-    expect(screen.getByTestId("file-blob-count")).toHaveTextContent("1");
+    await waitFor(() => expect(screen.getByTestId("file-blob-count")).toHaveTextContent("0"));
     expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
   });
 });

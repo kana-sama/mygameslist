@@ -22,6 +22,7 @@ import {
   diffLibrary,
   discardOperation,
   estimateOriginStorage,
+  garbageCollectUnreferencedAssets,
   inspectLocalAssetIntegrity,
   isQuotaExceededError,
   listLocalAssets,
@@ -151,23 +152,19 @@ function patchLocalAssetIds(patch: PatchEnvelope): string[] {
   return Object.keys(patchAssetMetadata(patch)).sort();
 }
 
-function garbageCollectAssets(database: LibraryDatabase, staticAssets: LibraryDatabase["assets"]): void {
-  const referenced = new Set<string>();
-  Object.values(database.games).forEach((game) => game.coverAssetId && referenced.add(game.coverAssetId));
-  Object.values(database.notes).forEach((note) => note.attachments.forEach((attachment) => {
-    if (attachment.type === "image" || attachment.type === "file") referenced.add(attachment.assetId);
-  }));
-  Object.keys(database.assets).forEach((id) => {
-    if (!referenced.has(id) && !Object.prototype.hasOwnProperty.call(staticAssets, id)) delete database.assets[id];
-  });
-}
-
 function patchUsage(patch: PatchEnvelope): StorageUsage {
   try {
     return projectedStorageUsage(localStorage, PATCH_STORAGE_KEY, JSON.stringify(patch));
   } catch {
     return classifyStorageUsage(webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(patch)));
   }
+}
+
+function garbageCollectReconciledAssets(base: LibraryDatabase, reconciled: ReconciledPatch): ReconciledPatch {
+  if (reconciled.conflicts.length) return reconciled;
+  const effective = structuredClone(reconciled.effective);
+  if (!garbageCollectUnreferencedAssets(effective).length) return reconciled;
+  return reconcilePatch(base, diffLibrary(base, effective, { previousPatch: reconciled.patch }));
 }
 
 function samePublishedVersion(left: LibraryDatabase, right: LibraryDatabase): boolean {
@@ -308,10 +305,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     remember = false,
     pendingPublication = stateRef.current?.pendingPublication ?? null,
   ) => {
-    assertValidLibrary(reconciled.effective);
+    const normalized = garbageCollectReconciledAssets(base, reconciled);
+    assertValidLibrary(normalized.effective);
     let written;
     try {
-      written = savePatch(localStorage, reconciled.patch);
+      written = savePatch(localStorage, normalized.patch);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Safari не разрешил доступ к localStorage";
       setPersistenceError(message);
@@ -325,8 +323,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const current = stateRef.current;
     if (remember && current) undoStack.current = [...undoStack.current.slice(-49), structuredClone(current.patch)];
     setPersistenceError(null);
-    setLibraryState({ base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication });
-  }, [setLibraryState]);
+    setLibraryState({ base, effective: normalized.effective, patch: normalized.patch, conflicts: normalized.conflicts, pendingPublication });
+    const removable = localAssetsRef.current.filter((asset) => asset.state === "local" && !Object.prototype.hasOwnProperty.call(normalized.effective.assets, asset.id));
+    if (removable.length) {
+      const removableIds = new Set(removable.map((asset) => asset.id));
+      installLocalAssets(localAssetsRef.current.filter((asset) => !removableIds.has(asset.id)));
+      void deleteLocalAssetsAtomic([...removableIds]).then(() => refreshQuota()).catch(async (reason) => {
+        await refreshLocalAssets();
+        setPersistenceError(reason instanceof Error ? `Не удалось удалить неиспользуемые локальные файлы: ${reason.message}` : "Не удалось удалить неиспользуемые локальные файлы");
+      });
+    }
+  }, [installLocalAssets, refreshLocalAssets, refreshQuota, setLibraryState]);
 
   useEffect(() => {
     let active = true;
@@ -414,7 +421,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         }
         let reconciled: ReconciledPatch;
         try {
-          reconciled = reconcilePatch(base, patch);
+          reconciled = garbageCollectReconciledAssets(base, reconcilePatch(base, patch));
           assertValidLibrary(reconciled.effective);
         } catch (error) {
           patchIsCorrupted = true;
@@ -443,8 +450,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
             const details = [...integrity.missing.map((id) => `нет Blob ${id}`), ...integrity.corrupt.map(({ asset }) => `повреждён Blob ${asset.id}`)].join(", ");
             setPersistenceError(`Проверка локальных вложений не пройдена: ${details}`);
           }
-          if (patchHadLegacyBlobs || integrity.valid.length) installLocalAssets(integrity.valid);
-          void deleteSafeOrphans(localIds, Date.now() - 24 * 60 * 60 * 1000).then(() => refreshLocalAssets()).catch(() => undefined);
+          const removedOrphans = await deleteSafeOrphans(localIds, Date.now());
+          const removedIds = new Set(removedOrphans);
+          if (patchHadLegacyBlobs || integrity.valid.length) installLocalAssets(integrity.valid.filter((asset) => !removedIds.has(asset.id)));
+          if (removedOrphans.length) await refreshQuota();
         } catch (reason) {
           if (Object.keys(reconciled.effective.assets).some((id) => !Object.prototype.hasOwnProperty.call(base.assets, id))) {
             setPersistenceError(reason instanceof Error ? reason.message : "IndexedDB недоступен для локальных вложений");
@@ -504,7 +513,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         try {
           const base = structuredClone(pending.receipt.database);
           const patch = loaded.patch ?? emptyPatch(base.revision);
-          const reconciled = reconcilePatch(base, patch);
+          const reconciled = garbageCollectReconciledAssets(base, reconcilePatch(base, patch));
           assertValidLibrary(reconciled.effective);
           setCorruptedPatchRaw(null);
           setPersistenceError(null);
@@ -522,7 +531,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const loaded = loadPatch(localStorage);
       if (loaded.patch) {
         try {
-          const reconciled = reconcilePatch(current.base, loaded.patch);
+          const reconciled = garbageCollectReconciledAssets(current.base, reconcilePatch(current.base, loaded.patch));
           assertValidLibrary(reconciled.effective);
           setCorruptedPatchRaw(null);
           setLibraryState({ base: current.base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, pendingPublication: null });
@@ -617,6 +626,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (current.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
     const next = structuredClone(current.effective);
     mutator(next, current.base);
+    garbageCollectUnreferencedAssets(next);
     assertValidLibrary(next);
     const patch = diffLibrary(current.base, next, { previousPatch: current.patch });
     installReconciled(current.base, reconcilePatch(current.base, patch), true, current.pendingPublication);
@@ -651,7 +661,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       await refreshLocalAssets();
       await refreshQuota();
     }
-    mutate((database, base) => {
+    mutate((database) => {
       const now = new Date().toISOString();
       const previous = database.games[id];
       let coverAssetId = input.coverAssetId;
@@ -712,15 +722,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (note.gameId === id && !retainedNoteIds.has(note.id)) delete database.notes[note.id];
       });
 
-      garbageCollectAssets(database, base.assets);
     });
     return id;
   }, [mutate, refreshLocalAssets, refreshQuota]);
 
-  const deleteGame = useCallback((gameId: string) => mutate((database, base) => {
+  const deleteGame = useCallback((gameId: string) => mutate((database) => {
     delete database.games[gameId];
     Object.values(database.notes).forEach((note) => note.gameId === gameId && delete database.notes[note.id]);
-    garbageCollectAssets(database, base.assets);
   }), [mutate]);
 
   const moveGame = useCallback((gameId: string, tierId: TierId, index: number) => mutate((database) => {
@@ -973,11 +981,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!current) throw new Error("Библиотека ещё загружается");
     const records = await listLocalAssets();
     const unpublished = new Set(records.filter((asset) => !Object.prototype.hasOwnProperty.call(current.base.assets, asset.id)).map((asset) => asset.id));
-    if (unpublished.size) mutate((database, base) => {
+    if (unpublished.size) mutate((database) => {
       Object.values(database.games).forEach((game) => { if (game.coverAssetId && unpublished.has(game.coverAssetId)) game.coverAssetId = null; });
       Object.values(database.notes).forEach((note) => { note.attachments = note.attachments.filter((attachment) => attachment.type === "link" || !unpublished.has(attachment.assetId)); });
       unpublished.forEach((id) => delete database.assets[id]);
-      garbageCollectAssets(database, base.assets);
     });
     await deleteLocalAssetsAtomic(records.map((asset) => asset.id));
     setAttachmentWriteBlocked(false);

@@ -24,7 +24,20 @@ describe("inline asset migration", () => {
       schemaVersion: 2,
       revision: "",
       publicationId: "11111111-1111-4111-8111-111111111111",
-      games: {},
+      games: {
+        "22222222-2222-4222-8222-222222222222": {
+          id: "22222222-2222-4222-8222-222222222222",
+          title: "Synthetic game",
+          coverAssetId: id,
+          platforms: [],
+          tags: [],
+          status: "wishlist",
+          placement: { tierId: "unranked", rank: 1024 },
+          reviewMarkdown: "",
+          createdAt: "2026-07-17T00:00:00.000Z",
+          updatedAt: "2026-07-17T00:00:00.000Z",
+        },
+      },
       notes: {},
       assets: {
         [id]: {

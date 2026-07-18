@@ -237,6 +237,23 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
     });
     }
   }
+  if (isObject(value.games) && isObject(value.notes) && isObject(value.assets)) {
+    const referenced = new Set<string>();
+    for (const game of Object.values(value.games)) {
+      if (isObject(game) && typeof game.coverAssetId === "string") referenced.add(game.coverAssetId);
+    }
+    for (const note of Object.values(value.notes)) {
+      if (!isObject(note) || !Array.isArray(note.attachments)) continue;
+      for (const attachment of note.attachments) {
+        if (isObject(attachment) && (attachment.type === "image" || attachment.type === "file") && typeof attachment.assetId === "string") {
+          referenced.add(attachment.assetId);
+        }
+      }
+    }
+    for (const id of Object.keys(value.assets)) {
+      if (!referenced.has(id)) issue(issues, `/assets/${id}`, "Asset ни к чему не привязан");
+    }
+  }
   return issues.length ? { ok: false, issues } : { ok: true, value: value as unknown as LibraryDatabase, issues };
 }
 

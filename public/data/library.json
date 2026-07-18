@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "revision": "8fb380e2ff69a37139df38451a27ab939c5485e088463720647e400a777e81fd",
+  "revision": "721a86e9f68ec63c0a8c0f3a89f45ef9ad58a45505940ba75752603ba7bb561c",
   "publicationId": "7179b53b-ed54-4e46-90c2-d91b87dd4731",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
@@ -2858,16 +2858,6 @@
       "alt": "Обложка игры",
       "originalName": "image.jpeg"
     },
-    "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328": {
-      "id": "5ed87259366a5e9bd882a71fdd02e3939249072f4ae6574b4ab26f9984ab1328",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 512,
-      "height": 512,
-      "byteLength": 36820,
-      "alt": "Обложка S.S. Lucifer: Man Overboard!",
-      "originalName": "IMAGE 2026-07-17 04:17:59.jpg"
-    },
     "9300496724e2aa1637a3dff56a379e6ec733d6b0cda3de31dc9ea02daa8346c1": {
       "id": "9300496724e2aa1637a3dff56a379e6ec733d6b0cda3de31dc9ea02daa8346c1",
       "kind": "image",
@@ -2877,16 +2867,6 @@
       "byteLength": 107968,
       "alt": "IMAGE 2026-07-17 04:30:57",
       "originalName": "IMAGE 2026-07-17 04:30:57.jpg"
-    },
-    "f3c67219872d49b3185ce0aa1e17e3eec8bf504fbe89eeb0efebc1e5fba2d3cd": {
-      "id": "f3c67219872d49b3185ce0aa1e17e3eec8bf504fbe89eeb0efebc1e5fba2d3cd",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 1104,
-      "height": 1104,
-      "byteLength": 297824,
-      "alt": "IMAGE 2026-07-17 04:28:36",
-      "originalName": "IMAGE 2026-07-17 04:28:36.jpg"
     },
     "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d": {
       "id": "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d",
@@ -3765,16 +3745,6 @@
       "byteLength": 69898,
       "alt": "Обложка DuckTales",
       "originalName": "IMAGE 2026-07-17 13:53:35.jpg"
-    },
-    "ed5ea1f1ef05020ecc9c6016bf62948560feda5506a313d4fd1e04209c0ba156": {
-      "id": "ed5ea1f1ef05020ecc9c6016bf62948560feda5506a313d4fd1e04209c0ba156",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 175,
-      "height": 1280,
-      "byteLength": 33906,
-      "alt": "IMG_2040",
-      "originalName": "IMG_2040.PNG"
     },
     "43f0f981c185097a0bb188289087e445f2b110bf1a3dbfb5dffdec2a59e1a5d9": {
       "id": "43f0f981c185097a0bb188289087e445f2b110bf1a3dbfb5dffdec2a59e1a5d9",

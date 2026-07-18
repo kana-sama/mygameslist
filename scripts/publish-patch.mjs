@@ -16,7 +16,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, linkSync, lstatSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, linkSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { spawnSync } from "node:child_process";
@@ -44,6 +44,7 @@ const ROOTS = new Set(["games", "notes", "assets"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_RE = /^[0-9a-f]{64}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+const MEDIA_FILE_RE = /^[0-9a-f]{64}\.(?:webp|mp4|bin)$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const FIELDS = {
   games: new Set(["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"]),
@@ -236,6 +237,7 @@ export function applyPatch(database, patch) {
 
   for (const [id, changedAt] of gameTimes) if (next.games[id]) next.games[id].updatedAt = changedAt;
   for (const [id, changedAt] of noteTimes) if (next.notes[id]) next.notes[id].updatedAt = changedAt;
+  garbageCollectPublishedAssets(next);
   next.publicationId = randomUUID();
   next.revision = "";
   next.revision = computeRevision(next);
@@ -332,6 +334,17 @@ function preparePublishedAssets(database, blobBytes) {
   return { database: next, sources };
 }
 
+function garbageCollectPublishedAssets(database) {
+  const referenced = new Set();
+  for (const game of Object.values(database.games)) if (game.coverAssetId) referenced.add(game.coverAssetId);
+  for (const note of Object.values(database.notes)) {
+    for (const attachment of note.attachments) {
+      if (attachment.type === "image" || attachment.type === "file") referenced.add(attachment.assetId);
+    }
+  }
+  for (const id of Object.keys(database.assets)) if (!referenced.has(id)) delete database.assets[id];
+}
+
 function safeMediaRoot(root, create = false) {
   const publicRoot = path.join(root, "public");
   const publicStat = lstatSync(publicRoot);
@@ -371,10 +384,14 @@ function verifyPublishedMedia(root, database) {
 function prepareMediaWrites(root, database, sources) {
   const { mediaRoot, exists } = safeMediaRoot(root);
   const writes = [];
+  const deletions = [];
   const preexistingSourceFiles = [];
   const commitPaths = [];
+  const writePaths = [];
+  const expectedFiles = new Set();
   for (const [id, asset] of Object.entries(database.assets)) {
     const fileName = externalAssetFilename(id, asset);
+    expectedFiles.add(fileName);
     const filePath = externalAssetPath(mediaRoot, id, asset);
     const relativePath = path.posix.join("public", "media", fileName);
     const bytes = sources.get(id);
@@ -386,9 +403,32 @@ function prepareMediaWrites(root, database, sources) {
     } else {
       writes.push({ filePath, relativePath, bytes });
     }
-    if (bytes) commitPaths.push(relativePath);
+    if (bytes) {
+      commitPaths.push(relativePath);
+      writePaths.push(relativePath);
+    }
   }
-  return { writes, preexistingSourceFiles, commitPaths: [...new Set(commitPaths)].sort() };
+  if (exists) {
+    for (const entry of readdirSync(mediaRoot, { withFileTypes: true })) {
+      if (expectedFiles.has(entry.name)) continue;
+      if (!entry.isFile() || entry.isSymbolicLink() || !MEDIA_FILE_RE.test(entry.name)) {
+        throw new Error(`Unexpected entry in public/media: ${entry.name}`);
+      }
+      const filePath = path.join(mediaRoot, entry.name);
+      const stat = lstatSync(filePath);
+      const relativePath = path.posix.join("public", "media", entry.name);
+      const tracked = git(root, ["ls-files", "--error-unmatch", "--", relativePath], { allowFailure: true }).status === 0;
+      deletions.push({ filePath, relativePath, bytes: readFileSync(filePath), mode: stat.mode & 0o777 });
+      if (tracked) commitPaths.push(relativePath);
+    }
+  }
+  return {
+    writes,
+    deletions,
+    preexistingSourceFiles,
+    commitPaths: [...new Set(commitPaths)].sort(),
+    writePaths: [...new Set(writePaths)].sort(),
+  };
 }
 
 function git(root, args, options = {}) {
@@ -533,6 +573,7 @@ export function publishPatchInRepository(root, patch) {
   const tempPath = `${dataPath}.tmp-${process.pid}`;
   const mediaTempPaths = [];
   const createdMediaPaths = [];
+  const deletedMedia = [];
   const transaction = { gitStageAttempted: false, jjMutationAttempted: false };
   let createdMediaRoot = false;
   let dataReplaced = false;
@@ -550,11 +591,15 @@ export function publishPatchInRepository(root, patch) {
         unlinkSync(tempMediaPath);
       }
     }
+    for (const item of media.deletions) {
+      unlinkSync(item.filePath);
+      deletedMedia.push(item);
+    }
     writeFileSync(tempPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o644, flag: "wx" });
     renameSync(tempPath, dataPath);
     dataReplaced = true;
     git(root, ["diff", "--check", "--", ...commitPaths]);
-    commitLibraryUpdate(root, commitPaths, media.commitPaths, kind, commit.message, transaction);
+    commitLibraryUpdate(root, commitPaths, media.writePaths, kind, commit.message, transaction);
   } catch (cause) {
     const rollbackFailures = [];
     if (kind === "git" && transaction.gitStageAttempted) {
@@ -577,6 +622,11 @@ export function publishPatchInRepository(root, patch) {
     }
     for (const filePath of createdMediaPaths) {
       removeRollbackPath(filePath, rollbackFailures, `remove created ${path.relative(root, filePath)}`);
+    }
+    for (const item of [...deletedMedia].reverse()) {
+      collectRollbackFailure(rollbackFailures, `restore deleted ${item.relativePath}`, () => {
+        if (!existsSync(item.filePath)) writeFileSync(item.filePath, item.bytes, { mode: item.mode, flag: "wx" });
+      });
     }
     if (createdMediaRoot) {
       collectRollbackFailure(rollbackFailures, "remove created public/media directory", () => rmdirSync(path.join(root, "public", "media")));

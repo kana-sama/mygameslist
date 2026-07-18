@@ -8,7 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -98,6 +98,21 @@ export function validateLibrary(database, options = {}) {
   for (const [id, asset] of Object.entries(assets)) validateAsset(id, asset, `$.assets.${id}`, error);
   for (const [id, game] of Object.entries(games)) validateGame(id, game, assets, `$.games.${id}`, error);
   for (const [id, note] of Object.entries(notes)) validateNote(id, note, games, assets, `$.notes.${id}`, error);
+  const referencedAssets = new Set();
+  for (const game of Object.values(games)) {
+    if (isPlainObject(game) && typeof game.coverAssetId === "string") referencedAssets.add(game.coverAssetId);
+  }
+  for (const note of Object.values(notes)) {
+    if (!isPlainObject(note) || !Array.isArray(note.attachments)) continue;
+    for (const attachment of note.attachments) {
+      if (isPlainObject(attachment) && (attachment.type === "image" || attachment.type === "file") && typeof attachment.assetId === "string") {
+        referencedAssets.add(attachment.assetId);
+      }
+    }
+  }
+  for (const id of Object.keys(assets)) {
+    if (SHA256_RE.test(id) && !referencedAssets.has(id)) error(`$.assets.${id}`, "is not referenced by any game or note");
+  }
   if (database.revision === "") {
     const hasContent = [games, notes, assets].some(
       (record) => Object.keys(record).length > 0,
@@ -111,33 +126,43 @@ export function validateLibrary(database, options = {}) {
 
   if (mediaRoot !== null) {
     const externalAssets = Object.entries(assets);
-    let safeMediaDirectory = externalAssets.length === 0;
-    if (externalAssets.length > 0) {
-      try {
-        const resolvedMediaRoot = path.resolve(mediaRoot);
-        const ancestors = [path.dirname(path.dirname(resolvedMediaRoot)), path.dirname(resolvedMediaRoot)];
-        const unsafeAncestor = ancestors.find((directory) => {
-          const stat = lstatSync(directory);
-          return stat.isSymbolicLink() || !stat.isDirectory();
-        });
-        if (unsafeAncestor) {
-          error("$.assets", `media ancestor must be a real directory, not a symlink: ${unsafeAncestor}`);
+    const resolvedMediaRoot = path.resolve(mediaRoot);
+    let safeMediaDirectory = false;
+    try {
+      const ancestors = [path.dirname(path.dirname(resolvedMediaRoot)), path.dirname(resolvedMediaRoot)];
+      const unsafeAncestor = ancestors.find((directory) => {
+        const stat = lstatSync(directory);
+        return stat.isSymbolicLink() || !stat.isDirectory();
+      });
+      if (unsafeAncestor) {
+        error("$.assets", `media ancestor must be a real directory, not a symlink: ${unsafeAncestor}`);
+      } else {
+        const mediaStat = lstatSync(resolvedMediaRoot);
+        if (mediaStat.isSymbolicLink() || !mediaStat.isDirectory()) {
+          error("$.assets", "media root must be a real directory, not a symlink");
         } else {
-          const mediaStat = lstatSync(resolvedMediaRoot);
-          if (mediaStat.isSymbolicLink() || !mediaStat.isDirectory()) {
-            error("$.assets", "media root must be a real directory, not a symlink");
-          } else {
-            safeMediaDirectory = true;
-          }
+          safeMediaDirectory = true;
         }
-      } catch (cause) {
-        if (cause?.code === "ENOENT") error("$.assets", `media directory is missing: ${mediaRoot}`);
-        else error("$.assets", `cannot inspect media directory: ${cause.message}`);
       }
+    } catch (cause) {
+      if (cause?.code === "ENOENT") {
+        if (externalAssets.length > 0) error("$.assets", `media directory is missing: ${mediaRoot}`);
+      } else error("$.assets", `cannot inspect media directory: ${cause.message}`);
     }
     if (safeMediaDirectory) {
       for (const [id, asset] of externalAssets) {
         validateExternalAssetFile(mediaRoot, id, asset, `$.assets.${id}`, error);
+      }
+      const expectedFiles = new Set(externalAssets.flatMap(([id, asset]) => {
+        try { return [externalAssetFilename(id, asset)]; }
+        catch { return []; }
+      }));
+      for (const entry of readdirSync(resolvedMediaRoot, { withFileTypes: true })) {
+        if (!entry.isFile() || entry.isSymbolicLink()) {
+          error("$.assets", `unexpected non-file entry in media directory: ${entry.name}`);
+        } else if (!expectedFiles.has(entry.name)) {
+          error("$.assets", `unreferenced media file: ${entry.name}`);
+        }
       }
     }
   }
