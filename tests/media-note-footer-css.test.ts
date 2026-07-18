@@ -36,6 +36,18 @@ describe("note card footer", () => {
     expect(styles).not.toContain("note-card--playable-media");
   });
 
+  it("keeps hovered footer actions above the add-note slot", () => {
+    const activeCard = declarations(".note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within");
+    const footer = declarations(".note-card__actions");
+    const addSlot = declarations(".note-group-add-slot");
+    const activeCardLayer = Number(/z-index:\s*(\d+)/.exec(activeCard)?.[1]);
+    const footerLayer = Number(/z-index:\s*(\d+)/.exec(footer)?.[1]);
+    const addSlotLayer = Number(/z-index:\s*(\d+)/.exec(addSlot)?.[1]);
+
+    expect(activeCardLayer).toBeGreaterThan(addSlotLayer);
+    expect(footerLayer).toBeGreaterThan(addSlotLayer);
+  });
+
   it("keeps footer actions visible on coarse pointers", () => {
     expect(styles).not.toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card:not\(\.note-card--editing\) \{[^}]*padding-bottom/);
     expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.note-card__actions \{[^}]*min-height:\s*49px;[^}]*opacity:\s*1;[^}]*pointer-events:\s*auto;/);
