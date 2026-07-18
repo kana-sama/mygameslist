@@ -478,6 +478,7 @@ function PlainNoteEditor({
   const imageQueue = useRef<Promise<void>>(Promise.resolve());
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLElement>(null);
   const initialFilesSource = useRef(takeInitialFiles);
   const attachmentFirstAction = useRef<HTMLButtonElement>(null);
   const pendingJobs = useRef(0);
@@ -493,6 +494,23 @@ function PlainNoteEditor({
   const attachmentPickerId = useId();
   noteRef.current = note;
   processingChange.current = onProcessingChange;
+  useLayoutEffect(() => {
+    if (!autoFocus) return;
+    let settleFrame = 0;
+    const layoutFrame = window.requestAnimationFrame(() => {
+      settleFrame = window.requestAnimationFrame(() => {
+        const editor = editorRef.current;
+        const textarea = editor?.querySelector<HTMLTextAreaElement>('textarea[aria-label="Текст заметки"]');
+        if (!editor || !textarea) return;
+        textarea.focus({ preventScroll: true });
+        editor.scrollIntoView?.({ behavior: "auto", block: "nearest", inline: "nearest" });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(layoutFrame);
+      if (settleFrame) window.cancelAnimationFrame(settleFrame);
+    };
+  }, [autoFocus, note.clientId]);
   useEffect(() => {
     active.current = true;
     return () => { active.current = false; if (pendingJobs.current > 0) processingChange.current?.(false); };
@@ -580,11 +598,10 @@ function PlainNoteEditor({
   };
 
   return (
-    <article aria-busy={processingImages} className="note-card note-card--editing">
+    <article aria-busy={processingImages} className="note-card note-card--editing" data-note-id={note.clientId} ref={editorRef}>
       {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
       <PlainMarkdownTextarea
         aria-label="Текст заметки"
-        autoFocus={autoFocus}
         className="plain-markdown-textarea"
         imagesDisabled={storageLocked}
         onChange={(bodyMarkdown) => onChange({ ...noteRef.current, bodyMarkdown })}
@@ -912,13 +929,14 @@ function useNoteGroupFileDrop(disabled: boolean, onFiles: (files: File[]) => voi
   };
 }
 
-function NoteGroupAddButton({ groupRank, label, disabled, onCreate }: {
+function NoteGroupAddButton({ groupRank, label, text, disabled, onCreate }: {
   groupRank?: number;
   label: string;
+  text: string;
   disabled: boolean;
   onCreate: () => void;
 }) {
-  return <div className="note-group-add-slot"><button aria-label={label} className="note-group-add-button" data-note-group-rank={groupRank} disabled={disabled} onClick={onCreate} title={label} type="button"><Icon name="plus" size={14} /></button></div>;
+  return <div className="note-group-add-slot"><button aria-label={label} className="note-group-add-button" data-note-group-rank={groupRank} disabled={disabled} onClick={onCreate} title={label} type="button"><Icon name="plus" size={14} /><span>{text}</span></button></div>;
 }
 
 function EmptyNoteGroup({ groupRank, disabled, filesDisabled = false, onCreate, onFiles }: { groupRank: number; disabled: boolean; filesDisabled?: boolean; onCreate: () => void; onFiles: (files: File[]) => void }) {
@@ -928,7 +946,7 @@ function EmptyNoteGroup({ groupRank, disabled, filesDisabled = false, onCreate, 
     disabled,
   });
   const fileDrop = useNoteGroupFileDrop(disabled || filesDisabled, onFiles);
-  return <div {...fileDrop.handlers} aria-label="Новая группа заметок" className={`note-empty-group${isOver ? " is-over" : ""}${fileDrop.active ? " is-file-over" : ""}`} data-note-group-rank={groupRank} onPointerDown={(event) => { if (event.pointerType === "touch") event.currentTarget.focus({ preventScroll: true }); }} ref={setNodeRef} role="group" tabIndex={-1}><NoteGroupAddButton disabled={disabled} groupRank={groupRank} label="Добавить заметку в новую группу" onCreate={onCreate} /></div>;
+  return <div {...fileDrop.handlers} aria-label="Новая группа заметок" className={`note-empty-group${isOver ? " is-over" : ""}${fileDrop.active ? " is-file-over" : ""}`} data-note-group-rank={groupRank} ref={setNodeRef} role="group" tabIndex={-1}><NoteGroupAddButton disabled={disabled} groupRank={groupRank} label="Добавить заметку в новую группу" onCreate={onCreate} text="Новая группа" /></div>;
 }
 
 function DroppableNoteGroup({ groupRank, count, disabled, filesDisabled = false, label, children, onFiles }: {
@@ -946,11 +964,12 @@ function DroppableNoteGroup({ groupRank, count, disabled, filesDisabled = false,
     disabled,
   });
   const fileDrop = useNoteGroupFileDrop(disabled || filesDisabled, onFiles);
-  return <div {...fileDrop.handlers} aria-label={label} className={`note-group${isOver ? " is-over" : ""}${fileDrop.active ? " is-file-over" : ""}`} data-note-group-rank={groupRank} onPointerDown={(event) => { if (event.pointerType === "touch") event.currentTarget.focus({ preventScroll: true }); }} ref={setNodeRef} role="group" tabIndex={-1}>{children}</div>;
+  return <div {...fileDrop.handlers} aria-label={label} className={`note-group${isOver ? " is-over" : ""}${fileDrop.active ? " is-file-over" : ""}`} data-note-group-rank={groupRank} ref={setNodeRef} role="group" tabIndex={-1}>{children}</div>;
 }
 
-function SortableDraftNoteEditor({ note, disabled, dropIndicatorEdge, assets, storageLocked, canAddBlob, resolveAssetUrl, extraActions, takeInitialFiles, onChange, onProcessingChange }: {
+function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndicatorEdge, assets, storageLocked, canAddBlob, resolveAssetUrl, extraActions, takeInitialFiles, onChange, onProcessingChange }: {
   note: EditableNote;
+  autoFocus?: boolean;
   disabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   assets: Record<string, Asset>;
@@ -969,7 +988,7 @@ function SortableDraftNoteEditor({ note, disabled, dropIndicatorEdge, assets, st
     data: { type: "note", clientId: note.clientId, groupRank: noteGroupRank(note) },
     disabled,
   });
-  return <div className={`note-editor-sortable${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={setNodeRef}><PlainNoteEditor assets={assets} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} /></div>;
+  return <div className={`note-editor-sortable${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={setNodeRef}><PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} /></div>;
 }
 
 function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
@@ -1120,7 +1139,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
-          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
+          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} index={index} key={note.clientId} note={note} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
         </section>
       </div>
     </div>
@@ -1136,6 +1155,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   const coverPreview = useBlobUrl(pendingCover?.blob);
   const [dirty, setDirty] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
   const [activeDraftNoteId, setActiveDraftNoteId] = useState<string | null>(null);
+  const [newDraftNoteId, setNewDraftNoteId] = useState<string | null>(null);
   const [draftDropIndicator, setDraftDropIndicator] = useState<{ clientId: string; edge: NoteDropEdge } | null>(null);
   const initialDraftNoteFiles = useRef(new Map<string, File[]>());
   const noteFileDrag = useNoteFileDragReveal();
@@ -1159,6 +1179,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
     if (storageLocked && files.length) return;
     const clientId = crypto.randomUUID();
     if (files.length) initialDraftNoteFiles.current.set(clientId, files);
+    if (!files.length) setNewDraftNoteId(clientId);
     setDraftNotes((values) => [...values, {
       clientId,
       bodyMarkdown: "",
@@ -1200,7 +1221,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
       <form aria-label="Новая игра" className="game-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <section className="form-card form-card--cover"><ImagePicker alt={title ? `Обложка ${title}` : "Обложка игры"} canAddBlob={canAddBlob} currentPreviewUrl={coverPreview} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={(image) => { setPendingCover(image); setDirty(true); }} onRemove={() => { setPendingCover(null); setCoverDraftDirty(false); setDirty(true); }} /></section>
         <section className="form-card form-card--main"><label className="field-group"><span className="field-label">Название *</span><input autoFocus onChange={(event) => change(setTitle)(event.currentTarget.value)} placeholder="Например, DuckTales" value={title} /></label><div className="form-grid"><TagInput label="Платформы" onChange={change(setPlatforms)} placeholder="NES, Switch, PC…" suggestions={platformSuggestions} values={platforms} /><TagInput label="Теги" onChange={change(setTags)} placeholder="platformer, mario…" suggestions={tagSuggestions} values={tags} /><label className="field-group"><span className="field-label">Статус</span><span className="select-wrap"><select onChange={(event) => change(setStatus)(event.currentTarget.value as StatusId)} value={status}>{STATUS_IDS.map((item) => <option key={item} value={item}>{STATUS_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label><label className="field-group"><span className="field-label">Тир</span><span className="select-wrap"><select onChange={(event) => change(setTierId)(event.currentTarget.value as TierId)} value={tierId}>{TIER_IDS.map((item) => <option key={item} value={item}>{TIER_LABELS[item]}</option>)}</select><Icon name="chevron-down" size={17} /></span></label></div></section>
-        <section {...noteFileDrag.handlers} aria-label="Заметки" className={`form-card--wide notes-editor${noteFileDrag.active ? " is-file-dragging" : ""}`}><DndContext autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishDraftNoteDrag} onDragEnd={endDraftNoteDrag} onDragOver={updateDraftDropIndicator} onDragStart={({ active }) => { setDraftDropIndicator(null); setActiveDraftNoteId(String(active.data.current?.clientId ?? "")); }} sensors={draftNoteSensors}><SortableContext items={draftNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{draftNoteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={draftSortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => addDraftNote(group.groupRank, files)}><ShelfGrid className="note-editors-grid" layoutKey={group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")} packingFrozen={activeDraftNoteId !== null}>{group.notes.map((note, index) => <SortableDraftNoteEditor assets={assets} canAddBlob={canAddBlob} disabled={draftSortingDisabled} dropIndicatorEdge={draftDropIndicator?.clientId === note.clientId ? draftDropIndicator.edge : null} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === group.notes.length - 1} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { initialDraftNoteFiles.current.delete(note.clientId); setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialDraftNoteFiles.current.get(note.clientId) ?? []; initialDraftNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><NoteGroupAddButton disabled={draftSortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => addDraftNote(group.groupRank)} /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={saving} filesDisabled={storageLocked} groupRank={emptyDraftGroupRank} onCreate={() => addDraftNote(emptyDraftGroupRank)} onFiles={(files) => addDraftNote(emptyDraftGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} /> : null}</DragOverlay></DndContext></section>
+        <section {...noteFileDrag.handlers} aria-label="Заметки" className={`form-card--wide notes-editor${noteFileDrag.active ? " is-file-dragging" : ""}`}><DndContext autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishDraftNoteDrag} onDragEnd={endDraftNoteDrag} onDragOver={updateDraftDropIndicator} onDragStart={({ active }) => { setDraftDropIndicator(null); setActiveDraftNoteId(String(active.data.current?.clientId ?? "")); }} sensors={draftNoteSensors}><SortableContext items={draftNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{draftNoteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={draftSortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => addDraftNote(group.groupRank, files)}><ShelfGrid className="note-editors-grid" layoutKey={group.notes.map((note) => `${note.clientId}:${note.rank}`).join("|")} packingFrozen={activeDraftNoteId !== null}>{group.notes.map((note, index) => <SortableDraftNoteEditor assets={assets} autoFocus={newDraftNoteId === note.clientId} canAddBlob={canAddBlob} disabled={draftSortingDisabled} dropIndicatorEdge={draftDropIndicator?.clientId === note.clientId ? draftDropIndicator.edge : null} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index - 1)); setDirty(true); }} type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === group.notes.length - 1} onClick={() => { setDraftNotes(moveDraftNoteToGroup(draftNotes, note.clientId, group.groupRank, index + 1)); setDirty(true); }} type="button">↓</button><button aria-label="Удалить заметку" onClick={() => { initialDraftNoteFiles.current.delete(note.clientId); setDraftNotes((values) => values.filter((item) => item.clientId !== note.clientId)); setNoteProcessing(note.clientId, false); setDirty(true); }} type="button"><Icon name="trash" size={14} /></button></>} key={note.clientId} note={note} onChange={(value) => updateNote(note.clientId, value)} onProcessingChange={(processing) => setNoteProcessing(note.clientId, processing)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialDraftNoteFiles.current.get(note.clientId) ?? []; initialDraftNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><NoteGroupAddButton disabled={draftSortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => addDraftNote(group.groupRank)} text="Добавить заметку" /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={saving} filesDisabled={storageLocked} groupRank={emptyDraftGroupRank} onCreate={() => addDraftNote(emptyDraftGroupRank)} onFiles={(files) => addDraftNote(emptyDraftGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} /> : null}</DragOverlay></DndContext></section>
         {error ? <p className="field-error form-error" role="alert">{error}</p> : null}<footer className="form-actions"><button className="button button--secondary" onClick={() => { if ((!dirty && !coverDraftDirty) || window.confirm("Отменить несохранённые изменения?")) onCancel?.(); }} type="button">Отмена</button><button className="button button--primary" disabled={saving || processingNoteIds.size > 0 || coverDraftDirty} type="submit"><Icon name="check" size={18} />{saving ? "Сохраняем…" : "Сохранить"}</button></footer>
       </form>
     </div>

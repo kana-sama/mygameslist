@@ -318,16 +318,15 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-notes { min-width: 0; }
 .note-groups { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .note-group { position: relative; min-width: 0; }
-.note-group + .note-group { padding-top: 7px; border-top: 1px solid var(--line-soft); }
+.note-group + .note-group { padding-top: 7px; }
 .note-group.is-over::after { content: ""; position: absolute; z-index: 7; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); pointer-events: none; }
-.note-empty-group { position: relative; min-height: 30px; border-top: 1px solid var(--line-soft); }
+.note-empty-group { position: relative; min-height: 34px; }
 .note-empty-group.is-over { background: rgba(255, 255, 255, .025); }
 .note-empty-group.is-over::before { content: ""; position: absolute; z-index: 7; top: -1px; right: 0; left: 0; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); pointer-events: none; }
 .note-group.is-file-over, .note-empty-group.is-file-over { outline: 1px solid var(--accent); outline-offset: -1px; background: var(--accent-wash); }
-.note-group-add-slot { position: absolute; z-index: 6; top: 4px; right: 4px; width: 28px; height: 28px; opacity: 0; pointer-events: none; transition: opacity .12s; }
-.note-group:hover > .note-group-add-slot, .note-group:focus > .note-group-add-slot, .note-empty-group:hover > .note-group-add-slot, .note-empty-group:focus > .note-group-add-slot, .note-group-add-slot:focus-within, .note-groups.is-file-dragging .note-group-add-slot, .note-group.is-file-over > .note-group-add-slot, .note-empty-group.is-file-over > .note-group-add-slot { opacity: 1; pointer-events: auto; }
-.note-group-add-button { width: 28px; height: 28px; display: grid; appearance: none; padding: 0; border: 1px solid var(--line); border-radius: 4px; place-items: center; color: var(--muted); background: rgba(20, 21, 24, .96); box-shadow: 0 2px 8px rgba(0, 0, 0, .28); cursor: pointer; }
-.note-group-add-button:hover:not(:disabled), .note-group-add-button:focus-visible { border-color: var(--accent); color: var(--text); background: #1a2025; }
+.note-group-add-slot { position: relative; z-index: 6; min-height: 34px; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
+.note-group-add-button { position: relative; width: auto; min-width: 146px; height: 30px; display: inline-flex; appearance: none; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 4px; color: var(--muted-2); background: var(--bg); box-shadow: 0 0 0 5px var(--bg); cursor: pointer; }
+.note-group-add-button:hover:not(:disabled), .note-group-add-button:focus-visible { border-color: var(--line); color: var(--text); background: var(--surface-2); }
 .note-group-add-button:focus-visible { outline: 1px solid var(--accent); outline-offset: -2px; }
 .note-group-add-button:disabled { opacity: .35; cursor: default; }
 .game-notes.is-file-dragging iframe, .game-notes.is-file-dragging video, .game-notes.is-file-dragging .note-attachment-image-open { pointer-events: none; }
@@ -623,8 +622,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .app-header .app-nav__link, .patch-pill { min-width: 44px; min-height: 44px; }
   .note-editor-actions, .note-attachment-remove { opacity: 1; pointer-events: auto; }
   .note-empty-group { min-height: 44px; }
-  .note-group-add-slot { top: 0; right: 0; width: 44px; height: 44px; }
-  .note-group-add-button { width: 44px; height: 44px; }
+  .note-group-add-slot { min-height: 44px; margin-top: 4px; }
+  .note-group-add-button { min-width: 180px; height: 44px; }
   .note-card__actions { min-height: 49px; opacity: 1; pointer-events: auto; }
   .note-card__actions button { pointer-events: auto; }
   .tier-page .game-card--tier { min-width: 44px; min-height: 44px; }

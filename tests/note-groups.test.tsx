@@ -28,10 +28,13 @@ class ResizeObserverMock {
 vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0));
 vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+const scrollIntoViewMock = vi.fn();
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoViewMock });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  scrollIntoViewMock.mockClear();
 });
 
 function editable(clientId: string, rank: number, groupRank?: number): EditableNote {
@@ -166,6 +169,7 @@ describe("anonymous note groups", () => {
     await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     expect(editor.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
+    expect(editor).toHaveFocus();
     await user.type(editor, "Новая заметка");
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
 
@@ -195,14 +199,27 @@ describe("anonymous note groups", () => {
     expect(notesArea).not.toHaveClass("is-file-dragging");
   });
 
-  it("focuses a group from touch so its absolute add button can be revealed", () => {
+  it("keeps labelled add actions at the end of existing and empty groups", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} />);
     const group = screen.getByRole("group", { name: "Группа заметок 1" });
+    const addButton = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
+    const emptyButton = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
 
-    fireEvent.pointerDown(group, { pointerType: "touch" });
+    expect(group.lastElementChild).toBe(addButton.parentElement);
+    expect(addButton).toHaveTextContent("Добавить заметку");
+    expect(emptyButton).toHaveTextContent("Новая группа");
+  });
 
-    expect(group).toHaveFocus();
-    expect(group).toHaveAttribute("tabindex", "-1");
+  it("focuses a newly added draft note before a new game is saved", async () => {
+    const user = userEvent.setup();
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveFocus();
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "auto", block: "nearest", inline: "nearest" });
+    });
   });
 
   it("preflights a mixed file drop as one batch before reading any file", async () => {
