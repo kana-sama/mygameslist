@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "6989bbeaa31b1b25627667bb1537f87d85bacb8c166357bdb415ec4dc65189ba",
-  "publicationId": "6384eccb-24f1-4614-aaf5-89deea224eac",
+  "revision": "325cd44e95b9589aa895d5c3b329a28f2da7d95eb4bf912cf2cf39cc403f2634",
+  "publicationId": "e359deb8-a1dd-432c-88cd-995e896b5ef1",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -835,7 +835,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:48:11.730Z",
-      "updatedAt": "2026-07-17T05:48:11.762Z"
+      "updatedAt": "2026-07-18T14:53:28.631Z"
     },
     "c850c7e6-9bd1-41a7-ac64-052e406d72a4": {
       "id": "c850c7e6-9bd1-41a7-ac64-052e406d72a4",
@@ -1286,7 +1286,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T09:56:35.034Z",
-      "updatedAt": "2026-07-18T13:54:13.554Z"
+      "updatedAt": "2026-07-18T14:54:22.554Z"
     },
     "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c": {
       "id": "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c",
@@ -1353,6 +1353,40 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-18T09:15:41.230Z",
       "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "335bd530-3114-473a-8bc4-50ac5e688579": {
+      "id": "335bd530-3114-473a-8bc4-50ac5e688579",
+      "title": "Echo: The Oracle's Scroll",
+      "coverAssetId": "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761",
+      "platforms": [
+        "Playdate"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 27648
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T14:52:22.660Z",
+      "updatedAt": "2026-07-18T14:52:36.417Z"
+    },
+    "37cf1dfe-3904-43a3-9b03-ba792275317b": {
+      "id": "37cf1dfe-3904-43a3-9b03-ba792275317b",
+      "title": "Crankin's Time Travel Adventure",
+      "coverAssetId": "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b",
+      "platforms": [
+        "Playdate"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 26624
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T14:51:10.991Z",
+      "updatedAt": "2026-07-18T14:51:26.738Z"
     }
   },
   "notes": {
@@ -2609,10 +2643,10 @@
           "alt": "IMG_2040"
         }
       ],
-      "groupRank": 2048,
-      "rank": 2048,
+      "groupRank": 3072,
+      "rank": 1024,
       "createdAt": "2026-07-17T09:57:24.331Z",
-      "updatedAt": "2026-07-18T13:53:39.557Z"
+      "updatedAt": "2026-07-18T14:53:44.510Z"
     },
     "c534b592-e88f-432f-8410-36e66d2c8e1c": {
       "id": "c534b592-e88f-432f-8410-36e66d2c8e1c",
@@ -2632,12 +2666,17 @@
           "type": "image",
           "assetId": "bf3455f608708cf06ca982bac7205f4b9078c9ab3c8477295465d970883d84fd",
           "alt": "IMAGE 2026-07-17 13:56:50"
+        },
+        {
+          "type": "image",
+          "assetId": "71394ccf8e21973fc40a9707f64807afc66f649bd842d64ec2a80574fde6a3e9",
+          "alt": "IMAGE 2026-07-18 18:54:05"
         }
       ],
       "groupRank": 2048,
       "rank": 1024,
       "createdAt": "2026-07-17T09:56:53.821Z",
-      "updatedAt": "2026-07-17T09:56:53.858Z"
+      "updatedAt": "2026-07-18T14:54:13.840Z"
     },
     "d45e862a-73b2-432d-b311-2d4dc3ec3d0a": {
       "id": "d45e862a-73b2-432d-b311-2d4dc3ec3d0a",
@@ -3343,6 +3382,118 @@
       "rank": 2048,
       "createdAt": "2026-07-18T13:54:13.544Z",
       "updatedAt": "2026-07-18T13:54:13.554Z"
+    },
+    "0aafcb99-15ab-4e68-82f9-decb9d5f5ef0": {
+      "id": "0aafcb99-15ab-4e68-82f9-decb9d5f5ef0",
+      "gameId": "37cf1dfe-3904-43a3-9b03-ba792275317b",
+      "bodyMarkdown": "С помощью ручки ты управляешь временем своего персонажа, можешь отматать его назад, или продвигаться вперед. Весь остальной мир движется в своем темпе, так что нужно правильно управлять своим состоянием чтобы уворачиваться.\n\nКлассно было играть в эту игру параллельно с Адамом (из-за того что мы в одном батче, у нас игры в сезоне выровнены).\n\nВсе уровни пройдены на идеально.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-18T14:51:10.991Z",
+      "updatedAt": "2026-07-18T14:51:10.997Z"
+    },
+    "10ad4a5f-35a3-47bb-879a-bb092482541d": {
+      "id": "10ad4a5f-35a3-47bb-879a-bb092482541d",
+      "gameId": "37cf1dfe-3904-43a3-9b03-ba792275317b",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=9-UJ7YgMXT8",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-18T14:51:10.991Z",
+      "updatedAt": "2026-07-18T14:51:26.738Z"
+    },
+    "4cc6335e-e88e-4104-bf59-e648fe8ef615": {
+      "id": "4cc6335e-e88e-4104-bf59-e648fe8ef615",
+      "gameId": "87293412-21ab-49c5-b075-13107c0eace4",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "f569635d0c69d74454c4d69bcd383900b495dff034744a806febf89cbf4d2dab",
+          "alt": "IMAGE 2026-07-18 18:53:25"
+        }
+      ],
+      "rank": 2048,
+      "createdAt": "2026-07-18T14:53:28.626Z",
+      "updatedAt": "2026-07-18T14:53:28.631Z"
+    },
+    "682a2992-6168-48c4-883a-934ec934c082": {
+      "id": "682a2992-6168-48c4-883a-934ec934c082",
+      "gameId": "4a22bf4f-3f13-4065-b302-32c8cf0c7801",
+      "bodyMarkdown": "На видео из-за высокой яркости экрана и низкого уровня света в комнате не видно, какой у покета прекрасный фильтр на gbc. У покета в 100 раз больше пикселей (то есть gb/gbc игры целочисленно скейлятся х10), что позволяет им делать лучшие фильтры старых экранов.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "3dc85be6d18427222d819a4f02bd725deb391e299bfc482d4981446012e36fd5",
+          "alt": "IMAGE 2026-07-18 18:54:17"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-18T14:54:22.552Z",
+      "updatedAt": "2026-07-18T14:54:22.554Z"
+    },
+    "79d9e877-d19d-4c23-8652-10a90394b503": {
+      "id": "79d9e877-d19d-4c23-8652-10a90394b503",
+      "gameId": "37cf1dfe-3904-43a3-9b03-ba792275317b",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=fj4bjV-TET4",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T14:51:10.991Z",
+      "updatedAt": "2026-07-18T14:51:18.942Z"
+    },
+    "8cd1b43a-0f49-43e9-b645-0ec5a0ee7f1c": {
+      "id": "8cd1b43a-0f49-43e9-b645-0ec5a0ee7f1c",
+      "gameId": "335bd530-3114-473a-8bc4-50ac5e688579",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "5d343fe09e026f6eeba864e0662b6bcf35a3f3d020990b5d199849b17ccb4078",
+          "alt": "IMAGE 2026-07-18 18:52:33"
+        }
+      ],
+      "rank": 2048,
+      "createdAt": "2026-07-18T14:52:36.410Z",
+      "updatedAt": "2026-07-18T14:52:36.417Z"
+    },
+    "cd4cf670-de12-4083-acbb-580394b32137": {
+      "id": "cd4cf670-de12-4083-acbb-580394b32137",
+      "gameId": "335bd530-3114-473a-8bc4-50ac5e688579",
+      "bodyMarkdown": "Очень приятная метроидвания на 9 часов, с кучей секреток, приятным для исследования миром и абилками. Сложно было представить что такое можно засунуть в плейдейт, но автор смог, да еще и на луа. Титан.\n\n[catalog](https://play.date/games/echo-the-oracles-scroll/)",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-18T14:52:22.660Z",
+      "updatedAt": "2026-07-18T14:52:22.665Z"
+    },
+    "cdfcf34e-21f9-4db7-8c48-024d26f13887": {
+      "id": "cdfcf34e-21f9-4db7-8c48-024d26f13887",
+      "gameId": "37cf1dfe-3904-43a3-9b03-ba792275317b",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=OhUa1WA-qR4",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T14:51:10.991Z",
+      "updatedAt": "2026-07-18T14:51:22.249Z"
     }
   },
   "assets": {
@@ -4570,6 +4721,66 @@
       "byteLength": 581474,
       "alt": "IMAGE 2026-07-18 13:14:07",
       "originalName": "IMAGE 2026-07-18 13:14:07.jpg"
+    },
+    "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761": {
+      "id": "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 7436,
+      "alt": "Обложка игры",
+      "originalName": "11.png"
+    },
+    "3dc85be6d18427222d819a4f02bd725deb391e299bfc482d4981446012e36fd5": {
+      "id": "3dc85be6d18427222d819a4f02bd725deb391e299bfc482d4981446012e36fd5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 1700412,
+      "alt": "IMAGE 2026-07-18 18:54:17",
+      "originalName": "IMAGE 2026-07-18 18:54:17.jpg"
+    },
+    "5d343fe09e026f6eeba864e0662b6bcf35a3f3d020990b5d199849b17ccb4078": {
+      "id": "5d343fe09e026f6eeba864e0662b6bcf35a3f3d020990b5d199849b17ccb4078",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 400,
+      "height": 240,
+      "byteLength": 20512,
+      "alt": "IMAGE 2026-07-18 18:52:33",
+      "originalName": "IMAGE 2026-07-18 18:52:33.jpg"
+    },
+    "71394ccf8e21973fc40a9707f64807afc66f649bd842d64ec2a80574fde6a3e9": {
+      "id": "71394ccf8e21973fc40a9707f64807afc66f649bd842d64ec2a80574fde6a3e9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 960,
+      "height": 1280,
+      "byteLength": 830602,
+      "alt": "IMAGE 2026-07-18 18:54:05",
+      "originalName": "IMAGE 2026-07-18 18:54:05.jpg"
+    },
+    "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b": {
+      "id": "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 19736,
+      "alt": "Обложка игры",
+      "originalName": "10.png"
+    },
+    "f569635d0c69d74454c4d69bcd383900b495dff034744a806febf89cbf4d2dab": {
+      "id": "f569635d0c69d74454c4d69bcd383900b495dff034744a806febf89cbf4d2dab",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 454250,
+      "alt": "IMAGE 2026-07-18 18:53:25",
+      "originalName": "IMAGE 2026-07-18 18:53:25.jpg"
     }
   }
 }
