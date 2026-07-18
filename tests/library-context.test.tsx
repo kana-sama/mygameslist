@@ -200,6 +200,7 @@ function NoteGroupProbe() {
 function GitHubSyncProbe() {
   const library = useLibrary();
   const [result, setResult] = useState("idle");
+  const assetIds = Object.keys(library.effective.assets).sort();
   return <div>
     <span data-testid="sync-loading">{String(library.loading)}</span>
     <span data-testid="sync-title">{library.effective.games[GAME_ID]?.title ?? "empty"}</span>
@@ -209,6 +210,8 @@ function GitHubSyncProbe() {
     <span data-testid="sync-pending">{String(library.pendingPublication !== null)}</span>
     <span data-testid="sync-persistence-error">{library.persistenceError ?? "none"}</span>
     <span data-testid="sync-result">{result}</span>
+    <span data-testid="sync-asset-urls">{assetIds.map((id) => library.resolveAssetUrl(id) ?? "missing").join(",")}</span>
+    <span data-testid="sync-local-states">{library.localAssets.map((asset) => `${asset.id}:${asset.state}`).sort().join(",")}</span>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync GitHub</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
   </div>;
@@ -587,6 +590,47 @@ describe("LibraryProvider direct GitHub synchronization", () => {
       base_tree: TREE_SHA,
       tree: [{ path: "public/data/library.json", mode: "100644", type: "blob", sha: CREATED_LIBRARY_BLOB_SHA }],
     });
+  });
+
+  it("keeps new cover and note image Blob URLs until Pages deploys the commit", async () => {
+    const base = empty();
+    const coverBytes = new Uint8Array([82, 73, 70, 70, 10, 0, 0, 0, 87, 69, 66, 80]);
+    const noteBytes = new Uint8Array([82, 73, 70, 70, 11, 0, 0, 0, 87, 69, 66, 80]);
+    const cover = makeExternalWebPAsset(coverBytes, 1, 1, "Cover", "cover.webp").asset;
+    const image = makeExternalWebPAsset(noteBytes, 1, 1, "Note", "note.webp").asset;
+    const local = structuredClone(base);
+    local.assets[cover.id] = cover;
+    local.assets[image.id] = image;
+    local.games[GAME_ID] = game("New game", cover.id);
+    local.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Guide",
+      attachments: [{ type: "image", assetId: image.id, alt: "Note" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "new-game-media" })).ok).toBe(true);
+    await writeLocalAssetsAtomic([
+      makeLocalAsset(cover.id, new Blob([coverBytes], { type: "image/webp" }), "image/webp"),
+      makeLocalAsset(image.id, new Blob([noteBytes], { type: "image/webp" }), "image/webp"),
+    ]);
+    githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("sync-asset-urls").textContent?.split(",")).toEqual([expect.stringMatching(/^blob:/), expect.stringMatching(/^blob:/)]);
+    const urlsBeforeSync = screen.getByTestId("sync-asset-urls").textContent;
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync GitHub" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(screen.getByTestId("sync-asset-urls")).toHaveTextContent(urlsBeforeSync ?? "");
+    expect(screen.getByTestId("sync-local-states")).toHaveTextContent("awaiting-verification");
+    expect(await readLocalAsset(cover.id)).toMatchObject({ state: "awaiting-verification" });
+    expect(await readLocalAsset(image.id)).toMatchObject({ state: "awaiting-verification" });
   });
 
   it("installs remote same-field conflicts before creating Git objects", async () => {

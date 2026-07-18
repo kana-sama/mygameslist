@@ -266,6 +266,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [attachmentWriteBlocked, setAttachmentWriteBlocked] = useState(false);
   const [localAssets, setLocalAssets] = useState<LocalAsset[]>([]);
   const [localAssetUrls, setLocalAssetUrls] = useState<Record<string, string>>({});
+  const localAssetUrlsRef = useRef<Record<string, string>>({});
   const undoStack = useRef<PatchEnvelope[]>([]);
   const stateRef = useRef<LibraryState | null>(null);
   const localAssetsRef = useRef<LocalAsset[]>([]);
@@ -280,11 +281,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const installLocalAssets = useCallback((assets: LocalAsset[]) => {
     localAssetsRef.current = assets;
     setLocalAssets(assets);
-    setLocalAssetUrls((previous) => {
-      Object.values(previous).forEach((url) => URL.revokeObjectURL?.(url));
-      if (typeof URL.createObjectURL !== "function") return {};
-      return Object.fromEntries(assets.map((asset) => [asset.id, URL.createObjectURL(asset.blob)]));
-    });
+    const previous = localAssetUrlsRef.current;
+    const next = typeof URL.createObjectURL === "function"
+      ? Object.fromEntries(assets.map((asset) => [asset.id, previous[asset.id] ?? URL.createObjectURL(asset.blob)]))
+      : {};
+    for (const [id, url] of Object.entries(previous)) {
+      if (!Object.prototype.hasOwnProperty.call(next, id)) URL.revokeObjectURL?.(url);
+    }
+    localAssetUrlsRef.current = next;
+    setLocalAssetUrls(next);
+  }, []);
+
+  useEffect(() => () => {
+    Object.values(localAssetUrlsRef.current).forEach((url) => URL.revokeObjectURL?.(url));
+    localAssetUrlsRef.current = {};
   }, []);
 
   const refreshLocalAssets = useCallback(async () => {
