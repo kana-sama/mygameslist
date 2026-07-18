@@ -407,6 +407,29 @@ function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { att
   return <div className="note-attachment-shell note-attachment-shell--link"><a className="note-attachment note-attachment--link" href={href} rel="noreferrer noopener" target={/^https?:/.test(href) ? "_blank" : undefined}><Icon name="link" /><span>{attachment.label || href}</span><Icon name="external" size={16} /></a>{onRemove ? <button aria-label="Удалить ссылку" className="note-attachment-remove" onClick={onRemove} title="Удалить ссылку" type="button"><Icon name="close" size={14} /></button> : null}</div>;
 }
 
+function NoteAttachments({ attachments, assets, editing = false, resolveAssetUrl, onRemove }: {
+  attachments: EditableAttachment[];
+  assets: Record<string, Asset>;
+  editing?: boolean;
+  resolveAssetUrl?: (assetId: string) => string | null;
+  onRemove?: (index: number) => void;
+}) {
+  const runs: Array<{ media: boolean; items: Array<{ attachment: EditableAttachment; index: number }> }> = [];
+  attachments.forEach((attachment, index) => {
+    const media = isInlineMediaAttachment(attachment, assets);
+    const previous = runs.at(-1);
+    if (previous?.media === media) previous.items.push({ attachment, index });
+    else runs.push({ media, items: [{ attachment, index }] });
+  });
+
+  return <div className={`note-attachments${editing ? " note-attachments--editing" : ""}`}>{runs.map((run) => {
+    const children = run.items.map(({ attachment, index }) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${index}`} onRemove={onRemove ? () => onRemove(index) : undefined} resolveAssetUrl={resolveAssetUrl} />);
+    if (!run.media || run.items.length === 1) return <div className="note-attachments__sequence" key={`sequence-${run.items[0].index}`}>{children}</div>;
+    const layoutCount = Math.min(run.items.length, 5);
+    return <div aria-label={`Галерея из ${run.items.length} медиа`} className={`note-media-gallery note-media-gallery--count-${layoutCount}`} key={`gallery-${run.items[0].index}`} role="group">{children}</div>;
+  })}</div>;
+}
+
 function NoteDropZone({ note, edge, disabled, indicator }: { note: EditableNote; edge: NoteDropEdge; disabled: boolean; indicator: boolean }) {
   const { setNodeRef } = useDroppable({
     id: `note-edge:${note.clientId}:${edge}`,
@@ -558,7 +581,7 @@ function PlainNoteEditor({
 
   return (
     <article aria-busy={processingImages} className="note-card note-card--editing">
-      {note.attachments.length ? <div className="note-attachments note-attachments--editing">{note.attachments.map((attachment, index) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${index}`} onRemove={() => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+      {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
       <PlainMarkdownTextarea
         aria-label="Текст заметки"
         autoFocus={autoFocus}
@@ -738,7 +761,7 @@ function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChang
   return (
     <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={nodeRef}>
       <div className="note-card__surface">
-        {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
+        {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} resolveAssetUrl={resolveAssetUrl} /> : null}
         <div className="note-card__text">
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
