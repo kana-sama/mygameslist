@@ -27,7 +27,7 @@ import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
-import { hasFilePayload, hasMarkdownTasks, isImageFile, MarkdownView, PlainMarkdownTextarea, snapshotFiles } from "../components/Markdown";
+import { hasFilePayload, isImageFile, MarkdownView, PlainMarkdownTextarea, snapshotFiles } from "../components/Markdown";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
@@ -676,8 +676,6 @@ function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndi
   return <SortableNoteCard assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
 
-const COLLAPSED_NOTE_HEIGHT = 300;
-
 function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled }: {
   note: EditableNote;
   assets: Record<string, Asset>;
@@ -696,10 +694,10 @@ function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAs
     disabled,
   });
 
-  return <CollapsibleNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
+  return <ScrollableNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
 }
 
-function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
+function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
@@ -716,51 +714,45 @@ function CollapsibleNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChan
   nodeRef?: (node: HTMLElement | null) => void;
   sortable?: boolean;
 }) {
-  const contentId = useId();
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [collapsible, setCollapsible] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({ scrollable: false, atTop: true, atBottom: true });
   const hasText = Boolean(note.bodyMarkdown.trim());
-  const containsTasks = useMemo(() => hasMarkdownTasks(note.bodyMarkdown), [note.bodyMarkdown]);
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
 
-  useLayoutEffect(() => {
-    if (!hasText) {
-      setCollapsible(false);
-      setExpanded(false);
-      return;
-    }
-    const content = contentRef.current;
-    if (!content) return;
-    const measure = () => {
-      const tooTall = Math.max(content.scrollHeight, content.getBoundingClientRect().height) > COLLAPSED_NOTE_HEIGHT;
-      setCollapsible(tooTall);
-      if (!tooTall) setExpanded(false);
+  const updateScrollState = () => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    const next = {
+      scrollable: maxScroll > 1,
+      atTop: viewport.scrollTop <= 1,
+      atBottom: maxScroll <= 1 || viewport.scrollTop >= maxScroll - 1,
     };
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    observer?.observe(content);
-    measure();
-    return () => observer?.disconnect();
-  }, [hasText]);
+    setScrollState((current) => current.scrollable === next.scrollable && current.atTop === next.atTop && current.atBottom === next.atBottom ? current : next);
+  };
 
-  const collapsed = collapsible && !expanded;
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+    observer?.observe(viewport);
+    if (viewport.firstElementChild) observer?.observe(viewport.firstElementChild);
+    updateScrollState();
+    return () => observer?.disconnect();
+  }, [note.bodyMarkdown]);
 
   return (
-    <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}${collapsible ? expanded ? " note-card--expanded" : " note-card--collapsed" : ""}`} data-note-id={note.clientId} ref={nodeRef}>
+    <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={nodeRef}>
       <div className="note-card__surface">
         {note.attachments.length ? <div className="note-attachments">{note.attachments.map((attachment, attachmentIndex) => <AttachmentView assets={assets} attachment={attachment} key={`${attachment.type}-${attachmentIndex}`} resolveAssetUrl={resolveAssetUrl} />)}</div> : null}
         <div className="note-card__text">
-          <div className="note-card__viewport" id={contentId} inert={collapsed && !containsTasks} onFocusCapture={(event) => {
-            if (!collapsed || event.target === event.currentTarget) return;
-            const viewportRect = event.currentTarget.getBoundingClientRect();
-            const targetRect = (event.target as HTMLElement).getBoundingClientRect();
-            if (targetRect.top < viewportRect.top || targetRect.bottom > viewportRect.bottom) setExpanded(true);
-          }}>
-            <div className="note-card__content" ref={contentRef}>
-              {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+          <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
+            <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
+              <div className="note-card__content">
+                {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+              </div>
             </div>
           </div>
-          {collapsible ? <button aria-controls={contentId} aria-expanded={expanded} aria-label={expanded ? "Свернуть заметку" : "Развернуть заметку"} className="note-card__collapse-toggle" onClick={() => setExpanded((value) => !value)} title={expanded ? "Свернуть" : "Показать полностью"} type="button"><Icon name="chevron-down" size={13} /><span>{expanded ? "Свернуть" : "Ещё"}</span></button> : null}
         </div>
       </div>
       <div className="note-card__actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__drag" ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__edit" disabled={taskChangesDisabled} onClick={onEdit} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div>

@@ -324,14 +324,13 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-drag-preview .note-card__content { max-height: 220px; overflow: hidden; }
 .note-card__text { position: relative; min-width: 0; flex: 1; }
 .note-attachments + .note-card__text { border-top: 1px solid var(--line-soft); }
+.note-card__viewport-frame { position: relative; max-height: 300px; min-height: 0; }
+.note-card__viewport { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
+.note-card__viewport-frame::before, .note-card__viewport-frame::after { position: absolute; z-index: 2; right: 0; left: 0; display: flex; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .12s; }
+.note-card__viewport-frame::before { content: ""; top: 0; height: 18px; background: linear-gradient(to bottom, #141518, rgba(20, 21, 24, 0)); }
+.note-card__viewport-frame::after { content: "Прокрутить ↓"; bottom: 0; height: 38px; align-items: flex-end; padding-bottom: 4px; color: var(--muted); background: linear-gradient(to bottom, rgba(20, 21, 24, 0), #141518 72%); font-size: 9px; letter-spacing: .02em; }
+.note-card__viewport-frame.can-scroll-up::before, .note-card__viewport-frame.can-scroll-down::after { opacity: 1; }
 .note-card__content > .markdown { padding: 6px; }
-.note-card--collapsed .note-card__viewport { max-height: 300px; overflow: hidden; }
-.note-card__collapse-toggle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; gap: 3px; appearance: none; padding: 0; border: 0; border-top: 1px solid var(--line-soft); color: var(--muted-2); background: #141518; font-size: 9px; cursor: pointer; }
-.note-card__collapse-toggle:hover, .note-card__collapse-toggle:focus-visible { color: var(--text); background: #191a1e; }
-.note-card__collapse-toggle:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.note-card__collapse-toggle svg { transition: transform .12s; }
-.note-card--expanded .note-card__collapse-toggle svg { transform: rotate(180deg); }
-.note-card--collapsed .note-card__collapse-toggle { position: absolute; z-index: 2; bottom: 0; left: 0; height: 38px; align-items: flex-end; padding-bottom: 5px; border-top: 0; background: linear-gradient(to bottom, transparent, #141518 58%); }
 .note-card__actions { position: absolute; z-index: 3; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__actions button:hover:not(:disabled), .note-card__actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }
