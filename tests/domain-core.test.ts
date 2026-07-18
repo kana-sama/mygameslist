@@ -171,4 +171,24 @@ describe("ranks and catalogue filters", () => {
     expect(gameMatchesFilters(game(), { query: "duck nes", platforms: ["NES", "SNES"], tags: ["rpg", "platformer"], statuses: ["playing"] })).toBe(true);
     expect(gameMatchesFilters(game(), { platforms: ["NES"], tags: ["rpg"] })).toBe(false);
   });
+
+  it("finds games through typos and the wrong keyboard layout", () => {
+    expect(gameMatchesFilters(game(), { query: "DcukTales" })).toBe(true);
+    expect(gameMatchesFilters(game(), { query: "вгсл" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "Ведьмак" }, { query: "dtlmvfr" })).toBe(true);
+    expect(gameMatchesFilters(game(), { query: "unrelated" })).toBe(false);
+  });
+
+  it("finds a word when a short fuzzy query omits letters", () => {
+    expect(gameMatchesFilters({ ...game(), title: "The Lost Vikings" }, { query: "lst" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "Super Mario Bros.: The Lost Levels" }, { query: "lst" })).toBe(true);
+  });
+
+  it("finds games by title initials", () => {
+    expect(gameMatchesFilters({ ...game(), title: "Metal Gear Solid" }, { query: "mgs" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "The Metal Gear Solid Collection" }, { query: "mgs" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "Grand Theft Auto" }, { query: "gta" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "Red Dead Redemption" }, { query: "rdr" })).toBe(true);
+    expect(gameMatchesFilters({ ...game(), title: "Metal Slug" }, { query: "mgs" })).toBe(false);
+  });
 });

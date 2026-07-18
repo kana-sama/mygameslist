@@ -1,5 +1,7 @@
 import type { ReactNode, MouseEvent } from "react";
+import type { Game } from "../domain/types";
 import { Icon } from "./Icon";
+import { GlobalGameSearch } from "./GlobalGameSearch";
 import { formatBytes } from "./libraryUi";
 
 export type AppRoute = "tiers" | "catalog" | "game" | "new";
@@ -19,6 +21,7 @@ export interface StorageSummary {
 
 export interface AppShellProps {
   children: ReactNode;
+  games?: Game[];
   route: AppRoute;
   storage: StorageSummary;
   onOpenDiff: () => void;
@@ -53,6 +56,7 @@ function NavLink({
 
 export function AppShell({
   children,
+  games = [],
   route,
   storage,
   onOpenDiff,
@@ -85,6 +89,7 @@ export function AppShell({
           <NavLink active={route === "tiers"} href="#/" icon="book" label="Тирлист" onNavigate={onNavigate} />
           <NavLink active={route === "catalog"} href="#/games" icon="collection" label="Каталог" onNavigate={onNavigate} />
         </nav>
+        <GlobalGameSearch games={games} onNavigate={onNavigate} />
         <div className="app-header__actions">
           <button
             aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(displayedBytes)}${localAssetCount ? `, локальных файлов: ${localAssetCount}` : ""}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageNeedsAttention ? ", хранилище требует внимания" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}

@@ -333,6 +333,7 @@ function LibraryRoutes() {
 
   return (
     <AppShell
+      games={games}
       onNavigate={navigateHref}
       onOpenDiff={() => setDiffOpen(true)}
       route={routeKind(location.pathname)}

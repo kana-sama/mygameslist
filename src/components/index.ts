@@ -2,6 +2,7 @@ export * from "./AppShell";
 export * from "./DiffDialog";
 export * from "./DiffSyncPanel";
 export * from "./GameCard";
+export * from "./GlobalGameSearch";
 export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";

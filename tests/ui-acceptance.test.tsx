@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { AppShell } from "../src/components/AppShell";
+import { GlobalGameSearch } from "../src/components/GlobalGameSearch";
 import { optimizeNoteImage } from "../src/domain/assets";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { CatalogPage } from "../src/pages/CatalogPage";
@@ -151,7 +152,7 @@ describe("CatalogPage", () => {
     expect(screen.queryByRole("link", { name: "Добавить игру" })).not.toBeInTheDocument();
   });
 
-  it("keeps only compact search controls and always orders games by the latest change", async () => {
+  it("omits duplicate search controls and always orders games by the latest change", async () => {
     window.location.hash = "#/games?sort=title";
     const games = [
       makeGame({ id: MARIO_ID, title: "A game", updatedAt: "2026-07-15T10:00:00.000Z" }),
@@ -165,12 +166,10 @@ describe("CatalogPage", () => {
     expect(screen.queryByText(/игр в библиотеке/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Найдено:/)).not.toBeInTheDocument();
     expect(screen.queryByText("Сортировка")).not.toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "Поиск игр" })).toHaveAttribute("placeholder", "Поиск…");
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
     expect(Array.from(document.querySelectorAll(".catalog-list .game-card__title")).map((node) => node.textContent)).toEqual(["Z game", "A game"]);
-    const controls = screen.getByRole("region", { name: "Поиск и фильтры" });
-    expect(controls.children).toHaveLength(2);
-    expect(controls.firstElementChild).toHaveClass("filter-row");
-    expect(controls.lastElementChild).toHaveClass("search-field");
+    expect(screen.queryByRole("region", { name: "Поиск и фильтры" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Активные фильтры" })).not.toBeInTheDocument();
     await waitFor(() => expect(window.location.hash).toBe("#/games"));
   });
 
@@ -207,14 +206,15 @@ describe("CatalogPage", () => {
     expect(completedCard.querySelector(".game-card__cover")).not.toHaveClass("cover--platinum");
     expect(within(platinumCard).getByText("Платина")).toBeInTheDocument();
     expect(within(completedCard).getByText("Пройдено")).toBeInTheDocument();
-    expect(screen.getByLabelText("Платина")).toBeInTheDocument();
   });
 
   it("keeps search stable when StrictMode replays state updaters", async () => {
     const user = userEvent.setup();
-    render(<StrictMode><CatalogPage assets={{}} games={[makeGame()]} /></StrictMode>);
+    const games = [makeGame()];
+    window.location.hash = "#/games";
+    render(<StrictMode><GlobalGameSearch games={games} /><CatalogPage assets={{}} games={games} /></StrictMode>);
 
-    const search = screen.getByRole("searchbox", { name: "Поиск игр" });
+    const search = screen.getByRole("searchbox", { name: "Глобальный поиск игр" });
     await user.type(search, "du");
 
     expect(search).toHaveValue("du");
@@ -242,13 +242,10 @@ describe("CatalogPage", () => {
     window.location.hash = "#/games?q=duck&status=playing";
 
     render(
-      <CatalogPage
-        assets={{}}
-        games={games}
-      />,
+      <><GlobalGameSearch games={games} /><CatalogPage assets={{}} games={games} /></>,
     );
 
-    const search = screen.getByRole("searchbox", { name: "Поиск игр" });
+    const search = screen.getByRole("searchbox", { name: "Глобальный поиск игр" });
     expect(search).toHaveValue("duck");
     expect(screen.getByText("DuckTales")).toBeInTheDocument();
     expect(screen.queryByText("Super Mario Odyssey")).not.toBeInTheDocument();
@@ -257,6 +254,8 @@ describe("CatalogPage", () => {
     expect(screen.getByText("DuckTales")).toBeInTheDocument();
     expect(screen.queryByText("Super Mario Odyssey")).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: /Фильтры/ }));
+    expect(screen.getByRole("dialog", { name: "Фильтры каталога" })).toBeInTheDocument();
     await user.click(screen.getByLabelText("Играю"));
     expect(screen.getByText("Super Mario Odyssey")).toBeInTheDocument();
 
@@ -278,6 +277,13 @@ describe("CatalogPage", () => {
       expect(window.location.hash).not.toContain("status=playing");
       expect(window.location.hash).not.toContain("q=duck");
     });
+    const activeFilters = screen.getByRole("region", { name: "Активные фильтры" });
+    expect(within(activeFilters).getByRole("button", { name: "Убрать фильтр: NES" })).toBeInTheDocument();
+    expect(within(activeFilters).getByRole("button", { name: "Убрать фильтр: Switch" })).toBeInTheDocument();
+    await user.click(within(activeFilters).getByRole("button", { name: "Убрать фильтр: #mario" }));
+    expect(screen.getByText("DuckTales")).toBeInTheDocument();
+    expect(screen.getByText("Super Mario Odyssey")).toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).not.toContain("tag=mario"));
     expect(screen.queryByText("Коллекции")).not.toBeInTheDocument();
     expect(screen.queryByText("Коллекция")).not.toBeInTheDocument();
   });
