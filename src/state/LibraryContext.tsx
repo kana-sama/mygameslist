@@ -19,6 +19,7 @@ import {
   computeLibraryRevision,
   deleteLocalAssetsAtomic,
   deleteSafeOrphans,
+  describeAssetForRecovery,
   diffLibrary,
   discardOperation,
   estimateOriginStorage,
@@ -837,8 +838,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     let publicationAccepted = false;
     try {
       mediaRecords = await readLocalAssets(snapshotLocalAssetIds);
-      if (mediaRecords.length !== snapshotLocalAssetIds.length) throw new Error("В IndexedDB отсутствуют локальные файлы для публикации. Экспортируйте данные и восстановите вложения.");
-      for (const record of mediaRecords) if (record.byteLength !== record.blob.size) throw new Error(`Локальный файл ${record.id} повреждён`);
+      const availableMediaIds = new Set(mediaRecords.map((record) => record.id));
+      const missingMedia = snapshotLocalAssetIds.filter((id) => !availableMediaIds.has(id));
+      if (missingMedia.length) throw new Error(`В IndexedDB отсутствуют локальные файлы: ${missingMedia.map((id) => describeAssetForRecovery(snapshotEffective, id)).join("; ")}. Удалите указанные обложки или вложения и загрузите исходные файлы заново.`);
+      for (const record of mediaRecords) if (record.byteLength !== record.blob.size) throw new Error(`Локальный файл ${describeAssetForRecovery(snapshotEffective, record.id)} повреждён: сохранённый размер не совпадает с Blob. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
       await updateLocalAssetState(snapshotLocalAssetIds, "publishing");
       await refreshLocalAssets();
       const client = new GitHubGitDatabaseSyncClient({

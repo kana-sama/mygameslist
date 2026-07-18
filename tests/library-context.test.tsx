@@ -633,6 +633,25 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(await readLocalAsset(image.id)).toMatchObject({ state: "awaiting-verification" });
   });
 
+  it("names a missing IndexedDB file and the game that must be repaired", async () => {
+    const base = empty();
+    const missing = webpAsset(12, "missing cover");
+    const local = structuredClone(base);
+    local.assets[missing.id] = missing;
+    local.games[GAME_ID] = game("Game with missing cover", missing.id);
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "missing-cover" })).ok).toBe(true);
+    githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync GitHub" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("missing cover.webp"));
+    expect(screen.getByTestId("sync-result")).toHaveTextContent(`asset ${missing.id}`);
+    expect(screen.getByTestId("sync-result")).toHaveTextContent("обложка игры «Game with missing cover»");
+    expect(screen.getByTestId("sync-result")).toHaveTextContent("загрузите исходные файлы заново");
+  });
+
   it("installs remote same-field conflicts before creating Git objects", async () => {
     const draft = empty();
     draft.games[GAME_ID] = game("Static title");

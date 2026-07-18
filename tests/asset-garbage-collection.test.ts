@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeAssetForRecovery,
   garbageCollectUnreferencedAssets,
   referencedAssetIds,
   validateLibrary,
@@ -78,5 +79,12 @@ describe("asset reachability invariant", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toContainEqual({ path: `/assets/${ORPHAN_ID}`, message: "Asset ни к чему не привязан" });
+  });
+
+  it("describes the original file and every place that must be repaired", () => {
+    const current = database();
+
+    expect(describeAssetForRecovery(current, COVER_ID)).toBe(`«${COVER_ID}.webp» (asset ${COVER_ID}; обложка игры «Game»)`);
+    expect(describeAssetForRecovery(current, FILE_ID)).toBe(`«${FILE_ID}.bin» (asset ${FILE_ID}; вложение «File» в заметке «заметка без текста» игры «Game»)`);
   });
 });

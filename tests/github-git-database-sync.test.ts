@@ -300,6 +300,39 @@ describe("GitHub Git Database publication", () => {
     expect(JSON.stringify(treeWrite?.body)).not.toContain("../");
   });
 
+  it("identifies a Safari Blob that lost its IndexedDB backing file", async () => {
+    const base = databaseWithGame();
+    const mediaBytes = new TextEncoder().encode("broken local video");
+    const prepared = makeFileAsset(mediaBytes, "video/mp4", "boss-run.mp4");
+    const local = structuredClone(base);
+    local.assets[prepared.asset.id] = prepared.asset;
+    local.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "# Финальный босс",
+      attachments: [{ type: "file", assetId: prepared.asset.id, label: "Запись боя" }],
+      rank: 1024,
+      createdAt: CHANGED_AT,
+      updatedAt: CHANGED_AT,
+    };
+    const patch = diffLibrary(base, local, { changedAt: CHANGED_AT, transactionId: "broken-video" });
+    const brokenBlob = new Blob([mediaBytes], { type: "video/mp4" });
+    vi.spyOn(brokenBlob, "arrayBuffer").mockRejectedValue(new DOMException("The object can not be found here.", "NotFoundError"));
+    const api = apiMock(base);
+    let failure: unknown;
+
+    try { await client(api.fetch).publishPatch(patch, { [prepared.asset.id]: brokenBlob }); }
+    catch (reason) { failure = reason; }
+
+    expect(failure).toMatchObject({ code: "invalid_response" });
+    expect(failure).toBeInstanceOf(GitHubSyncError);
+    expect((failure as Error).message).toContain(`«boss-run.mp4» (asset ${prepared.asset.id}`);
+    expect((failure as Error).message).toContain("вложение «Запись боя» в заметке «Финальный босс» игры «DuckTales»");
+    expect((failure as Error).message).toContain("The object can not be found here.");
+    expect((failure as Error).message).toContain("загрузите исходный файл заново");
+    expect(api.requests.every((request) => request.method === "GET")).toBe(true);
+  });
+
   it("collects asset metadata and deletes remote media after the final reference is removed", async () => {
     const mediaBytes = new TextEncoder().encode("published save");
     const prepared = makeFileAsset(mediaBytes, "application/octet-stream", "save.bin");

@@ -3,6 +3,7 @@ import {
   assertValidPatch,
   assertValidPublishedLibrary,
   base64ToBytes,
+  describeAssetForRecovery,
   diffLibrary,
   finalizePublishedDatabase,
   garbageCollectUnreferencedAssets,
@@ -222,7 +223,7 @@ function materializeMedia(database: LibraryDatabase, patch: PatchEnvelope, local
     const asset = database.assets[id];
     if (!asset) throw new GitHubSyncError("invalid_response", "Patch blob has no matching published asset");
     const source = localMedia[id] ?? patch.blobs[id];
-    if (!source) throw new GitHubSyncError("invalid_response", "Для локального asset отсутствует Blob в IndexedDB");
+    if (!source) throw new GitHubSyncError("invalid_response", `В IndexedDB отсутствует Blob для ${describeAssetForRecovery(database, id)}. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
     return { id, path: mediaPath(id, asset), source };
   });
 }
@@ -395,9 +396,14 @@ export class GitHubGitDatabaseSyncClient {
       let base64: string;
       if (typeof media.source === "string") base64 = media.source;
       else {
-        const bytes = new Uint8Array(await media.source.arrayBuffer());
         const asset = published.assets[media.id];
-        if (bytes.byteLength !== asset.byteLength || sha256Bytes(bytes) !== media.id) throw new GitHubSyncError("invalid_response", "Локальный Blob не совпадает с metadata перед публикацией");
+        const description = describeAssetForRecovery(published, media.id);
+        let bytes: Uint8Array;
+        try { bytes = new Uint8Array(await media.source.arrayBuffer()); }
+        catch (reason) {
+          throw new GitHubSyncError("invalid_response", `Safari не может прочитать локальный файл ${description}. Blob в IndexedDB потерян или повреждён. Удалите указанную обложку или вложение и загрузите исходный файл заново. Техническая причина: ${reasonMessage(reason, this.token)}`);
+        }
+        if (bytes.byteLength !== asset.byteLength || sha256Bytes(bytes) !== media.id) throw new GitHubSyncError("invalid_response", `Локальный файл ${description} не совпадает с сохранёнными metadata. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
         base64 = bytesToCanonicalBase64(bytes);
       }
       const created = expectObject(await this.request(`${this.repositoryPath}/git/blobs`, {
