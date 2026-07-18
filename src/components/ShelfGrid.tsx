@@ -138,6 +138,37 @@ function resetCardLayout(card: HTMLElement): void {
   card.removeAttribute("data-shelf-index");
 }
 
+function measureNaturalHeights(grid: HTMLElement, cards: readonly HTMLElement[]): number[] {
+  const gridAlignItems = grid.style.alignItems;
+  const restoredStyles: Array<{ element: HTMLElement; alignSelf: string; height: string }> = [];
+  const measurementElements = new Set<HTMLElement>();
+
+  grid.style.alignItems = "start";
+  for (const card of cards) {
+    measurementElements.add(card);
+    const noteCard = card.matches(".note-card") ? card : card.querySelector<HTMLElement>(".note-card");
+    if (noteCard) measurementElements.add(noteCard);
+    const surface = noteCard?.querySelector<HTMLElement>(".note-card__surface");
+    if (surface) measurementElements.add(surface);
+  }
+
+  for (const element of measurementElements) {
+    restoredStyles.push({ element, alignSelf: element.style.alignSelf, height: element.style.height });
+    element.style.height = "auto";
+    if (cards.includes(element)) element.style.alignSelf = "start";
+  }
+
+  try {
+    return cards.map((card) => safePixels(card.getBoundingClientRect().height, 1, 1));
+  } finally {
+    grid.style.alignItems = gridAlignItems;
+    for (const { element, alignSelf, height } of restoredStyles) {
+      element.style.alignSelf = alignSelf;
+      element.style.height = height;
+    }
+  }
+}
+
 function cardOrder(cards: readonly HTMLElement[]): string {
   return cards.map((card, index) => card.dataset.noteId ?? `index:${index}`).join("\u0000");
 }
@@ -186,7 +217,7 @@ export function ShelfGrid({
       const minimumColumnWidth = cssPixels(styles.getPropertyValue("--note-column-min"), DEFAULT_COLUMN_WIDTH);
       const gridWidth = grid.getBoundingClientRect().width || grid.clientWidth || minimumColumnWidth;
       const columnCount = Math.max(1, Math.floor((gridWidth + columnGap) / (minimumColumnWidth + columnGap)));
-      const heights = cards.map((card) => safePixels(card.getBoundingClientRect().height, 1, 1));
+      const heights = measureNaturalHeights(grid, cards);
       const compositionSize = compositionRef.current?.flat(2).length ?? 0;
       const structureChanged = previousOrder !== nextOrder || compositionSize !== cards.length;
       const shouldRepack = requestRepack || pendingRepackRef.current || !compositionRef.current || columnCountRef.current !== columnCount || structureChanged;

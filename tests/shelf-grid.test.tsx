@@ -67,6 +67,50 @@ describe("ordered shelf layout", () => {
     ]);
   });
 
+  it("measures natural card heights without grid stretch before packing adjacent cards", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      if (this.dataset.naturalHeight) {
+        const grid = this.parentElement!;
+        const noteCard = this.matches(".note-card") ? this : this.querySelector<HTMLElement>(".note-card")!;
+        const surface = noteCard.querySelector<HTMLElement>(".note-card__surface");
+        expect(grid).toHaveAttribute("data-shelf-measuring", "true");
+        expect(grid.style.alignItems).toBe("start");
+        expect(this.style.alignSelf).toBe("start");
+        expect(this.style.height).toBe("auto");
+        expect(noteCard.style.height).toBe("auto");
+        expect(surface?.style.height).toBe("auto");
+        return { width: 360, height: Number(this.dataset.naturalHeight) } as DOMRect;
+      }
+      return { width: 360, height: 300 } as DOMRect;
+    });
+
+    const { container } = render(
+      <ShelfGrid className="notes-list" layoutKey="natural-heights">
+        <article className="note-card" data-natural-height="300" data-note-id="long">
+          <div className="note-card__surface" />
+        </article>
+        <article className="note-card" data-natural-height="40" data-note-id="short-a">
+          <div className="note-card__surface" />
+        </article>
+        <div className="note-editor-sortable" data-natural-height="40" data-note-id="short-b">
+          <article className="note-card"><div className="note-card__surface" /></article>
+        </div>
+      </ShelfGrid>,
+    );
+
+    const cards = Array.from(container.querySelector<HTMLElement>(".notes-list")!.children) as HTMLElement[];
+    expect(cards.map((card) => [card.dataset.shelfPosition, card.style.gridColumnStart, card.style.gridRowEnd])).toEqual([
+      ["single", "1", "span 300"],
+      ["top", "2", "span 147"],
+      ["bottom", "2", "span 147"],
+    ]);
+    expect(container.querySelector<HTMLElement>(".notes-list")!.style.alignItems).toBe("");
+    expect(cards.every((card) => card.style.height === "" && card.style.alignSelf === "")).toBe(true);
+    expect(Array.from(container.querySelectorAll<HTMLElement>(".note-card, .note-card__surface")).every((element) => element.style.height === "")).toBe(true);
+  });
+
   it("keeps the same card nodes while a frozen composition changes height, then repacks once thawed", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
