@@ -17,7 +17,7 @@ import {
   type LibraryDatabase,
 } from "../src/domain";
 import type { GameSaveInput, PreparedFile } from "../src/pages/GamePage";
-import { LibraryProvider, useLibrary } from "../src/state/LibraryContext";
+import { LibraryProvider, requiredLocalAssetIds, useLibrary } from "../src/state/LibraryContext";
 import {
   PENDING_PUBLICATION_STORAGE_KEY,
   installPendingPublication,
@@ -360,6 +360,22 @@ describe("LibraryProvider patch reload and reconciliation", () => {
 });
 
 describe("LibraryProvider asset garbage collection", () => {
+  it("does not require a Blob after its final note reference is removed", () => {
+    const base = empty();
+    base.games[GAME_ID] = game("Static game");
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const id = sha256Bytes(bytes);
+    const withNote = structuredClone(base);
+    withNote.assets[id] = { id, kind: "file", mime: "application/octet-stream", byteLength: bytes.byteLength, originalName: "save.dat" };
+    withNote.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "Save", attachments: [{ type: "file", assetId: id, label: "Save data" }], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const patch = diffLibrary(base, withNote, { changedAt: NOW, transactionId: "add-save" });
+    const withoutNote = structuredClone(withNote);
+    delete withoutNote.notes[NOTE_ID];
+
+    expect(requiredLocalAssetIds(patch, withNote)).toEqual([id]);
+    expect(requiredLocalAssetIds(patch, withoutNote)).toEqual([]);
+  });
+
   it("deletes an orphaned IndexedDB blob immediately during startup", async () => {
     const bytes = new Uint8Array([9, 8, 7, 6]);
     const id = sha256Bytes(bytes);

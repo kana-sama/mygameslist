@@ -36,6 +36,7 @@ import {
   publishedAssetUrl,
   readLocalAssets,
   reconcilePatch,
+  referencedAssetIds,
   requestPersistentOriginStorage,
   resolveConflict,
   savePatch,
@@ -150,7 +151,14 @@ function patchAssetMetadata(patch: PatchEnvelope): Record<string, Asset> {
 }
 
 function patchLocalAssetIds(patch: PatchEnvelope): string[] {
-  return Object.keys(patchAssetMetadata(patch)).sort();
+  return Object.keys(patchAssetMetadata(patch))
+    .filter((id) => patch.operations[`/assets/${id}`]?.baseExists === false)
+    .sort();
+}
+
+export function requiredLocalAssetIds(patch: PatchEnvelope, database: LibraryDatabase): string[] {
+  const referenced = referencedAssetIds(database);
+  return patchLocalAssetIds(patch).filter((id) => referenced.has(id));
 }
 
 function patchUsage(patch: PatchEnvelope): StorageUsage {
@@ -833,7 +841,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     syncInFlightRef.current = true;
     const snapshotEffective = structuredClone(snapshot.effective);
     const snapshotPatch = structuredClone(snapshot.patch);
-    const snapshotLocalAssetIds = patchLocalAssetIds(snapshotPatch);
+    const snapshotLocalAssetIds = requiredLocalAssetIds(snapshotPatch, snapshotEffective);
     let mediaRecords: LocalAsset[] = [];
     let publicationAccepted = false;
     try {
