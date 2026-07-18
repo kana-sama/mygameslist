@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "1dc5fa8e22ad239c8704941380f4bc26c631ba2b00993de3eb02fc18c533e408",
-  "publicationId": "f18e4910-b5a9-4c24-9770-50639e166951",
+  "revision": "cb18d71fd5f974d134c75b59009e3cedad15caadfdd67c7181b059e9219879b6",
+  "publicationId": "86a2535e-96a8-4e3e-8d24-f3438e5b0f0f",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -314,7 +314,9 @@
       "platforms": [
         "Nintendo Switch"
       ],
-      "tags": [],
+      "tags": [
+        "The Legend of Zelda"
+      ],
       "status": "platinum",
       "placement": {
         "tierId": "a",
@@ -322,7 +324,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:52:22.203Z",
-      "updatedAt": "2026-07-18T07:34:11.664Z"
+      "updatedAt": "2026-07-18T15:56:45.139Z"
     },
     "a1146211-e565-405f-8b27-c5d039659d20": {
       "id": "a1146211-e565-405f-8b27-c5d039659d20",
@@ -648,7 +650,9 @@
       "platforms": [
         "Nintendo 64"
       ],
-      "tags": [],
+      "tags": [
+        "The Legend of Zelda"
+      ],
       "status": "dropped",
       "placement": {
         "tierId": "a",
@@ -656,7 +660,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:46:31.261Z",
-      "updatedAt": "2026-07-17T05:46:31.288Z"
+      "updatedAt": "2026-07-18T15:56:49.648Z"
     },
     "422480b0-e3f2-44a8-976e-fb3511a7f00e": {
       "id": "422480b0-e3f2-44a8-976e-fb3511a7f00e",
@@ -1387,6 +1391,599 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-18T14:51:10.991Z",
       "updatedAt": "2026-07-18T14:51:26.738Z"
+    },
+    "17feaa9f-e7ef-401c-9268-7f3f8106a996": {
+      "id": "17feaa9f-e7ef-401c-9268-7f3f8106a996",
+      "title": "Cyber Shadow",
+      "coverAssetId": "9adf9eb3f954aeca5d3cd71753f739fce5bc6c48b3072afbad0b9bcb2943cde0",
+      "platforms": [],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "a",
+        "rank": 28672
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:37:13.907Z",
+      "updatedAt": "2026-07-18T15:37:13.912Z"
+    },
+    "2c029e30-592c-4dcb-8401-d8af2728b66f": {
+      "id": "2c029e30-592c-4dcb-8401-d8af2728b66f",
+      "title": "Super Mario Galaxy 2",
+      "coverAssetId": "917d08365d3d19b4c944539ecc111b18a9bc7da51215447e613f14af56fd0a74",
+      "platforms": [
+        "Nintendo Wii",
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 39936
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T16:00:02.641Z",
+      "updatedAt": "2026-07-18T16:00:02.647Z"
+    },
+    "2cff2aa5-7676-4d7d-a460-fe140106d999": {
+      "id": "2cff2aa5-7676-4d7d-a460-fe140106d999",
+      "title": "Bayonetta",
+      "coverAssetId": "b907ad43f650039d1ddfa9139132537efc2c5a5ea0842a1b1d772f11eff5f674",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 27648
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:50:01.046Z",
+      "updatedAt": "2026-07-18T15:50:01.051Z"
+    },
+    "36a741fb-1659-4704-b76b-ded5bb72df22": {
+      "id": "36a741fb-1659-4704-b76b-ded5bb72df22",
+      "title": "Timespinner",
+      "coverAssetId": "21873d208c11aee34924194bf62cc1cc51e058ce03a0d8a359bd02f8310366cf",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 33792
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:54:39.496Z",
+      "updatedAt": "2026-07-18T15:54:39.502Z"
+    },
+    "3cfe314d-202e-43d0-808d-a2a068fb3db4": {
+      "id": "3cfe314d-202e-43d0-808d-a2a068fb3db4",
+      "title": "Sonic Mania",
+      "coverAssetId": "db8822135dd5cf508f6e4c80ed4b57843e9665e913e0cc0a53d9daf75b6bd43e",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 29696
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:38:39.353Z",
+      "updatedAt": "2026-07-18T15:38:39.359Z"
+    },
+    "413ae04a-af30-4aba-822c-387d7228b3cb": {
+      "id": "413ae04a-af30-4aba-822c-387d7228b3cb",
+      "title": "Nine Sols",
+      "coverAssetId": "26768c4fd72e561c3920729e694a6c86ef193d9eb7aef804cc9877043b8c2021",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:40:39.289Z",
+      "updatedAt": "2026-07-18T15:40:39.295Z"
+    },
+    "440609ee-5e42-48a1-8d43-8b492437b43d": {
+      "id": "440609ee-5e42-48a1-8d43-8b492437b43d",
+      "title": "Shovel Knight: Treasure Trove",
+      "coverAssetId": "d5336e578dc4186578752de0b3d0c6e361e70b4bb1b601d3d46cfe06d45812ca",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "b",
+        "rank": 28672
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T16:00:37.059Z",
+      "updatedAt": "2026-07-18T16:00:37.065Z"
+    },
+    "4958f9d4-c162-4551-a718-d46b9ef0eef5": {
+      "id": "4958f9d4-c162-4551-a718-d46b9ef0eef5",
+      "title": "Firewatch",
+      "coverAssetId": "c1427a8714d521ea4c4f58bd2e950f3f2c25a0c4dd18709931460dc883268005",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 32768
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:54:22.285Z",
+      "updatedAt": "2026-07-18T15:54:22.292Z"
+    },
+    "499727cb-61c2-4ee7-b615-462f0ade8028": {
+      "id": "499727cb-61c2-4ee7-b615-462f0ade8028",
+      "title": "Into the Breach",
+      "coverAssetId": "e2d01414a0e3059e7982b31ecdc323bb78df8bd88ecf2265a80ef0c932ed1e13",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "c",
+        "rank": 7168
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:59:22.681Z",
+      "updatedAt": "2026-07-18T15:59:22.688Z"
+    },
+    "4e904a2a-8819-4ebd-a1d6-f13eb935c71b": {
+      "id": "4e904a2a-8819-4ebd-a1d6-f13eb935c71b",
+      "title": "Dead Cells",
+      "coverAssetId": "cf973c93ed0480f6579468402b011252a629010807286997e8a9335285cb7565",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 23552
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:44:43.896Z",
+      "updatedAt": "2026-07-18T15:44:43.902Z"
+    },
+    "4ef12da9-9831-4b1f-a9f0-f8a893586f57": {
+      "id": "4ef12da9-9831-4b1f-a9f0-f8a893586f57",
+      "title": "Hotline Miami",
+      "coverAssetId": "2f063f0de1302b11092a4976a719da0ddb77558d87ecf8df3b183da564cf6dc9",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 21504
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:44:01.193Z",
+      "updatedAt": "2026-07-18T15:44:01.198Z"
+    },
+    "5109d200-1b76-4c07-b628-c911febaf657": {
+      "id": "5109d200-1b76-4c07-b628-c911febaf657",
+      "title": "Sonic the Hedgehog",
+      "coverAssetId": "80810dfb8af6a45dd5ebb12ac0ca13a77c681872bd2ef27aa98d4079baac940b",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 25600
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:48:12.375Z",
+      "updatedAt": "2026-07-18T15:48:12.380Z"
+    },
+    "578175e8-33cf-45a5-b59b-04a80146d73e": {
+      "id": "578175e8-33cf-45a5-b59b-04a80146d73e",
+      "title": "Sonic the Hedgehog 2",
+      "coverAssetId": "a6bcbba66408cbdebf559ffcef342c5b9b86c30e317f06e20b1d957bf3ac5b25",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 25600
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:48:39.639Z",
+      "updatedAt": "2026-07-18T15:48:39.645Z"
+    },
+    "5ffa243a-1e1d-4a61-b0ae-86ac4dbfa325": {
+      "id": "5ffa243a-1e1d-4a61-b0ae-86ac4dbfa325",
+      "title": "Mario + Rabbids Kingdom Battle",
+      "coverAssetId": "449962a27466e0a83a3d84d72a6a83f3867d0ebffb789da8f7393106a58583dd",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 26624
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:49:18.504Z",
+      "updatedAt": "2026-07-18T15:49:18.510Z"
+    },
+    "62fbd5bc-d025-4ab2-8b9a-988194ca037a": {
+      "id": "62fbd5bc-d025-4ab2-8b9a-988194ca037a",
+      "title": "Axiom Verge",
+      "coverAssetId": "be20fb53b24614374ea1a5f5b6cbd34d89355566c96aff831084da2139df30dd",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 31744
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:53:57.465Z",
+      "updatedAt": "2026-07-18T15:53:57.472Z"
+    },
+    "66eb24ab-14ee-4b7a-916e-be44381e2a57": {
+      "id": "66eb24ab-14ee-4b7a-916e-be44381e2a57",
+      "title": "Katana Zero",
+      "coverAssetId": "fcaa3553565e23d9c85d64c307a345661f2f3645f97b7ae7ae35e6783078e57c",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 36864
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:58:02.502Z",
+      "updatedAt": "2026-07-18T15:58:02.505Z"
+    },
+    "677ceb14-368b-468d-b166-cc01bf7c18fc": {
+      "id": "677ceb14-368b-468d-b166-cc01bf7c18fc",
+      "title": "The Legend of Zelda: Tears of the Kingdom",
+      "coverAssetId": "6b958e61fe1409f73b84e0a169c0b173d85de68490b9432b1272e6c291abf98f",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:57:38.116Z",
+      "updatedAt": "2026-07-18T15:57:38.121Z"
+    },
+    "7996fa2e-5aa4-43d4-88de-a63165883722": {
+      "id": "7996fa2e-5aa4-43d4-88de-a63165883722",
+      "title": "Super Mario RPG",
+      "coverAssetId": "af1c7947f12631fbb1cc3aa784ceba064fa07d90b82040ac0f268df4d848e1ed",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 18432
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:40:17.105Z",
+      "updatedAt": "2026-07-18T15:40:17.111Z"
+    },
+    "7c3bef3a-5a46-4a5b-b64e-6a4df767f0af": {
+      "id": "7c3bef3a-5a46-4a5b-b64e-6a4df767f0af",
+      "title": "VVVVVV",
+      "coverAssetId": "6873c8fb56213546ecbd8d2c3e8ff7e72b464183b8517989abb6bb153557af1e",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 26624
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:50:39.476Z",
+      "updatedAt": "2026-07-18T15:50:39.482Z"
+    },
+    "80d541e5-8148-490e-bfcd-bd379f5f4a6a": {
+      "id": "80d541e5-8148-490e-bfcd-bd379f5f4a6a",
+      "title": "blasphemous",
+      "coverAssetId": "a9201c18144553f2ba2fbbadf33a79c3119a6280098bd4958062432390d191a9",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:39:38.998Z",
+      "updatedAt": "2026-07-18T15:39:39.004Z"
+    },
+    "89f080ef-040e-4e05-b5e8-838a6f8fddc4": {
+      "id": "89f080ef-040e-4e05-b5e8-838a6f8fddc4",
+      "title": "Alruna and the Necro-Industrialists",
+      "coverAssetId": "bbeafa46ffc13fe39f9e34a0dfd4397b4fca124ec1fe3aefc9d1c19036301bfa",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 35840
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:55:43.861Z",
+      "updatedAt": "2026-07-18T15:55:43.866Z"
+    },
+    "90a54958-a505-4039-8ca8-344b12f6345f": {
+      "id": "90a54958-a505-4039-8ca8-344b12f6345f",
+      "title": "The Plucky Squire",
+      "coverAssetId": "186323147bb0f60e02c1fca356c0b9e8aae82987112f6c55365a815ad7719f67",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "c",
+        "rank": 6144
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:53:15.419Z",
+      "updatedAt": "2026-07-18T15:53:15.425Z"
+    },
+    "940331ac-880f-44a8-9142-82bc24577a15": {
+      "id": "940331ac-880f-44a8-9142-82bc24577a15",
+      "title": "Hollow Knight: Silksong",
+      "coverAssetId": "815c40f9e6a8f4e8881e474c539c3ffb76a211e54395017e44c2692af1bcaa6a",
+      "platforms": [],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "s",
+        "rank": 13312
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:41:53.465Z",
+      "updatedAt": "2026-07-18T15:41:53.471Z"
+    },
+    "9cad2052-a227-44aa-93e0-9d762bf53089": {
+      "id": "9cad2052-a227-44aa-93e0-9d762bf53089",
+      "title": "Astral Chain",
+      "coverAssetId": "29f228628e230d6211cf22688e5d80a0623ac9828c110c27f1f424538602d94a",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 37888
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:58:19.973Z",
+      "updatedAt": "2026-07-18T15:58:19.979Z"
+    },
+    "a13676eb-5014-4ead-a6ff-037acc0dc1ac": {
+      "id": "a13676eb-5014-4ead-a6ff-037acc0dc1ac",
+      "title": "The Messenger",
+      "coverAssetId": "a08ca610058a3b9c21d26239acce8b8d4c4f55e5c89e225c3a164468e788ef88",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 15360
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:46:49.226Z",
+      "updatedAt": "2026-07-18T15:47:02.621Z"
+    },
+    "a7108c3e-4ce6-4166-b649-d7976cd6388c": {
+      "id": "a7108c3e-4ce6-4166-b649-d7976cd6388c",
+      "title": "Hollow Knight",
+      "coverAssetId": "e42a4b44612a716c69ead172626ef441570152a56dbc773e767d4be52d7cab60",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 14336
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:42:13.800Z",
+      "updatedAt": "2026-07-18T15:42:13.806Z"
+    },
+    "ad4a9f81-0b6b-43c4-8137-d51595bf1734": {
+      "id": "ad4a9f81-0b6b-43c4-8137-d51595bf1734",
+      "title": "Octopath Traveler",
+      "coverAssetId": "a2ccf68533f7d83d6b9f61de691c62008ab2de490f61881b31e9b8876d184447",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 38912
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:58:50.463Z",
+      "updatedAt": "2026-07-18T15:58:50.469Z"
+    },
+    "b22a058a-46d7-4d1c-8fc2-536ab27a9f7f": {
+      "id": "b22a058a-46d7-4d1c-8fc2-536ab27a9f7f",
+      "title": "SteamWorld Heist",
+      "coverAssetId": "19c4a485ba84235f551ac295aaa3fe19e8a3d3ac5897496afa26b598b137c849",
+      "platforms": [],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "b",
+        "rank": 27648
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:55:09.899Z",
+      "updatedAt": "2026-07-18T15:55:09.904Z"
+    },
+    "b9c3d042-c999-4748-b755-4e614eec0d5e": {
+      "id": "b9c3d042-c999-4748-b755-4e614eec0d5e",
+      "title": "GRIS",
+      "coverAssetId": "3795c11e66991b0b9ac9efdaffcc5039d21818d62582b16a4d9b8e4a086728e1",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 30720
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:52:26.276Z",
+      "updatedAt": "2026-07-18T15:52:26.282Z"
+    },
+    "bb585ab0-4aeb-453e-bdb5-3cfa0662a21e": {
+      "id": "bb585ab0-4aeb-453e-bdb5-3cfa0662a21e",
+      "title": "Inscryption",
+      "coverAssetId": "603c133e15a213d82bada1c114da4e991aa891fcd3d217f3754b22b1ce5e682d",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 20480
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:43:07.784Z",
+      "updatedAt": "2026-07-18T15:43:07.790Z"
+    },
+    "c1e46d5f-e8d9-4062-899a-7e73367b5603": {
+      "id": "c1e46d5f-e8d9-4062-899a-7e73367b5603",
+      "title": "Cuphead",
+      "coverAssetId": "8946410bba7fecc23c4e535a3277992083e3d54ab3b4943ccca655153fa719e9",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 28672
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:51:07.520Z",
+      "updatedAt": "2026-07-18T15:51:07.526Z"
+    },
+    "dd55bcdb-53c5-4dd3-afc4-f9366d7bfd6a": {
+      "id": "dd55bcdb-53c5-4dd3-afc4-f9366d7bfd6a",
+      "title": "Hotline Miami 2",
+      "coverAssetId": "4e4b4cb74880660e8a117342eface1bf0b9e23f7b001d612b51cbf6c2658942f",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 22528
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:44:12.875Z",
+      "updatedAt": "2026-07-18T15:44:12.881Z"
+    },
+    "df43b7b7-8301-4aa6-b732-1dd0d5e14a1d": {
+      "id": "df43b7b7-8301-4aa6-b732-1dd0d5e14a1d",
+      "title": "SteamWorld Heist 2",
+      "coverAssetId": "02ba9fec48d1ceb8be9d596d211aafc1402008909d0d9e5d00f131bf915d7303",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 34816
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:55:17.611Z",
+      "updatedAt": "2026-07-18T15:55:17.614Z"
+    },
+    "e1de32b4-665f-464f-94bc-46366c5977b3": {
+      "id": "e1de32b4-665f-464f-94bc-46366c5977b3",
+      "title": "SteamWorld Dig",
+      "coverAssetId": "ae3c266acd6969eba490108e15d98aac8caeb0246d5de86e336ef750ff239088",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 29696
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:51:54.216Z",
+      "updatedAt": "2026-07-18T15:51:54.221Z"
+    },
+    "eecd5d5d-a4fd-4328-b72a-29517c153399": {
+      "id": "eecd5d5d-a4fd-4328-b72a-29517c153399",
+      "title": "Undertale",
+      "coverAssetId": "051c73a317a69ccf5392229e6c4176f919c51cb5a4c6b7f279c392daa5132053",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 24576
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:45:11.112Z",
+      "updatedAt": "2026-07-18T15:45:11.119Z"
+    },
+    "f16e26fc-d124-42bb-8e34-d422c5a455c1": {
+      "id": "f16e26fc-d124-42bb-8e34-d422c5a455c1",
+      "title": "The Legend of Zelda: Breath of the Wild",
+      "coverAssetId": "fc20c1c43a2838a7d7e5e736ee93473ab8c31aca18236248432c019baf66c7ef",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:56:11.413Z",
+      "updatedAt": "2026-07-18T15:56:37.783Z"
+    },
+    "fca9097a-1862-458c-9d0b-6fbab61fd736": {
+      "id": "fca9097a-1862-458c-9d0b-6fbab61fd736",
+      "title": "Blasphemous 2",
+      "coverAssetId": "257ba0ab499277a0bfd8535dbfa9c4ae40e68dcbd36307655ce40db4b37fbbe5",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T15:39:23.208Z",
+      "updatedAt": "2026-07-18T15:39:23.214Z"
+    },
+    "fd87b343-85cb-4e0a-be96-9a6868c3dc41": {
+      "id": "fd87b343-85cb-4e0a-be96-9a6868c3dc41",
+      "title": "Hades",
+      "coverAssetId": "2ac74f772ad0634aea9ca4a84f382d931ba82bf60803812dbbf62d983be6eac4",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "b",
+        "rank": 29696
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-18T16:00:54.455Z",
+      "updatedAt": "2026-07-18T16:00:54.458Z"
     }
   },
   "notes": {
@@ -3525,6 +4122,15 @@
       "rank": 2048,
       "createdAt": "2026-07-18T14:59:24.932Z",
       "updatedAt": "2026-07-18T14:59:24.937Z"
+    },
+    "c9d1f1aa-1847-41dd-882b-2b6e9e71614d": {
+      "id": "c9d1f1aa-1847-41dd-882b-2b6e9e71614d",
+      "gameId": "17feaa9f-e7ef-401c-9268-7f3f8106a996",
+      "bodyMarkdown": "Очень приятная игра. Нет штрафов за смерть, быстрый темп, хорошие боссы, крутые ачивы.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-18T15:37:13.907Z",
+      "updatedAt": "2026-07-18T15:37:13.912Z"
     }
   },
   "assets": {
@@ -4829,6 +5435,386 @@
       "mime": "video/mp4",
       "byteLength": 1921771,
       "originalName": "Yakuza Kiwami_20251212131729.mp4"
+    },
+    "02ba9fec48d1ceb8be9d596d211aafc1402008909d0d9e5d00f131bf915d7303": {
+      "id": "02ba9fec48d1ceb8be9d596d211aafc1402008909d0d9e5d00f131bf915d7303",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 50090,
+      "alt": "Обложка SteamWorld Heist 2",
+      "originalName": "image.png"
+    },
+    "051c73a317a69ccf5392229e6c4176f919c51cb5a4c6b7f279c392daa5132053": {
+      "id": "051c73a317a69ccf5392229e6c4176f919c51cb5a4c6b7f279c392daa5132053",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 2682,
+      "alt": "Обложка Undertale",
+      "originalName": "image.png"
+    },
+    "186323147bb0f60e02c1fca356c0b9e8aae82987112f6c55365a815ad7719f67": {
+      "id": "186323147bb0f60e02c1fca356c0b9e8aae82987112f6c55365a815ad7719f67",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 52712,
+      "alt": "Обложка The Plucky Squire",
+      "originalName": "image.png"
+    },
+    "19c4a485ba84235f551ac295aaa3fe19e8a3d3ac5897496afa26b598b137c849": {
+      "id": "19c4a485ba84235f551ac295aaa3fe19e8a3d3ac5897496afa26b598b137c849",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 67762,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "21873d208c11aee34924194bf62cc1cc51e058ce03a0d8a359bd02f8310366cf": {
+      "id": "21873d208c11aee34924194bf62cc1cc51e058ce03a0d8a359bd02f8310366cf",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 31626,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "257ba0ab499277a0bfd8535dbfa9c4ae40e68dcbd36307655ce40db4b37fbbe5": {
+      "id": "257ba0ab499277a0bfd8535dbfa9c4ae40e68dcbd36307655ce40db4b37fbbe5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 22090,
+      "alt": "Обложка Bla",
+      "originalName": "image.jpeg"
+    },
+    "26768c4fd72e561c3920729e694a6c86ef193d9eb7aef804cc9877043b8c2021": {
+      "id": "26768c4fd72e561c3920729e694a6c86ef193d9eb7aef804cc9877043b8c2021",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38318,
+      "alt": "Обложка Nine Sols",
+      "originalName": "image.jpeg"
+    },
+    "29f228628e230d6211cf22688e5d80a0623ac9828c110c27f1f424538602d94a": {
+      "id": "29f228628e230d6211cf22688e5d80a0623ac9828c110c27f1f424538602d94a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 66632,
+      "alt": "Обложка Astral Chain",
+      "originalName": "image.jpeg"
+    },
+    "2ac74f772ad0634aea9ca4a84f382d931ba82bf60803812dbbf62d983be6eac4": {
+      "id": "2ac74f772ad0634aea9ca4a84f382d931ba82bf60803812dbbf62d983be6eac4",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35560,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "2f063f0de1302b11092a4976a719da0ddb77558d87ecf8df3b183da564cf6dc9": {
+      "id": "2f063f0de1302b11092a4976a719da0ddb77558d87ecf8df3b183da564cf6dc9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 60684,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "3795c11e66991b0b9ac9efdaffcc5039d21818d62582b16a4d9b8e4a086728e1": {
+      "id": "3795c11e66991b0b9ac9efdaffcc5039d21818d62582b16a4d9b8e4a086728e1",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 26558,
+      "alt": "Обложка GRIS",
+      "originalName": "image.png"
+    },
+    "449962a27466e0a83a3d84d72a6a83f3867d0ebffb789da8f7393106a58583dd": {
+      "id": "449962a27466e0a83a3d84d72a6a83f3867d0ebffb789da8f7393106a58583dd",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47242,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "4e4b4cb74880660e8a117342eface1bf0b9e23f7b001d612b51cbf6c2658942f": {
+      "id": "4e4b4cb74880660e8a117342eface1bf0b9e23f7b001d612b51cbf6c2658942f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 72032,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "603c133e15a213d82bada1c114da4e991aa891fcd3d217f3754b22b1ce5e682d": {
+      "id": "603c133e15a213d82bada1c114da4e991aa891fcd3d217f3754b22b1ce5e682d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 25014,
+      "alt": "Обложка Inscryption",
+      "originalName": "image.jpeg"
+    },
+    "6873c8fb56213546ecbd8d2c3e8ff7e72b464183b8517989abb6bb153557af1e": {
+      "id": "6873c8fb56213546ecbd8d2c3e8ff7e72b464183b8517989abb6bb153557af1e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 22990,
+      "alt": "Обложка VVVVVV",
+      "originalName": "image.jpeg"
+    },
+    "6b958e61fe1409f73b84e0a169c0b173d85de68490b9432b1272e6c291abf98f": {
+      "id": "6b958e61fe1409f73b84e0a169c0b173d85de68490b9432b1272e6c291abf98f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 72584,
+      "alt": "Обложка The Legend of Zelda",
+      "originalName": "image.png"
+    },
+    "80810dfb8af6a45dd5ebb12ac0ca13a77c681872bd2ef27aa98d4079baac940b": {
+      "id": "80810dfb8af6a45dd5ebb12ac0ca13a77c681872bd2ef27aa98d4079baac940b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 34566,
+      "alt": "Обложка Sonc The",
+      "originalName": "image.jpeg"
+    },
+    "815c40f9e6a8f4e8881e474c539c3ffb76a211e54395017e44c2692af1bcaa6a": {
+      "id": "815c40f9e6a8f4e8881e474c539c3ffb76a211e54395017e44c2692af1bcaa6a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35808,
+      "alt": "Обложка Hollow Knight: Silksong",
+      "originalName": "image.png"
+    },
+    "8946410bba7fecc23c4e535a3277992083e3d54ab3b4943ccca655153fa719e9": {
+      "id": "8946410bba7fecc23c4e535a3277992083e3d54ab3b4943ccca655153fa719e9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 32788,
+      "alt": "Обложка Cuphead",
+      "originalName": "image.jpeg"
+    },
+    "917d08365d3d19b4c944539ecc111b18a9bc7da51215447e613f14af56fd0a74": {
+      "id": "917d08365d3d19b4c944539ecc111b18a9bc7da51215447e613f14af56fd0a74",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 41884,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "9adf9eb3f954aeca5d3cd71753f739fce5bc6c48b3072afbad0b9bcb2943cde0": {
+      "id": "9adf9eb3f954aeca5d3cd71753f739fce5bc6c48b3072afbad0b9bcb2943cde0",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 59198,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "a08ca610058a3b9c21d26239acce8b8d4c4f55e5c89e225c3a164468e788ef88": {
+      "id": "a08ca610058a3b9c21d26239acce8b8d4c4f55e5c89e225c3a164468e788ef88",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 31898,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "a2ccf68533f7d83d6b9f61de691c62008ab2de490f61881b31e9b8876d184447": {
+      "id": "a2ccf68533f7d83d6b9f61de691c62008ab2de490f61881b31e9b8876d184447",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 84798,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "a6bcbba66408cbdebf559ffcef342c5b9b86c30e317f06e20b1d957bf3ac5b25": {
+      "id": "a6bcbba66408cbdebf559ffcef342c5b9b86c30e317f06e20b1d957bf3ac5b25",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 36446,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "a9201c18144553f2ba2fbbadf33a79c3119a6280098bd4958062432390d191a9": {
+      "id": "a9201c18144553f2ba2fbbadf33a79c3119a6280098bd4958062432390d191a9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 32470,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "ae3c266acd6969eba490108e15d98aac8caeb0246d5de86e336ef750ff239088": {
+      "id": "ae3c266acd6969eba490108e15d98aac8caeb0246d5de86e336ef750ff239088",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 44234,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "af1c7947f12631fbb1cc3aa784ceba064fa07d90b82040ac0f268df4d848e1ed": {
+      "id": "af1c7947f12631fbb1cc3aa784ceba064fa07d90b82040ac0f268df4d848e1ed",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35430,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "b907ad43f650039d1ddfa9139132537efc2c5a5ea0842a1b1d772f11eff5f674": {
+      "id": "b907ad43f650039d1ddfa9139132537efc2c5a5ea0842a1b1d772f11eff5f674",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 74706,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "bbeafa46ffc13fe39f9e34a0dfd4397b4fca124ec1fe3aefc9d1c19036301bfa": {
+      "id": "bbeafa46ffc13fe39f9e34a0dfd4397b4fca124ec1fe3aefc9d1c19036301bfa",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38530,
+      "alt": "Обложка игры",
+      "originalName": "image.png"
+    },
+    "be20fb53b24614374ea1a5f5b6cbd34d89355566c96aff831084da2139df30dd": {
+      "id": "be20fb53b24614374ea1a5f5b6cbd34d89355566c96aff831084da2139df30dd",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 28732,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "c1427a8714d521ea4c4f58bd2e950f3f2c25a0c4dd18709931460dc883268005": {
+      "id": "c1427a8714d521ea4c4f58bd2e950f3f2c25a0c4dd18709931460dc883268005",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 23020,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "cf973c93ed0480f6579468402b011252a629010807286997e8a9335285cb7565": {
+      "id": "cf973c93ed0480f6579468402b011252a629010807286997e8a9335285cb7565",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 21734,
+      "alt": "Обложка Dead Cells",
+      "originalName": "image.jpeg"
+    },
+    "d5336e578dc4186578752de0b3d0c6e361e70b4bb1b601d3d46cfe06d45812ca": {
+      "id": "d5336e578dc4186578752de0b3d0c6e361e70b4bb1b601d3d46cfe06d45812ca",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55664,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "db8822135dd5cf508f6e4c80ed4b57843e9665e913e0cc0a53d9daf75b6bd43e": {
+      "id": "db8822135dd5cf508f6e4c80ed4b57843e9665e913e0cc0a53d9daf75b6bd43e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 48668,
+      "alt": "Обложка Sonic Mania",
+      "originalName": "image.jpeg"
+    },
+    "e2d01414a0e3059e7982b31ecdc323bb78df8bd88ecf2265a80ef0c932ed1e13": {
+      "id": "e2d01414a0e3059e7982b31ecdc323bb78df8bd88ecf2265a80ef0c932ed1e13",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 29396,
+      "alt": "Обложка Into The Breach",
+      "originalName": "image.jpeg"
+    },
+    "e42a4b44612a716c69ead172626ef441570152a56dbc773e767d4be52d7cab60": {
+      "id": "e42a4b44612a716c69ead172626ef441570152a56dbc773e767d4be52d7cab60",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35196,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "fc20c1c43a2838a7d7e5e736ee93473ab8c31aca18236248432c019baf66c7ef": {
+      "id": "fc20c1c43a2838a7d7e5e736ee93473ab8c31aca18236248432c019baf66c7ef",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 78110,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
+    },
+    "fcaa3553565e23d9c85d64c307a345661f2f3645f97b7ae7ae35e6783078e57c": {
+      "id": "fcaa3553565e23d9c85d64c307a345661f2f3645f97b7ae7ae35e6783078e57c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 65474,
+      "alt": "Обложка игры",
+      "originalName": "image.jpeg"
     }
   }
 }
