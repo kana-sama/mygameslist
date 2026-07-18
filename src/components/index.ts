@@ -5,6 +5,6 @@ export * from "./GameCard";
 export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";
-export * from "./MasonryGrid";
+export * from "./ShelfGrid";
 export * from "./TagInput";
 export * from "./libraryUi";

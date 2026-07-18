@@ -447,6 +447,10 @@ describe("GamePage", () => {
     expect(getNoteDropIndex(editableNotes, NOTE_THREE_ID, NOTE_ID)).toBe(0);
     expect(getNoteDropIndex(editableNotes, NOTE_TWO_ID, NOTE_THREE_ID)).toBe(2);
     expect(getNoteDropIndex(editableNotes, NOTE_TWO_ID, NOTE_ID)).toBe(0);
+    expect(getNoteDropIndex(editableNotes, NOTE_ID, NOTE_THREE_ID, "before")).toBe(1);
+    expect(getNoteDropIndex(editableNotes, NOTE_ID, NOTE_THREE_ID, "after")).toBe(2);
+    expect(getNoteDropIndex(editableNotes, NOTE_THREE_ID, NOTE_ID, "before")).toBe(0);
+    expect(getNoteDropIndex(editableNotes, NOTE_THREE_ID, NOTE_ID, "after")).toBe(1);
     expect(getNoteDropIndex(editableNotes, NOTE_ID, NOTE_ID)).toBeNull();
     expect(getNoteDropIndex(editableNotes, NOTE_ID, "missing")).toBeNull();
     expect(NOTE_LIST_SENSOR_TYPES).toEqual({ pointer: NonTouchNotePointerSensor, touch: TouchSensor, keyboard: KeyboardSensor });
@@ -462,7 +466,7 @@ describe("GamePage", () => {
     expect(NOTE_LIST_SORTING_STRATEGY({} as never)).toBeNull();
   });
 
-  it("reorders masonry notes from their footer handle without opening the editor after drop", async () => {
+  it("reorders shelf notes from their footer handle without opening the editor after drop", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     const notes: Note[] = [
@@ -658,6 +662,30 @@ describe("GamePage", () => {
 
     expect(screen.getByRole("img", { name: "Карта уровня" })).toHaveAttribute("width", "1280");
     expect(screen.getByRole("img", { name: "Карта уровня" })).toHaveAttribute("height", "720");
+  });
+
+  it("keeps attachments before text in both note view and inline editor", async () => {
+    const user = userEvent.setup();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Текст после вложения",
+      attachments: [{ type: "link", url: "https://example.com/guide", label: "Гайд" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+    const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_ID}"]`)!;
+    const surface = card.querySelector<HTMLElement>(".note-card__surface")!;
+    expect(Array.from(surface.children).map((child) => child.className)).toEqual(["note-attachments", "note-card__text"]);
+
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    const textarea = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = textarea.closest<HTMLElement>("article")!;
+    expect(editor.children[0]).toHaveClass("note-attachments");
+    expect(editor.children[1]).toBe(textarea);
   });
 
   it("opens YouTube upload and attaches one canonical video to the note draft", async () => {

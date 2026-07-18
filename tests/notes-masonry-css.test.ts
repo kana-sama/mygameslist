@@ -9,22 +9,24 @@ function declarationsFor(selector: string): string {
   return styles.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 }
 
-describe("notes masonry CSS", () => {
-  it("uses a measured grid instead of WebKit multicolumn fragmentation", () => {
+describe("notes shelf CSS", () => {
+  it("uses an unlimited measured grid with explicit shelf tracks", () => {
     const container = declarationsFor(".notes-list, .note-editors-grid");
     const cards = declarationsFor(".note-card");
 
     expect(container).toMatch(/display:\s*grid/);
-    expect(container).toMatch(/repeat\(auto-fill,\s*minmax\(min\(360px,\s*100%\),\s*1fr\)\)/);
+    expect(container).toMatch(/--note-column-min:\s*360px/);
+    expect(container).toMatch(/repeat\(auto-fill,\s*minmax\(min\(var\(--note-column-min\),\s*100%\),\s*1fr\)\)/);
     expect(container).not.toMatch(/repeat\(auto-fit/);
     expect(container).toMatch(/grid-auto-rows:\s*1px/);
-    expect(container).toMatch(/gap:\s*7px/);
-    expect(container).not.toMatch(/column-/);
-    expect(cards).toMatch(/align-self:\s*start/);
+    expect(container).toMatch(/column-gap:\s*8px/);
+    expect(container).toMatch(/row-gap:\s*0/);
+    expect(container).not.toMatch(/column-(?:count|width)/);
+    expect(cards).toMatch(/align-self:\s*stretch/);
     expect(cards).not.toMatch(/break-inside|column-break/);
   });
 
-  it("collapses the masonry to one column on narrow screens", () => {
+  it("collapses the shelf to one column on narrow screens", () => {
     expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.notes-list, \.note-editors-grid \{\s*grid-template-columns:\s*1fr;/);
   });
 

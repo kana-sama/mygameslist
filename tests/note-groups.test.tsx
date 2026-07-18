@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -116,6 +116,9 @@ describe("anonymous note groups", () => {
 
     expect(getNoteDropPlacement(notes, NOTE_A_ID, NOTE_B_ID)).toEqual({ groupRank: 1024, index: 1 });
     expect(getNoteDropPlacement(notes, NOTE_C_ID, NOTE_A_ID)).toEqual({ groupRank: 1024, index: 0 });
+    expect(getNoteDropPlacement(notes, NOTE_A_ID, NOTE_B_ID, "before")).toEqual({ groupRank: 1024, index: 0 });
+    expect(getNoteDropPlacement(notes, NOTE_A_ID, NOTE_B_ID, "after")).toEqual({ groupRank: 1024, index: 1 });
+    expect(getNoteDropPlacement(notes, NOTE_C_ID, NOTE_A_ID, "after")).toEqual({ groupRank: 1024, index: 1 });
     const moved = moveDraftNoteToGroup(notes, NOTE_A_ID, 3072, 0);
     expect(groupDraftNotes(moved).map((group) => [group.groupRank, group.notes.map((item) => item.clientId)])).toEqual([
       [1024, [NOTE_B_ID]],
@@ -141,7 +144,7 @@ describe("anonymous note groups", () => {
     expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "1024");
   });
 
-  it("renders each persisted group as an independent masonry heap", () => {
+  it("renders each persisted group as an independent shelf", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
 
     const groups = document.querySelectorAll(".note-group");
@@ -361,7 +364,7 @@ describe("anonymous note groups", () => {
     expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "3072");
   });
 
-  it("drags a note into an existing masonry group", async () => {
+  it("drags a note into an existing shelf group", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
@@ -388,6 +391,39 @@ describe("anonymous note groups", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     const moved = onSave.mock.calls[0][0].notes.find((item) => item.clientId === NOTE_A_ID);
     expect(moved).toMatchObject({ groupRank: 2048, rank: 512 });
+  });
+
+  it("moves a note between shelf groups with the delayed touch sensor", async () => {
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
+      if (this.dataset.noteId === NOTE_B_ID) return rect(0, 260, 360, 90);
+      if (this.matches(".notes-list")) return this.parentElement?.getAttribute("aria-label") === "Группа заметок 1" ? rect(0, 100, 727, 100) : rect(0, 260, 727, 100);
+      if (this.matches(".note-empty-group")) return rect(0, 420, 727, 40);
+      if (this.matches(".note-card__content")) return rect(0, 0, 360, 80);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
+    const source = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
+    const handle = within(source).getByRole("button", { name: "Перетащить заметку" });
+    const target = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_B_ID}"]`)!;
+
+    await act(async () => {
+      fireEvent.touchStart(handle, { touches: [{ identifier: 1, clientX: 20, clientY: 185 }] });
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
+    });
+    await waitFor(() => expect(source).toHaveClass("is-dragging"));
+    act(() => {
+      fireEvent.touchMove(handle, { touches: [{ identifier: 1, clientX: 20, clientY: 280 }] });
+    });
+    await waitFor(() => expect(target).toHaveClass("is-drop-target"));
+    act(() => {
+      fireEvent.touchEnd(handle, { changedTouches: [{ identifier: 1, clientX: 20, clientY: 280 }], touches: [] });
+    });
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes.find((item) => item.clientId === NOTE_A_ID)).toMatchObject({ groupRank: 2048, rank: 512 });
   });
 
   it("appends a note by dropping into free space of an existing group", async () => {
@@ -446,7 +482,7 @@ describe("anonymous note groups", () => {
     expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ groupRank: 2048, rank: 1024 });
   });
 
-  it("restores keyboard focus after moving a note between masonry groups", async () => {
+  it("restores keyboard focus after moving a note between shelf groups", async () => {
     const user = userEvent.setup();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if (this.dataset.noteId === NOTE_A_ID) return rect(0, 100, 360, 90);
