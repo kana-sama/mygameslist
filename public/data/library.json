@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "721a86e9f68ec63c0a8c0f3a89f45ef9ad58a45505940ba75752603ba7bb561c",
-  "publicationId": "7179b53b-ed54-4e46-90c2-d91b87dd4731",
+  "revision": "069a0c48f84851cc2c5a6712c988d94b998fcd90c599f10c03711e0bf48b4ee6",
+  "publicationId": "d9a76888-a25d-441d-a22f-0b5f9bdee3d3",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -90,7 +90,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-17T02:08:38.439Z"
+      "updatedAt": "2026-07-18T07:50:31.778Z"
     },
     "cc5b015a-3fef-41cf-b596-36322578efa4": {
       "id": "cc5b015a-3fef-41cf-b596-36322578efa4",
@@ -322,7 +322,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:52:22.203Z",
-      "updatedAt": "2026-07-17T04:54:00.152Z"
+      "updatedAt": "2026-07-18T07:34:11.664Z"
     },
     "a1146211-e565-405f-8b27-c5d039659d20": {
       "id": "a1146211-e565-405f-8b27-c5d039659d20",
@@ -428,7 +428,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:33:29.953Z",
-      "updatedAt": "2026-07-17T05:59:12.548Z"
+      "updatedAt": "2026-07-18T07:59:28.077Z"
     },
     "4b94d022-dd72-4db6-a41a-ea0b3a1a301e": {
       "id": "4b94d022-dd72-4db6-a41a-ea0b3a1a301e",
@@ -475,7 +475,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:22:16.422Z",
-      "updatedAt": "2026-07-17T05:22:16.456Z"
+      "updatedAt": "2026-07-18T07:57:51.957Z"
     },
     "7a362513-f98c-4a79-9a75-76e10ab61baf": {
       "id": "7a362513-f98c-4a79-9a75-76e10ab61baf",
@@ -526,7 +526,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:35:23.983Z",
-      "updatedAt": "2026-07-17T05:35:24.031Z"
+      "updatedAt": "2026-07-18T08:02:07.811Z"
     },
     "9ba8c99f-0334-4ca6-911b-8dc836873e75": {
       "id": "9ba8c99f-0334-4ca6-911b-8dc836873e75",
@@ -758,7 +758,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:41:38.870Z",
-      "updatedAt": "2026-07-17T05:41:58.343Z"
+      "updatedAt": "2026-07-18T09:11:32.158Z"
     },
     "6acaf42a-d1ef-4af9-8ac6-61cc64033bf9": {
       "id": "6acaf42a-d1ef-4af9-8ac6-61cc64033bf9",
@@ -869,7 +869,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:43:02.615Z",
-      "updatedAt": "2026-07-17T05:43:02.652Z"
+      "updatedAt": "2026-07-18T09:00:28.437Z"
     },
     "e8c23b3b-9b36-4566-8c47-1e0e0f6a4612": {
       "id": "e8c23b3b-9b36-4566-8c47-1e0e0f6a4612",
@@ -1441,7 +1441,7 @@
     "f334dd54-f4bb-4e6a-bdc9-5b57e13fd68c": {
       "id": "f334dd54-f4bb-4e6a-bdc9-5b57e13fd68c",
       "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
-      "bodyMarkdown": "",
+      "bodyMarkdown": "полное прохождение",
       "attachments": [
         {
           "type": "image",
@@ -1451,7 +1451,7 @@
       ],
       "rank": 2048,
       "createdAt": "2026-07-16T11:33:58.259Z",
-      "updatedAt": "2026-07-17T02:08:38.439Z"
+      "updatedAt": "2026-07-18T07:39:02.347Z"
     },
     "fbd279ad-fb12-425f-8480-f9f7417cf57a": {
       "id": "fbd279ad-fb12-425f-8480-f9f7417cf57a",
@@ -2745,6 +2745,304 @@
       "rank": 12288,
       "createdAt": "2026-07-17T12:09:42.712Z",
       "updatedAt": "2026-07-17T12:09:42.716Z"
+    },
+    "04da4d6a-5917-44d5-ae5b-7e03049ccf1a": {
+      "id": "04da4d6a-5917-44d5-ae5b-7e03049ccf1a",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "**Road to Bowser** - пока что мой самый любимый уровень",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=u2pDT_iUyGI",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 4096,
+      "createdAt": "2026-07-18T07:45:14.600Z",
+      "updatedAt": "2026-07-18T07:45:14.609Z"
+    },
+    "1ab68c19-b648-4bcf-a8ad-bcbc7e9aba33": {
+      "id": "1ab68c19-b648-4bcf-a8ad-bcbc7e9aba33",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=p3fGK9C59UE",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 3072,
+      "rank": 1024,
+      "createdAt": "2026-07-18T07:30:40.887Z",
+      "updatedAt": "2026-07-18T07:30:40.894Z"
+    },
+    "25d44691-71ac-4183-8bf2-cc43e96f5e36": {
+      "id": "25d44691-71ac-4183-8bf2-cc43e96f5e36",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "Чем линк занимается?",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=XB2bhiNg_D0",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 3072,
+      "rank": 2048,
+      "createdAt": "2026-07-18T07:31:44.626Z",
+      "updatedAt": "2026-07-18T07:31:57.678Z"
+    },
+    "2bc08ac9-1c0f-4575-816e-f5fc87b52e87": {
+      "id": "2bc08ac9-1c0f-4575-816e-f5fc87b52e87",
+      "gameId": "de49c645-ec06-4fd7-8e53-3277606ab5ee",
+      "bodyMarkdown": "[Ссылка на мод](https://gamebanana.com/mods/536309)\n\nТребуется USA-версия Sunshine\n```\ncrc32 = 771ad977\nmd5   = 0c6d2edae9fdf40dfc410ff1623e4119\n```",
+      "attachments": [],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T09:00:13.841Z",
+      "updatedAt": "2026-07-18T09:00:28.437Z"
+    },
+    "3ae9aed7-7c24-40bd-80dd-f571ec344815": {
+      "id": "3ae9aed7-7c24-40bd-80dd-f571ec344815",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "**Dire, Dire Coins** - Две звезды за раз",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=KYKhG_x0Jy8",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 8192,
+      "createdAt": "2026-07-18T07:48:06.675Z",
+      "updatedAt": "2026-07-18T07:48:06.684Z"
+    },
+    "3d9ff721-3d1a-4378-aa8c-5581a9ae7710": {
+      "id": "3d9ff721-3d1a-4378-aa8c-5581a9ae7710",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "It's a Trap x2",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=NBQIvXXRrYI",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 6144,
+      "createdAt": "2026-07-18T07:46:20.802Z",
+      "updatedAt": "2026-07-18T07:46:20.810Z"
+    },
+    "45ca0369-7172-4c4c-9718-9168457145e6": {
+      "id": "45ca0369-7172-4c4c-9718-9168457145e6",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "опасный платформинг",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=3TpOHSqURbw",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 5120,
+      "createdAt": "2026-07-18T07:45:50.621Z",
+      "updatedAt": "2026-07-18T07:45:50.627Z"
+    },
+    "73ad04c8-4d6e-4a2e-835a-c15d94b27e7a": {
+      "id": "73ad04c8-4d6e-4a2e-835a-c15d94b27e7a",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "World 2",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=wCIMLMh9Hes",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T07:43:03.363Z",
+      "updatedAt": "2026-07-18T07:43:03.371Z"
+    },
+    "74e65142-29cb-4e8e-b522-37955badd406": {
+      "id": "74e65142-29cb-4e8e-b522-37955badd406",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "поспал во время боссфайта",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=iJjCumT9G60",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 3072,
+      "rank": 3072,
+      "createdAt": "2026-07-18T07:33:09.886Z",
+      "updatedAt": "2026-07-18T07:33:09.893Z"
+    },
+    "76c39009-d32c-4a5c-b072-e496b8999588": {
+      "id": "76c39009-d32c-4a5c-b072-e496b8999588",
+      "gameId": "934bdedf-009d-420d-87be-bfdddab1b96e",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=QRvmiBeKJcY",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T08:02:07.805Z",
+      "updatedAt": "2026-07-18T08:02:07.811Z"
+    },
+    "9fe431a9-9596-4846-bc30-c009e697e163": {
+      "id": "9fe431a9-9596-4846-bc30-c009e697e163",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "Одна из секретных звезд: нужно успеть проехать за 21 секунду.",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=CECSHtxiBgo",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T07:36:42.975Z",
+      "updatedAt": "2026-07-18T07:36:42.982Z"
+    },
+    "be41e7b6-9903-4893-9c3a-ebe7b92379b2": {
+      "id": "be41e7b6-9903-4893-9c3a-ebe7b92379b2",
+      "gameId": "74d83fb9-e0a2-4edf-9f0d-1731ef57d3e2",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=Np3ivFcWZmk",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T07:57:51.949Z",
+      "updatedAt": "2026-07-18T07:57:51.957Z"
+    },
+    "c1c69186-6719-407e-aee4-f35c55a74d0d": {
+      "id": "c1c69186-6719-407e-aee4-f35c55a74d0d",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "**Tick Tock Clock**",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=QRvAQ8lcMOM",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 9216,
+      "createdAt": "2026-07-18T07:48:49.333Z",
+      "updatedAt": "2026-07-18T07:48:49.339Z"
+    },
+    "caf835c8-f53b-4e65-8769-dcf972f3f753": {
+      "id": "caf835c8-f53b-4e65-8769-dcf972f3f753",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=vgCgaIkhhHk",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 10240,
+      "createdAt": "2026-07-18T07:50:31.772Z",
+      "updatedAt": "2026-07-18T07:50:31.778Z"
+    },
+    "d4e8a66c-2a2a-4f00-9353-0e32865ce4a9": {
+      "id": "d4e8a66c-2a2a-4f00-9353-0e32865ce4a9",
+      "gameId": "198cba02-338f-4886-a1a0-fc8925172636",
+      "bodyMarkdown": "гений",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=1ujo5Zmr7WE",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T07:59:28.069Z",
+      "updatedAt": "2026-07-18T07:59:28.077Z"
+    },
+    "de230ab7-1c95-45ad-b1d3-7b5e63df9a29": {
+      "id": "de230ab7-1c95-45ad-b1d3-7b5e63df9a29",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "Эффект шляпы кончился у платформы сам по себе, это не я отменил",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=bKozLNU1HK0",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-07-18T07:43:56.936Z",
+      "updatedAt": "2026-07-18T07:43:56.943Z"
+    },
+    "e8892170-e5a7-4c42-bd72-01b75ef3efc7": {
+      "id": "e8892170-e5a7-4c42-bd72-01b75ef3efc7",
+      "gameId": "7578a037-d926-40a6-bbfa-1b4545da8ce3",
+      "bodyMarkdown": "мне это решение показалось оригинальным, но скорее всего так и задумывалось",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=0DVqTL5UG3c",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 3072,
+      "rank": 4096,
+      "createdAt": "2026-07-18T07:34:11.657Z",
+      "updatedAt": "2026-07-18T07:34:11.664Z"
+    },
+    "ef7de1f8-c9bd-445e-9276-053812c6bc65": {
+      "id": "ef7de1f8-c9bd-445e-9276-053812c6bc65",
+      "gameId": "abb6c87b-8f3c-45fa-adb6-822c55b24c05",
+      "bodyMarkdown": "**In the Talons of the Big Bird**",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=RKSrEMXVMkU",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 7168,
+      "createdAt": "2026-07-18T07:46:56.879Z",
+      "updatedAt": "2026-07-18T07:47:06.708Z"
+    },
+    "fadc5329-a587-45f9-9afb-a9e53d8f1eba": {
+      "id": "fadc5329-a587-45f9-9afb-a9e53d8f1eba",
+      "gameId": "693ea235-1ced-468a-aca0-4597a561dea1",
+      "bodyMarkdown": "Патч на 60fps, в виде Gecko-кода",
+      "attachments": [
+        {
+          "type": "file",
+          "assetId": "f41a1c6784cdbee10378cde589871c2269e3542f14fb379c96f6131afcff5c60",
+          "label": "GMSE01.gct"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T09:11:32.154Z",
+      "updatedAt": "2026-07-18T09:11:32.158Z"
     }
   },
   "assets": {
@@ -3775,6 +4073,13 @@
       "byteLength": 1082252,
       "alt": "Screenshot 2026-07-17 at 3.19.59 PM",
       "originalName": "Screenshot 2026-07-17 at 3.19.59 PM.png"
+    },
+    "f41a1c6784cdbee10378cde589871c2269e3542f14fb379c96f6131afcff5c60": {
+      "id": "f41a1c6784cdbee10378cde589871c2269e3542f14fb379c96f6131afcff5c60",
+      "kind": "file",
+      "mime": "application/octet-stream",
+      "byteLength": 64,
+      "originalName": "GMSE01.gct"
     }
   }
 }
