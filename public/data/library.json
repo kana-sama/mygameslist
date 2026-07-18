@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "be68a57f0178d4252ee1a04c6e792e503c24115d562b1fbdf3be39a5fdef7136",
-  "publicationId": "d8be07e7-503b-4f58-8024-22f97730cc56",
+  "revision": "6989bbeaa31b1b25627667bb1537f87d85bacb8c166357bdb415ec4dc65189ba",
+  "publicationId": "6384eccb-24f1-4614-aaf5-89deea224eac",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -690,7 +690,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:50:36.452Z",
-      "updatedAt": "2026-07-17T05:50:40.232Z"
+      "updatedAt": "2026-07-18T13:33:15.857Z"
     },
     "4d93887a-b720-4f75-9030-fe0476344c79": {
       "id": "4d93887a-b720-4f75-9030-fe0476344c79",
@@ -951,7 +951,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:55:26.867Z",
-      "updatedAt": "2026-07-17T06:00:29.746Z"
+      "updatedAt": "2026-07-18T13:36:21.929Z"
     },
     "75fbbe1c-30a5-4aed-b2c8-b1a66fb3189f": {
       "id": "75fbbe1c-30a5-4aed-b2c8-b1a66fb3189f",
@@ -1286,7 +1286,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T09:56:35.034Z",
-      "updatedAt": "2026-07-17T10:42:01.797Z"
+      "updatedAt": "2026-07-18T13:54:13.554Z"
     },
     "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c": {
       "id": "4c892c9b-055c-46e1-aeaa-3b1b8ed2431c",
@@ -2601,7 +2601,7 @@
     "bbfe087a-d6b0-4d8d-b12a-149ab90988ff": {
       "id": "bbfe087a-d6b0-4d8d-b12a-149ab90988ff",
       "gameId": "4a22bf4f-3f13-4065-b302-32c8cf0c7801",
-      "bodyMarkdown": "",
+      "bodyMarkdown": "чарт сокровищ без особых спойлеров, экономия времени на случаях когда не знаешь куда идти. Всю эту инфу дает храм в игре, но к нему далеко бегать каждый раз",
       "attachments": [
         {
           "type": "image",
@@ -2612,7 +2612,7 @@
       "groupRank": 2048,
       "rank": 2048,
       "createdAt": "2026-07-17T09:57:24.331Z",
-      "updatedAt": "2026-07-17T10:42:01.797Z"
+      "updatedAt": "2026-07-18T13:53:39.557Z"
     },
     "c534b592-e88f-432f-8410-36e66d2c8e1c": {
       "id": "c534b592-e88f-432f-8410-36e66d2c8e1c",
@@ -3247,6 +3247,102 @@
       "rank": 1024,
       "createdAt": "2026-07-18T09:15:41.230Z",
       "updatedAt": "2026-07-18T09:15:41.235Z"
+    },
+    "3ce9ea13-78df-48ab-b4be-51b589319914": {
+      "id": "3ce9ea13-78df-48ab-b4be-51b589319914",
+      "gameId": "42b7a542-dd30-4fe0-94c3-cd4aae8377e0",
+      "bodyMarkdown": "а вот тут я жесткий лакич",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=MTcXZYFZDyQ",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1536,
+      "createdAt": "2026-07-18T13:33:13.753Z",
+      "updatedAt": "2026-07-18T13:33:15.857Z"
+    },
+    "4518e3e0-59d9-4b48-a68f-2065de18031a": {
+      "id": "4518e3e0-59d9-4b48-a68f-2065de18031a",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "а тут я снизил себе уровень под уровень мобов, чтобы получить достойный бой с финальным боссом, и все равно он улетел за одну серию атак",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=8gh478_6G10",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 5120,
+      "createdAt": "2026-07-18T13:35:04.814Z",
+      "updatedAt": "2026-07-18T13:35:04.822Z"
+    },
+    "463e5c29-4a8e-46fc-ab3c-333eb90e5f14": {
+      "id": "463e5c29-4a8e-46fc-ab3c-333eb90e5f14",
+      "gameId": "42b7a542-dd30-4fe0-94c3-cd4aae8377e0",
+      "bodyMarkdown": "В этот раз я решил задрочить все миниигры, и вот одна из них - Koi-Koi, за которую я уже получил все 3 ачивки (что потребовало побеждать в ней много раз на самой высокой сложности)",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=jq02CAupmV0",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T13:31:16.455Z",
+      "updatedAt": "2026-07-18T13:32:42.531Z"
+    },
+    "cb5bb52b-5557-40f6-8004-0a96a60a0c11": {
+      "id": "cb5bb52b-5557-40f6-8004-0a96a60a0c11",
+      "gameId": "5bed0be6-feab-46e7-b890-ecf96abca49d",
+      "bodyMarkdown": "Буквально чудесная победа. Это самый сложный босс в дополнении, у него две частых ваншотящих аое атаки, да еще и шипы, а предвиденья в дополнении нет, и гемчики максимум 4 уровня.\n\nВсе персонажи одеты в гемчики на резист шипам, чтобы не тратить талант на скидывание шипов, и на хп, и все равно шотались.\n\nНа видосе я успел перед смертельной атакой по мне нажать на комбо, это сохраняет всех живых персонажей с 1 хп. Еще и идеально провернул комбо.",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=N-B5EmbXHUc",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 6144,
+      "createdAt": "2026-07-18T13:36:21.918Z",
+      "updatedAt": "2026-07-18T13:36:21.929Z"
+    },
+    "cecdf818-9525-48dc-a39d-2dea046b5a04": {
+      "id": "cecdf818-9525-48dc-a39d-2dea046b5a04",
+      "gameId": "42b7a542-dd30-4fe0-94c3-cd4aae8377e0",
+      "bodyMarkdown": "жестокая неудача",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=jPOD6c44KfU",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-18T13:04:59.885Z",
+      "updatedAt": "2026-07-18T13:30:40.860Z"
+    },
+    "e469e27c-e1d8-490f-b50d-4a400b5f5578": {
+      "id": "e469e27c-e1d8-490f-b50d-4a400b5f5578",
+      "gameId": "4a22bf4f-3f13-4065-b302-32c8cf0c7801",
+      "bodyMarkdown": "записал прохождение самого первого уровня с парочкой секретиков для истории, со своим лицом в отражении",
+      "attachments": [
+        {
+          "type": "link",
+          "url": "https://www.youtube.com/watch?v=pVuLerm9Mps",
+          "label": "YouTube"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-07-18T13:54:13.544Z",
+      "updatedAt": "2026-07-18T13:54:13.554Z"
     }
   },
   "assets": {
