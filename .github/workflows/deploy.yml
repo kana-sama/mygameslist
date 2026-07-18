@@ -18,6 +18,73 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Detect public-only push
+        id: changes
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const useFullBuild = (reason) => {
+              core.notice(`Using full build: ${reason}`);
+              core.setOutput("public_only", "false");
+            };
+
+            if (context.eventName !== "push") {
+              useFullBuild("this is not a push event");
+              return;
+            }
+            if (context.payload.forced) {
+              useFullBuild("the push rewrote history");
+              return;
+            }
+
+            const before = context.payload.before;
+            const after = context.sha;
+            if (!before || /^0+$/.test(before) || !after || before === after) {
+              useFullBuild("the pushed range cannot be compared safely");
+              return;
+            }
+
+            try {
+              const comparison = await github.request(
+                "GET /repos/{owner}/{repo}/compare/{basehead}",
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  basehead: `${before}...${after}`,
+                },
+              );
+              const files = comparison.data.files;
+              if (comparison.data.status !== "ahead") {
+                useFullBuild(`the comparison status is ${comparison.data.status}`);
+                return;
+              }
+              if (!Array.isArray(files) || files.length === 0) {
+                useFullBuild("the comparison did not return changed files");
+                return;
+              }
+              if (files.length >= 300) {
+                useFullBuild("the changed-file list may be truncated");
+                return;
+              }
+
+              const isPublicPath = (value) =>
+                typeof value === "string" && value.startsWith("public/");
+              const publicOnly = files.every(
+                (file) =>
+                  isPublicPath(file.filename) &&
+                  (!file.previous_filename || isPublicPath(file.previous_filename)),
+              );
+              core.setOutput("public_only", String(publicOnly));
+              core.notice(
+                publicOnly
+                  ? `Using public-only path for ${files.length} changed file(s)`
+                  : "Using full build because files outside public changed",
+              );
+            } catch (error) {
+              core.warning(`Could not compare the pushed range: ${error.message}`);
+              useFullBuild("the changed files could not be determined");
+            }
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -30,17 +97,48 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore app shell
+        id: shell_cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            dist/index.html
+            dist/assets
+          key: pages-shell-${{ runner.os }}-node22-${{ hashFiles('package-lock.json', 'package.json', 'index.html', 'tsconfig*.json', 'vite.config.*', '.env*', 'src/**') }}
+
+      - name: Select build path
+        id: build_path
+        shell: bash
+        env:
+          PUBLIC_ONLY: ${{ steps.changes.outputs.public_only }}
+          SHELL_CACHE_HIT: ${{ steps.shell_cache.outputs.cache-hit }}
+        run: |
+          if [[ "$PUBLIC_ONLY" == "true" && "$SHELL_CACHE_HIT" == "true" && -f dist/index.html && -d dist/assets ]]; then
+            echo "fast=true" >> "$GITHUB_OUTPUT"
+            echo "Reusing the cached app shell."
+          else
+            echo "fast=false" >> "$GITHUB_OUTPUT"
+            echo "Running the full test and build path."
+          fi
 
       - name: Validate data
-        run: npm run data:validate
+        run: node scripts/validate-data.mjs
+
+      - name: Install dependencies
+        if: steps.build_path.outputs.fast != 'true'
+        run: npm ci
 
       - name: Test
+        if: steps.build_path.outputs.fast != 'true'
         run: npm test
 
       - name: Build
+        if: steps.build_path.outputs.fast != 'true'
         run: npm run build
+
+      - name: Add public files to cached app shell
+        if: steps.build_path.outputs.fast == 'true'
+        run: cp -R public/. dist/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
