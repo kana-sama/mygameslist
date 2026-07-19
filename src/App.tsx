@@ -361,6 +361,7 @@ function LibraryRoutes() {
       games={games}
       onNavigate={navigateHref}
       onOpenDiff={() => setDiffOpen(true)}
+      resolveAssetUrl={library.resolveAssetUrl}
       route={routeKind(location.pathname)}
       storage={{
         bytes: library.usage.bytes,

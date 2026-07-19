@@ -3,6 +3,7 @@ import type { Game } from "../domain/types";
 import { Icon } from "./Icon";
 import { GlobalGameSearch } from "./GlobalGameSearch";
 import { formatBytes } from "./libraryUi";
+import { RandomGameButton } from "./RandomGameButton";
 
 export type AppRoute = "tiers" | "catalog" | "game" | "new";
 
@@ -26,6 +27,7 @@ export interface AppShellProps {
   storage: StorageSummary;
   onOpenDiff: () => void;
   onNavigate?: (href: string) => void;
+  resolveAssetUrl?: (assetId: string) => string | null;
 }
 
 function NavLink({
@@ -47,7 +49,7 @@ function NavLink({
     onNavigate(href);
   };
   return (
-    <a aria-current={active ? "page" : undefined} className="app-nav__link" href={href} onClick={onClick}>
+    <a aria-current={active ? "page" : undefined} aria-label={label} className="app-nav__link" href={href} onClick={onClick}>
       <Icon name={icon} />
       <span>{label}</span>
     </a>
@@ -61,6 +63,7 @@ export function AppShell({
   storage,
   onOpenDiff,
   onNavigate,
+  resolveAssetUrl,
 }: AppShellProps) {
   const budget = storage.budgetBytes ?? 4 * 1024 * 1024;
   const ratio = budget ? storage.bytes / budget : 0;
@@ -91,6 +94,7 @@ export function AppShell({
         </nav>
         <GlobalGameSearch games={games} onNavigate={onNavigate} />
         <div className="app-header__actions">
+          <RandomGameButton games={games} onNavigate={onNavigate} resolveAssetUrl={resolveAssetUrl} />
           <button
             aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(displayedBytes)}${localAssetCount ? `, локальных файлов: ${localAssetCount}` : ""}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageNeedsAttention ? ", хранилище требует внимания" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}
             className={`patch-pill patch-pill--${storageLevel}`}
