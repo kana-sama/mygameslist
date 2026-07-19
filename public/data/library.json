@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "904cf9753fb7d07a3cd873eefe4e8886f6e71649285202687ee7a9db4d9f9c36",
-  "publicationId": "1a8c0cbd-70a4-4b7e-8ee6-9e54d8025133",
+  "revision": "56521987913543d7c1e88ab97b095f60aab149f0b74c4d8fbff7c745d8f68a40",
+  "publicationId": "a9d0bd4c-0839-4b62-8686-b056c1040287",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -568,14 +568,14 @@
       "coverAssetId": "581d838c8e93a4d0ab6450e51cfc725a68838d2ca10920986444e46380bf49e9",
       "platforms": [],
       "tags": [],
-      "status": "wishlist",
+      "status": "platinum",
       "placement": {
         "tierId": "a",
         "rank": 8192
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:28:12.047Z",
-      "updatedAt": "2026-07-17T05:28:12.081Z"
+      "updatedAt": "2026-07-19T09:45:05.108Z"
     },
     "b44b2982-f7f0-4fbf-bfef-e6185cf87cd7": {
       "id": "b44b2982-f7f0-4fbf-bfef-e6185cf87cd7",
@@ -804,12 +804,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 2048
+        "tierId": "f",
+        "rank": 5120
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:52:26.964Z",
-      "updatedAt": "2026-07-17T05:52:27.002Z"
+      "updatedAt": "2026-07-19T09:17:36.121Z"
     },
     "71aa5dd9-2664-47a5-97a3-e4a8597fb960": {
       "id": "71aa5dd9-2664-47a5-97a3-e4a8597fb960",
@@ -1108,12 +1108,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 3072
+        "tierId": "f",
+        "rank": 7168
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T06:08:31.852Z",
-      "updatedAt": "2026-07-17T06:08:31.893Z"
+      "updatedAt": "2026-07-19T09:17:44.424Z"
     },
     "a4d41f18-0f41-45e1-90c0-e483dc9ce054": {
       "id": "a4d41f18-0f41-45e1-90c0-e483dc9ce054",
@@ -2168,12 +2168,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
+        "tierId": "f",
         "rank": 4096
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:21:58.463Z",
-      "updatedAt": "2026-07-19T08:21:58.467Z"
+      "updatedAt": "2026-07-19T09:17:30.107Z"
     },
     "8d414a33-5ea5-43ad-9230-8c1fab38b09e": {
       "id": "8d414a33-5ea5-43ad-9230-8c1fab38b09e",
@@ -2536,12 +2536,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 6144
+        "tierId": "f",
+        "rank": 8192
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:42:06.096Z",
-      "updatedAt": "2026-07-19T08:42:06.100Z"
+      "updatedAt": "2026-07-19T09:17:47.172Z"
     },
     "50c09e64-fadf-4856-8c23-5234ef475628": {
       "id": "50c09e64-fadf-4856-8c23-5234ef475628",
@@ -2703,12 +2703,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 7168
+        "tierId": "f",
+        "rank": 9216
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:43:33.054Z",
-      "updatedAt": "2026-07-19T08:43:33.058Z"
+      "updatedAt": "2026-07-19T09:17:49.177Z"
     },
     "68a20070-bb33-4201-9671-38d4687bd30b": {
       "id": "68a20070-bb33-4201-9671-38d4687bd30b",
@@ -2825,12 +2825,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 5120
+        "tierId": "f",
+        "rank": 6144
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:34:18.401Z",
-      "updatedAt": "2026-07-19T08:34:18.404Z"
+      "updatedAt": "2026-07-19T09:17:41.322Z"
     },
     "81cc32d4-eeee-465a-87ea-2c755dd7ff2b": {
       "id": "81cc32d4-eeee-465a-87ea-2c755dd7ff2b",
@@ -2932,12 +2932,12 @@
       "tags": [],
       "status": "dropped",
       "placement": {
-        "tierId": "d",
-        "rank": 8192
+        "tierId": "f",
+        "rank": 10240
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:46:25.592Z",
-      "updatedAt": "2026-07-19T08:46:25.596Z"
+      "updatedAt": "2026-07-19T09:17:51.324Z"
     },
     "9e55de0f-35fa-4463-b287-d0a93b83ede8": {
       "id": "9e55de0f-35fa-4463-b287-d0a93b83ede8",
