@@ -259,6 +259,18 @@ function LibraryRoutes() {
     }
   };
 
+  const connectGitHubWithoutSync = async (token: string) => {
+    setGitHubSyncState((current) => ({ ...current, busy: true, stage: "connecting", error: null, commitUrl: undefined }));
+    try {
+      await library.verifyGitHubAccess(token);
+      setGitHubSyncState({ busy: false, stage: "idle", error: null });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Не удалось проверить доступ к GitHub";
+      setGitHubSyncState((current) => ({ ...current, busy: false, stage: "idle", error: message }));
+      throw reason;
+    }
+  };
+
   const connectAndSyncGitHub = async (token: string, remember: boolean) => {
     const saved = saveGitHubPat(token, remember);
     if (!saved.ok) {
@@ -271,9 +283,19 @@ function LibraryRoutes() {
       clearGitHubPat();
       throw new Error("Не удалось прочитать сохранённый PAT");
     }
-    githubPatRef.current = loaded.token;
-    setGitHubPatPersistence(loaded.persistence);
-    await syncWithGitHub(loaded.token);
+    if (operationEntries.length) {
+      githubPatRef.current = loaded.token;
+      setGitHubPatPersistence(loaded.persistence);
+      await syncWithGitHub(loaded.token);
+    } else {
+      try { await connectGitHubWithoutSync(loaded.token); }
+      catch (reason) {
+        clearGitHubPat();
+        throw reason;
+      }
+      githubPatRef.current = loaded.token;
+      setGitHubPatPersistence(loaded.persistence);
+    }
   };
 
   const disconnectGitHub = async () => {
@@ -294,6 +316,7 @@ function LibraryRoutes() {
       ? `https://github.com/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}/commit/${library.pendingPublication.commitSha}`
       : undefined),
     pagesPending: library.pendingPublication !== null,
+    connectMode: operationEntries.length ? "sync" : "verify",
     repository: `${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME} · main`,
     patCreationHref: getGitHubPatCreationUrl(),
     onConnect: connectAndSyncGitHub,

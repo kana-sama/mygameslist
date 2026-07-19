@@ -258,6 +258,7 @@ export interface LibraryContextValue extends LibraryState {
   downloadCorruptedPatch: () => void;
   exportRecoveryArchive: () => Promise<void>;
   deleteAllLocalAssets: () => Promise<void>;
+  verifyGitHubAccess: (token: string) => Promise<void>;
   syncToGitHub: (token: string, onStage?: (stage: GitHubSyncStage) => void) => Promise<LibraryGitHubSyncResult>;
 }
 
@@ -825,6 +826,29 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
   }, [corruptedPatchRaw]);
 
+  const verifyGitHubAccess = useCallback(async (token: string): Promise<void> => {
+    if (syncInFlightRef.current) throw new Error("Операция с GitHub уже выполняется");
+    syncInFlightRef.current = true;
+    try {
+      const client = new GitHubGitDatabaseSyncClient({
+        owner: GITHUB_REPOSITORY_OWNER,
+        repo: GITHUB_REPOSITORY_NAME,
+        branch: "main",
+        token,
+      });
+      await client.verifyWriteAccessWithTemporaryBranch();
+    } catch (reason) {
+      if (reason instanceof GitHubSyncError) {
+        if (reason.status === 401) throw new Error("GitHub отклонил PAT. Создайте новый fine-grained PAT.");
+        if (reason.status === 403) throw new Error("PAT не имеет права Contents: write либо GitHub запретил создание или удаление временной проверочной ветки.");
+        if (reason.status === 404) throw new Error("GitHub не нашёл репозиторий. Проверьте, что PAT выдан только для kana-sama/mygameslist.");
+      }
+      throw reason;
+    } finally {
+      syncInFlightRef.current = false;
+    }
+  }, []);
+
   const syncToGitHub = useCallback(async (
     token: string,
     onStage?: (stage: GitHubSyncStage) => void,
@@ -1040,8 +1064,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     downloadCorruptedPatch,
     exportRecoveryArchive,
     deleteAllLocalAssets,
+    verifyGitHubAccess,
     syncToGitHub,
-  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, quotaStatus, persistentStorage, attachmentWriteBlocked, localAssets, localAssetBytes, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch, exportRecoveryArchive, deleteAllLocalAssets, syncToGitHub]);
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, quotaStatus, persistentStorage, attachmentWriteBlocked, localAssets, localAssetBytes, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch, exportRecoveryArchive, deleteAllLocalAssets, verifyGitHubAccess, syncToGitHub]);
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
 }

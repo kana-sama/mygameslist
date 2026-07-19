@@ -16,6 +16,7 @@ export type DiffSyncPersistence = "none" | "session" | "persistent";
 
 export interface DiffSyncController {
   connected: boolean;
+  connectMode?: "sync" | "verify";
   persistence: DiffSyncPersistence;
   busy: boolean;
   stage: DiffSyncStage;
@@ -88,6 +89,7 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
   const stage = controller.stage;
   const busy = submitting || controller.busy || isDiffSyncBusy(stage);
   const showPatForm = !controller.connected;
+  const connectWithoutSync = showPatForm && controller.connectMode === "verify";
 
   useEffect(() => {
     if (!open || !showPatForm || busy) return;
@@ -179,7 +181,7 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
         </button>
       </header>
 
-      {blockedReason ? <p className="diff-sync-panel__blocked"><Icon name="warning" size={15} />{blockedReason}</p> : null}
+      {blockedReason && !connectWithoutSync ? <p className="diff-sync-panel__blocked"><Icon name="warning" size={15} />{blockedReason}</p> : null}
 
       {showProgress || controller.pagesPending ? (
         <div aria-live="polite" className={`diff-sync-progress${stage === "complete" ? " is-complete" : ""}`} role="status">
@@ -213,15 +215,17 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
               type="password"
               value={pat}
             />
-            <button className="button button--primary" disabled={Boolean(blockedReason) || busy || !pat.trim()} type="submit">
-              {busy ? "Подключаем…" : "Подключить и синхронизировать"}
+            <button className="button button--primary" disabled={(Boolean(blockedReason) && !connectWithoutSync) || busy || !pat.trim()} type="submit">
+              {busy ? "Подключаем…" : connectWithoutSync ? "Подключить" : "Подключить и синхронизировать"}
             </button>
           </div>
           <label className="diff-sync-auth__remember">
             <input checked={remember} disabled={busy} onChange={(event) => setRemember(event.currentTarget.checked)} type="checkbox" />
             <span>Запомнить PAT на этом устройстве</span>
           </label>
-          <p className="diff-sync-auth__hint">Кнопка сразу создаст коммит в main. Выберите только репозиторий mygameslist и право Contents: write.</p>
+          <p className="diff-sync-auth__hint">{connectWithoutSync
+            ? "Для проверки доступа создадим отдельную временную ветку со служебным коммитом и сразу удалим её. Ветка main не изменится."
+            : "Кнопка сразу создаст коммит в main. Выберите только репозиторий mygameslist и право Contents: write."}</p>
           {controller.patCreationHref ? <a className="diff-sync-auth__create" href={controller.patCreationHref} rel="noreferrer" target="_blank">Создать fine-grained PAT<Icon name="external" size={11} /></a> : null}
         </form>
       ) : (

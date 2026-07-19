@@ -53,6 +53,24 @@ describe("DiffDialog GitHub sync shell", () => {
     await waitFor(() => expect(screen.getByLabelText("Fine-grained PAT")).toHaveValue(""));
   });
 
+  it("connects without synchronization when there are no local changes", async () => {
+    const user = userEvent.setup();
+    const onConnect = vi.fn().mockResolvedValue(undefined);
+    renderDialog({ busy: false, connected: false, connectMode: "verify", error: null, onConnect, onDisconnect: vi.fn(), onSync: vi.fn(), pagesPending: false, persistence: "none", stage: "idle" }, []);
+
+    await user.click(screen.getByRole("button", { name: "Синхронизировать" }));
+    const panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
+    expect(within(panel).queryByText("Нет локальных изменений для синхронизации.")).not.toBeInTheDocument();
+    expect(within(panel).getByText(/отдельную временную ветку/)).toHaveTextContent("Ветка main не изменится");
+    await user.type(within(panel).getByLabelText("Fine-grained PAT"), "github_pat_secret");
+    const connect = within(panel).getByRole("button", { name: "Подключить" });
+    expect(connect).toBeEnabled();
+    expect(within(panel).queryByRole("button", { name: "Подключить и синхронизировать" })).not.toBeInTheDocument();
+    await user.click(connect);
+
+    await waitFor(() => expect(onConnect).toHaveBeenCalledWith("github_pat_secret", false));
+  });
+
   it("syncs or disconnects a saved PAT without rendering it", async () => {
     const user = userEvent.setup();
     const onSync = vi.fn().mockResolvedValue(undefined);

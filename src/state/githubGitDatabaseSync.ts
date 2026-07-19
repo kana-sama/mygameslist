@@ -29,6 +29,8 @@ const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const REPOSITORY = /^[A-Za-z0-9._-]+$/;
 const BRANCH = /^[A-Za-z0-9._/-]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACCESS_CHECK_BRANCH_PREFIX = "mylib-pat-check/";
+const ACCESS_CHECK_COMMIT_MESSAGE = "Verify mylib GitHub access";
 
 type JsonObject = Record<string, unknown>;
 export type GitHubFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -63,6 +65,11 @@ export interface GitHubSyncResult {
   mediaPaths: string[];
   reconciledPatch: PatchEnvelope;
   prunedOperationCount: number;
+}
+
+export interface GitHubWriteAccessCheckResult {
+  branch: string;
+  commitSha: string;
 }
 
 export type GitHubSyncErrorCode =
@@ -303,11 +310,65 @@ export class GitHubGitDatabaseSyncClient {
     return payload;
   }
 
-  private async fetchHeadSha(): Promise<string> {
-    const ref = expectObject(await this.request(`${this.repositoryPath}/git/ref/${encodePath(`heads/${this.branch}`)}`), "branch reference");
+  private async fetchHeadSha(branch = this.branch): Promise<string> {
+    const ref = expectObject(await this.request(`${this.repositoryPath}/git/ref/${encodePath(`heads/${branch}`)}`), "branch reference");
     const refObject = expectObject(ref.object, "branch reference object");
     if (refObject.type !== "commit") throw new GitHubSyncError("invalid_response", "GitHub branch does not point to a commit");
     return expectGitSha(refObject.sha, "branch commit SHA");
+  }
+
+  private createAccessCheckBranch(): string {
+    let identifier: unknown;
+    try { identifier = globalThis.crypto.randomUUID(); }
+    catch (reason) {
+      throw new GitHubSyncError("invalid_config", `Temporary branch id generator failed: ${reasonMessage(reason, this.token)}`);
+    }
+    if (typeof identifier !== "string" || !UUID.test(identifier)) {
+      throw new GitHubSyncError("invalid_config", "Temporary branch id generator returned an invalid UUID");
+    }
+    const branch = `${ACCESS_CHECK_BRANCH_PREFIX}${identifier.toLowerCase()}`;
+    if (branch === "main" || branch === this.branch) {
+      throw new GitHubSyncError("invalid_config", "Temporary access-check branch must not be the publication branch");
+    }
+    return branch;
+  }
+
+  async verifyWriteAccessWithTemporaryBranch(): Promise<GitHubWriteAccessCheckResult> {
+    const headSha = await this.fetchHeadSha();
+    const headCommit = expectObject(await this.request(`${this.repositoryPath}/git/commits/${headSha}`), "commit");
+    const treeSha = expectGitSha(expectObject(headCommit.tree, "commit tree").sha, "commit tree SHA");
+    const branch = this.createAccessCheckBranch();
+    const createdCommit = expectObject(await this.request(`${this.repositoryPath}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({ message: ACCESS_CHECK_COMMIT_MESSAGE, tree: treeSha, parents: [headSha] }),
+    }), "created access-check commit");
+    const commitSha = expectGitSha(createdCommit.sha, "created access-check commit SHA");
+    let branchCreated = false;
+
+    try {
+      await this.request(`${this.repositoryPath}/git/refs`, {
+        method: "POST",
+        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: commitSha }),
+      });
+      branchCreated = true;
+    } catch (reason) {
+      try { branchCreated = await this.fetchHeadSha(branch) === commitSha; }
+      catch { /* Keep the original creation error. */ }
+      if (!branchCreated) throw reason;
+    }
+
+    try {
+      await this.request(`${this.repositoryPath}/git/refs/${encodePath(`heads/${branch}`)}`, { method: "DELETE" });
+    } catch (reason) {
+      let branchMissing = false;
+      try { await this.fetchHeadSha(branch); }
+      catch (checkReason) {
+        branchMissing = checkReason instanceof GitHubSyncError && checkReason.status === 404;
+      }
+      if (!branchMissing) throw reason;
+    }
+
+    return { branch, commitSha };
   }
 
   async fetchLatestLibrary(): Promise<GitHubLibrarySnapshot> {

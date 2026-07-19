@@ -213,6 +213,7 @@ function GitHubSyncProbe() {
     <span data-testid="sync-result">{result}</span>
     <span data-testid="sync-asset-urls">{assetIds.map((id) => library.resolveAssetUrl(id) ?? "missing").join(",")}</span>
     <span data-testid="sync-local-states">{library.localAssets.map((asset) => `${asset.id}:${asset.state}`).sort().join(",")}</span>
+    <button onClick={() => { void library.verifyGitHubAccess(GITHUB_TOKEN).then(() => setResult("connected")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Connect GitHub</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync GitHub</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
   </div>;
@@ -237,7 +238,9 @@ function githubResponses(database: LibraryDatabase, remoteDatabase = database) {
     if (method === "POST" && url.pathname === `${root}/git/blobs`) return jsonResponse({ sha: body?.encoding === "utf-8" ? CREATED_LIBRARY_BLOB_SHA : "7".repeat(40) }, 201);
     if (method === "POST" && url.pathname === `${root}/git/trees`) return jsonResponse({ sha: CREATED_TREE_SHA }, 201);
     if (method === "POST" && url.pathname === `${root}/git/commits`) return jsonResponse({ sha: CREATED_COMMIT_SHA }, 201);
+    if (method === "POST" && url.pathname === `${root}/git/refs`) return jsonResponse({ ref: body?.ref, object: { type: "commit", sha: body?.sha } }, 201);
     if (method === "PATCH" && url.pathname === `${root}/git/refs/heads/main`) return jsonResponse({ object: { type: "commit", sha: CREATED_COMMIT_SHA } });
+    if (method === "DELETE" && url.pathname.startsWith(`${root}/git/refs/heads/mylib-pat-check/`)) return new Response(null, { status: 204 });
     throw new Error(`Unexpected request: ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -485,6 +488,27 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     local.games[GAME_ID].placement = { tierId: "s", rank: 1024 };
     return diffLibrary(base, local, { changedAt: "2026-07-17T10:02:00.000Z", transactionId: "post-click-tier" });
   }
+
+  it("connects an empty device through a temporary branch without changing main", async () => {
+    const base = empty();
+    const api = githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("sync-operations")).toBeEmptyDOMElement();
+    fireEvent.click(screen.getByRole("button", { name: "Connect GitHub" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("connected"));
+    const writes = api.requests.filter(({ url, method }) => url.origin === "https://api.github.com" && method !== "GET");
+    expect(writes.map(({ method, url }) => `${method} ${url.pathname}`)).toEqual([
+      "POST /repos/kana-sama/mygameslist/git/commits",
+      "POST /repos/kana-sama/mygameslist/git/refs",
+      expect.stringMatching(/^DELETE \/repos\/kana-sama\/mygameslist\/git\/refs\/heads\/mylib-pat-check\/[0-9a-f-]{36}$/),
+    ]);
+    expect(writes[1].body?.ref).toMatch(/^refs\/heads\/mylib-pat-check\/[0-9a-f-]{36}$/);
+    expect(writes.some(({ url }) => url.pathname.endsWith("/heads/main"))).toBe(false);
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
+  });
 
   it("reloads against the pending committed database while Pages still serves the source revision", async () => {
     const draft = empty();

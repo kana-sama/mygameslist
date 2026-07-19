@@ -148,6 +148,75 @@ function titlePatch(base: LibraryDatabase, title = "DuckTales Remastered") {
 }
 
 describe("GitHub Git Database publication", () => {
+  it("verifies write access through a disposable non-main branch and deletes it", async () => {
+    const base = databaseWithGame();
+    const api = apiMock(base, {
+      onRequest: ({ method, url, body }) => {
+        if (method === "POST" && url.pathname === "/repos/kana/mylib/git/refs") {
+          return response({ ref: body?.ref, object: { type: "commit", sha: body?.sha } }, 201);
+        }
+        if (method === "DELETE" && url.pathname.startsWith("/repos/kana/mylib/git/refs/heads/mylib-pat-check/")) {
+          return new Response(null, { status: 204 });
+        }
+        return undefined;
+      },
+    });
+
+    const result = await client(api.fetch).verifyWriteAccessWithTemporaryBranch();
+
+    expect(result.branch).toMatch(/^mylib-pat-check\/[0-9a-f-]{36}$/);
+    expect(result.branch).not.toBe("main");
+    expect(result.commitSha).toBe(CREATED_COMMIT_SHA);
+    expect(api.requests.map(({ method, url }) => `${method} ${url.pathname}`)).toEqual([
+      "GET /repos/kana/mylib/git/ref/heads/main",
+      `GET /repos/kana/mylib/git/commits/${HEAD_SHA}`,
+      "POST /repos/kana/mylib/git/commits",
+      "POST /repos/kana/mylib/git/refs",
+      `DELETE /repos/kana/mylib/git/refs/heads/${result.branch}`,
+    ]);
+    expect(api.requests[2].body).toEqual({
+      message: "Verify mylib GitHub access",
+      tree: TREE_SHA,
+      parents: [HEAD_SHA],
+    });
+    expect(api.requests[3].body).toEqual({
+      ref: `refs/heads/${result.branch}`,
+      sha: CREATED_COMMIT_SHA,
+    });
+    expect(api.requests.some(({ method, url }) => method !== "GET" && url.pathname.endsWith("/heads/main"))).toBe(false);
+  });
+
+  it("removes the temporary branch after GitHub loses the creation response", async () => {
+    const base = databaseWithGame();
+    let temporaryBranch: string | null = null;
+    let branchExists = false;
+    const api = apiMock(base, {
+      onRequest: ({ method, url, body }) => {
+        if (method === "POST" && url.pathname === "/repos/kana/mylib/git/refs") {
+          temporaryBranch = String(body?.ref).replace(/^refs\/heads\//, "");
+          branchExists = true;
+          throw new Error("Safari lost the branch creation response");
+        }
+        if (method === "GET" && temporaryBranch !== null && url.pathname === `/repos/kana/mylib/git/ref/heads/${temporaryBranch}`) {
+          return branchExists
+            ? response({ ref: `refs/heads/${temporaryBranch}`, object: { type: "commit", sha: CREATED_COMMIT_SHA } })
+            : response({ message: "Not Found" }, 404);
+        }
+        if (method === "DELETE" && temporaryBranch !== null && url.pathname === `/repos/kana/mylib/git/refs/heads/${temporaryBranch}`) {
+          branchExists = false;
+          return new Response(null, { status: 204 });
+        }
+        return undefined;
+      },
+    });
+
+    const result = await client(api.fetch).verifyWriteAccessWithTemporaryBranch();
+
+    expect(result.branch).toBe(temporaryBranch);
+    expect(branchExists).toBe(false);
+    expect(api.requests.map(({ method }) => method)).toEqual(["GET", "GET", "POST", "POST", "GET", "DELETE"]);
+  });
+
   it("reads the fixed branch and creates a non-forced commit from the latest tree", async () => {
     const base = databaseWithGame();
     const api = apiMock(base);
