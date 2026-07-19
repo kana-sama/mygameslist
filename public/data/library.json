@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "cb18d71fd5f974d134c75b59009e3cedad15caadfdd67c7181b059e9219879b6",
-  "publicationId": "86a2535e-96a8-4e3e-8d24-f3438e5b0f0f",
+  "revision": "49d4b3feb74d27f79ae74f3a72ff60f1cb4089589e949e217ce9cdd810d546cd",
+  "publicationId": "06b265e8-afd5-4a67-86db-da994a9289a2",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -1984,6 +1984,380 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-18T16:00:54.455Z",
       "updatedAt": "2026-07-18T16:00:54.458Z"
+    },
+    "0843da2c-006c-4d0a-b4ab-d5bccf758ef0": {
+      "id": "0843da2c-006c-4d0a-b4ab-d5bccf758ef0",
+      "title": "Dark Souls",
+      "coverAssetId": "acbbc2c6b45dd0a48adb17fe9822b615f1ce1b43c90fd12d3a013302b61a32d2",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 17920
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:10:09.628Z",
+      "updatedAt": "2026-07-19T08:10:50.467Z"
+    },
+    "12c8f03a-633e-4655-9b5e-f37d493a98d3": {
+      "id": "12c8f03a-633e-4655-9b5e-f37d493a98d3",
+      "title": "Returnal",
+      "coverAssetId": "8a9214366e497499f5eb536767c2489e3a599d6388799515da1f11e6d25d2dcb",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 43008
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:21:00.401Z",
+      "updatedAt": "2026-07-19T08:21:00.404Z"
+    },
+    "1329f818-2b9e-4514-abe4-e02463fabfdf": {
+      "id": "1329f818-2b9e-4514-abe4-e02463fabfdf",
+      "title": "Death Stranding 2: On the Beach",
+      "coverAssetId": "13eea807556aa0b35c96f2025875ce500f19858e73a5fc0ba57296f3a74ad011",
+      "platforms": [
+        "Sony PlayStation 5"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 37888
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:27:46.903Z",
+      "updatedAt": "2026-07-19T08:27:46.906Z"
+    },
+    "14dbd021-02e4-4ab9-8f74-4760b44566b5": {
+      "id": "14dbd021-02e4-4ab9-8f74-4760b44566b5",
+      "title": "ASTRO's Playroom",
+      "coverAssetId": "ca0d0f69a9d6ebde68df7d2fb767cdd4703e8b859d799c22c2537fa096e9e6aa",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 32768
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:14:55.890Z",
+      "updatedAt": "2026-07-19T08:14:55.894Z"
+    },
+    "1b3dbe0a-a1b2-4ebb-8da0-9daa03991318": {
+      "id": "1b3dbe0a-a1b2-4ebb-8da0-9daa03991318",
+      "title": "Need for Speed Hot Pursuit",
+      "coverAssetId": "e1e63ddc0c26f61d2ec122b3c8a0acc84bcf4d1a7efabc640da9554a45b31eb6",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "b",
+        "rank": 33792
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:20:23.203Z",
+      "updatedAt": "2026-07-19T08:20:23.207Z"
+    },
+    "33350b16-f2cf-4d04-a2f8-8c195daefed2": {
+      "id": "33350b16-f2cf-4d04-a2f8-8c195daefed2",
+      "title": "Crimson Desert",
+      "coverAssetId": "a3bb675a8c811efc3031a467c15393a10faa2a35e91dec3e5a0e3b30805fcc3c",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "a",
+        "rank": 30720
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T07:56:47.170Z",
+      "updatedAt": "2026-07-19T07:56:47.174Z"
+    },
+    "48034c12-80bd-4f1e-8bed-9c32a3455fb6": {
+      "id": "48034c12-80bd-4f1e-8bed-9c32a3455fb6",
+      "title": "Outer Wilds",
+      "coverAssetId": "068829308aeb71bc8a325307b1efc0ee62f50159d5b1a13b1a2568b5d58f9fd7",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 20480
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:12:32.875Z",
+      "updatedAt": "2026-07-19T08:12:32.878Z"
+    },
+    "4c90b9d4-c472-42c1-a933-a6936c25e4f3": {
+      "id": "4c90b9d4-c472-42c1-a933-a6936c25e4f3",
+      "title": "Death Stranding",
+      "coverAssetId": "a185cc3c2ded9297f33721732d31809cbc5d3dc0e30557efcc7556689bcba51a",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 21504
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:28:28.041Z",
+      "updatedAt": "2026-07-19T08:28:28.043Z"
+    },
+    "54ff56c9-be32-47fb-adff-29f5645866ba": {
+      "id": "54ff56c9-be32-47fb-adff-29f5645866ba",
+      "title": "Resident Evil 2",
+      "coverAssetId": "046b163ab5e805b3418d9e98ae4849942201ab49d9bcda69364fcc1530cf9235",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 40960
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:18:29.991Z",
+      "updatedAt": "2026-07-19T08:18:29.998Z"
+    },
+    "560f4cde-5661-475f-b959-26b6f46aaa4a": {
+      "id": "560f4cde-5661-475f-b959-26b6f46aaa4a",
+      "title": "Ratchet & Clank",
+      "coverAssetId": "9570074e605599b24002977b1b9071fcdb120d1610d61a2c2e3a843c430196e6",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 30720
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:13:42.748Z",
+      "updatedAt": "2026-07-19T08:13:42.751Z"
+    },
+    "5cfac20a-5eb4-437f-9936-bb291c53a52c": {
+      "id": "5cfac20a-5eb4-437f-9936-bb291c53a52c",
+      "title": "Detroit: Become Human",
+      "coverAssetId": "1d5d1042e2568670b48412fe6cad28196d792a61cce41ba92558e728ad3c22ce",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 41984
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:19:09.327Z",
+      "updatedAt": "2026-07-19T08:19:09.331Z"
+    },
+    "5de2d650-6788-4b36-891e-0c4aeab10701": {
+      "id": "5de2d650-6788-4b36-891e-0c4aeab10701",
+      "title": "Tomb Raider I-III",
+      "coverAssetId": "4a6ffbd7bb4cd6d679d803d913621e0fee17ed5af179b8ce65052f3bfa6940d2",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "d",
+        "rank": 4096
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:21:58.463Z",
+      "updatedAt": "2026-07-19T08:21:58.467Z"
+    },
+    "8d414a33-5ea5-43ad-9230-8c1fab38b09e": {
+      "id": "8d414a33-5ea5-43ad-9230-8c1fab38b09e",
+      "title": "Ghost of Tsushima",
+      "coverAssetId": "cfaaa5c75e8af2bc6e49c382e06432869d72029a7b0735d153839532917c00ec",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 34816
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:16:12.948Z",
+      "updatedAt": "2026-07-19T08:16:12.951Z"
+    },
+    "936ad103-b542-4442-b0de-e9deb24fefa0": {
+      "id": "936ad103-b542-4442-b0de-e9deb24fefa0",
+      "title": "Shin Megami Tensei V: Vengeance",
+      "coverAssetId": "3de7e477b629cc5c2fb4dba5f6fd51fc97462878a89fb94b564a1bfaa5dfa285",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 45056
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:22:40.530Z",
+      "updatedAt": "2026-07-19T08:22:40.533Z"
+    },
+    "93e49196-b826-4188-8dd1-f54c329ff6a1": {
+      "id": "93e49196-b826-4188-8dd1-f54c329ff6a1",
+      "title": "God of War",
+      "coverAssetId": "0206ecdfc101057c02647f65c3c72edc4c61e457e4a3261e3d76274e7feb512e",
+      "platforms": [
+        "Sony PlayStation 4"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 35840
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:16:52.294Z",
+      "updatedAt": "2026-07-19T08:16:52.297Z"
+    },
+    "97e1806b-4574-47ef-9920-0a5b5ed9c4ae": {
+      "id": "97e1806b-4574-47ef-9920-0a5b5ed9c4ae",
+      "title": "Dark Souls III",
+      "coverAssetId": "3642899d51fe26f6af3a34a48524cdda7e4d0b0f76f146e5f949b933523f67cb",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 18432
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:10:37.847Z",
+      "updatedAt": "2026-07-19T08:10:37.850Z"
+    },
+    "9b866b78-9240-4ca3-96e2-8a3fdfc8afd4": {
+      "id": "9b866b78-9240-4ca3-96e2-8a3fdfc8afd4",
+      "title": "Star Wars Jedi: Fallen Order",
+      "coverAssetId": "a8b80d0d8ab5324def7cb5cdfe5e9752739d76678585e53e08e1cd473b5fe537",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 31744
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:14:12.789Z",
+      "updatedAt": "2026-07-19T08:14:12.793Z"
+    },
+    "a203c457-3c3f-40a2-924e-214d3bf7f9c5": {
+      "id": "a203c457-3c3f-40a2-924e-214d3bf7f9c5",
+      "title": "Dark Souls II: Scholar of the First Sin",
+      "coverAssetId": "f97d5d49adf6e2778e838bb466c6823a9f68a9aca13fea38a0eaa0167aa01043",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 31744
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:08:30.327Z",
+      "updatedAt": "2026-07-19T08:08:30.331Z"
+    },
+    "ad8755a6-5291-47a9-9f2d-7c5ece108c3e": {
+      "id": "ad8755a6-5291-47a9-9f2d-7c5ece108c3e",
+      "title": "Burnout Paradise",
+      "coverAssetId": "f616290efa7c649eeaea24df43609839ca57029980aa8c8fd4b844bf51c4b08e",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 32768
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:19:40.600Z",
+      "updatedAt": "2026-07-19T08:19:40.603Z"
+    },
+    "bbfdfea2-ce18-4151-b61f-222c73021785": {
+      "id": "bbfdfea2-ce18-4151-b61f-222c73021785",
+      "title": "Yakuza 0",
+      "coverAssetId": "520e9393fcbf2ebb698137a71d6f5b8f6cd78c93dc3934a0757c9eb73235a730",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 44032
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:21:24.832Z",
+      "updatedAt": "2026-07-19T08:21:24.836Z"
+    },
+    "beb99135-ab93-4bd5-9027-fcf0db1aec9d": {
+      "id": "beb99135-ab93-4bd5-9027-fcf0db1aec9d",
+      "title": "Yakuza: Like a Dragon",
+      "coverAssetId": "a9a29005f3ffc0f72ee1eb42353a0ecb14eb463b893b2acd4cc5c2b30223ab31",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 36864
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:23:27.963Z",
+      "updatedAt": "2026-07-19T08:23:27.966Z"
+    },
+    "cc7746b6-6cfa-4745-a765-b1996153c701": {
+      "id": "cc7746b6-6cfa-4745-a765-b1996153c701",
+      "title": "Lost Judgment",
+      "coverAssetId": "b3f726abe5ce3ed52015765b6f75d20eb78c67e475872a4cbd11dbb391e8c4e1",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 46080
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:24:04.695Z",
+      "updatedAt": "2026-07-19T08:24:04.698Z"
+    },
+    "da73a233-782b-471b-bf1e-4f5bf0aa561b": {
+      "id": "da73a233-782b-471b-bf1e-4f5bf0aa561b",
+      "title": "Ratchet and Clank: Rift Apart",
+      "coverAssetId": "189679d62a2b71d0da774c577b91f3002a5f12618cf3b0f5ff30f50dcbeeb0b4",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 33792
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:15:21.028Z",
+      "updatedAt": "2026-07-19T08:15:26.402Z"
+    },
+    "f10a6d35-2d89-471e-808f-de279d865114": {
+      "id": "f10a6d35-2d89-471e-808f-de279d865114",
+      "title": "Sekiro: Shadows Die Twice",
+      "coverAssetId": "3d2374a31d8fd9c03472b3f089e9998afa36fe367a4d3cf00f5e553c60cd440e",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "s",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-19T08:11:18.684Z",
+      "updatedAt": "2026-07-19T08:11:18.687Z"
     }
   },
   "notes": {
@@ -4131,6 +4505,15 @@
       "rank": 1024,
       "createdAt": "2026-07-18T15:37:13.907Z",
       "updatedAt": "2026-07-18T15:37:13.912Z"
+    },
+    "669a1f12-c709-428b-b1f7-80253a63cc2a": {
+      "id": "669a1f12-c709-428b-b1f7-80253a63cc2a",
+      "gameId": "33350b16-f2cf-4d04-a2f8-8c195daefed2",
+      "bodyMarkdown": "Очень круто, очень масштабно, но очень много. Из-за поездки пришлось дропнуть, но я когда-нибудь начну с начала.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-19T07:56:47.170Z",
+      "updatedAt": "2026-07-19T07:56:47.174Z"
     }
   },
   "assets": {
@@ -5815,6 +6198,246 @@
       "byteLength": 65474,
       "alt": "Обложка игры",
       "originalName": "image.jpeg"
+    },
+    "0206ecdfc101057c02647f65c3c72edc4c61e457e4a3261e3d76274e7feb512e": {
+      "id": "0206ecdfc101057c02647f65c3c72edc4c61e457e4a3261e3d76274e7feb512e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 27954,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "046b163ab5e805b3418d9e98ae4849942201ab49d9bcda69364fcc1530cf9235": {
+      "id": "046b163ab5e805b3418d9e98ae4849942201ab49d9bcda69364fcc1530cf9235",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40826,
+      "alt": "Обложка Resident Evil 2",
+      "originalName": "clipboard-image.png"
+    },
+    "068829308aeb71bc8a325307b1efc0ee62f50159d5b1a13b1a2568b5d58f9fd7": {
+      "id": "068829308aeb71bc8a325307b1efc0ee62f50159d5b1a13b1a2568b5d58f9fd7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 29300,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "13eea807556aa0b35c96f2025875ce500f19858e73a5fc0ba57296f3a74ad011": {
+      "id": "13eea807556aa0b35c96f2025875ce500f19858e73a5fc0ba57296f3a74ad011",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 61708,
+      "alt": "Обложка игры",
+      "originalName": "coverimage_nocopy_mobile.jpg"
+    },
+    "189679d62a2b71d0da774c577b91f3002a5f12618cf3b0f5ff30f50dcbeeb0b4": {
+      "id": "189679d62a2b71d0da774c577b91f3002a5f12618cf3b0f5ff30f50dcbeeb0b4",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 52994,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "1d5d1042e2568670b48412fe6cad28196d792a61cce41ba92558e728ad3c22ce": {
+      "id": "1d5d1042e2568670b48412fe6cad28196d792a61cce41ba92558e728ad3c22ce",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 32792,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "3642899d51fe26f6af3a34a48524cdda7e4d0b0f76f146e5f949b933523f67cb": {
+      "id": "3642899d51fe26f6af3a34a48524cdda7e4d0b0f76f146e5f949b933523f67cb",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 50314,
+      "alt": "Обложка Dark Souls III",
+      "originalName": "clipboard-image.png"
+    },
+    "3d2374a31d8fd9c03472b3f089e9998afa36fe367a4d3cf00f5e553c60cd440e": {
+      "id": "3d2374a31d8fd9c03472b3f089e9998afa36fe367a4d3cf00f5e553c60cd440e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 31746,
+      "alt": "Обложка Sekiro: Shadows Die Twice",
+      "originalName": "clipboard-image.png"
+    },
+    "3de7e477b629cc5c2fb4dba5f6fd51fc97462878a89fb94b564a1bfaa5dfa285": {
+      "id": "3de7e477b629cc5c2fb4dba5f6fd51fc97462878a89fb94b564a1bfaa5dfa285",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38552,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "4a6ffbd7bb4cd6d679d803d913621e0fee17ed5af179b8ce65052f3bfa6940d2": {
+      "id": "4a6ffbd7bb4cd6d679d803d913621e0fee17ed5af179b8ce65052f3bfa6940d2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38456,
+      "alt": "Обложка Tomb Raider I-III",
+      "originalName": "clipboard-image.png"
+    },
+    "520e9393fcbf2ebb698137a71d6f5b8f6cd78c93dc3934a0757c9eb73235a730": {
+      "id": "520e9393fcbf2ebb698137a71d6f5b8f6cd78c93dc3934a0757c9eb73235a730",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40988,
+      "alt": "Обложка Yakuza 0",
+      "originalName": "clipboard-image.png"
+    },
+    "8a9214366e497499f5eb536767c2489e3a599d6388799515da1f11e6d25d2dcb": {
+      "id": "8a9214366e497499f5eb536767c2489e3a599d6388799515da1f11e6d25d2dcb",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 52118,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "9570074e605599b24002977b1b9071fcdb120d1610d61a2c2e3a843c430196e6": {
+      "id": "9570074e605599b24002977b1b9071fcdb120d1610d61a2c2e3a843c430196e6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55190,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "a185cc3c2ded9297f33721732d31809cbc5d3dc0e30557efcc7556689bcba51a": {
+      "id": "a185cc3c2ded9297f33721732d31809cbc5d3dc0e30557efcc7556689bcba51a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 25344,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "a3bb675a8c811efc3031a467c15393a10faa2a35e91dec3e5a0e3b30805fcc3c": {
+      "id": "a3bb675a8c811efc3031a467c15393a10faa2a35e91dec3e5a0e3b30805fcc3c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 36480,
+      "alt": "Обложка игры",
+      "originalName": "images.jpeg"
+    },
+    "a8b80d0d8ab5324def7cb5cdfe5e9752739d76678585e53e08e1cd473b5fe537": {
+      "id": "a8b80d0d8ab5324def7cb5cdfe5e9752739d76678585e53e08e1cd473b5fe537",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38226,
+      "alt": "Обложка Star Wars Jedi: Fallen Order",
+      "originalName": "clipboard-image.png"
+    },
+    "a9a29005f3ffc0f72ee1eb42353a0ecb14eb463b893b2acd4cc5c2b30223ab31": {
+      "id": "a9a29005f3ffc0f72ee1eb42353a0ecb14eb463b893b2acd4cc5c2b30223ab31",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 62704,
+      "alt": "Обложка Yakuza: Like a Dragon",
+      "originalName": "clipboard-image.png"
+    },
+    "acbbc2c6b45dd0a48adb17fe9822b615f1ce1b43c90fd12d3a013302b61a32d2": {
+      "id": "acbbc2c6b45dd0a48adb17fe9822b615f1ce1b43c90fd12d3a013302b61a32d2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 27462,
+      "alt": "Обложка Dark Souls",
+      "originalName": "clipboard-image.png"
+    },
+    "b3f726abe5ce3ed52015765b6f75d20eb78c67e475872a4cbd11dbb391e8c4e1": {
+      "id": "b3f726abe5ce3ed52015765b6f75d20eb78c67e475872a4cbd11dbb391e8c4e1",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 22586,
+      "alt": "Обложка игры",
+      "originalName": "images.jpeg"
+    },
+    "ca0d0f69a9d6ebde68df7d2fb767cdd4703e8b859d799c22c2537fa096e9e6aa": {
+      "id": "ca0d0f69a9d6ebde68df7d2fb767cdd4703e8b859d799c22c2537fa096e9e6aa",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 20348,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "cfaaa5c75e8af2bc6e49c382e06432869d72029a7b0735d153839532917c00ec": {
+      "id": "cfaaa5c75e8af2bc6e49c382e06432869d72029a7b0735d153839532917c00ec",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47668,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "e1e63ddc0c26f61d2ec122b3c8a0acc84bcf4d1a7efabc640da9554a45b31eb6": {
+      "id": "e1e63ddc0c26f61d2ec122b3c8a0acc84bcf4d1a7efabc640da9554a45b31eb6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 26030,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "f616290efa7c649eeaea24df43609839ca57029980aa8c8fd4b844bf51c4b08e": {
+      "id": "f616290efa7c649eeaea24df43609839ca57029980aa8c8fd4b844bf51c4b08e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38550,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "f97d5d49adf6e2778e838bb466c6823a9f68a9aca13fea38a0eaa0167aa01043": {
+      "id": "f97d5d49adf6e2778e838bb466c6823a9f68a9aca13fea38a0eaa0167aa01043",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 25180,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
     }
   }
 }
