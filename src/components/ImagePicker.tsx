@@ -30,6 +30,41 @@ function containsFiles(event: DragEvent<HTMLElement>): boolean {
   return Array.from(event.dataTransfer.types).includes("Files");
 }
 
+function clipboardImageName(mime: string): string {
+  const extension = mime.toLowerCase() === "image/jpeg"
+    ? "jpg"
+    : /^image\/(?:png|webp|gif)$/.test(mime.toLowerCase())
+      ? mime.slice("image/".length).toLowerCase()
+      : "png";
+  return `clipboard-image.${extension}`;
+}
+
+async function readClipboardImage(): Promise<File> {
+  if (typeof navigator.clipboard?.read !== "function") {
+    throw new Error("Этот браузер не умеет читать изображения из буфера обмена.");
+  }
+  let items: ClipboardItems;
+  try { items = await navigator.clipboard.read(); }
+  catch (reason) {
+    if (reason instanceof DOMException && (reason.name === "NotAllowedError" || reason.name === "SecurityError")) {
+      throw new Error("Safari не разрешил доступ к буферу обмена. Разрешите доступ и попробуйте ещё раз.");
+    }
+    throw new Error(reason instanceof Error ? `Не удалось прочитать буфер обмена: ${reason.message}` : "Не удалось прочитать буфер обмена.");
+  }
+  for (const item of items) {
+    const type = item.types.find((candidate) => candidate.toLowerCase().startsWith("image/"));
+    if (!type) continue;
+    let blob: Blob;
+    try { blob = await item.getType(type); }
+    catch (reason) {
+      throw new Error(reason instanceof Error ? `Не удалось прочитать изображение из буфера обмена: ${reason.message}` : "Не удалось прочитать изображение из буфера обмена.");
+    }
+    const mime = blob.type || type;
+    return new File([blob], clipboardImageName(mime), { type: mime, lastModified: Date.now() });
+  }
+  throw new Error("В буфере обмена нет изображения.");
+}
+
 export function ImagePicker({
   mode,
   label = mode === "cover" ? "Обложка" : "Изображение",
@@ -48,18 +83,18 @@ export function ImagePicker({
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const processFile = async (file: File | undefined) => {
-    if (!file || disabled || processing.current) return;
+  const processImage = async (loadFile: () => File | Promise<File>) => {
+    if (disabled || processing.current) return;
     setError(null);
-    if (file.type && !file.type.startsWith("image/")) {
-      setError("Выберите изображение, а не другой тип файла.");
-      return;
-    }
-
     processing.current = true;
     setBusy(true);
     onDraftChange?.(true);
     try {
+      const file = await loadFile();
+      if (file.type && !file.type.startsWith("image/")) {
+        setError("Выберите изображение, а не другой тип файла.");
+        return;
+      }
       const imageAlt = alt.trim() || file.name.replace(/\.[^.]+$/, "");
       const optimized = mode === "cover" ? await optimizeCover(file, imageAlt) : await optimizeNoteImage(file, imageAlt);
       const storageError = await canAddBlob?.(optimized.byteLength);
@@ -87,6 +122,11 @@ export function ImagePicker({
       setBusy(false);
       onDraftChange?.(false);
     }
+  };
+
+  const processFile = async (file: File | undefined) => {
+    if (!file) return;
+    await processImage(() => file);
   };
 
   const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
@@ -145,6 +185,11 @@ export function ImagePicker({
             }}
             type="file"
           />
+          {mode === "cover" ? (
+            <button className="button button--secondary" disabled={disabled || busy} onClick={() => void processImage(readClipboardImage)} type="button">
+              <Icon name="clipboard" size={17} />{busy ? "Обрабатываем…" : "Вставить из буфера обмена"}
+            </button>
+          ) : null}
           {currentPreviewUrl && onRemove ? (
             <button className="button button--ghost button--danger-text" disabled={busy} onClick={onRemove} type="button">
               <Icon name="trash" size={17} />Удалить

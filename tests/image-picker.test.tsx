@@ -25,6 +25,12 @@ const optimized = {
   byteLength: 12,
 };
 
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+
+function installClipboard(read: ReturnType<typeof vi.fn>) {
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { read } });
+}
+
 beforeEach(() => {
   assetMocks.optimizeCover.mockReset().mockResolvedValue(optimized);
   assetMocks.optimizeNoteImage.mockReset().mockResolvedValue(optimized);
@@ -33,6 +39,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  if (originalClipboardDescriptor) Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
+  else delete (navigator as Navigator & { clipboard?: Clipboard }).clipboard;
 });
 
 describe("ImagePicker", () => {
@@ -67,6 +75,51 @@ describe("ImagePicker", () => {
     await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(1));
     expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "dropped");
     expect(preview).not.toHaveClass("is-drag-over");
+  });
+
+  it("reads a cover image from the clipboard through the ordinary optimization pipeline", async () => {
+    const user = userEvent.setup();
+    const onDraftChange = vi.fn();
+    const onPrepare = vi.fn().mockResolvedValue(true);
+    const clipboardBlob = new Blob(["clipboard image"], { type: "image/png" });
+    const getType = vi.fn().mockResolvedValue(clipboardBlob);
+    const read = vi.fn().mockResolvedValue([{ types: ["text/plain", "image/png"], getType }]);
+    installClipboard(read);
+    render(<ImagePicker alt="Обложка игры" mode="cover" onDraftChange={onDraftChange} onPrepare={onPrepare} />);
+
+    await user.click(screen.getByRole("button", { name: "Вставить из буфера обмена" }));
+
+    await waitFor(() => expect(onPrepare).toHaveBeenCalledTimes(1));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(getType).toHaveBeenCalledWith("image/png");
+    const file = assetMocks.optimizeCover.mock.calls[0][0] as File;
+    expect(file).toBeInstanceOf(File);
+    expect(file).toMatchObject({ name: "clipboard-image.png", type: "image/png" });
+    expect(assetMocks.optimizeCover).toHaveBeenCalledWith(file, "Обложка игры");
+    expect(onDraftChange.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("reports an empty or inaccessible clipboard inline", async () => {
+    const user = userEvent.setup();
+    const onPrepare = vi.fn();
+    const read = vi.fn().mockResolvedValue([{ types: ["text/plain"], getType: vi.fn() }]);
+    installClipboard(read);
+    const view = render(<ImagePicker mode="cover" onPrepare={onPrepare} />);
+
+    await user.click(screen.getByRole("button", { name: "Вставить из буфера обмена" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("В буфере обмена нет изображения");
+    expect(onPrepare).not.toHaveBeenCalled();
+
+    read.mockRejectedValueOnce(new DOMException("Permission denied", "NotAllowedError"));
+    await user.click(screen.getByRole("button", { name: "Вставить из буфера обмена" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Safari не разрешил доступ к буферу обмена");
+    await waitFor(() => expect(view.container.querySelector(".image-picker")).toHaveAttribute("aria-busy", "false"));
+  });
+
+  it("does not add the clipboard button to note attachments", () => {
+    render(<ImagePicker mode="note" onPrepare={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Вставить из буфера обмена" })).not.toBeInTheDocument();
   });
 
   it("returns to an idle state after rejected persistence and accepts the same file again", async () => {
