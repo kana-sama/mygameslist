@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "56521987913543d7c1e88ab97b095f60aab149f0b74c4d8fbff7c745d8f68a40",
-  "publicationId": "a9d0bd4c-0839-4b62-8686-b056c1040287",
+  "revision": "ad99275ccce5b6ce5cd1084cc5bdf1f63608c6c0da09f9b94aa3bff42c61229e",
+  "publicationId": "2084321c-8b24-46d5-899a-8f89c61aa03d",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -2960,14 +2960,14 @@
       "coverAssetId": "e6e97d2ca1a04dd45a0fe51057997e9e73f7cf64710688d53f47ef56a1cecb30",
       "platforms": [],
       "tags": [],
-      "status": "completed",
+      "status": "played",
       "placement": {
         "tierId": "a",
         "rank": 39936
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T08:30:46.006Z",
-      "updatedAt": "2026-07-19T08:30:46.009Z"
+      "updatedAt": "2026-07-19T11:11:17.410Z"
     },
     "a7f8c635-5289-423c-830d-32bb97244aa3": {
       "id": "a7f8c635-5289-423c-830d-32bb97244aa3",
