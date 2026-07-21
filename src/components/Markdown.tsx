@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { forwardRef, Fragment, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { safeUrl } from "./libraryUi";
 
 function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
@@ -360,7 +360,7 @@ export interface PlainMarkdownTextareaProps extends Omit<TextareaHTMLAttributes<
   imagesDisabled?: boolean;
 }
 
-export function PlainMarkdownTextarea({
+export const PlainMarkdownTextarea = forwardRef<HTMLTextAreaElement, PlainMarkdownTextareaProps>(function PlainMarkdownTextarea({
   value,
   onChange,
   onImageFiles,
@@ -369,7 +369,7 @@ export function PlainMarkdownTextarea({
   imagesDisabled = false,
   className = "",
   ...textareaProps
-}: PlainMarkdownTextareaProps) {
+}, ref) {
   const [dragOver, setDragOver] = useState(false);
 
   const acceptFiles = (transfer: DataTransfer): boolean => {
@@ -416,7 +416,8 @@ export function PlainMarkdownTextarea({
         event.preventDefault();
         acceptFiles(event.clipboardData);
       }}
+      ref={ref}
       value={value}
     />
   );
-}
+});

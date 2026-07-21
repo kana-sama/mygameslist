@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as ReactDragEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as ReactDragEvent, type ReactNode } from "react";
 import {
   closestCenter,
   DndContext,
@@ -25,9 +25,10 @@ import { moveRanked } from "../domain/ranks";
 import { DEFAULT_NOTE_GROUP_RANK, STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
+import { GameLinkMarkdownTextarea } from "../components/GameLinkMarkdownTextarea";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
-import { hasFilePayload, isImageFile, MarkdownView, PlainMarkdownTextarea, snapshotFiles } from "../components/Markdown";
+import { hasFilePayload, isImageFile, MarkdownView, snapshotFiles } from "../components/Markdown";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
@@ -339,6 +340,7 @@ function pendingAttachmentBytes(attachments: EditableAttachment[]): number {
 export interface GamePageProps {
   mode: "game" | "new";
   game?: Game;
+  gameSuggestions?: readonly Game[];
   notes: Note[];
   assets: Record<string, Asset>;
   platformSuggestions?: string[];
@@ -350,6 +352,8 @@ export interface GamePageProps {
   onSave: (input: GameSaveInput) => void | Promise<void>;
   onDelete?: (gameId: string) => void | Promise<void>;
 }
+
+const GameLinkSuggestionsContext = createContext<readonly Game[]>([]);
 
 function useBlobUrl(blob: Blob | undefined): string | null {
   const [url, setUrl] = useState<string | null>(null);
@@ -446,6 +450,7 @@ function NoteDropZones({ note, disabled, indicatorEdge }: { note: EditableNote; 
 function PlainNoteEditor({
   note,
   assets,
+  gameSuggestions,
   storageLocked = false,
   canAddBlob,
   resolveAssetUrl,
@@ -461,6 +466,7 @@ function PlainNoteEditor({
 }: {
   note: EditableNote;
   assets: Record<string, Asset>;
+  gameSuggestions?: readonly Game[];
   storageLocked?: boolean;
   canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
   resolveAssetUrl?: (assetId: string) => string | null;
@@ -474,6 +480,7 @@ function PlainNoteEditor({
   onProcessingChange?: (processing: boolean) => void;
   onSubmit?: () => void;
 }) {
+  const contextGameSuggestions = useContext(GameLinkSuggestionsContext);
   const noteRef = useRef(note);
   const imageQueue = useRef<Promise<void>>(Promise.resolve());
   const imageInput = useRef<HTMLInputElement>(null);
@@ -600,9 +607,10 @@ function PlainNoteEditor({
   return (
     <article aria-busy={processingImages} className="note-card note-card--editing" data-note-id={note.clientId} ref={editorRef}>
       {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => onChange({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
-      <PlainMarkdownTextarea
+      <GameLinkMarkdownTextarea
         aria-label="Текст заметки"
         className="plain-markdown-textarea"
+        gameSuggestions={gameSuggestions ?? contextGameSuggestions}
         imagesDisabled={storageLocked}
         onChange={(bodyMarkdown) => onChange({ ...noteRef.current, bodyMarkdown })}
         onFileFiles={addFileFiles}
@@ -684,7 +692,7 @@ function InlineValuesField({ active, ariaLabel, values, suggestions, children, o
   }}><TagInput autoFocus label={ariaLabel} onChange={(next) => { setDraft(next); void onCommit(next); }} suggestions={suggestions} values={draft} /></div>;
 }
 
-function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
+function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndicatorEdge, assets, gameSuggestions, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
   note: EditableNote;
   index: number;
   count: number;
@@ -692,6 +700,7 @@ function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndi
   sortingDisabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   assets: Record<string, Asset>;
+  gameSuggestions?: readonly Game[];
   storageLocked: boolean;
   saving: boolean;
   canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
@@ -705,7 +714,7 @@ function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndi
   onDelete: () => void;
   onMove: (targetIndex: number) => void;
 }) {
-  if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
+  if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} gameSuggestions={gameSuggestions} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
   return <SortableNoteCard assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
@@ -967,12 +976,13 @@ function DroppableNoteGroup({ groupRank, count, disabled, filesDisabled = false,
   return <div {...fileDrop.handlers} aria-label={label} className={`note-group${isOver ? " is-over" : ""}${fileDrop.active ? " is-file-over" : ""}`} data-note-group-rank={groupRank} ref={setNodeRef} role="group" tabIndex={-1}>{children}</div>;
 }
 
-function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndicatorEdge, assets, storageLocked, canAddBlob, resolveAssetUrl, extraActions, takeInitialFiles, onChange, onProcessingChange }: {
+function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndicatorEdge, assets, gameSuggestions, storageLocked, canAddBlob, resolveAssetUrl, extraActions, takeInitialFiles, onChange, onProcessingChange }: {
   note: EditableNote;
   autoFocus?: boolean;
   disabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   assets: Record<string, Asset>;
+  gameSuggestions?: readonly Game[];
   storageLocked: boolean;
   canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
   resolveAssetUrl?: (assetId: string) => string | null;
@@ -988,7 +998,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
     data: { type: "note", clientId: note.clientId, groupRank: noteGroupRank(note) },
     disabled,
   });
-  return <div className={`note-editor-sortable${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={setNodeRef}><PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} /></div>;
+  return <div className={`note-editor-sortable${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={setNodeRef}><PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} gameSuggestions={gameSuggestions} note={note} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} /></div>;
 }
 
 function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
@@ -1229,6 +1239,10 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
 }
 
 export function GamePage(props: GamePageProps) {
-  if (props.mode === "game" && props.game) return <InlineGamePage {...props} game={props.game} />;
-  return <NewGamePage {...props} />;
+  const suggestions = props.game
+    ? (props.gameSuggestions ?? []).filter((candidate) => candidate.id !== props.game?.id)
+    : props.gameSuggestions ?? [];
+  return <GameLinkSuggestionsContext.Provider value={suggestions}>{props.mode === "game" && props.game
+    ? <InlineGamePage {...props} game={props.game} />
+    : <NewGamePage {...props} />}</GameLinkSuggestionsContext.Provider>;
 }

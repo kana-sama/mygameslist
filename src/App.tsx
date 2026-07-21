@@ -452,13 +452,14 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
   const library = useLibrary();
   const navigate = useNavigate();
   const { id } = useParams();
+  const gameSuggestions = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
   const game = id ? library.effective.games[id] : undefined;
   const notes = useMemo(
     () => id ? Object.values(library.effective.notes).filter((note) => note.gameId === id) : [],
     [id, library.effective.notes],
   );
-  const platformSuggestions = [...new Set(Object.values(library.effective.games).flatMap((item) => item.platforms))];
-  const tagSuggestions = [...new Set(Object.values(library.effective.games).flatMap((item) => item.tags))];
+  const platformSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.platforms))];
+  const tagSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.tags))];
 
   if (mode === "game" && !game) {
     return <div className="empty-state empty-state--hero"><h1>Игра не найдена</h1><p>Возможно, она была удалена локально.</p></div>;
@@ -468,6 +469,7 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
     assets={library.effective.assets}
     canAddBlob={library.canAddBlob}
     game={game}
+    gameSuggestions={gameSuggestions}
     key={game?.id ?? "new"}
     mode={mode}
     notes={notes}
