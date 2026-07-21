@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "43c5378aee132b7add36fcc8db4e475217f2410ab8aa5657805195dc30f10bf3",
-  "publicationId": "0a4fdc84-46a3-4154-9a09-9f0c0bd16e1d",
+  "revision": "c44df3fe2623c15f14a6daf7028aae5185fc3aaad09677fa242f7896dffb26a0",
+  "publicationId": "6f378dc5-b898-4204-8fe8-b0dab9e5f55c",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4646,6 +4646,98 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T15:56:32.953Z",
       "updatedAt": "2026-07-21T15:56:32.960Z"
+    },
+    "0040fc06-2147-4e12-a2f9-3cb728a8f154": {
+      "id": "0040fc06-2147-4e12-a2f9-3cb728a8f154",
+      "title": "Super Karoshi",
+      "coverAssetId": "c63aeb3a6cd348e246a8fabb3bed9e02bc38592a5b0c37bbbadd516b57620639",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 21504
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:20:54.643Z",
+      "updatedAt": "2026-07-21T16:20:54.650Z"
+    },
+    "161d5c7c-eaee-4e58-9182-ff726ed3cd2f": {
+      "id": "161d5c7c-eaee-4e58-9182-ff726ed3cd2f",
+      "title": "Karoshi",
+      "coverAssetId": "8b67c037c3cb1fe5b0921eb93a0512ab178372a63a63c9ff9f194d5bc61c1ad8",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 56320
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:13:52.133Z",
+      "updatedAt": "2026-07-21T16:14:41.680Z"
+    },
+    "3065bd65-65b3-4f09-8fb5-27ecd0b43fcc": {
+      "id": "3065bd65-65b3-4f09-8fb5-27ecd0b43fcc",
+      "title": "Karoshi: Suicide Salaryman",
+      "coverAssetId": "0cc81a7d3a0bce51b21ddb81066bc4363d0273d8335a63dc3409328de00c6b7d",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 20480
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:19:59.594Z",
+      "updatedAt": "2026-07-21T16:19:59.599Z"
+    },
+    "40f6bff8-ccdf-4222-a5e7-b6dd2e0c6b8f": {
+      "id": "40f6bff8-ccdf-4222-a5e7-b6dd2e0c6b8f",
+      "title": "Mr. Karoshi",
+      "coverAssetId": "b555685f0c15ff3891314a86f82e9eaa9a4d64f7055755b9744c6a6ffc2e5b05",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 59392
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:22:55.706Z",
+      "updatedAt": "2026-07-21T16:22:55.711Z"
+    },
+    "5e506b88-b0aa-4853-94dc-de56ac833622": {
+      "id": "5e506b88-b0aa-4853-94dc-de56ac833622",
+      "title": "Karoshi Factory",
+      "coverAssetId": "cda2988fdc4ad347fc3ccb5c026c7d6cebd2f71addcbfc5ca175d265f9540ec7",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:18:40.865Z",
+      "updatedAt": "2026-07-21T16:18:40.874Z"
+    },
+    "925aa512-1e36-4441-b135-d4ef8e0e7853": {
+      "id": "925aa512-1e36-4441-b135-d4ef8e0e7853",
+      "title": "Karoshi 2.0",
+      "coverAssetId": "3d57e913c7c2f7c42f93961e4282118692c8fd285ae8e7a620b18ada0d8c0e41",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 58368
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T16:15:11.307Z",
+      "updatedAt": "2026-07-21T16:15:11.313Z"
     }
   },
   "notes": {
@@ -10202,6 +10294,66 @@
       "height": 512,
       "byteLength": 17806,
       "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "0cc81a7d3a0bce51b21ddb81066bc4363d0273d8335a63dc3409328de00c6b7d": {
+      "id": "0cc81a7d3a0bce51b21ddb81066bc4363d0273d8335a63dc3409328de00c6b7d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 18036,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "3d57e913c7c2f7c42f93961e4282118692c8fd285ae8e7a620b18ada0d8c0e41": {
+      "id": "3d57e913c7c2f7c42f93961e4282118692c8fd285ae8e7a620b18ada0d8c0e41",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 10866,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "8b67c037c3cb1fe5b0921eb93a0512ab178372a63a63c9ff9f194d5bc61c1ad8": {
+      "id": "8b67c037c3cb1fe5b0921eb93a0512ab178372a63a63c9ff9f194d5bc61c1ad8",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 8890,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "b555685f0c15ff3891314a86f82e9eaa9a4d64f7055755b9744c6a6ffc2e5b05": {
+      "id": "b555685f0c15ff3891314a86f82e9eaa9a4d64f7055755b9744c6a6ffc2e5b05",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 13404,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "c63aeb3a6cd348e246a8fabb3bed9e02bc38592a5b0c37bbbadd516b57620639": {
+      "id": "c63aeb3a6cd348e246a8fabb3bed9e02bc38592a5b0c37bbbadd516b57620639",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 6664,
+      "alt": "Обложка Super Karoshi",
+      "originalName": "clipboard-image.png"
+    },
+    "cda2988fdc4ad347fc3ccb5c026c7d6cebd2f71addcbfc5ca175d265f9540ec7": {
+      "id": "cda2988fdc4ad347fc3ccb5c026c7d6cebd2f71addcbfc5ca175d265f9540ec7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 14502,
+      "alt": "Обложка Karoshi Factory",
       "originalName": "clipboard-image.png"
     }
   }
