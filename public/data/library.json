@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "fedfa701c239ec611d5051086fe8b8cd091cda7adf9710f7a54b77d92ab2a6c0",
-  "publicationId": "7f988563-6448-437c-a25d-2594db14b6c3",
+  "revision": "e21e03ab0326404333b2ed72e9e69420ffde52034717cbb998976541a9f3b8e9",
+  "publicationId": "5b711386-c2c6-48c4-8609-6a2cfd50fe93",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -3759,7 +3759,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T04:45:24.767Z",
-      "updatedAt": "2026-07-21T04:47:31.040Z"
+      "updatedAt": "2026-07-21T04:56:53.320Z"
     },
     "58b3339f-f844-42d4-8e58-9e47e0e6f19d": {
       "id": "58b3339f-f844-42d4-8e58-9e47e0e6f19d",
@@ -6250,11 +6250,11 @@
     "1cafd6ff-145d-45dc-9c6c-2ba394aceb7e": {
       "id": "1cafd6ff-145d-45dc-9c6c-2ba394aceb7e",
       "gameId": "4aa5ae37-6920-483b-9da3-795716306ca8",
-      "bodyMarkdown": "Запустил, увидел что это то же самое что [Spider-Man: Shattered Dimensions](/mygameslist#/games/b1f6485f-324f-4ce0-ae8d-40600fd0c537) и бросил.",
+      "bodyMarkdown": "Запустил, увидел что это то же самое что [Spider-Man: Shattered Dimensions](#/games/b1f6485f-324f-4ce0-ae8d-40600fd0c537) и бросил.",
       "attachments": [],
       "rank": 1024,
       "createdAt": "2026-07-21T04:45:24.767Z",
-      "updatedAt": "2026-07-21T04:47:31.040Z"
+      "updatedAt": "2026-07-21T04:56:53.320Z"
     },
     "356d752c-1c15-4687-8080-a9f32d6b24b8": {
       "id": "356d752c-1c15-4687-8080-a9f32d6b24b8",
