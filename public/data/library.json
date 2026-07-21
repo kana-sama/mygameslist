@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "5131f5fae241874adadff310c439f04bdbf521bfa52dc1eecb2499a70cfba620",
-  "publicationId": "46bffa82-f477-4962-87ff-b25a18105e0f",
+  "revision": "43c5378aee132b7add36fcc8db4e475217f2410ab8aa5657805195dc30f10bf3",
+  "publicationId": "0a4fdc84-46a3-4154-9a09-9f0c0bd16e1d",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4599,6 +4599,53 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T05:36:17.648Z",
       "updatedAt": "2026-07-21T05:39:23.425Z"
+    },
+    "2a27a37e-1f8f-4efb-a400-22b3936e675e": {
+      "id": "2a27a37e-1f8f-4efb-a400-22b3936e675e",
+      "title": "Untitled Goose Game",
+      "coverAssetId": "ecd627c3bd80adcff9dfb2c3535552fc66fbe66944e35effff70b8ba4a16cd37",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 104448
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T15:54:37.707Z",
+      "updatedAt": "2026-07-21T15:54:37.713Z"
+    },
+    "ae32f681-4b76-4628-9d73-a08cb7a6ac3a": {
+      "id": "ae32f681-4b76-4628-9d73-a08cb7a6ac3a",
+      "title": "Yoshi and the Mysterious Book",
+      "coverAssetId": "808c5f8969d42ab4626d366382c44580b5589cb192085e1ba0dcd94075957b25",
+      "platforms": [
+        "Nintendo Switch 2"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 103424
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T15:54:05.297Z",
+      "updatedAt": "2026-07-21T15:54:05.305Z"
+    },
+    "d8a7017c-62ef-459f-ac95-a43f97ebe5ba": {
+      "id": "d8a7017c-62ef-459f-ac95-a43f97ebe5ba",
+      "title": "Denshattack!",
+      "coverAssetId": "1381033cd280a254853e2285ceb9e0b3aebe9259da635899e5378d3c0b179743",
+      "platforms": [],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 105472
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T15:56:32.953Z",
+      "updatedAt": "2026-07-21T15:56:32.960Z"
     }
   },
   "notes": {
@@ -10125,6 +10172,36 @@
       "height": 512,
       "byteLength": 57270,
       "alt": "Обложка Doom II",
+      "originalName": "clipboard-image.png"
+    },
+    "1381033cd280a254853e2285ceb9e0b3aebe9259da635899e5378d3c0b179743": {
+      "id": "1381033cd280a254853e2285ceb9e0b3aebe9259da635899e5378d3c0b179743",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 63856,
+      "alt": "Обложка Denshattack!",
+      "originalName": "clipboard-image.png"
+    },
+    "808c5f8969d42ab4626d366382c44580b5589cb192085e1ba0dcd94075957b25": {
+      "id": "808c5f8969d42ab4626d366382c44580b5589cb192085e1ba0dcd94075957b25",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35988,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "ecd627c3bd80adcff9dfb2c3535552fc66fbe66944e35effff70b8ba4a16cd37": {
+      "id": "ecd627c3bd80adcff9dfb2c3535552fc66fbe66944e35effff70b8ba4a16cd37",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 17806,
+      "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
   }
