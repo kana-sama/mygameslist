@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "ad99275ccce5b6ce5cd1084cc5bdf1f63608c6c0da09f9b94aa3bff42c61229e",
-  "publicationId": "2084321c-8b24-46d5-899a-8f89c61aa03d",
+  "revision": "fedfa701c239ec611d5051086fe8b8cd091cda7adf9710f7a54b77d92ab2a6c0",
+  "publicationId": "7f988563-6448-437c-a25d-2594db14b6c3",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -1361,7 +1361,7 @@
     "335bd530-3114-473a-8bc4-50ac5e688579": {
       "id": "335bd530-3114-473a-8bc4-50ac5e688579",
       "title": "Echo: The Oracle's Scroll",
-      "coverAssetId": "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761",
+      "coverAssetId": "e50a82f2ec0710c5fe9c76b7b24494227439fcf9493a567e0903394b5b655727",
       "platforms": [
         "Playdate"
       ],
@@ -1373,12 +1373,12 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-18T14:52:22.660Z",
-      "updatedAt": "2026-07-18T14:52:36.417Z"
+      "updatedAt": "2026-07-21T04:26:50.386Z"
     },
     "37cf1dfe-3904-43a3-9b03-ba792275317b": {
       "id": "37cf1dfe-3904-43a3-9b03-ba792275317b",
       "title": "Crankin's Time Travel Adventure",
-      "coverAssetId": "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b",
+      "coverAssetId": "abafd20b16f99aa1e1fc8feab768b4c9f24e2a1de854858b756f8836e815bf46",
       "platforms": [
         "Playdate"
       ],
@@ -1390,7 +1390,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-18T14:51:10.991Z",
-      "updatedAt": "2026-07-18T14:51:26.738Z"
+      "updatedAt": "2026-07-21T04:21:15.264Z"
     },
     "17feaa9f-e7ef-401c-9268-7f3f8106a996": {
       "id": "17feaa9f-e7ef-401c-9268-7f3f8106a996",
@@ -3069,14 +3069,14 @@
       "coverAssetId": "b8369596fae1de7a38ad081122a69535ca77627698ac1e9f01ccdae67b24c131",
       "platforms": [],
       "tags": [],
-      "status": "dropped",
+      "status": "wishlist",
       "placement": {
         "tierId": "a",
         "rank": 49152
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T09:01:18.954Z",
-      "updatedAt": "2026-07-19T09:01:18.957Z"
+      "updatedAt": "2026-07-21T03:54:25.487Z"
     },
     "c2585b33-52e1-4528-9896-66dd133a8f66": {
       "id": "c2585b33-52e1-4528-9896-66dd133a8f66",
@@ -3622,6 +3622,459 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-19T09:12:23.947Z",
       "updatedAt": "2026-07-19T09:12:23.951Z"
+    },
+    "1a409ee2-4150-4ede-ae09-61b1cc0d2def": {
+      "id": "1a409ee2-4150-4ede-ae09-61b1cc0d2def",
+      "title": "Spider-Man 2",
+      "coverAssetId": "7ee52fb2e8391bf35cfeae24d8be014633a17e9c370c7b01eea07466b502a634",
+      "platforms": [
+        "Sony PlayStation 2",
+        "Nintendo GameCube"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 82944
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:33:03.539Z",
+      "updatedAt": "2026-07-21T04:33:03.544Z"
+    },
+    "1eebf27d-555d-400a-bd5f-2709ebe17db8": {
+      "id": "1eebf27d-555d-400a-bd5f-2709ebe17db8",
+      "title": "Harry Potter and the Sorcerer's Stone",
+      "coverAssetId": "f7c0be2d37290dedbefa1d4024a26f37dd09b40927809a68259201afe64d477e",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 13312
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T03:55:55.779Z",
+      "updatedAt": "2026-07-21T04:00:44.685Z"
+    },
+    "1f208d2c-c935-4fcc-ba66-c75ebf3aab0a": {
+      "id": "1f208d2c-c935-4fcc-ba66-c75ebf3aab0a",
+      "title": "Mass Effect",
+      "coverAssetId": "038d0a11675da4a642f966ed5ba30b8ddbbe2f33f6e1904c976c667d14327be3",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "d",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:52:23.075Z",
+      "updatedAt": "2026-07-21T04:52:23.079Z"
+    },
+    "216fff27-2997-4560-8371-3b6a4e2705c1": {
+      "id": "216fff27-2997-4560-8371-3b6a4e2705c1",
+      "title": "Harry Potter and the Sorcerer's Stone",
+      "coverAssetId": "f3efb2eafaaf4771dba759dd490358ab8d1c99ceaa68c4c42ef7c6c5cea41dae",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 77824
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T03:57:57.858Z",
+      "updatedAt": "2026-07-21T03:59:38.796Z"
+    },
+    "21a23c79-1fa4-4d6e-a10f-08e7895c5d0f": {
+      "id": "21a23c79-1fa4-4d6e-a10f-08e7895c5d0f",
+      "title": "Spider-Man 2",
+      "coverAssetId": "9dae0cb61e51a3d98c9e91402054744d8090fc066ceeee655824aa8c494eceaa",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "d",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:31:40.906Z",
+      "updatedAt": "2026-07-21T04:32:06.757Z"
+    },
+    "224dd184-19ca-4526-874d-16533c5ecba0": {
+      "id": "224dd184-19ca-4526-874d-16533c5ecba0",
+      "title": "Harry Potter and the Half-Blood Prince",
+      "coverAssetId": "2347b057c1597580467ee5188a6a182be5de290c2fa0fdd07d865d06721a870a",
+      "platforms": [
+        "PC",
+        "Sony PlayStation 2",
+        "Sony PlayStation 3",
+        "Nintendo Wii"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 50176
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:17:02.656Z",
+      "updatedAt": "2026-07-21T04:17:02.661Z"
+    },
+    "24e3c0b1-e548-4d37-810e-ccf1d32922af": {
+      "id": "24e3c0b1-e548-4d37-810e-ccf1d32922af",
+      "title": "Spider-Man: Web of Shadows",
+      "coverAssetId": "39f7558f86b474bf4d76237caf1a5fcc88daca4cc37c0710ec551feecd579ea9",
+      "platforms": [
+        "PC",
+        "Sony PlayStation 3",
+        "Nintendo Wii"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 51200
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:42:04.353Z",
+      "updatedAt": "2026-07-21T04:42:09.490Z"
+    },
+    "4aa5ae37-6920-483b-9da3-795716306ca8": {
+      "id": "4aa5ae37-6920-483b-9da3-795716306ca8",
+      "title": "Spider-Man: Edge of Time",
+      "coverAssetId": "73e9bb297e8658940146da91d95a946d03fc0379f824c2c3d90dfe34e5f6e04f",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 15360
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:45:24.767Z",
+      "updatedAt": "2026-07-21T04:47:31.040Z"
+    },
+    "58b3339f-f844-42d4-8e58-9e47e0e6f19d": {
+      "id": "58b3339f-f844-42d4-8e58-9e47e0e6f19d",
+      "title": "Spider-Man",
+      "coverAssetId": "20c365d9daf8b30dab2aa91fa76c164d55132ba7074e32d783805cc71329ac28",
+      "platforms": [
+        "Sony PlayStation 2",
+        "Nintendo GameCube",
+        "PC"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 13312
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:35:48.712Z",
+      "updatedAt": "2026-07-21T04:35:48.717Z"
+    },
+    "6728987a-6d21-4bce-9599-4b618a8d67fb": {
+      "id": "6728987a-6d21-4bce-9599-4b618a8d67fb",
+      "title": "Harry Potter and the Chamber of Secrets",
+      "coverAssetId": "378825541eb50802b6d04c12e751672daa1486ac6086ba8f5ad8d1eca35ca771",
+      "platforms": [
+        "Sony PlayStation"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 79872
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:04:57.079Z",
+      "updatedAt": "2026-07-21T04:06:09.262Z"
+    },
+    "6c1cf764-dcf9-47c7-a190-01f079bd4e84": {
+      "id": "6c1cf764-dcf9-47c7-a190-01f079bd4e84",
+      "title": "Harry Potter and the Prisoner of Azkaban",
+      "coverAssetId": "7f619c47aa64e9a51e7766ef32a809990aba198c3885409c630e97fd02a9ab6a",
+      "platforms": [
+        "Sony PlayStation 2",
+        "Nintendo GameCube"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 81920
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:09:36.658Z",
+      "updatedAt": "2026-07-21T04:09:36.665Z"
+    },
+    "6fe7c9e2-7f62-4d5c-a6de-5267c63c41f0": {
+      "id": "6fe7c9e2-7f62-4d5c-a6de-5267c63c41f0",
+      "title": "Spider-Man",
+      "coverAssetId": "9c0681cacc07b4effb4f9a252a1ca1e48f149ac26bbf262ac8c47a4ea5d5c161",
+      "platforms": [
+        "Sony PlayStation",
+        "PC",
+        "Nintendo 64"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "a",
+        "rank": 53248
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:29:53.523Z",
+      "updatedAt": "2026-07-21T04:29:53.528Z"
+    },
+    "795b33a7-71bd-4da6-ad2b-c931009991ca": {
+      "id": "795b33a7-71bd-4da6-ad2b-c931009991ca",
+      "title": "Spider-Man 3",
+      "coverAssetId": "e7edfbeedaf43058bbd407b4e7c7c9d7f29534192aacdd7140daa31089536188",
+      "platforms": [
+        "PC",
+        "Sony PlayStation 3"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 83968
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:39:53.369Z",
+      "updatedAt": "2026-07-21T04:40:12.703Z"
+    },
+    "911a0818-a14a-4374-8f01-e36a88e400e7": {
+      "id": "911a0818-a14a-4374-8f01-e36a88e400e7",
+      "title": "Harry Potter and the Goblet of Fire",
+      "coverAssetId": "95e0249426df925ae7cae58b411dbf866d2af1dcc0e00ce63d7f66e7ad0e6f03",
+      "platforms": [
+        "PC",
+        "Nintendo GameCube",
+        "Sony PlayStation 2"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 15360
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:10:46.909Z",
+      "updatedAt": "2026-07-21T04:14:17.206Z"
+    },
+    "a05b22ff-066d-4d5f-99a6-82429b6e80bf": {
+      "id": "a05b22ff-066d-4d5f-99a6-82429b6e80bf",
+      "title": "Harry Potter and the Chamber of Secrets",
+      "coverAssetId": "378825541eb50802b6d04c12e751672daa1486ac6086ba8f5ad8d1eca35ca771",
+      "platforms": [
+        "Sony PlayStation 2",
+        "Nintendo GameCube"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 80896
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:05:20.872Z",
+      "updatedAt": "2026-07-21T04:06:44.555Z"
+    },
+    "a3632540-8d54-4773-8e89-e712601cb1d7": {
+      "id": "a3632540-8d54-4773-8e89-e712601cb1d7",
+      "title": "Harry Potter and the Deathly Hallows – Part 1",
+      "coverAssetId": "38c052843af048ab3a97deff2446a9055365158c7807dc0db8c9e2820c94b4c9",
+      "platforms": [
+        "PC",
+        "Sony PlayStation 3",
+        "Nintendo Wii"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 12288
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:18:40.045Z",
+      "updatedAt": "2026-07-21T04:19:19.142Z"
+    },
+    "b1f6485f-324f-4ce0-ae8d-40600fd0c537": {
+      "id": "b1f6485f-324f-4ce0-ae8d-40600fd0c537",
+      "title": "Spider-Man: Shattered Dimensions",
+      "coverAssetId": "6431360ff4948283cf97bf10764412863d3089ba228e81c7cd40bb8b4d22ed1f",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 14336
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:44:08.694Z",
+      "updatedAt": "2026-07-21T04:44:08.699Z"
+    },
+    "b4a61db6-a68e-43c4-8974-79e2005f03ad": {
+      "id": "b4a61db6-a68e-43c4-8974-79e2005f03ad",
+      "title": "Ultimate Spider-Man",
+      "coverAssetId": "d56d940cc3f771d1b2ee06b3fa297989e8c7cfc5fdca30ca9fc587d7267411dc",
+      "platforms": [
+        "PC",
+        "Nintendo GameCube",
+        "Sony PlayStation 2"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "c",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:37:38.747Z",
+      "updatedAt": "2026-07-21T04:37:38.752Z"
+    },
+    "c785bbd4-f924-46ff-be2b-223911a2cb82": {
+      "id": "c785bbd4-f924-46ff-be2b-223911a2cb82",
+      "title": "Harry Potter and the Prisoner of Azkaban",
+      "coverAssetId": "7f619c47aa64e9a51e7766ef32a809990aba198c3885409c630e97fd02a9ab6a",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "c",
+        "rank": 14336
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:08:29.890Z",
+      "updatedAt": "2026-07-21T04:08:29.897Z"
+    },
+    "cb9ded50-a095-425a-be5e-6e8ebf9824f6": {
+      "id": "cb9ded50-a095-425a-be5e-6e8ebf9824f6",
+      "title": "Harry Potter and the Chamber of Secrets",
+      "coverAssetId": "378825541eb50802b6d04c12e751672daa1486ac6086ba8f5ad8d1eca35ca771",
+      "platforms": [
+        "PC"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 52224
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:00:37.346Z",
+      "updatedAt": "2026-07-21T04:07:00.270Z"
+    },
+    "d1f0980c-7d6f-4dd0-a09d-751fed9af697": {
+      "id": "d1f0980c-7d6f-4dd0-a09d-751fed9af697",
+      "title": "Harry Potter and the Deathly Hallows – Part 2",
+      "coverAssetId": "c0df24b453467f0a242e6bd5c4e4ee446effcd24ca61731c3835f3cfe5fd3427",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 11264
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:19:02.077Z",
+      "updatedAt": "2026-07-21T04:19:02.082Z"
+    },
+    "d41878a7-4a84-4889-b12e-56edd436bc4b": {
+      "id": "d41878a7-4a84-4889-b12e-56edd436bc4b",
+      "title": "Harry Potter and the Order of the Phoenix",
+      "coverAssetId": "2388005e54ef9adef7a0f67f1360f7ee741e3b64abec5179481e5c058d504856",
+      "platforms": [
+        "PC",
+        "Sony PlayStation 2",
+        "Sony PlayStation 3",
+        "Nintendo Wii"
+      ],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 49152
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:13:59.517Z",
+      "updatedAt": "2026-07-21T04:15:57.081Z"
+    },
+    "dce4c3fa-0061-4cfd-b3cf-8285adc1f7c2": {
+      "id": "dce4c3fa-0061-4cfd-b3cf-8285adc1f7c2",
+      "title": "Harry Potter and the Sorcerer’s Stone",
+      "coverAssetId": "e8a155b65df37795c5f544cc476fa019ce18fd4ae700c2d6cd1e76c9a7029df9",
+      "platforms": [
+        "Sony PlayStation 2",
+        "Nintendo GameCube"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 78848
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T03:59:09.887Z",
+      "updatedAt": "2026-07-21T04:01:38.926Z"
+    },
+    "e0d0284b-0b83-494a-b67a-1397d1908f4b": {
+      "id": "e0d0284b-0b83-494a-b67a-1397d1908f4b",
+      "title": "Mass Effect 2",
+      "coverAssetId": "944dfeccd328412c16e94fb4e7cd72507c52a2d8d5aa0aee4b7d96d9b22f172f",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 54272
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:53:50.618Z",
+      "updatedAt": "2026-07-21T04:53:50.623Z"
+    },
+    "e47a8198-bc90-42b7-8c92-d9d542e2a35b": {
+      "id": "e47a8198-bc90-42b7-8c92-d9d542e2a35b",
+      "title": "Mirror's Edge",
+      "coverAssetId": "108f90de1ccc1deea6713aac6ec31e672ccca5dd5d03eabe37ea3f011344b0a9",
+      "platforms": [
+        "Sony PlayStation 3"
+      ],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "c",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:20:27.756Z",
+      "updatedAt": "2026-07-21T04:20:27.761Z"
+    },
+    "f76099b0-d2ff-4ad5-bb54-3acef59ae37d": {
+      "id": "f76099b0-d2ff-4ad5-bb54-3acef59ae37d",
+      "title": "Mass Effect 3",
+      "coverAssetId": "4eb6270174b2b76853ea4f7b132e4032bf3566d8e3db8ed93de2e2323a78a7d6",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "c",
+        "rank": 18432
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T04:55:15.103Z",
+      "updatedAt": "2026-07-21T04:55:15.107Z"
     }
   },
   "notes": {
@@ -5778,6 +6231,84 @@
       "rank": 1024,
       "createdAt": "2026-07-19T07:56:47.170Z",
       "updatedAt": "2026-07-19T07:56:47.174Z"
+    },
+    "10482339-9b5a-4265-b16b-64cda53bf3c2": {
+      "id": "10482339-9b5a-4265-b16b-64cda53bf3c2",
+      "gameId": "1f208d2c-c935-4fcc-ba66-c75ebf3aab0a",
+      "bodyMarkdown": "у меня было куплено вот такое вот лицушное золотое издание, в металическом кейсе. ",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "5d412485c77983ca1ef81f2a0ea1ae98b5a8d63ed2b5a6e63fd8d16e2177dfc4",
+          "alt": "image"
+        }
+      ],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:52:23.075Z",
+      "updatedAt": "2026-07-21T04:52:23.079Z"
+    },
+    "1cafd6ff-145d-45dc-9c6c-2ba394aceb7e": {
+      "id": "1cafd6ff-145d-45dc-9c6c-2ba394aceb7e",
+      "gameId": "4aa5ae37-6920-483b-9da3-795716306ca8",
+      "bodyMarkdown": "Запустил, увидел что это то же самое что [Spider-Man: Shattered Dimensions](/mygameslist#/games/b1f6485f-324f-4ce0-ae8d-40600fd0c537) и бросил.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:45:24.767Z",
+      "updatedAt": "2026-07-21T04:47:31.040Z"
+    },
+    "356d752c-1c15-4687-8080-a9f32d6b24b8": {
+      "id": "356d752c-1c15-4687-8080-a9f32d6b24b8",
+      "gameId": "e0d0284b-0b83-494a-b67a-1397d1908f4b",
+      "bodyMarkdown": "Вот это был разъеб в свое время. Я проходил ее множество раз, на Героя, на Отступника, разными командами, разными билдами.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:53:50.618Z",
+      "updatedAt": "2026-07-21T04:53:50.623Z"
+    },
+    "4b7c6a99-d8ad-41be-bf64-c4fc7f94ff94": {
+      "id": "4b7c6a99-d8ad-41be-bf64-c4fc7f94ff94",
+      "gameId": "24e3c0b1-e548-4d37-810e-ccf1d32922af",
+      "bodyMarkdown": "Это была первая игра по ЧП с такой свободой полетов. Я часами мог просто летать. А иногда ходил к другу, который играл в нее же, и там мы тоже просто летали.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:42:04.353Z",
+      "updatedAt": "2026-07-21T04:42:04.358Z"
+    },
+    "a335566b-6199-4a13-b17a-437b66740079": {
+      "id": "a335566b-6199-4a13-b17a-437b66740079",
+      "gameId": "795b33a7-71bd-4da6-ad2b-c931009991ca",
+      "bodyMarkdown": "Когда-то мне купили эту игру в Германии, и она оказалась на немецком, и я не смог поиграть.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:39:53.369Z",
+      "updatedAt": "2026-07-21T04:40:12.703Z"
+    },
+    "b580b41a-98b0-4f52-a4d0-abb6a6cc8418": {
+      "id": "b580b41a-98b0-4f52-a4d0-abb6a6cc8418",
+      "gameId": "b1f6485f-324f-4ce0-ae8d-40600fd0c537",
+      "bodyMarkdown": "Это был чисто левел-бейзд битемап/стелс-экшн за одного из 4 пауков, никаких полетов через город. Уныло.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:44:08.694Z",
+      "updatedAt": "2026-07-21T04:44:08.699Z"
+    },
+    "de8cf4da-bb65-4d9e-91de-6db0031cc86e": {
+      "id": "de8cf4da-bb65-4d9e-91de-6db0031cc86e",
+      "gameId": "1f208d2c-c935-4fcc-ba66-c75ebf3aab0a",
+      "bodyMarkdown": "Игра была медленной, не очень активной, проходил с трудом. Но игр у меня было немного, а уговорил родителей купить лицуху аж за 130 тысяч (обычно игры пиратские стили по 30 тысяч), так что приходилось играть.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-21T04:52:23.075Z",
+      "updatedAt": "2026-07-21T04:52:23.079Z"
+    },
+    "e464a720-a37a-49ff-95d2-cdd6d7a23800": {
+      "id": "e464a720-a37a-49ff-95d2-cdd6d7a23800",
+      "gameId": "f76099b0-d2ff-4ad5-bb54-3acef59ae37d",
+      "bodyMarkdown": "После невероятно интересной второй части, я многого ждал от игры, но почему-то в эту часть играть мне было не так интересно, прошел один раз.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T04:55:15.103Z",
+      "updatedAt": "2026-07-21T04:55:15.107Z"
     }
   },
   "assets": {
@@ -7006,16 +7537,6 @@
       "alt": "IMAGE 2026-07-18 13:14:07",
       "originalName": "IMAGE 2026-07-18 13:14:07.jpg"
     },
-    "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761": {
-      "id": "146be251bfe3e046815755d99b5593104339a445a5a4d6cbc5c828d058c0c761",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 512,
-      "height": 512,
-      "byteLength": 7436,
-      "alt": "Обложка игры",
-      "originalName": "11.png"
-    },
     "3dc85be6d18427222d819a4f02bd725deb391e299bfc482d4981446012e36fd5": {
       "id": "3dc85be6d18427222d819a4f02bd725deb391e299bfc482d4981446012e36fd5",
       "kind": "image",
@@ -7045,16 +7566,6 @@
       "byteLength": 830602,
       "alt": "IMAGE 2026-07-18 18:54:05",
       "originalName": "IMAGE 2026-07-18 18:54:05.jpg"
-    },
-    "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b": {
-      "id": "9b572cd7bb7a7a9d81fe4faa7ac0a27d72049f6dc196e0fe0aae2716847a117b",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 512,
-      "height": 512,
-      "byteLength": 19736,
-      "alt": "Обложка игры",
-      "originalName": "10.png"
     },
     "f569635d0c69d74454c4d69bcd383900b495dff034744a806febf89cbf4d2dab": {
       "id": "f569635d0c69d74454c4d69bcd383900b495dff034744a806febf89cbf4d2dab",
@@ -8532,6 +9043,266 @@
       "byteLength": 46238,
       "alt": "Обложка Zero Escape: Nine Hours, Nine Persons, Nine Doors",
       "originalName": "images.jpeg"
+    },
+    "038d0a11675da4a642f966ed5ba30b8ddbbe2f33f6e1904c976c667d14327be3": {
+      "id": "038d0a11675da4a642f966ed5ba30b8ddbbe2f33f6e1904c976c667d14327be3",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40068,
+      "alt": "Обложка Mass Effect",
+      "originalName": "clipboard-image.png"
+    },
+    "108f90de1ccc1deea6713aac6ec31e672ccca5dd5d03eabe37ea3f011344b0a9": {
+      "id": "108f90de1ccc1deea6713aac6ec31e672ccca5dd5d03eabe37ea3f011344b0a9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 24264,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "20c365d9daf8b30dab2aa91fa76c164d55132ba7074e32d783805cc71329ac28": {
+      "id": "20c365d9daf8b30dab2aa91fa76c164d55132ba7074e32d783805cc71329ac28",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 15602,
+      "alt": "Обложка Spider-Man",
+      "originalName": "clipboard-image.png"
+    },
+    "2347b057c1597580467ee5188a6a182be5de290c2fa0fdd07d865d06721a870a": {
+      "id": "2347b057c1597580467ee5188a6a182be5de290c2fa0fdd07d865d06721a870a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40384,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "2388005e54ef9adef7a0f67f1360f7ee741e3b64abec5179481e5c058d504856": {
+      "id": "2388005e54ef9adef7a0f67f1360f7ee741e3b64abec5179481e5c058d504856",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 39126,
+      "alt": "Обложка Harry Potter and the Order of the Phoenix",
+      "originalName": "clipboard-image.png"
+    },
+    "378825541eb50802b6d04c12e751672daa1486ac6086ba8f5ad8d1eca35ca771": {
+      "id": "378825541eb50802b6d04c12e751672daa1486ac6086ba8f5ad8d1eca35ca771",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 43824,
+      "alt": "Обложка Harry Potter and the Chamber of Secrets",
+      "originalName": "clipboard-image.png"
+    },
+    "38c052843af048ab3a97deff2446a9055365158c7807dc0db8c9e2820c94b4c9": {
+      "id": "38c052843af048ab3a97deff2446a9055365158c7807dc0db8c9e2820c94b4c9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 49864,
+      "alt": "Обложка Harry Potter and the Deathly Hallows – Part 1",
+      "originalName": "clipboard-image.png"
+    },
+    "39f7558f86b474bf4d76237caf1a5fcc88daca4cc37c0710ec551feecd579ea9": {
+      "id": "39f7558f86b474bf4d76237caf1a5fcc88daca4cc37c0710ec551feecd579ea9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38458,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "4eb6270174b2b76853ea4f7b132e4032bf3566d8e3db8ed93de2e2323a78a7d6": {
+      "id": "4eb6270174b2b76853ea4f7b132e4032bf3566d8e3db8ed93de2e2323a78a7d6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 44616,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "5d412485c77983ca1ef81f2a0ea1ae98b5a8d63ed2b5a6e63fd8d16e2177dfc4": {
+      "id": "5d412485c77983ca1ef81f2a0ea1ae98b5a8d63ed2b5a6e63fd8d16e2177dfc4",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 405,
+      "height": 720,
+      "byteLength": 247878,
+      "alt": "image",
+      "originalName": "image.png"
+    },
+    "6431360ff4948283cf97bf10764412863d3089ba228e81c7cd40bb8b4d22ed1f": {
+      "id": "6431360ff4948283cf97bf10764412863d3089ba228e81c7cd40bb8b4d22ed1f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 62118,
+      "alt": "Обложка Spider-Man: Shattered Dimensions",
+      "originalName": "clipboard-image.png"
+    },
+    "73e9bb297e8658940146da91d95a946d03fc0379f824c2c3d90dfe34e5f6e04f": {
+      "id": "73e9bb297e8658940146da91d95a946d03fc0379f824c2c3d90dfe34e5f6e04f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 56188,
+      "alt": "Обложка Spider-Man: Edge of Time",
+      "originalName": "clipboard-image.png"
+    },
+    "7ee52fb2e8391bf35cfeae24d8be014633a17e9c370c7b01eea07466b502a634": {
+      "id": "7ee52fb2e8391bf35cfeae24d8be014633a17e9c370c7b01eea07466b502a634",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38924,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "7f619c47aa64e9a51e7766ef32a809990aba198c3885409c630e97fd02a9ab6a": {
+      "id": "7f619c47aa64e9a51e7766ef32a809990aba198c3885409c630e97fd02a9ab6a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 43584,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "944dfeccd328412c16e94fb4e7cd72507c52a2d8d5aa0aee4b7d96d9b22f172f": {
+      "id": "944dfeccd328412c16e94fb4e7cd72507c52a2d8d5aa0aee4b7d96d9b22f172f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40140,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "95e0249426df925ae7cae58b411dbf866d2af1dcc0e00ce63d7f66e7ad0e6f03": {
+      "id": "95e0249426df925ae7cae58b411dbf866d2af1dcc0e00ce63d7f66e7ad0e6f03",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 33754,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "9c0681cacc07b4effb4f9a252a1ca1e48f149ac26bbf262ac8c47a4ea5d5c161": {
+      "id": "9c0681cacc07b4effb4f9a252a1ca1e48f149ac26bbf262ac8c47a4ea5d5c161",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 48774,
+      "alt": "Обложка Spider-Man",
+      "originalName": "clipboard-image.png"
+    },
+    "9dae0cb61e51a3d98c9e91402054744d8090fc066ceeee655824aa8c494eceaa": {
+      "id": "9dae0cb61e51a3d98c9e91402054744d8090fc066ceeee655824aa8c494eceaa",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 40078,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "abafd20b16f99aa1e1fc8feab768b4c9f24e2a1de854858b756f8836e815bf46": {
+      "id": "abafd20b16f99aa1e1fc8feab768b4c9f24e2a1de854858b756f8836e815bf46",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 21648,
+      "alt": "Обложка Crankin's Time Travel Adventure",
+      "originalName": "clipboard-image.png"
+    },
+    "c0df24b453467f0a242e6bd5c4e4ee446effcd24ca61731c3835f3cfe5fd3427": {
+      "id": "c0df24b453467f0a242e6bd5c4e4ee446effcd24ca61731c3835f3cfe5fd3427",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 45526,
+      "alt": "Обложка Harry Potter and the Deathly Hallows – Part 2",
+      "originalName": "clipboard-image.png"
+    },
+    "d56d940cc3f771d1b2ee06b3fa297989e8c7cfc5fdca30ca9fc587d7267411dc": {
+      "id": "d56d940cc3f771d1b2ee06b3fa297989e8c7cfc5fdca30ca9fc587d7267411dc",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47746,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "e50a82f2ec0710c5fe9c76b7b24494227439fcf9493a567e0903394b5b655727": {
+      "id": "e50a82f2ec0710c5fe9c76b7b24494227439fcf9493a567e0903394b5b655727",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 12454,
+      "alt": "Обложка Echo: The Oracle's Scroll",
+      "originalName": "clipboard-image.png"
+    },
+    "e7edfbeedaf43058bbd407b4e7c7c9d7f29534192aacdd7140daa31089536188": {
+      "id": "e7edfbeedaf43058bbd407b4e7c7c9d7f29534192aacdd7140daa31089536188",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 57652,
+      "alt": "Обложка Spider-Man 3",
+      "originalName": "clipboard-image.png"
+    },
+    "e8a155b65df37795c5f544cc476fa019ce18fd4ae700c2d6cd1e76c9a7029df9": {
+      "id": "e8a155b65df37795c5f544cc476fa019ce18fd4ae700c2d6cd1e76c9a7029df9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 35990,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "f3efb2eafaaf4771dba759dd490358ab8d1c99ceaa68c4c42ef7c6c5cea41dae": {
+      "id": "f3efb2eafaaf4771dba759dd490358ab8d1c99ceaa68c4c42ef7c6c5cea41dae",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 58240,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "f7c0be2d37290dedbefa1d4024a26f37dd09b40927809a68259201afe64d477e": {
+      "id": "f7c0be2d37290dedbefa1d4024a26f37dd09b40927809a68259201afe64d477e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38964,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
     }
   }
 }
