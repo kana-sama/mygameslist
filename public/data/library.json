@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "e21e03ab0326404333b2ed72e9e69420ffde52034717cbb998976541a9f3b8e9",
-  "publicationId": "5b711386-c2c6-48c4-8609-6a2cfd50fe93",
+  "revision": "5131f5fae241874adadff310c439f04bdbf521bfa52dc1eecb2499a70cfba620",
+  "publicationId": "46bffa82-f477-4962-87ff-b25a18105e0f",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -238,7 +238,9 @@
       "title": "Captain Toad: Treasure Tracker",
       "coverAssetId": "7143d447975c9e21e4a18083129008310e9b3d899b3394ec4220c3e0f5237cfa",
       "platforms": [
-        "Nintendo Wii U"
+        "Nintendo Wii U",
+        "Nintendo Switch",
+        "Nintendo 3DS"
       ],
       "tags": [],
       "status": "played",
@@ -248,7 +250,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:55:47.280Z",
-      "updatedAt": "2026-07-17T04:55:47.314Z"
+      "updatedAt": "2026-07-21T05:28:47.499Z"
     },
     "2a65d3ab-2736-4624-a1e6-66b11f23ebd1": {
       "id": "2a65d3ab-2736-4624-a1e6-66b11f23ebd1",
@@ -646,21 +648,21 @@
     "3b5f3810-69a0-4603-a016-245306ca440b": {
       "id": "3b5f3810-69a0-4603-a016-245306ca440b",
       "title": "The Legend of Zelda: Ocarina of Time",
-      "coverAssetId": "f429e0403cd5846adb9c8ec397c75ae31ef8cfcef1fd918134a2d582d902f5c5",
+      "coverAssetId": "60e9ecfe5f94f214915e47d156583d0312f06a5a638b44fd77f9bcfbdad33e88",
       "platforms": [
         "Nintendo 64"
       ],
       "tags": [
         "The Legend of Zelda"
       ],
-      "status": "dropped",
+      "status": "platinum",
       "placement": {
-        "tierId": "a",
-        "rank": 14336
+        "tierId": "s",
+        "rank": 32768
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T05:46:31.261Z",
-      "updatedAt": "2026-07-18T15:56:49.648Z"
+      "updatedAt": "2026-07-21T05:27:24.868Z"
     },
     "422480b0-e3f2-44a8-976e-fb3511a7f00e": {
       "id": "422480b0-e3f2-44a8-976e-fb3511a7f00e",
@@ -4075,6 +4077,528 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T04:55:15.103Z",
       "updatedAt": "2026-07-21T04:55:15.107Z"
+    },
+    "1721b37d-47bf-43a0-8023-d0be62f548c0": {
+      "id": "1721b37d-47bf-43a0-8023-d0be62f548c0",
+      "title": "Castlevania: Aria of Sorrow",
+      "coverAssetId": "149d70b234ce6b50d4c075a2d6df96b78c13911ba9a84d056707b62053898bde",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 54272
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:35:39.995Z",
+      "updatedAt": "2026-07-21T05:39:27.874Z"
+    },
+    "2242520a-bfe1-4586-9009-78f211b2df02": {
+      "id": "2242520a-bfe1-4586-9009-78f211b2df02",
+      "title": "Castlevania: Portrait of Ruin",
+      "coverAssetId": "626aad4a6dd9692d8fbf522269741f058e868f57295264bc045c811be06128e0",
+      "platforms": [
+        "Nintendo DS"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 56320
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:37:00.542Z",
+      "updatedAt": "2026-07-21T05:39:19.320Z"
+    },
+    "26ce212d-3cb5-40ef-ad34-90258820ad42": {
+      "id": "26ce212d-3cb5-40ef-ad34-90258820ad42",
+      "title": "Animal Crossing: New Leaf",
+      "coverAssetId": "45c6410f51d4a593acd8c3e057e4f1e0fdeafbfd0d7f9e29fe53435bcdf236c6",
+      "platforms": [
+        "Nintendo 3DS"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 18432
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:30:25.541Z",
+      "updatedAt": "2026-07-21T05:30:25.546Z"
+    },
+    "29632586-55bb-4812-a9d0-9d2e6242b9e9": {
+      "id": "29632586-55bb-4812-a9d0-9d2e6242b9e9",
+      "title": "The Legend of Zelda: Oracle of Ages",
+      "coverAssetId": "157cf4745bce7ca4270528dcec0cfc1b53dd09532b2c74ca10a5285d02bcbd3a",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 92160
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:20:14.506Z",
+      "updatedAt": "2026-07-21T05:20:41.620Z"
+    },
+    "2a34c33b-0f0e-4243-b09e-307820e261cc": {
+      "id": "2a34c33b-0f0e-4243-b09e-307820e261cc",
+      "title": "Kirby Tilt 'n' Tumble",
+      "coverAssetId": "ae42cedc164870ef11961492bb45373685d8d4644cb14a1c2343905d75d6f265",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 95232
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:22:53.915Z",
+      "updatedAt": "2026-07-21T05:22:53.921Z"
+    },
+    "2eb3ae36-507b-4b01-8586-5208cfaa911f": {
+      "id": "2eb3ae36-507b-4b01-8586-5208cfaa911f",
+      "title": "Castlevania: Bloodlines",
+      "coverAssetId": "63160be22488edf709389e137a393cc057ec43ae01debb707e5a41572555b272",
+      "platforms": [
+        "Sega Genesis"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 100352
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:31:39.006Z",
+      "updatedAt": "2026-07-21T05:31:39.014Z"
+    },
+    "3c7f41fb-5e0c-409d-9a5d-a6e08dc02253": {
+      "id": "3c7f41fb-5e0c-409d-9a5d-a6e08dc02253",
+      "title": "Kirby: Triple Deluxe",
+      "coverAssetId": "855a4c45af96190f7b68e64fa071d94179dee576817abd676395a0e5e3b582ad",
+      "platforms": [
+        "Nintendo 3DS"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 99328
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:29:34.780Z",
+      "updatedAt": "2026-07-21T05:29:34.785Z"
+    },
+    "51caf17a-bed9-4420-9ab9-c4d1b4c0d093": {
+      "id": "51caf17a-bed9-4420-9ab9-c4d1b4c0d093",
+      "title": "The Legend of Zelda: Oracle of Seasons",
+      "coverAssetId": "8949d59e4b9ab72fab8b849103fa08c2f461833ce83dd1d29558734993648082",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 93184
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:20:36.636Z",
+      "updatedAt": "2026-07-21T05:20:36.643Z"
+    },
+    "55f0845b-c7cb-4537-a546-799735375e6e": {
+      "id": "55f0845b-c7cb-4537-a546-799735375e6e",
+      "title": "Toki Tori",
+      "coverAssetId": "88fc06f0650d48e930276a66801399f71e45653c3d50784c424d42f8571a919c",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 94208
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:21:48.588Z",
+      "updatedAt": "2026-07-21T05:21:48.593Z"
+    },
+    "66cca0e3-2147-417c-826a-c77e50e4f20a": {
+      "id": "66cca0e3-2147-417c-826a-c77e50e4f20a",
+      "title": "Fire Emblem: Three Houses",
+      "coverAssetId": "77afa5a98484041508ca57a232f5748be387d0bb6ca3cd19685514ad92885bbf",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 97280
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:24:29.095Z",
+      "updatedAt": "2026-07-21T05:24:29.100Z"
+    },
+    "6f3eb95f-6a22-4753-affb-54caf0a8b819": {
+      "id": "6f3eb95f-6a22-4753-affb-54caf0a8b819",
+      "title": "￼Super Mario Land",
+      "coverAssetId": "53928ddde90fb52f21afed7977ff572a0969b3d29339b8a03807b5d87e1b951f",
+      "platforms": [
+        "GameBoy"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 89088
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:15:02.986Z",
+      "updatedAt": "2026-07-21T05:15:02.992Z"
+    },
+    "754201f8-e6a4-4e1e-963e-fe022891ad2b": {
+      "id": "754201f8-e6a4-4e1e-963e-fe022891ad2b",
+      "title": "The Legend of Zelda: Majora's Mask",
+      "coverAssetId": "7f1f7696d304994baa231a7b2ccc840f43f179e1bbc5a6c775b6099851ffdbfe",
+      "platforms": [
+        "Nintendo 64",
+        "Nintendo 3DS"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "s",
+        "rank": 31744
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:26:56.388Z",
+      "updatedAt": "2026-07-21T05:26:56.394Z"
+    },
+    "8339f7d3-063c-4444-a172-5afa1c70a45d": {
+      "id": "8339f7d3-063c-4444-a172-5afa1c70a45d",
+      "title": "Super Mario Land 2 : 6 Golden Coins",
+      "coverAssetId": "aa1c767d0d7e9edcb0b4748620bbf8b5ac1f4618a45a1d6b15e85a3a8e52dd51",
+      "platforms": [
+        "GameBoy"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 90112
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:16:34.609Z",
+      "updatedAt": "2026-07-21T05:16:34.614Z"
+    },
+    "895eaa89-d944-4322-920e-f3f78d526806": {
+      "id": "895eaa89-d944-4322-920e-f3f78d526806",
+      "title": "Kirby and the Forgotten Land",
+      "coverAssetId": "c41fd19e45e425a7a1de087d7e7c0252d1b82a27539c8e1946465bfce162943e",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 96256
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:23:38.606Z",
+      "updatedAt": "2026-07-21T05:23:38.611Z"
+    },
+    "9138e5f7-1ebc-43a1-b993-f01e59666262": {
+      "id": "9138e5f7-1ebc-43a1-b993-f01e59666262",
+      "title": "The Legend of Zelda: Link's Awakening",
+      "coverAssetId": "e63e98174a25f28b96b97cbdf628f73302a55cf383745abff78f1cd1bcf7fbe5",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 52224
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:18:29.283Z",
+      "updatedAt": "2026-07-21T05:18:29.289Z"
+    },
+    "970ba1d9-9b66-42bc-af33-096a59fc383f": {
+      "id": "970ba1d9-9b66-42bc-af33-096a59fc383f",
+      "title": "Castlevania: Order of Ecclesia",
+      "coverAssetId": "49be6bebb6b36b623c2ca13f0caa0d7965a8b29c82cd1e63dfcfc96047c04ef9",
+      "platforms": [
+        "Nintendo DS"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "a",
+        "rank": 57344
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:38:12.535Z",
+      "updatedAt": "2026-07-21T05:39:14.835Z"
+    },
+    "9d7fbbcb-71e7-4519-ad0b-788d8d60b7ca": {
+      "id": "9d7fbbcb-71e7-4519-ad0b-788d8d60b7ca",
+      "title": "Wario Land II",
+      "coverAssetId": "c5b87f41d21798807960518fb0d9c303064dd67b7a04042d7908f80d24f23a70",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 87040
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:09:57.886Z",
+      "updatedAt": "2026-07-21T05:09:57.890Z"
+    },
+    "9ece1624-526b-41e5-8073-eff8429bb85c": {
+      "id": "9ece1624-526b-41e5-8073-eff8429bb85c",
+      "title": "Wario Land: Super Mario Land 3",
+      "coverAssetId": "d50fc90689312371ec18698a8aa0c3df118e56661835f3d2b3d427ca42b811b6",
+      "platforms": [
+        "GameBoy"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 86016
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:09:20.285Z",
+      "updatedAt": "2026-07-21T05:09:20.291Z"
+    },
+    "9f9a6f99-f053-4fc6-8604-d2925b47d695": {
+      "id": "9f9a6f99-f053-4fc6-8604-d2925b47d695",
+      "title": "New Super Mario Bros. U Deluxe",
+      "coverAssetId": "2eac62bf6c4b39d965c7581b5790de524f390eec5e875fb15eeb0481f24325e2",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "Super Mario"
+      ],
+      "status": "playing",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 102400
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:39:10.036Z",
+      "updatedAt": "2026-07-21T05:39:10.044Z"
+    },
+    "a661c534-6087-4a8d-971b-06620259ca30": {
+      "id": "a661c534-6087-4a8d-971b-06620259ca30",
+      "title": "Doom",
+      "coverAssetId": "8c6aff396132987f752358aa092ab2edc91b755efa91e5bfd4e80f26a972944b",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "a",
+        "rank": 55296
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:08:19.999Z",
+      "updatedAt": "2026-07-21T05:08:20.004Z"
+    },
+    "b2c60071-938b-492e-8bf6-569a12d6e71b": {
+      "id": "b2c60071-938b-492e-8bf6-569a12d6e71b",
+      "title": "The Legend of Zelda: Link's Awakening DX",
+      "coverAssetId": "dae07f2721884d3e1d7424e1f0f1956754ba6948e9a388774b259bb7a5e72ac9",
+      "platforms": [
+        "GameBoy Color"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 91136
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:19:23.771Z",
+      "updatedAt": "2026-07-21T05:19:23.778Z"
+    },
+    "c246d576-e29a-487b-b499-1e5c9a015ac4": {
+      "id": "c246d576-e29a-487b-b499-1e5c9a015ac4",
+      "title": "Animal Crossing: New Horizons",
+      "coverAssetId": "70b9be959de2b26cbc4b6e2e9ca4b2729d266b0b1aaa26c18c44ddb1481987e2",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 17408
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:25:47.176Z",
+      "updatedAt": "2026-07-21T05:25:47.182Z"
+    },
+    "cb266a9c-4027-4047-8076-9f643b742cd6": {
+      "id": "cb266a9c-4027-4047-8076-9f643b742cd6",
+      "title": "Mulan",
+      "coverAssetId": "dc781a10c352e7cc4c29b645d8253d07d9186b4d518db051d2cc0d7d5459d035",
+      "platforms": [
+        "GameBoy"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 16384
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:11:52.834Z",
+      "updatedAt": "2026-07-21T05:11:52.840Z"
+    },
+    "dbe835a8-525b-4b3b-9a70-b571e2249cbb": {
+      "id": "dbe835a8-525b-4b3b-9a70-b571e2249cbb",
+      "title": "Castlevania: Circle of the Moon",
+      "coverAssetId": "566c5c94df1a3547f15af5dbe423f7cf005a04168baf4125c6fab546ab02e4c8",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 101376
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:32:31.676Z",
+      "updatedAt": "2026-07-21T05:32:31.684Z"
+    },
+    "e64e8b41-de83-409e-bdb8-0598f9a6f5b4": {
+      "id": "e64e8b41-de83-409e-bdb8-0598f9a6f5b4",
+      "title": "The Legend of Zelda: A Link Between Worlds",
+      "coverAssetId": "20b4739b73b969e8ca0586396838460985c5165e6b80d8a2e856d2ca9c0628d5",
+      "platforms": [
+        "Nintendo 3DS"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 53248
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:28:27.968Z",
+      "updatedAt": "2026-07-21T05:28:27.976Z"
+    },
+    "e7620964-ac6c-4416-8dc9-3b979d210853": {
+      "id": "e7620964-ac6c-4416-8dc9-3b979d210853",
+      "title": "Doom II",
+      "coverAssetId": "feba7da7bb36d999740c67e42b9411e093f0c3ceaef5bf1e14c529d264c56add",
+      "platforms": [],
+      "tags": [],
+      "status": "played",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 84992
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:05:46.045Z",
+      "updatedAt": "2026-07-21T05:05:46.052Z"
+    },
+    "eabb9e97-3e99-4d40-9640-6e96090e78b5": {
+      "id": "eabb9e97-3e99-4d40-9640-6e96090e78b5",
+      "title": "Shantae",
+      "coverAssetId": "cc107ff717be83225aed1338842e205f933dc3d050a1c91e4a1f03a0071d917f",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 88064
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:12:37.237Z",
+      "updatedAt": "2026-07-21T05:13:17.835Z"
+    },
+    "eeea7b41-85ce-48dd-8ed7-35dc7b75bb9a": {
+      "id": "eeea7b41-85ce-48dd-8ed7-35dc7b75bb9a",
+      "title": "The Legend of Zelda: Skyward Sword",
+      "coverAssetId": "74e09d16ec6bc1318268f0397c8d1712f22ac831f5a85a4af1a55a69f72b9f83",
+      "platforms": [
+        "Nintendo Switch"
+      ],
+      "tags": [
+        "The Legend of Zelda"
+      ],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 98304
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:25:09.964Z",
+      "updatedAt": "2026-07-21T05:25:09.969Z"
+    },
+    "f719be14-4cc7-44fc-8933-d047e0e20ff7": {
+      "id": "f719be14-4cc7-44fc-8933-d047e0e20ff7",
+      "title": "Castlevania: Dawn of Sorrow",
+      "coverAssetId": "5c129a86fa27a05241359d9bfdb8d3d7bf08d4b29825cb2a2a985fd984ba89c6",
+      "platforms": [
+        "Nintendo DS"
+      ],
+      "tags": [
+        "Castlevania"
+      ],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 55296
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-21T05:36:17.648Z",
+      "updatedAt": "2026-07-21T05:39:23.425Z"
     }
   },
   "notes": {
@@ -6309,6 +6833,15 @@
       "rank": 1024,
       "createdAt": "2026-07-21T04:55:15.103Z",
       "updatedAt": "2026-07-21T04:55:15.107Z"
+    },
+    "84a5e538-59d6-454c-add1-7bb233cbe462": {
+      "id": "84a5e538-59d6-454c-add1-7bb233cbe462",
+      "gameId": "a661c534-6087-4a8d-971b-06620259ca30",
+      "bodyMarkdown": "Было время, когда у меня сдох жесткий диск, и все что у меня было это флешка с KolibriOS, на которую была портирована эта игра. И я просто целыми днями играл в нее, мне нравилось что это не просто шутер, а игра с кучей секретиков и загадок. Но экшоновый шутинг на высоких сложностях тоже нравился. До конца не прошел, где-то на третей части игры я ввел читы чтобы пробежать вперед и просмотреть, что там впереди, и это сломало интерес.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-21T05:08:19.999Z",
+      "updatedAt": "2026-07-21T05:08:20.004Z"
     }
   },
   "assets": {
@@ -6939,16 +7472,6 @@
       "byteLength": 53990,
       "alt": "Обложка Metal Gear Solid V: Ground Zeroes",
       "originalName": "IMAGE 2026-07-17 09:39:08.jpg"
-    },
-    "f429e0403cd5846adb9c8ec397c75ae31ef8cfcef1fd918134a2d582d902f5c5": {
-      "id": "f429e0403cd5846adb9c8ec397c75ae31ef8cfcef1fd918134a2d582d902f5c5",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 512,
-      "height": 512,
-      "byteLength": 36560,
-      "alt": "Обложка The Legend of Zelda: Ocarina of Time",
-      "originalName": "IMAGE 2026-07-17 09:45:59.jpg"
     },
     "fa3c5277a1b857a1d31133e45854afb0a072d4226427e89b6ea9297731a3d66f": {
       "id": "fa3c5277a1b857a1d31133e45854afb0a072d4226427e89b6ea9297731a3d66f",
@@ -9302,6 +9825,306 @@
       "height": 512,
       "byteLength": 38964,
       "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "149d70b234ce6b50d4c075a2d6df96b78c13911ba9a84d056707b62053898bde": {
+      "id": "149d70b234ce6b50d4c075a2d6df96b78c13911ba9a84d056707b62053898bde",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 27138,
+      "alt": "Обложка Castlevania: Aria of Sorrow",
+      "originalName": "clipboard-image.png"
+    },
+    "157cf4745bce7ca4270528dcec0cfc1b53dd09532b2c74ca10a5285d02bcbd3a": {
+      "id": "157cf4745bce7ca4270528dcec0cfc1b53dd09532b2c74ca10a5285d02bcbd3a",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 25272,
+      "alt": "Обложка The Legend of Zelda: Oracle of Ages",
+      "originalName": "clipboard-image.png"
+    },
+    "20b4739b73b969e8ca0586396838460985c5165e6b80d8a2e856d2ca9c0628d5": {
+      "id": "20b4739b73b969e8ca0586396838460985c5165e6b80d8a2e856d2ca9c0628d5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 48364,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "2eac62bf6c4b39d965c7581b5790de524f390eec5e875fb15eeb0481f24325e2": {
+      "id": "2eac62bf6c4b39d965c7581b5790de524f390eec5e875fb15eeb0481f24325e2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 48866,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "45c6410f51d4a593acd8c3e057e4f1e0fdeafbfd0d7f9e29fe53435bcdf236c6": {
+      "id": "45c6410f51d4a593acd8c3e057e4f1e0fdeafbfd0d7f9e29fe53435bcdf236c6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55740,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "49be6bebb6b36b623c2ca13f0caa0d7965a8b29c82cd1e63dfcfc96047c04ef9": {
+      "id": "49be6bebb6b36b623c2ca13f0caa0d7965a8b29c82cd1e63dfcfc96047c04ef9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 67792,
+      "alt": "Обложка Castlevania: Order of Ecclesia",
+      "originalName": "clipboard-image.png"
+    },
+    "53928ddde90fb52f21afed7977ff572a0969b3d29339b8a03807b5d87e1b951f": {
+      "id": "53928ddde90fb52f21afed7977ff572a0969b3d29339b8a03807b5d87e1b951f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 44964,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "566c5c94df1a3547f15af5dbe423f7cf005a04168baf4125c6fab546ab02e4c8": {
+      "id": "566c5c94df1a3547f15af5dbe423f7cf005a04168baf4125c6fab546ab02e4c8",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55998,
+      "alt": "Обложка Castlevania: Circle of the Moon",
+      "originalName": "clipboard-image.png"
+    },
+    "5c129a86fa27a05241359d9bfdb8d3d7bf08d4b29825cb2a2a985fd984ba89c6": {
+      "id": "5c129a86fa27a05241359d9bfdb8d3d7bf08d4b29825cb2a2a985fd984ba89c6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 43770,
+      "alt": "Обложка Castlevania: Dawn of Sorrow",
+      "originalName": "clipboard-image.png"
+    },
+    "60e9ecfe5f94f214915e47d156583d0312f06a5a638b44fd77f9bcfbdad33e88": {
+      "id": "60e9ecfe5f94f214915e47d156583d0312f06a5a638b44fd77f9bcfbdad33e88",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 39524,
+      "alt": "Обложка The Legend of Zelda: Ocarina of Time",
+      "originalName": "clipboard-image.png"
+    },
+    "626aad4a6dd9692d8fbf522269741f058e868f57295264bc045c811be06128e0": {
+      "id": "626aad4a6dd9692d8fbf522269741f058e868f57295264bc045c811be06128e0",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 43666,
+      "alt": "Обложка Castlevania: Portrait of Ruin",
+      "originalName": "clipboard-image.png"
+    },
+    "63160be22488edf709389e137a393cc057ec43ae01debb707e5a41572555b272": {
+      "id": "63160be22488edf709389e137a393cc057ec43ae01debb707e5a41572555b272",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 108156,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "70b9be959de2b26cbc4b6e2e9ca4b2729d266b0b1aaa26c18c44ddb1481987e2": {
+      "id": "70b9be959de2b26cbc4b6e2e9ca4b2729d266b0b1aaa26c18c44ddb1481987e2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 44134,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "74e09d16ec6bc1318268f0397c8d1712f22ac831f5a85a4af1a55a69f72b9f83": {
+      "id": "74e09d16ec6bc1318268f0397c8d1712f22ac831f5a85a4af1a55a69f72b9f83",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 83548,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "77afa5a98484041508ca57a232f5748be387d0bb6ca3cd19685514ad92885bbf": {
+      "id": "77afa5a98484041508ca57a232f5748be387d0bb6ca3cd19685514ad92885bbf",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 49890,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "7f1f7696d304994baa231a7b2ccc840f43f179e1bbc5a6c775b6099851ffdbfe": {
+      "id": "7f1f7696d304994baa231a7b2ccc840f43f179e1bbc5a6c775b6099851ffdbfe",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 41204,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "855a4c45af96190f7b68e64fa071d94179dee576817abd676395a0e5e3b582ad": {
+      "id": "855a4c45af96190f7b68e64fa071d94179dee576817abd676395a0e5e3b582ad",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 47410,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "88fc06f0650d48e930276a66801399f71e45653c3d50784c424d42f8571a919c": {
+      "id": "88fc06f0650d48e930276a66801399f71e45653c3d50784c424d42f8571a919c",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 30678,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "8949d59e4b9ab72fab8b849103fa08c2f461833ce83dd1d29558734993648082": {
+      "id": "8949d59e4b9ab72fab8b849103fa08c2f461833ce83dd1d29558734993648082",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 29988,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "8c6aff396132987f752358aa092ab2edc91b755efa91e5bfd4e80f26a972944b": {
+      "id": "8c6aff396132987f752358aa092ab2edc91b755efa91e5bfd4e80f26a972944b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 68382,
+      "alt": "Обложка Doom",
+      "originalName": "clipboard-image.png"
+    },
+    "aa1c767d0d7e9edcb0b4748620bbf8b5ac1f4618a45a1d6b15e85a3a8e52dd51": {
+      "id": "aa1c767d0d7e9edcb0b4748620bbf8b5ac1f4618a45a1d6b15e85a3a8e52dd51",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 70038,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "ae42cedc164870ef11961492bb45373685d8d4644cb14a1c2343905d75d6f265": {
+      "id": "ae42cedc164870ef11961492bb45373685d8d4644cb14a1c2343905d75d6f265",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 38202,
+      "alt": "Обложка Kirby Tilt 'n' Tumble",
+      "originalName": "clipboard-image.png"
+    },
+    "c41fd19e45e425a7a1de087d7e7c0252d1b82a27539c8e1946465bfce162943e": {
+      "id": "c41fd19e45e425a7a1de087d7e7c0252d1b82a27539c8e1946465bfce162943e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 43608,
+      "alt": "Обложка Kirby and the Forgotten Land",
+      "originalName": "clipboard-image.png"
+    },
+    "c5b87f41d21798807960518fb0d9c303064dd67b7a04042d7908f80d24f23a70": {
+      "id": "c5b87f41d21798807960518fb0d9c303064dd67b7a04042d7908f80d24f23a70",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 55722,
+      "alt": "Обложка Wario Land II",
+      "originalName": "clipboard-image.png"
+    },
+    "cc107ff717be83225aed1338842e205f933dc3d050a1c91e4a1f03a0071d917f": {
+      "id": "cc107ff717be83225aed1338842e205f933dc3d050a1c91e4a1f03a0071d917f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 26904,
+      "alt": "Обложка Shantae",
+      "originalName": "clipboard-image.png"
+    },
+    "d50fc90689312371ec18698a8aa0c3df118e56661835f3d2b3d427ca42b811b6": {
+      "id": "d50fc90689312371ec18698a8aa0c3df118e56661835f3d2b3d427ca42b811b6",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 41026,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "dae07f2721884d3e1d7424e1f0f1956754ba6948e9a388774b259bb7a5e72ac9": {
+      "id": "dae07f2721884d3e1d7424e1f0f1956754ba6948e9a388774b259bb7a5e72ac9",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 20922,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "dc781a10c352e7cc4c29b645d8253d07d9186b4d518db051d2cc0d7d5459d035": {
+      "id": "dc781a10c352e7cc4c29b645d8253d07d9186b4d518db051d2cc0d7d5459d035",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 46568,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "e63e98174a25f28b96b97cbdf628f73302a55cf383745abff78f1cd1bcf7fbe5": {
+      "id": "e63e98174a25f28b96b97cbdf628f73302a55cf383745abff78f1cd1bcf7fbe5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 42918,
+      "alt": "Обложка The Legend of Zelda: Link's Awakening",
+      "originalName": "clipboard-image.png"
+    },
+    "feba7da7bb36d999740c67e42b9411e093f0c3ceaef5bf1e14c529d264c56add": {
+      "id": "feba7da7bb36d999740c67e42b9411e093f0c3ceaef5bf1e14c529d264c56add",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 57270,
+      "alt": "Обложка Doom II",
       "originalName": "clipboard-image.png"
     }
   }
