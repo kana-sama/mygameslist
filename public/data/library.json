@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "c44df3fe2623c15f14a6daf7028aae5185fc3aaad09677fa242f7896dffb26a0",
-  "publicationId": "6f378dc5-b898-4204-8fe8-b0dab9e5f55c",
+  "revision": "9a4f1eccbeb516696ca4a061083ed3a458dc39fbbfc99012e168518b231d3a65",
+  "publicationId": "44a268c9-b5be-43cc-8c2f-18ae7614510a",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4738,6 +4738,53 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T16:15:11.307Z",
       "updatedAt": "2026-07-21T16:15:11.313Z"
+    },
+    "5d2514fe-1109-48ec-9c59-821f17994d87": {
+      "id": "5d2514fe-1109-48ec-9c59-821f17994d87",
+      "title": "Borderlands",
+      "coverAssetId": "65d05e534e5c2c6b82a8025334dc1af30e4485ef5f8abf3954f6e110b6502d6e",
+      "platforms": [],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 20480
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-23T04:58:15.656Z",
+      "updatedAt": "2026-07-23T04:58:15.660Z"
+    },
+    "a85b2237-6f6c-4780-b99f-f6b134278b57": {
+      "id": "a85b2237-6f6c-4780-b99f-f6b134278b57",
+      "title": "Clu Clu Land",
+      "coverAssetId": "81807fa500e7ac9e0a0d5a739ade53ddb56c33084157f212307265a08ba885f4",
+      "platforms": [
+        "Nintendo Entertainment System"
+      ],
+      "tags": [],
+      "status": "dropped",
+      "placement": {
+        "tierId": "f",
+        "rank": 19456
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-23T04:52:27.782Z",
+      "updatedAt": "2026-07-23T04:52:27.787Z"
+    },
+    "eab8c942-0475-4557-99e5-df5086b0b007": {
+      "id": "eab8c942-0475-4557-99e5-df5086b0b007",
+      "title": "Borderlands 2",
+      "coverAssetId": "e48dc2931a3eaa36a8201aa9b3b5d7b5e66cf24a91610106c4c212f6ac78fa33",
+      "platforms": [],
+      "tags": [],
+      "status": "completed",
+      "placement": {
+        "tierId": "b",
+        "rank": 57344
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-23T04:56:47.242Z",
+      "updatedAt": "2026-07-23T04:56:47.245Z"
     }
   },
   "notes": {
@@ -6981,6 +7028,63 @@
       "rank": 1024,
       "createdAt": "2026-07-21T05:08:19.999Z",
       "updatedAt": "2026-07-21T05:08:20.004Z"
+    },
+    "3ad2b88f-5a1e-43e4-af2b-d336d359c006": {
+      "id": "3ad2b88f-5a1e-43e4-af2b-d336d359c006",
+      "gameId": "a85b2237-6f6c-4780-b99f-f6b134278b57",
+      "bodyMarkdown": "На карте скрыт какой-то рисунок, который проявляется когда активируешь столбы (кружась вокруг столба). Нужно целиком проявить рисунок, убегая или атакуя врагов.",
+      "attachments": [],
+      "rank": 3072,
+      "createdAt": "2026-07-23T04:52:27.782Z",
+      "updatedAt": "2026-07-23T04:52:27.787Z"
+    },
+    "6da3b45a-0953-46ed-9db4-19604d5acf40": {
+      "id": "6da3b45a-0953-46ed-9db4-19604d5acf40",
+      "gameId": "a85b2237-6f6c-4780-b99f-f6b134278b57",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "a124fd6af3feab4a7e08c19f694bf90e9cc7eb1566adf2a29ca08c6370635015",
+          "alt": "image"
+        }
+      ],
+      "rank": 1024,
+      "createdAt": "2026-07-23T04:52:27.782Z",
+      "updatedAt": "2026-07-23T04:52:27.787Z"
+    },
+    "e29f24e1-175d-486c-a3d0-5dd5633a7027": {
+      "id": "e29f24e1-175d-486c-a3d0-5dd5633a7027",
+      "gameId": "eab8c942-0475-4557-99e5-df5086b0b007",
+      "bodyMarkdown": "Забавно, но диск с этой игрой мне купил батя, потому что по обложке подумал, что игра детская. У меня были не все DLC, потому что DLC в обложки это одно из первых DLC.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "cf7ab98fbf8862ad67d1f108862e997cc15ca6d7e0576519db68464c6d2ffec7",
+          "alt": "image"
+        }
+      ],
+      "rank": 1024,
+      "createdAt": "2026-07-23T04:56:47.242Z",
+      "updatedAt": "2026-07-23T04:56:47.245Z"
+    },
+    "eae66d74-1265-45e7-bc40-75b50aa87d78": {
+      "id": "eae66d74-1265-45e7-bc40-75b50aa87d78",
+      "gameId": "a85b2237-6f6c-4780-b99f-f6b134278b57",
+      "bodyMarkdown": "Игра из nintendo миссий. Не думаю что она понравилась бы мне даже в детстве.\n\n",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-23T04:52:27.782Z",
+      "updatedAt": "2026-07-23T04:52:27.787Z"
+    },
+    "ef2ec470-03fa-4e9d-bcf7-bf985f154b63": {
+      "id": "ef2ec470-03fa-4e9d-bcf7-bf985f154b63",
+      "gameId": "5d2514fe-1109-48ec-9c59-821f17994d87",
+      "bodyMarkdown": "Эту игру я уже запускал после второй части, и на PS3, и она показалась мне невероятно скучной, пустой и унылой. Зато Миша сразу же в нее залип и играл всю ночь.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-23T04:58:15.656Z",
+      "updatedAt": "2026-07-23T04:58:15.660Z"
     }
   },
   "assets": {
@@ -10354,6 +10458,56 @@
       "height": 512,
       "byteLength": 14502,
       "alt": "Обложка Karoshi Factory",
+      "originalName": "clipboard-image.png"
+    },
+    "65d05e534e5c2c6b82a8025334dc1af30e4485ef5f8abf3954f6e110b6502d6e": {
+      "id": "65d05e534e5c2c6b82a8025334dc1af30e4485ef5f8abf3954f6e110b6502d6e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 74736,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "81807fa500e7ac9e0a0d5a739ade53ddb56c33084157f212307265a08ba885f4": {
+      "id": "81807fa500e7ac9e0a0d5a739ade53ddb56c33084157f212307265a08ba885f4",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 30564,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "a124fd6af3feab4a7e08c19f694bf90e9cc7eb1566adf2a29ca08c6370635015": {
+      "id": "a124fd6af3feab4a7e08c19f694bf90e9cc7eb1566adf2a29ca08c6370635015",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 250,
+      "height": 219,
+      "byteLength": 3424,
+      "alt": "image",
+      "originalName": "image.png"
+    },
+    "cf7ab98fbf8862ad67d1f108862e997cc15ca6d7e0576519db68464c6d2ffec7": {
+      "id": "cf7ab98fbf8862ad67d1f108862e997cc15ca6d7e0576519db68464c6d2ffec7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 640,
+      "height": 976,
+      "byteLength": 693138,
+      "alt": "image",
+      "originalName": "image.png"
+    },
+    "e48dc2931a3eaa36a8201aa9b3b5d7b5e66cf24a91610106c4c212f6ac78fa33": {
+      "id": "e48dc2931a3eaa36a8201aa9b3b5d7b5e66cf24a91610106c4c212f6ac78fa33",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 81402,
+      "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
   }
