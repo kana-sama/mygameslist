@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "7f032f21e2811cffc00dd4518bf2d89742782eb9827b5e47729051802d18f39a",
-  "publicationId": "ae5046c5-2901-4d07-a4c6-018912b454ea",
+  "revision": "48429eaf12ac8c3cf2f6cc57126d699cbb222cfe52fa6120aa1bc3234e752180",
+  "publicationId": "86684378-e7a4-44f3-8255-7ee585ffe716",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-07-23T07:07:24.175Z"
+      "updatedAt": "2026-07-23T07:10:21.608Z"
     }
   },
   "notes": {
@@ -7200,12 +7200,27 @@
           "type": "image",
           "assetId": "631e841aeb4c2a0dba231f042566b4482164a8b701df40368ced3600e3911ee5",
           "alt": "3"
+        },
+        {
+          "type": "image",
+          "assetId": "159e1b535ec5dc5c8363e235db1492f8a868ff6ee2a4bd818b9610135802d899",
+          "alt": "4"
+        },
+        {
+          "type": "image",
+          "assetId": "6a65b6d3797044cea4d22ff5d5fae5ad9f603e7b44c6cb4741482ce3192c0a22",
+          "alt": "5"
+        },
+        {
+          "type": "image",
+          "assetId": "3edab23f0027802a56327828391e7ae81d00469aea6a8bb207fda5e77727ec48",
+          "alt": "6"
         }
       ],
       "groupRank": 2048,
       "rank": 1024,
       "createdAt": "2026-07-23T07:02:50.129Z",
-      "updatedAt": "2026-07-23T07:07:24.175Z"
+      "updatedAt": "2026-07-23T07:10:21.608Z"
     },
     "eba52228-227a-451b-81eb-eda11a039979": {
       "id": "eba52228-227a-451b-81eb-eda11a039979",
@@ -10795,6 +10810,36 @@
       "byteLength": 186758,
       "alt": "2",
       "originalName": "2.webp"
+    },
+    "159e1b535ec5dc5c8363e235db1492f8a868ff6ee2a4bd818b9610135802d899": {
+      "id": "159e1b535ec5dc5c8363e235db1492f8a868ff6ee2a4bd818b9610135802d899",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 198342,
+      "alt": "4",
+      "originalName": "4.webp"
+    },
+    "3edab23f0027802a56327828391e7ae81d00469aea6a8bb207fda5e77727ec48": {
+      "id": "3edab23f0027802a56327828391e7ae81d00469aea6a8bb207fda5e77727ec48",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 258776,
+      "alt": "6",
+      "originalName": "6.webp"
+    },
+    "6a65b6d3797044cea4d22ff5d5fae5ad9f603e7b44c6cb4741482ce3192c0a22": {
+      "id": "6a65b6d3797044cea4d22ff5d5fae5ad9f603e7b44c6cb4741482ce3192c0a22",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 187094,
+      "alt": "5",
+      "originalName": "5.webp"
     }
   }
 }
