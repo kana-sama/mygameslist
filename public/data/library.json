@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "9a4f1eccbeb516696ca4a061083ed3a458dc39fbbfc99012e168518b231d3a65",
-  "publicationId": "44a268c9-b5be-43cc-8c2f-18ae7614510a",
+  "revision": "d4eb5620367506b1636e77ad53b6246ce7e0bbd214f2f7b2c3de3281bb1c6a1b",
+  "publicationId": "ac970ef0-3f68-4c15-a0d0-94e8cbbf9651",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -260,7 +260,8 @@
         "Nintendo Wii U"
       ],
       "tags": [
-        "Super Mario"
+        "Super Mario",
+        "Nintendo Missions"
       ],
       "status": "completed",
       "placement": {
@@ -269,7 +270,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-17T04:55:00.194Z",
-      "updatedAt": "2026-07-17T04:56:01.513Z"
+      "updatedAt": "2026-07-23T05:15:28.158Z"
     },
     "303a2be3-6ea4-427c-82d6-40bb43faa4d5": {
       "id": "303a2be3-6ea4-427c-82d6-40bb43faa4d5",
@@ -4465,7 +4466,9 @@
       "platforms": [
         "Nintendo Switch"
       ],
-      "tags": [],
+      "tags": [
+        "Nintendo Missions"
+      ],
       "status": "dropped",
       "placement": {
         "tierId": "f",
@@ -4473,7 +4476,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-21T05:25:47.176Z",
-      "updatedAt": "2026-07-21T05:25:47.182Z"
+      "updatedAt": "2026-07-23T05:16:06.751Z"
     },
     "cb266a9c-4027-4047-8076-9f643b742cd6": {
       "id": "cb266a9c-4027-4047-8076-9f643b742cd6",
@@ -4761,7 +4764,9 @@
       "platforms": [
         "Nintendo Entertainment System"
       ],
-      "tags": [],
+      "tags": [
+        "Nintendo Missions"
+      ],
       "status": "dropped",
       "placement": {
         "tierId": "f",
@@ -4769,7 +4774,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T04:52:27.782Z",
-      "updatedAt": "2026-07-23T04:52:27.787Z"
+      "updatedAt": "2026-07-23T05:15:11.874Z"
     },
     "eab8c942-0475-4557-99e5-df5086b0b007": {
       "id": "eab8c942-0475-4557-99e5-df5086b0b007",
@@ -4785,6 +4790,25 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T04:56:47.242Z",
       "updatedAt": "2026-07-23T04:56:47.245Z"
+    },
+    "73f8c44f-2348-4d79-a499-be09c50eaf24": {
+      "id": "73f8c44f-2348-4d79-a499-be09c50eaf24",
+      "title": "Kuru Kuru Kururin",
+      "coverAssetId": "9930a42ce34852ee70f58e35d4ea0d9eb637860a665009b7d8a25a8a567817cb",
+      "platforms": [
+        "GameBoy Advance"
+      ],
+      "tags": [
+        "Nintendo Missions"
+      ],
+      "status": "dropped",
+      "placement": {
+        "tierId": "c",
+        "rank": 22528
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-23T05:15:05.919Z",
+      "updatedAt": "2026-07-23T05:15:05.928Z"
     }
   },
   "notes": {
@@ -7085,6 +7109,15 @@
       "rank": 1024,
       "createdAt": "2026-07-23T04:58:15.656Z",
       "updatedAt": "2026-07-23T04:58:15.660Z"
+    },
+    "0eb52640-978b-4dff-91b2-4f25bc5f4c46": {
+      "id": "0eb52640-978b-4dff-91b2-4f25bc5f4c46",
+      "gameId": "73f8c44f-2348-4d79-a499-be09c50eaf24",
+      "bodyMarkdown": "Неплохая портативная игра. Будь у меня карик с ней, или выходи на Playdate, то я бы мог и залипнуть в нее на какое-то время.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-23T05:15:05.919Z",
+      "updatedAt": "2026-07-23T05:15:05.928Z"
     }
   },
   "assets": {
@@ -10507,6 +10540,16 @@
       "width": 512,
       "height": 512,
       "byteLength": 81402,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "9930a42ce34852ee70f58e35d4ea0d9eb637860a665009b7d8a25a8a567817cb": {
+      "id": "9930a42ce34852ee70f58e35d4ea0d9eb637860a665009b7d8a25a8a567817cb",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 36088,
       "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
