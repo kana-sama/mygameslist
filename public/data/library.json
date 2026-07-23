@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "d4eb5620367506b1636e77ad53b6246ce7e0bbd214f2f7b2c3de3281bb1c6a1b",
-  "publicationId": "ac970ef0-3f68-4c15-a0d0-94e8cbbf9651",
+  "revision": "7f032f21e2811cffc00dd4518bf2d89742782eb9827b5e47729051802d18f39a",
+  "publicationId": "ae5046c5-2901-4d07-a4c6-018912b454ea",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4809,6 +4809,23 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T05:15:05.919Z",
       "updatedAt": "2026-07-23T05:15:05.928Z"
+    },
+    "b277d3c8-733c-4eee-ae70-3daea325f28d": {
+      "id": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "title": "Donkey Kong Bananza",
+      "coverAssetId": "4b9bbb25d51abcb218e0aa5b260b49540bfeb2d5e2afea32abcd1928915c4dd3",
+      "platforms": [
+        "Nintendo Switch 2"
+      ],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 106496
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-23T06:34:49.864Z",
+      "updatedAt": "2026-07-23T07:07:24.175Z"
     }
   },
   "notes": {
@@ -7118,6 +7135,92 @@
       "rank": 1024,
       "createdAt": "2026-07-23T05:15:05.919Z",
       "updatedAt": "2026-07-23T05:15:05.928Z"
+    },
+    "ce265843-c90f-4b0c-a7fe-7c2e10ee90ba": {
+      "id": "ce265843-c90f-4b0c-a7fe-7c2e10ee90ba",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "6941c558efcca0528b7e639f03b25d22f42153d8cf9923ef969a2db691c090c2",
+          "alt": "1"
+        },
+        {
+          "type": "image",
+          "assetId": "89809912c5750baae55ad77fe17f202d525851b2da67fea501941b97d2e97202",
+          "alt": "2"
+        },
+        {
+          "type": "image",
+          "assetId": "2acee8816fffa94d6ee9046d6ffbd4913ae2f70b25ef4b2d0cc14bde7b810074",
+          "alt": "3"
+        },
+        {
+          "type": "image",
+          "assetId": "c0ea82c2a56fe17ec88746f25c5b590711f36b9698f78878750ffe7e1a62629e",
+          "alt": "4"
+        },
+        {
+          "type": "image",
+          "assetId": "6d152f9a81473ad71e6c989605a70be08dd03682ffe5a8c615d9e117336aa8c7",
+          "alt": "5"
+        },
+        {
+          "type": "image",
+          "assetId": "4d317020e5e0d2013bc72f264d9f926eca5441e8bd2fcc36b18dd48da331dbea",
+          "alt": "1"
+        },
+        {
+          "type": "image",
+          "assetId": "f57a6803f0924054553a75b2a08dab16532deeae4d826d89305d8485ba4250ce",
+          "alt": "2"
+        },
+        {
+          "type": "image",
+          "assetId": "dbf779c5c39f1a005994cf1fa72eb257f36e91ce54367ce367935ffd14741231",
+          "alt": "3"
+        },
+        {
+          "type": "image",
+          "assetId": "6a16f2cfc11a0e799aab1175b605e21d29366eed72a1b9b0253fa7c3e455fa95",
+          "alt": "4"
+        },
+        {
+          "type": "image",
+          "assetId": "bf35288ac8ab5ee75f8c5ba45a7d8e0bf26d812b0ce5403b83b64096a6a24201",
+          "alt": "1"
+        },
+        {
+          "type": "image",
+          "assetId": "eed6725e9612b299aeafd073b31be4a5d921f3022e7786e4d0c24fe79274bd1d",
+          "alt": "2"
+        },
+        {
+          "type": "image",
+          "assetId": "631e841aeb4c2a0dba231f042566b4482164a8b701df40368ced3600e3911ee5",
+          "alt": "3"
+        }
+      ],
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-07-23T07:02:50.129Z",
+      "updatedAt": "2026-07-23T07:07:24.175Z"
+    },
+    "eba52228-227a-451b-81eb-eda11a039979": {
+      "id": "eba52228-227a-451b-81eb-eda11a039979",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "Нинка придумала свою систему ачивок, сразу на серию игр, включая игры с NES/SNES/GB/GBA, доступные по подписке. Предлагается пройти ряд уровней из разных игр. Я прошел все уровни со старых консолей.",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "e28a5dde6ca778e3be8c1c640fd5d01e474f1f2282d20aa7ff874660199ed899",
+          "alt": "telegram-cloud-document-2-5408960196288486159"
+        }
+      ],
+      "rank": 1024,
+      "createdAt": "2026-07-23T06:43:31.221Z",
+      "updatedAt": "2026-07-23T06:43:31.226Z"
     }
   },
   "assets": {
@@ -10552,6 +10655,146 @@
       "byteLength": 36088,
       "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
+    },
+    "2acee8816fffa94d6ee9046d6ffbd4913ae2f70b25ef4b2d0cc14bde7b810074": {
+      "id": "2acee8816fffa94d6ee9046d6ffbd4913ae2f70b25ef4b2d0cc14bde7b810074",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 223234,
+      "alt": "3",
+      "originalName": "3.webp"
+    },
+    "4b9bbb25d51abcb218e0aa5b260b49540bfeb2d5e2afea32abcd1928915c4dd3": {
+      "id": "4b9bbb25d51abcb218e0aa5b260b49540bfeb2d5e2afea32abcd1928915c4dd3",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 76730,
+      "alt": "Обложка Donkey Kong Bananza",
+      "originalName": "clipboard-image.png"
+    },
+    "4d317020e5e0d2013bc72f264d9f926eca5441e8bd2fcc36b18dd48da331dbea": {
+      "id": "4d317020e5e0d2013bc72f264d9f926eca5441e8bd2fcc36b18dd48da331dbea",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 220088,
+      "alt": "1",
+      "originalName": "1.webp"
+    },
+    "631e841aeb4c2a0dba231f042566b4482164a8b701df40368ced3600e3911ee5": {
+      "id": "631e841aeb4c2a0dba231f042566b4482164a8b701df40368ced3600e3911ee5",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 204776,
+      "alt": "3",
+      "originalName": "3.webp"
+    },
+    "6941c558efcca0528b7e639f03b25d22f42153d8cf9923ef969a2db691c090c2": {
+      "id": "6941c558efcca0528b7e639f03b25d22f42153d8cf9923ef969a2db691c090c2",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 233920,
+      "alt": "1",
+      "originalName": "1.webp"
+    },
+    "6a16f2cfc11a0e799aab1175b605e21d29366eed72a1b9b0253fa7c3e455fa95": {
+      "id": "6a16f2cfc11a0e799aab1175b605e21d29366eed72a1b9b0253fa7c3e455fa95",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 190592,
+      "alt": "4",
+      "originalName": "4.webp"
+    },
+    "6d152f9a81473ad71e6c989605a70be08dd03682ffe5a8c615d9e117336aa8c7": {
+      "id": "6d152f9a81473ad71e6c989605a70be08dd03682ffe5a8c615d9e117336aa8c7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 220082,
+      "alt": "5",
+      "originalName": "5.webp"
+    },
+    "89809912c5750baae55ad77fe17f202d525851b2da67fea501941b97d2e97202": {
+      "id": "89809912c5750baae55ad77fe17f202d525851b2da67fea501941b97d2e97202",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 228768,
+      "alt": "2",
+      "originalName": "2.webp"
+    },
+    "bf35288ac8ab5ee75f8c5ba45a7d8e0bf26d812b0ce5403b83b64096a6a24201": {
+      "id": "bf35288ac8ab5ee75f8c5ba45a7d8e0bf26d812b0ce5403b83b64096a6a24201",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 183264,
+      "alt": "1",
+      "originalName": "1.webp"
+    },
+    "c0ea82c2a56fe17ec88746f25c5b590711f36b9698f78878750ffe7e1a62629e": {
+      "id": "c0ea82c2a56fe17ec88746f25c5b590711f36b9698f78878750ffe7e1a62629e",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 260438,
+      "alt": "4",
+      "originalName": "4.webp"
+    },
+    "dbf779c5c39f1a005994cf1fa72eb257f36e91ce54367ce367935ffd14741231": {
+      "id": "dbf779c5c39f1a005994cf1fa72eb257f36e91ce54367ce367935ffd14741231",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 183520,
+      "alt": "3",
+      "originalName": "3.webp"
+    },
+    "e28a5dde6ca778e3be8c1c640fd5d01e474f1f2282d20aa7ff874660199ed899": {
+      "id": "e28a5dde6ca778e3be8c1c640fd5d01e474f1f2282d20aa7ff874660199ed899",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 956912,
+      "alt": "telegram-cloud-document-2-5408960196288486159",
+      "originalName": "telegram-cloud-document-2-5408960196288486159.jpg"
+    },
+    "eed6725e9612b299aeafd073b31be4a5d921f3022e7786e4d0c24fe79274bd1d": {
+      "id": "eed6725e9612b299aeafd073b31be4a5d921f3022e7786e4d0c24fe79274bd1d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 154272,
+      "alt": "2",
+      "originalName": "2.webp"
+    },
+    "f57a6803f0924054553a75b2a08dab16532deeae4d826d89305d8485ba4250ce": {
+      "id": "f57a6803f0924054553a75b2a08dab16532deeae4d826d89305d8485ba4250ce",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1920,
+      "height": 1080,
+      "byteLength": 186758,
+      "alt": "2",
+      "originalName": "2.webp"
     }
   }
 }
