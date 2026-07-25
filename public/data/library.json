@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "3814924fc5ba6b62572d7cf29161cb4a3538a1cd0ecf411a5b72c64afc89fad1",
-  "publicationId": "cf4d2f76-9b14-46c3-9338-469732dad284",
+  "revision": "b0f79b4c8e0576e258800235a35ff29c7a43640d8a889b2c8cee38475c8cc705",
+  "publicationId": "1d8d49ca-178f-43ef-9552-7b08cb644aab",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4818,14 +4818,14 @@
         "Nintendo Switch 2"
       ],
       "tags": [],
-      "status": "wishlist",
+      "status": "playing",
       "placement": {
-        "tierId": "unranked",
-        "rank": 106496
+        "tierId": "a",
+        "rank": 60416
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-07-25T21:08:13.535Z"
+      "updatedAt": "2026-07-25T21:09:22.769Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
