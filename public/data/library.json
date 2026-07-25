@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "48429eaf12ac8c3cf2f6cc57126d699cbb222cfe52fa6120aa1bc3234e752180",
-  "publicationId": "86684378-e7a4-44f3-8255-7ee585ffe716",
+  "revision": "3814924fc5ba6b62572d7cf29161cb4a3538a1cd0ecf411a5b72c64afc89fad1",
+  "publicationId": "cf4d2f76-9b14-46c3-9338-469732dad284",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,52 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-07-23T07:10:21.608Z"
+      "updatedAt": "2026-07-25T21:08:13.535Z"
+    },
+    "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
+      "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
+      "title": "The Rise of the Golden Idol",
+      "coverAssetId": "bff018e17d94ae88383c97aa6a79eeef29963339c90d67a49724f9abb6cefffa",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 108544
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-25T21:04:12.221Z",
+      "updatedAt": "2026-07-25T21:04:12.227Z"
+    },
+    "d90b2288-0f60-4ba0-be2c-b65db624a0a8": {
+      "id": "d90b2288-0f60-4ba0-be2c-b65db624a0a8",
+      "title": "The Case of the Golden Idol",
+      "coverAssetId": "09fab5f038c1823662168985ecf79cf4bbd21c9c764b83abfb3dff3ceac1651d",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 107520
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-25T21:03:52.022Z",
+      "updatedAt": "2026-07-25T21:03:52.028Z"
+    },
+    "f8052fe4-4201-4bee-84b4-a00180f25179": {
+      "id": "f8052fe4-4201-4bee-84b4-a00180f25179",
+      "title": "Donkey Kong Country: Tropical Freeze",
+      "coverAssetId": "c46f57e32559ab7ea2ef0e026f8be5a93124da95683f0bc83ec846d100703fe7",
+      "platforms": [],
+      "tags": [],
+      "status": "wishlist",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 109568
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-25T21:04:56.028Z",
+      "updatedAt": "2026-07-25T21:04:56.033Z"
     }
   },
   "notes": {
@@ -7236,6 +7281,24 @@
       "rank": 1024,
       "createdAt": "2026-07-23T06:43:31.221Z",
       "updatedAt": "2026-07-23T06:43:31.226Z"
+    },
+    "35e6bf10-b58f-4692-81dc-ac3ebf54a391": {
+      "id": "35e6bf10-b58f-4692-81dc-ac3ebf54a391",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "Игра достаточно залипательна, но в игре нет сложных испытаний или паззлов, из-за чего кажется, что со временем должна надоесть. Надеюсь я успею быстрее чем она надоест.\n\nВ [Super Mario Odyssey](#/games/303a2be3-6ea4-427c-82d6-40bb43faa4d5) простых лун хватает, чтобы пройти сюжет, но если ты хочешь настоящее испытание, то просто нужно попробовать собрать все луны, несколько (или даже много) сложных челлендей на уровень будет.\n\nТут же я собираю все бананы без напряга, и соответсвенно без интереса.",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-07-25T21:07:06.003Z",
+      "updatedAt": "2026-07-25T21:07:39.237Z"
+    },
+    "d8ed098b-3fa8-4f0d-8755-c8f8edce4e4f": {
+      "id": "d8ed098b-3fa8-4f0d-8755-c8f8edce4e4f",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "Двухмерные испытания мне нравятся больше, чем основная игра, и даже больше, чем другие двухмерные игры по ДК.",
+      "attachments": [],
+      "rank": 3072,
+      "createdAt": "2026-07-25T21:08:13.530Z",
+      "updatedAt": "2026-07-25T21:08:13.535Z"
     }
   },
   "assets": {
@@ -10840,6 +10903,36 @@
       "byteLength": 187094,
       "alt": "5",
       "originalName": "5.webp"
+    },
+    "09fab5f038c1823662168985ecf79cf4bbd21c9c764b83abfb3dff3ceac1651d": {
+      "id": "09fab5f038c1823662168985ecf79cf4bbd21c9c764b83abfb3dff3ceac1651d",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 22542,
+      "alt": "Обложка The Case of the Golden Idol",
+      "originalName": "clipboard-image.png"
+    },
+    "bff018e17d94ae88383c97aa6a79eeef29963339c90d67a49724f9abb6cefffa": {
+      "id": "bff018e17d94ae88383c97aa6a79eeef29963339c90d67a49724f9abb6cefffa",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 33990,
+      "alt": "Обложка The Rise of the Golden Idol",
+      "originalName": "clipboard-image.png"
+    },
+    "c46f57e32559ab7ea2ef0e026f8be5a93124da95683f0bc83ec846d100703fe7": {
+      "id": "c46f57e32559ab7ea2ef0e026f8be5a93124da95683f0bc83ec846d100703fe7",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 83520,
+      "alt": "Обложка Donkey Kong Country: Tropical Freeze",
+      "originalName": "clipboard-image.png"
     }
   }
 }
