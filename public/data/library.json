@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "b0f79b4c8e0576e258800235a35ff29c7a43640d8a889b2c8cee38475c8cc705",
-  "publicationId": "1d8d49ca-178f-43ef-9552-7b08cb644aab",
+  "revision": "4a817c8ffa58284b8561954873a4831eba933388a737bcef8026cac80f7bc2f3",
+  "publicationId": "0f105141-d957-47ae-a328-40da618aa97b",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4820,12 +4820,12 @@
       "tags": [],
       "status": "playing",
       "placement": {
-        "tierId": "a",
-        "rank": 60416
+        "tierId": "b",
+        "rank": 58368
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-07-25T21:09:22.769Z"
+      "updatedAt": "2026-07-30T11:56:44.853Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -4871,6 +4871,23 @@
       "reviewMarkdown": "",
       "createdAt": "2026-07-25T21:04:56.028Z",
       "updatedAt": "2026-07-25T21:04:56.033Z"
+    },
+    "4b8c7d7f-5e6b-4aa1-9aa9-6b16f307d031": {
+      "id": "4b8c7d7f-5e6b-4aa1-9aa9-6b16f307d031",
+      "title": "Splatoon Raiders",
+      "coverAssetId": "76efb459460a50c3d70509eb51ce5b6c74ad7aa9e21b450341225f19401a8c81",
+      "platforms": [
+        "Nintendo Switch 2"
+      ],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "c",
+        "rank": 23552
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-07-30T11:58:39.722Z",
+      "updatedAt": "2026-07-30T11:58:39.728Z"
     }
   },
   "notes": {
@@ -7299,6 +7316,24 @@
       "rank": 3072,
       "createdAt": "2026-07-25T21:08:13.530Z",
       "updatedAt": "2026-07-25T21:08:13.535Z"
+    },
+    "78d67b7e-f8e6-4272-b0f5-0304fe444f23": {
+      "id": "78d67b7e-f8e6-4272-b0f5-0304fe444f23",
+      "gameId": "4b8c7d7f-5e6b-4aa1-9aa9-6b16f307d031",
+      "bodyMarkdown": "Единственная причина почему это интересно - много разного вида оружия и его интересно испытывать. А так это просто гриндилка.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-07-30T11:58:39.722Z",
+      "updatedAt": "2026-07-30T11:58:39.728Z"
+    },
+    "86751ab9-f436-45c3-995c-687c59cd0a32": {
+      "id": "86751ab9-f436-45c3-995c-687c59cd0a32",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "По итогу чуть не дропнул, слишком однообразно. Но так как я уже на предпоследнем мире, можно и добить. Если бы игра была больше, точно бы дропнул.\n",
+      "attachments": [],
+      "rank": 4096,
+      "createdAt": "2026-07-30T11:56:44.846Z",
+      "updatedAt": "2026-07-30T11:56:44.853Z"
     }
   },
   "assets": {
@@ -10932,6 +10967,16 @@
       "height": 512,
       "byteLength": 83520,
       "alt": "Обложка Donkey Kong Country: Tropical Freeze",
+      "originalName": "clipboard-image.png"
+    },
+    "76efb459460a50c3d70509eb51ce5b6c74ad7aa9e21b450341225f19401a8c81": {
+      "id": "76efb459460a50c3d70509eb51ce5b6c74ad7aa9e21b450341225f19401a8c81",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 69384,
+      "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
   }
