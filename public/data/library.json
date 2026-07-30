@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "4a817c8ffa58284b8561954873a4831eba933388a737bcef8026cac80f7bc2f3",
-  "publicationId": "0f105141-d957-47ae-a328-40da618aa97b",
+  "revision": "8a300998f0cf07ff1e47b968fefd9ae4308fa2f9093e12a079d867572eb2d955",
+  "publicationId": "36f8ac3a-446e-4477-9b75-5a29b782fcd2",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4818,14 +4818,14 @@
         "Nintendo Switch 2"
       ],
       "tags": [],
-      "status": "playing",
+      "status": "completed",
       "placement": {
-        "tierId": "b",
-        "rank": 58368
+        "tierId": "a",
+        "rank": 60416
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-07-30T11:56:44.853Z"
+      "updatedAt": "2026-07-30T18:42:21.964Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -7329,11 +7329,11 @@
     "86751ab9-f436-45c3-995c-687c59cd0a32": {
       "id": "86751ab9-f436-45c3-995c-687c59cd0a32",
       "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
-      "bodyMarkdown": "По итогу чуть не дропнул, слишком однообразно. Но так как я уже на предпоследнем мире, можно и добить. Если бы игра была больше, точно бы дропнул.\n",
+      "bodyMarkdown": "По итогу чуть не дропнул, слишком однообразно. Но так как я уже на предпоследнем мире, можно и добить. Если бы игра была больше, точно бы дропнул.",
       "attachments": [],
       "rank": 4096,
       "createdAt": "2026-07-30T11:56:44.846Z",
-      "updatedAt": "2026-07-30T11:56:44.853Z"
+      "updatedAt": "2026-07-30T18:42:21.964Z"
     }
   },
   "assets": {
