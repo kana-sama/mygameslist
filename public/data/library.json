@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "a7b3aea42ee96f96d418ef58ce3e84de4c944ae6285301481ecc84c114026ed8",
-  "publicationId": "ce911bfa-01e4-4d06-ad41-31dea437bff3",
+  "revision": "2e5ce2e97810e1f9f47c97596a0f324874a414f7c8bafaab229768258d496272",
+  "publicationId": "37955c72-7aa5-48cd-9f57-cfcf5bf12b44",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-08-01T22:40:01.448Z"
+      "updatedAt": "2026-08-01T22:48:56.035Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -4902,7 +4902,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-08-01T10:28:41.801Z",
-      "updatedAt": "2026-08-01T18:05:25.078Z"
+      "updatedAt": "2026-08-01T22:46:25.114Z"
     },
     "fdddb013-33a6-4f8c-827a-cf61448c4b26": {
       "id": "fdddb013-33a6-4f8c-827a-cf61448c4b26",
@@ -4918,6 +4918,21 @@
       "reviewMarkdown": "",
       "createdAt": "2026-08-01T10:55:07.800Z",
       "updatedAt": "2026-08-01T10:55:07.807Z"
+    },
+    "0a5a3c40-9667-44b7-b97c-74d30f1920c7": {
+      "id": "0a5a3c40-9667-44b7-b97c-74d30f1920c7",
+      "title": "Tiny Bunny",
+      "coverAssetId": "3a6ef2ee138f94e3967598d8a497f02ef0066e874d10059e321438b8deb9816f",
+      "platforms": [],
+      "tags": [],
+      "status": "platinum",
+      "placement": {
+        "tierId": "b",
+        "rank": 58368
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-08-01T23:01:41.288Z",
+      "updatedAt": "2026-08-01T23:01:41.297Z"
     }
   },
   "notes": {
@@ -7332,20 +7347,20 @@
     "35e6bf10-b58f-4692-81dc-ac3ebf54a391": {
       "id": "35e6bf10-b58f-4692-81dc-ac3ebf54a391",
       "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
-      "bodyMarkdown": "Игра достаточно залипательна, но в игре нет сложных испытаний или паззлов, из-за чего кажется, что со временем должна надоесть. Надеюсь я успею быстрее чем она надоест.\n\nВ [Super Mario Odyssey](#/games/303a2be3-6ea4-427c-82d6-40bb43faa4d5) простых лун хватает, чтобы пройти сюжет, но если ты хочешь настоящее испытание, то просто нужно попробовать собрать все луны, несколько (или даже много) сложных челлендей на уровень будет.\n\nТут же я собираю все бананы без напряга, и соответсвенно без интереса.",
+      "bodyMarkdown": "Игра достаточно залипательна, но в игре нет сложных испытаний или паззлов, из-за чего кажется, что со временем должна надоесть. Надеюсь я успею быстрее чем она надоест.\n\nВ [Super Mario Odyssey](#/games/303a2be3-6ea4-427c-82d6-40bb43faa4d5) простых лун хватает, чтобы пройти сюжет, но если ты хочешь настоящее испытание, то просто нужно попробовать собрать все луны, несколько (или даже много) сложных челлендей на уровень будет. Тут же я собираю все бананы без напряга, и соответсвенно без интереса.\n\nНо, сложные челленджи есть, они метаигровые - DK Challanges ивент. Там разработчики выдали кучу тривиальных челленджей, но некоторые заставляют тебя чизить в игре, используя спидранерские стратки, и это единственный способ их пройти.",
       "attachments": [],
       "rank": 5120,
       "createdAt": "2026-07-25T21:07:06.003Z",
-      "updatedAt": "2026-08-01T09:21:16.890Z"
+      "updatedAt": "2026-08-01T22:43:21.232Z"
     },
     "d8ed098b-3fa8-4f0d-8755-c8f8edce4e4f": {
       "id": "d8ed098b-3fa8-4f0d-8755-c8f8edce4e4f",
       "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
-      "bodyMarkdown": "Двухмерные испытания мне нравятся больше, чем основная игра, и даже больше, чем другие двухмерные игры по ДК.",
+      "bodyMarkdown": "Двумерные испытания мне нравятся больше, чем основная игра, и даже больше, чем другие двумерные игры по ДК.",
       "attachments": [],
       "rank": 3072,
       "createdAt": "2026-07-25T21:08:13.530Z",
-      "updatedAt": "2026-07-25T21:08:13.535Z"
+      "updatedAt": "2026-08-01T22:43:56.598Z"
     },
     "78d67b7e-f8e6-4272-b0f5-0304fe444f23": {
       "id": "78d67b7e-f8e6-4272-b0f5-0304fe444f23",
@@ -7369,12 +7384,12 @@
     "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39": {
       "id": "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за уровни\n\n## Philosopher's Stone\n| Уровень                | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [ ] | [ ] | [ ] | [ ] |\n| The Restricted Section | [ ] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [ ] | [ ] | [ ] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |",
+      "bodyMarkdown": "# Золотые кирпичики за уровни\n\n| Philosopher's Stone                | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [ ] | [ ] | [ ] | [ ] |\n| The Restricted Section | [ ] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [ ] | [ ] | [ ] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |",
       "attachments": [],
       "groupRank": 3072,
       "rank": 1024,
       "createdAt": "2026-08-01T10:31:27.916Z",
-      "updatedAt": "2026-08-01T16:55:55.941Z"
+      "updatedAt": "2026-08-01T22:46:09.618Z"
     },
     "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49": {
       "id": "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49",
@@ -7443,7 +7458,14 @@
       "attachments": [],
       "rank": 6144,
       "createdAt": "2026-08-01T19:10:19.379Z",
-      "updatedAt": "2026-08-01T21:19:47.347Z"
+      "updatedAt": "2026-08-01T22:48:56.035Z",
+      "collapsedChecklistSections": [
+        "group:13qjjqf-3a",
+        "group:1nu97a4-34",
+        "group:nn0ovs-34",
+        "group:q59msv-33",
+        "group:xq1mza-27"
+      ]
     },
     "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917": {
       "id": "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917",
@@ -7458,12 +7480,12 @@
     "bd07ec51-5e6c-48a5-966b-41314c5d98c0": {
       "id": "bd07ec51-5e6c-48a5-966b-41314c5d98c0",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Красные ящики:\n- [x] спальня\n- [x] двор\n- [ ] ...",
+      "bodyMarkdown": "# Красные ящики\n- [x] спальня\n- [x] двор\n- [ ] ...",
       "attachments": [],
       "groupRank": 4096,
       "rank": 1536,
       "createdAt": "2026-08-01T15:32:29.532Z",
-      "updatedAt": "2026-08-01T17:04:10.236Z"
+      "updatedAt": "2026-08-01T22:46:25.114Z"
     },
     "c69cabd0-16e3-4d4b-8b58-39e8c8575be8": {
       "id": "c69cabd0-16e3-4d4b-8b58-39e8c8575be8",
@@ -7474,6 +7496,15 @@
       "rank": 7168,
       "createdAt": "2026-08-01T15:11:31.421Z",
       "updatedAt": "2026-08-01T17:51:18.431Z"
+    },
+    "92399ecb-f3aa-41c2-8c64-74db3fc4da22": {
+      "id": "92399ecb-f3aa-41c2-8c64-74db3fc4da22",
+      "gameId": "0a5a3c40-9667-44b7-b97c-74d30f1920c7",
+      "bodyMarkdown": "Лиза нажимала кнопки, но решения мы старались принимать голосованием.",
+      "attachments": [],
+      "rank": 1024,
+      "createdAt": "2026-08-01T23:01:41.288Z",
+      "updatedAt": "2026-08-01T23:01:41.297Z"
     }
   },
   "assets": {
@@ -11136,6 +11167,16 @@
       "width": 512,
       "height": 512,
       "byteLength": 53154,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "3a6ef2ee138f94e3967598d8a497f02ef0066e874d10059e321438b8deb9816f": {
+      "id": "3a6ef2ee138f94e3967598d8a497f02ef0066e874d10059e321438b8deb9816f",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 16166,
       "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
