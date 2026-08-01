@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "feb980fa9c4f9fc7ea11751fdffcc7c6c2a7753b9ab61c9172be83bfb4e82173",
-  "publicationId": "2205212e-5529-4ec8-a38d-c76f2704e56b",
+  "revision": "a7b3aea42ee96f96d418ef58ce3e84de4c944ae6285301481ecc84c114026ed8",
+  "publicationId": "ce911bfa-01e4-4d06-ad41-31dea437bff3",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-08-01T21:19:47.347Z"
+      "updatedAt": "2026-08-01T22:40:01.448Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -7355,15 +7355,6 @@
       "rank": 1024,
       "createdAt": "2026-07-30T11:58:39.722Z",
       "updatedAt": "2026-07-30T11:58:39.728Z"
-    },
-    "86751ab9-f436-45c3-995c-687c59cd0a32": {
-      "id": "86751ab9-f436-45c3-995c-687c59cd0a32",
-      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
-      "bodyMarkdown": "По итогу чуть не дропнул, слишком однообразно. Но так как я уже на предпоследнем мире, можно и добить. Если бы игра была больше, точно бы дропнул.",
-      "attachments": [],
-      "rank": 4096,
-      "createdAt": "2026-07-30T11:56:44.846Z",
-      "updatedAt": "2026-07-30T18:42:21.964Z"
     },
     "afbc5a4e-9a49-40e6-8d68-8b482cc5646f": {
       "id": "afbc5a4e-9a49-40e6-8d68-8b482cc5646f",
