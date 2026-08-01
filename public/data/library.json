@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "2170a446c81ebeb956054e5a9f264978a8316fca84b69956ae864dcebff0ece8",
-  "publicationId": "1d7dfa02-3903-470c-aa63-a207f4d13f44",
+  "revision": "feb980fa9c4f9fc7ea11751fdffcc7c6c2a7753b9ab61c9172be83bfb4e82173",
+  "publicationId": "2205212e-5529-4ec8-a38d-c76f2704e56b",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-08-01T09:21:16.890Z"
+      "updatedAt": "2026-08-01T21:19:47.347Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -4902,7 +4902,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-08-01T10:28:41.801Z",
-      "updatedAt": "2026-08-01T14:16:47.524Z"
+      "updatedAt": "2026-08-01T18:05:25.078Z"
     },
     "fdddb013-33a6-4f8c-827a-cf61448c4b26": {
       "id": "fdddb013-33a6-4f8c-827a-cf61448c4b26",
@@ -7378,22 +7378,111 @@
     "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39": {
       "id": "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за уровни\n\n## Philosopher's Stone\n| Уровень                | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [ ] | [ ] | [ ] | [ ] |\n| A Jinxed Broom         | [ ] | [ ] | [ ] | [ ] |\n| The Restricted Section | [ ] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [ ] | [ ] | [ ] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |",
+      "bodyMarkdown": "# Золотые кирпичики за уровни\n\n## Philosopher's Stone\n| Уровень                | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [ ] | [ ] | [ ] | [ ] |\n| The Restricted Section | [ ] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [ ] | [ ] | [ ] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |",
       "attachments": [],
       "groupRank": 3072,
       "rank": 1024,
       "createdAt": "2026-08-01T10:31:27.916Z",
-      "updatedAt": "2026-08-01T14:11:45.725Z"
+      "updatedAt": "2026-08-01T16:55:55.941Z"
     },
     "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49": {
       "id": "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики в Хогвартсе\n- [x] В мужской Грифиндорской спальне сломал крыши у всех кроватей\n- [ ] ...",
+      "bodyMarkdown": "# Золотые кирпичики в Хогвартсе\n- [x] кровати в грифиндоре\n- [x] 5 гобеленов - круглый коридор\n- [x] 6 свечей - лоби\n- [ ] 9 факелов - лобби\n- [x] 4 гобелена - перед обеденным залом\n- [ ] факелы 4/8 - коридор Снейпа\n- [ ] ...",
       "attachments": [],
       "groupRank": 3072,
       "rank": 2048,
       "createdAt": "2026-08-01T10:36:50.310Z",
-      "updatedAt": "2026-08-01T14:11:42.429Z"
+      "updatedAt": "2026-08-01T18:05:25.078Z"
+    },
+    "3bc3367b-99c8-4edc-9405-9daaf827e892": {
+      "id": "3bc3367b-99c8-4edc-9405-9daaf827e892",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Пикси\n- [ ] справа в круглом коридоре у гостиной\n- [ ] лобби\n- [ ] двор",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 4096,
+      "createdAt": "2026-08-01T14:42:31.223Z",
+      "updatedAt": "2026-08-01T15:49:56.423Z"
+    },
+    "46b68b83-0c4a-4e60-bdc1-e2cf35a298e8": {
+      "id": "46b68b83-0c4a-4e60-bdc1-e2cf35a298e8",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Зеленые замки\n- [ ] лобби\n- [ ] двор\n- [ ] коридор Снейпа",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 6144,
+      "createdAt": "2026-08-01T15:49:15.620Z",
+      "updatedAt": "2026-08-01T18:04:09.571Z"
+    },
+    "4c4f64fd-42ed-4b2d-aa3d-74bcb8f272fd": {
+      "id": "4c4f64fd-42ed-4b2d-aa3d-74bcb8f272fd",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Коричневые сундуки\n- [ ] справа в круглом коридоре у гостиной\n- [ ] лобби\n- [ ] двор\n- [ ] коридор Снейпа",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 2048,
+      "createdAt": "2026-08-01T14:42:03.733Z",
+      "updatedAt": "2026-08-01T18:04:15.454Z"
+    },
+    "5353c68d-246e-47e7-a3e6-f681c5e42d1c": {
+      "id": "5353c68d-246e-47e7-a3e6-f681c5e42d1c",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Золотые кирпичики за SiP в хогварсте:\n- [x] спас из дивана в гостиной\n- [x] падал в лобби\n- [x] избивали во дворе\n- [x] перед обеденным залом\n- [x] ??? \n- [ ] ...",
+      "attachments": [],
+      "groupRank": 3072,
+      "rank": 9216,
+      "createdAt": "2026-08-01T17:04:02.938Z",
+      "updatedAt": "2026-08-01T17:04:25.628Z"
+    },
+    "538bd693-bcae-4462-93ec-49bf1a4d902a": {
+      "id": "538bd693-bcae-4462-93ec-49bf1a4d902a",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Замки\n- коридор у кабинета Флитвика\n- кабинет Флитвика\n- факел в коридоре под пивом",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 3072,
+      "createdAt": "2026-08-01T15:05:17.438Z",
+      "updatedAt": "2026-08-01T15:56:52.968Z"
+    },
+    "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c": {
+      "id": "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c",
+      "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
+      "bodyMarkdown": "# Платина\n\n## Donkey Kong Bananza\n- [x] 777 бананов\n- [x] все навыки\n- [x] 110 дисков\n- [x] 696 окаменелостей\n\n## DK Island & Emerald Rush\n- [ ] 2000 баллов рейтинга\n- [ ] 7 новых дисков\n- [x] Банандиумтон\n\n## DK Challenge\n- Nintendo Classics\n  - [x] Rumble in the Jungle!\n  - [x] High-Flying Mine Cart!\n  - [x] Barreling to the Top!\n  - [x] Barrel Cannon Blowout!\n  - [x] Dodging Fireballs!\n  - [x] Freedom from DK!\n  - [x] The Fall of DK!\n  - [x] Freedom for DK?!\n  - [x] Catch the Key!\n  - [x] A Blast with DK!\n  - [x] DK Accounting!\n  - [x] DK's Construction Site!\n  - [x] DK on the High Seas!\n  - [x] DK Sets Sail!\n  - [x] King K. Rool Battle!\n- Donkey Kong Bananza\n  - Bananza Transformations!\n    - [x] Kong Charge Punch!\n    - [x] Zebra Water Dash!\n    - [x] Ostrich Egg Bomb!\n    - [x] Elephant Water Vacuum!\n    - [x] Snake Slow-Down Glare!\n  - To the Planet Core\n    - [x] Grumpy Kong Battle!\n    - [x] Poppy Kong Battle!\n    - [x] Void Kong Battle!\n    - [x] Harmoneel Battle!\n    - [x] Planet Core's Secret!\n  - Feel the Nostalgia\n    - [x] Find the Hiding Spot!\n    - [x] Escape the Maze!\n    - [x] Mine-Cart Madness!\n    - [x] Jump Those Girders!\n  - Against the Clock\n    - [x] Kong and Destroy!\n    - [x] Skate and Attack!\n    - [x] Dig and Freeze!\n    - [x] Miracle Shots!\n    - [x] Thorny Surfing!\n  - Developer Challenges\n    - [x] Demolition Challenge\n    - [x] Rambi Rumble Challenge\n    - [x] Bonus Stage Challenge\n    - [ ] Boss Rush Challenge\n    - [x] Rehearsal Challenge\n",
+      "attachments": [],
+      "rank": 6144,
+      "createdAt": "2026-08-01T19:10:19.379Z",
+      "updatedAt": "2026-08-01T21:19:47.347Z"
+    },
+    "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917": {
+      "id": "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Зацепки\n\n### спальня\n- часы\n\n### круглый коридор у гостиной\n- ворота с фиолетовыми пластинами справа\n- блок с розовым верхом слева\n\n### лестница\n- игрок в квидич с картины кинул квофл куда-то на другую сторону\n\n### коридор перед двором\n- справа комната с растениями и чем-то разрушенным\n\n### двор\n- игрок в квидич в броне\n- куча банок\n- 3 предмета и пикси (второй год)\n\n### зал перед обеденным\n- пуфендйский проход справа\n- ящик с красными точками слева\n- статуя заграждает проход\n- горшок и цветы, можно чет приготовить\n\n### уровень с троллем\n- как включить фонтан?\n- круглый замок на столе?\n\n## комната между лобби и флитвиком\n- слева белая стена\n- справа не пускает шкет",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 1024,
+      "createdAt": "2026-08-01T14:35:42.631Z",
+      "updatedAt": "2026-08-01T17:44:47.690Z"
+    },
+    "bd07ec51-5e6c-48a5-966b-41314c5d98c0": {
+      "id": "bd07ec51-5e6c-48a5-966b-41314c5d98c0",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Красные ящики:\n- [x] спальня\n- [x] двор\n- [ ] ...",
+      "attachments": [],
+      "groupRank": 4096,
+      "rank": 1536,
+      "createdAt": "2026-08-01T15:32:29.532Z",
+      "updatedAt": "2026-08-01T17:04:10.236Z"
+    },
+    "c69cabd0-16e3-4d4b-8b58-39e8c8575be8": {
+      "id": "c69cabd0-16e3-4d4b-8b58-39e8c8575be8",
+      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
+      "bodyMarkdown": "# Золотые кирпичики за уроки:\n- [x] Вингардиум Левиоса\n- [x] Люмос\n- [x] Зелье силы\n- [ ] ...",
+      "attachments": [],
+      "groupRank": 3072,
+      "rank": 7168,
+      "createdAt": "2026-08-01T15:11:31.421Z",
+      "updatedAt": "2026-08-01T17:51:18.431Z"
     }
   },
   "assets": {
