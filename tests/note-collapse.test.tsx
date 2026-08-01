@@ -33,10 +33,13 @@ afterEach(() => {
 });
 
 describe("scrollable long note cards", () => {
-  it("caps the text viewport and removes every expand/collapse layout state", () => {
+  it("caps the natural text viewport and fills the height assigned by ShelfGrid", () => {
     const root = /:root\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
     const frame = /\.note-card__viewport-frame\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
     const viewport = /\.note-card__viewport\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const placedText = /\.notes-list > \[data-shelf-position\] \.note-card__text\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const placedFrame = /\.notes-list > \[data-shelf-position\] \.note-card__viewport-frame\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const placedViewport = /\.notes-list > \[data-shelf-position\] \.note-card__viewport\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
 
     expect(root).toContain("--note-text-height: 300px");
     expect(frame).toContain("position: relative");
@@ -45,6 +48,13 @@ describe("scrollable long note cards", () => {
     expect(viewport).toContain("overflow-y: auto");
     expect(viewport).toContain("overscroll-behavior: contain");
     expect(viewport).toContain("scrollbar-width: thin");
+    expect(placedText).toContain("min-height: 0");
+    expect(placedText).toContain("display: flex");
+    expect(placedText).toContain("flex-direction: column");
+    expect(placedFrame).toContain("max-height: none");
+    expect(placedFrame).toContain("flex: 1");
+    expect(placedViewport).toContain("height: 100%");
+    expect(placedViewport).toContain("max-height: none");
     expect(styles).toMatch(/\.note-card__viewport-frame::after\s*\{[^}]*content:\s*"Прокрутить ↓"/);
     expect(styles).toMatch(/\.note-card__viewport-frame\.can-scroll-up::before, \.note-card__viewport-frame\.can-scroll-down::after\s*\{[^}]*opacity:\s*1/);
     expect(styles).not.toContain("note-card__collapse-toggle");

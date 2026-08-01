@@ -76,6 +76,7 @@ describe("ordered shelf layout", () => {
         const noteCard = this.matches(".note-card") ? this : this.querySelector<HTMLElement>(".note-card")!;
         const surface = noteCard.querySelector<HTMLElement>(".note-card__surface");
         expect(grid).toHaveAttribute("data-shelf-measuring", "true");
+        expect(this).not.toHaveAttribute("data-shelf-position");
         expect(grid.style.alignItems).toBe("start");
         expect(this.style.alignSelf).toBe("start");
         expect(this.style.height).toBe("auto");

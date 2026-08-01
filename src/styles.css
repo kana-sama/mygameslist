@@ -423,6 +423,9 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-attachments + .note-card__text { border-top: 1px solid var(--line-soft); }
 .note-card__viewport-frame { position: relative; max-height: var(--note-text-height); min-height: 0; }
 .note-card__viewport { max-height: var(--note-text-height); overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
+.notes-list > [data-shelf-position] .note-card__text { min-height: 0; display: flex; flex-direction: column; }
+.notes-list > [data-shelf-position] .note-card__viewport-frame { max-height: none; flex: 1; }
+.notes-list > [data-shelf-position] .note-card__viewport { height: 100%; max-height: none; }
 .note-card__viewport-frame::before, .note-card__viewport-frame::after { position: absolute; z-index: 2; right: 0; left: 0; display: flex; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__viewport-frame::before { content: ""; top: 0; height: 18px; background: linear-gradient(to bottom, #141518, rgba(20, 21, 24, 0)); }
 .note-card__viewport-frame::after { content: "Прокрутить ↓"; bottom: 0; height: 38px; align-items: flex-end; padding-bottom: 4px; color: var(--muted); background: linear-gradient(to bottom, rgba(20, 21, 24, 0), #141518 72%); font-size: 9px; letter-spacing: .02em; }
