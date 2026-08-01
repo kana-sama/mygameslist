@@ -241,12 +241,26 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     blocks.push({ type: "paragraph", value: paragraph.join("\n") });
   }
-  for (let blockIndex = 0; blockIndex < blocks.length - 1; blockIndex += 1) {
-    const block = blocks[blockIndex];
-    const nextBlock = blocks[blockIndex + 1];
-    if (block.type !== "heading" || nextBlock.type !== "list" && nextBlock.type !== "ordered-list") continue;
-    const progress = getChecklistProgress(nextBlock);
-    if (progress.total > 0) block.checklistProgress = progress;
+  const activeHeadings: MarkdownBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === "heading") {
+      const depth = block.depth ?? 0;
+      while (activeHeadings.length && (activeHeadings[activeHeadings.length - 1].depth ?? 0) >= depth) {
+        activeHeadings.pop();
+      }
+      activeHeadings.push(block);
+      continue;
+    }
+    if (block.type !== "list" && block.type !== "ordered-list") continue;
+
+    const progress = getChecklistProgress(block);
+    if (progress.total === 0) continue;
+    for (const heading of activeHeadings) {
+      const headingProgress = heading.checklistProgress ?? { checked: 0, total: 0 };
+      headingProgress.checked += progress.checked;
+      headingProgress.total += progress.total;
+      heading.checklistProgress = headingProgress;
+    }
   }
 
   return blocks;

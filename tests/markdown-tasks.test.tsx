@@ -187,56 +187,119 @@ describe("Markdown task lists", () => {
     expect(second?.closest("ul")?.parentElement).toHaveClass("markdown");
   });
 
-  it("shows independent progress for each heading immediately followed by a checklist", () => {
+  it("aggregates every checklist in a heading section without crossing sibling boundaries", () => {
     const markdown = [
-      "# Worlds",
-      "- [x] World one",
-      "  - [ ] Secret exit",
-      "    - [x] Hidden route",
-      "- Ordinary context",
-      "## Bosses",
-      "1. [x] First boss",
-      "2. [X] Final boss",
-      "### Items",
+      "- [x] Unscoped task",
+      "# Root",
+      "Introduction before the first list.",
+      "- [x] Root task",
+      "Context between lists.",
+      "1. [ ] Preparation",
+      "## A",
+      "- [ ] Parent task",
+      "  1. [x] Nested task",
+      "### A.1",
+      "Context before the deep list.",
+      "- [x] Deep task",
+      "## B",
+      "- [ ] B task",
+      "# Other",
+      "Context before the other list.",
+      "- [x] Other task",
+      "## Empty",
       "- Ordinary item",
-      "### Notes",
-      "Some context between the heading and list.",
-      "- [x] Unrelated task",
     ].join("\n");
 
     render(<MarkdownView markdown={markdown} />);
 
-    const worlds = screen.getByRole("heading", { name: /Worlds/ });
-    const bosses = screen.getByRole("heading", { name: /Bosses/ });
-    const items = screen.getByRole("heading", { name: "Items" });
-    const notes = screen.getByRole("heading", { name: "Notes" });
-    const worldsProgress = worlds.querySelector(".markdown-checklist-progress");
-    const bossesProgress = bosses.querySelector(".markdown-checklist-progress");
+    const root = screen.getByRole("heading", { name: /^Root / });
+    const sectionA = screen.getByRole("heading", { name: /^A Выполнено/ });
+    const sectionA1 = screen.getByRole("heading", { name: /^A\.1 / });
+    const sectionB = screen.getByRole("heading", { name: /^B / });
+    const other = screen.getByRole("heading", { name: /^Other / });
+    const empty = screen.getByRole("heading", { name: "Empty" });
+    const rootProgress = root.querySelector(".markdown-checklist-progress");
 
-    expect(worldsProgress).toHaveTextContent("2/3");
-    expect(worldsProgress).toHaveAttribute("aria-label", "Выполнено 2 из 3");
-    expect(worlds).toHaveAccessibleName("Worlds Выполнено 2 из 3");
-    expect(worlds).not.toHaveClass("markdown-checklist-heading--complete");
-    expect(bossesProgress).toHaveTextContent("2/2");
-    expect(bosses).toHaveClass("markdown-checklist-heading--complete");
-    expect(items.querySelector(".markdown-checklist-progress")).toBeNull();
-    expect(notes.querySelector(".markdown-checklist-progress")).toBeNull();
+    expect(rootProgress).toHaveTextContent("3/6");
+    expect(rootProgress).toHaveAttribute("aria-label", "Выполнено 3 из 6");
+    expect(root).toHaveAccessibleName("Root Выполнено 3 из 6");
+    expect(root).not.toHaveClass("markdown-checklist-heading--complete");
+    expect(sectionA.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/3");
+    expect(sectionA).not.toHaveClass("markdown-checklist-heading--complete");
+    expect(sectionA1.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/1");
+    expect(sectionA1).toHaveClass("markdown-checklist-heading--complete");
+    expect(sectionB.querySelector(".markdown-checklist-progress")).toHaveTextContent("0/1");
+    expect(other.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/1");
+    expect(other).toHaveClass("markdown-checklist-heading--complete");
+    expect(empty.querySelector(".markdown-checklist-progress")).toBeNull();
   });
 
-  it("updates heading progress when the last nested task is checked", async () => {
+  it("propagates progress through every supported and skipped heading depth", () => {
+    const markdown = [
+      "# Full depth",
+      "## Level 2",
+      "### Level 3",
+      "#### Level 4",
+      "- [x] Done",
+      "- [ ] Pending",
+      "# Skipped root",
+      "### Skipped child",
+      "- [x] Complete",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const fullDepth = screen.getByRole("heading", { name: /^Full depth / });
+    const level2 = screen.getByRole("heading", { name: /^Level 2 / });
+    const level3 = screen.getByRole("heading", { name: /^Level 3 / });
+    const level4 = screen.getByRole("heading", { name: /^Level 4 / });
+    const skippedRoot = screen.getByRole("heading", { name: /^Skipped root / });
+    const skippedChild = screen.getByRole("heading", { name: /^Skipped child / });
+
+    for (const heading of [fullDepth, level2, level3, level4]) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/2");
+      expect(heading).not.toHaveClass("markdown-checklist-heading--complete");
+    }
+    for (const heading of [skippedRoot, skippedChild]) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/1");
+      expect(heading).toHaveClass("markdown-checklist-heading--complete");
+    }
+  });
+
+  it("updates every heading ancestor when the last deep task is checked", async () => {
     const user = userEvent.setup();
-    const initialMarkdown = "# Route\n- [x] Start\n  - [ ] Finish";
+    const initialMarkdown = [
+      "# Route",
+      "## Stage",
+      "### Finale",
+      "#### Tasks",
+      "Context before the checklist.",
+      "- [x] Start",
+      "- [ ] Finish",
+    ].join("\n");
     let currentMarkdown = initialMarkdown;
     const view = render(<MarkdownView markdown={currentMarkdown} onTaskChange={(nextMarkdown) => {
       currentMarkdown = nextMarkdown;
       view.rerender(<MarkdownView markdown={currentMarkdown} onTaskChange={() => undefined} />);
     }} />);
 
+    const getHeadings = () => [
+      screen.getByRole("heading", { name: /^Route / }),
+      screen.getByRole("heading", { name: /^Stage / }),
+      screen.getByRole("heading", { name: /^Finale / }),
+      screen.getByRole("heading", { name: /^Tasks / }),
+    ];
+    for (const heading of getHeadings()) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/2");
+      expect(heading).not.toHaveClass("markdown-checklist-heading--complete");
+    }
+
     await user.click(screen.getByRole("checkbox", { name: "Отметить: Finish" }));
 
-    const heading = screen.getByRole("heading", { name: /Route/ });
-    expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/2");
-    expect(heading).toHaveClass("markdown-checklist-heading--complete");
+    for (const heading of getHeadings()) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/2");
+      expect(heading).toHaveClass("markdown-checklist-heading--complete");
+    }
   });
 
   it("saves a clicked task without opening the note editor or changing note metadata", async () => {
