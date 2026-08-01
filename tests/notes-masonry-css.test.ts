@@ -70,6 +70,28 @@ describe("notes shelf CSS", () => {
     expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
   });
 
+  it("keeps Markdown tables compact and scrollable inside narrow notes", () => {
+    const scroll = declarationsFor(".markdown-table-scroll");
+    const table = declarationsFor(".markdown-table");
+    const cells = declarationsFor(".markdown-table th, .markdown-table td");
+    const firstHeader = declarationsFor(".markdown-table th:first-child");
+    const otherHeaders = declarationsFor(".markdown-table th:not(:first-child)");
+    const completed = declarationsFor(".markdown-table-row--complete > td");
+
+    expect(scroll).toMatch(/max-width:\s*100%/);
+    expect(scroll).toMatch(/overflow-x:\s*auto/);
+    expect(table).toMatch(/width:\s*max-content/);
+    expect(table).toMatch(/min-width:\s*100%/);
+    expect(table).toMatch(/border-collapse:\s*collapse/);
+    expect(cells).toMatch(/padding:\s*4px 6px/);
+    expect(cells).toMatch(/border:\s*1px solid var\(--line-soft\)/);
+    expect(firstHeader).toMatch(/text-align:\s*left!important/);
+    expect(otherHeaders).toMatch(/text-align:\s*center!important/);
+    expect(completed).toMatch(/color:\s*var\(--success\)/);
+    expect(completed).not.toMatch(/text-decoration:\s*line-through/);
+    expect(declarationsFor(".markdown-table-row--complete > td a, .markdown-table-row--complete > td code")).toMatch(/color:\s*inherit/);
+  });
+
   it("uses positive green styling for completed checklist rows", () => {
     const completed = declarationsFor(".markdown-task-item--checked > .markdown-task-row > .markdown-task-content");
 

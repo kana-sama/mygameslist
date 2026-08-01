@@ -336,6 +336,20 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-progress { flex: 0 0 auto; margin-inline-start: auto; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .82em; font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: 0; }
 .markdown .markdown-checklist-heading--complete { color: var(--success); }
 .markdown-checklist-heading--complete .markdown-checklist-progress { color: inherit; }
+.markdown-table-scroll { max-width: 100%; margin: .65em 0; overflow-x: auto; }
+.markdown-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: .95em; }
+.markdown-table th, .markdown-table td { padding: 4px 6px; border: 1px solid var(--line-soft); vertical-align: middle; text-align: left; }
+.markdown-table th { color: var(--text); background: var(--surface-2); font-weight: 650; white-space: nowrap; }
+.markdown-table-cell--center { text-align: center!important; }
+.markdown-table-cell--right { text-align: right!important; }
+.markdown-table th:first-child { text-align: left!important; }
+.markdown-table th:not(:first-child) { text-align: center!important; }
+.markdown-table-task { min-height: 18px; display: flex; align-items: center; gap: 5px; }
+.markdown-table-cell--center > .markdown-table-task { justify-content: center; }
+.markdown-table-cell--right > .markdown-table-task { justify-content: flex-end; }
+.markdown-table-task--only { justify-content: center; }
+.markdown-table-row--complete > td { color: var(--success); }
+.markdown-table-row--complete > td a, .markdown-table-row--complete > td code { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .markdown code { padding: 1px 3px; border-radius: 3px; color: #cbd9e3; background: #252a2f; }
 .markdown pre { padding: 8px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--field); }

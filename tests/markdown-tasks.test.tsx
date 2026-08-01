@@ -49,7 +49,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("Markdown task lists", () => {
+describe("Markdown tasks", () => {
   it("renders GFM-style tasks alongside ordinary list items and ignores lookalikes", async () => {
     const user = userEvent.setup();
     const onTaskChange = vi.fn();
@@ -187,6 +187,86 @@ describe("Markdown task lists", () => {
     expect(second?.closest("ul")?.parentElement).toHaveClass("markdown");
   });
 
+  it("renders arbitrary GFM tables with inline content, alignment, and escaped pipes", () => {
+    const markdown = [
+      "Introduction without a separating blank line.",
+      "**Name** | [ ] Reference | Code",
+      ":--- | :---: | ---:",
+      "A \\| B | [Guide](https://example.com/guide) | `x|y`",
+      "## After | the table",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const table = screen.getByRole("table");
+    const nameHeader = screen.getByRole("columnheader", { name: "Name" });
+    const referenceHeader = screen.getByRole("columnheader", { name: "[ ] Reference" });
+    const codeHeader = screen.getByRole("columnheader", { name: "Code" });
+
+    expect(nameHeader.querySelector("strong")).toHaveTextContent("Name");
+    expect(referenceHeader).not.toHaveClass("markdown-table-cell--center");
+    expect(codeHeader).not.toHaveClass("markdown-table-cell--right");
+    expect(screen.getByText("A | B").closest("table")).toBe(table);
+    expect(screen.getByRole("link", { name: "Guide" })).toHaveAttribute("href", "https://example.com/guide");
+    expect(screen.getByRole("link", { name: "Guide" }).closest("td")).toHaveClass("markdown-table-cell--center");
+    expect(screen.getByText("x|y").closest("code")?.closest("td")).toHaveClass("markdown-table-cell--right");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "After | the table" })).toBeInTheDocument();
+  });
+
+  it("toggles table tasks, includes them in heading progress, and completes fully checked rows", async () => {
+    const user = userEvent.setup();
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "# Campaign",
+      "## Route",
+      "- [x] Route unlocked",
+      "Context before the table.",
+      "| Stage | Main | Secret |",
+      "| --- | :---: | :---: |",
+      "| Start | [x] Main start | [x] Secret start |",
+      "| Finish \\| End | [x] Main finish | [ ] Secret finish |",
+      "| Notes | plain | text |",
+    ].join("\r\n");
+    const completedMarkdown = markdown.replace(
+      "| Finish \\| End | [x] Main finish | [ ] Secret finish |",
+      "| Finish \\| End | [x] Main finish | [x] Secret finish |",
+    );
+    const view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader")).toHaveLength(3);
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Main start" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Secret start" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Main finish" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Отметить: Secret finish" })).not.toBeChecked();
+    expect(screen.getByText("Start").closest("tr")).toHaveClass("markdown-table-row--complete");
+    expect(screen.getByText("Finish | End").closest("tr")).not.toHaveClass("markdown-table-row--complete");
+    expect(screen.getByText("Notes").closest("tr")).not.toHaveClass("markdown-table-row--complete");
+    const campaign = screen.getByRole("heading", { name: /^Campaign / });
+    const route = screen.getByRole("heading", { name: /^Route / });
+    for (const heading of [campaign, route]) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("4/5");
+      expect(heading).not.toHaveClass("markdown-checklist-heading--complete");
+    }
+    expect(hasMarkdownTasks(markdown)).toBe(true);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Secret finish" }));
+
+    expect(onTaskChange).toHaveBeenCalledWith(completedMarkdown);
+    view.rerender(<MarkdownView markdown={completedMarkdown} onTaskChange={onTaskChange} />);
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Secret finish" })).toBeChecked();
+    expect(screen.getByText("Finish | End").closest("tr")).toHaveClass("markdown-table-row--complete");
+    const completedCampaign = screen.getByRole("heading", { name: /^Campaign / });
+    const completedRoute = screen.getByRole("heading", { name: /^Route / });
+    for (const heading of [completedCampaign, completedRoute]) {
+      expect(heading.querySelector(".markdown-checklist-progress")).toHaveTextContent("5/5");
+      expect(heading).toHaveClass("markdown-checklist-heading--complete");
+    }
+  });
+
   it("aggregates every checklist in a heading section without crossing sibling boundaries", () => {
     const markdown = [
       "- [x] Unscoped task",
@@ -320,6 +400,21 @@ describe("Markdown task lists", () => {
       attachments: note.attachments,
       rank: note.rank,
     });
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("saves a clicked table task without opening the note editor", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const bodyMarkdown = "| Stage | Complete |\n| --- | :---: |\n| Intro | [ ] |";
+    const note = makeNote(bodyMarkdown);
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Intro — Complete" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(bodyMarkdown.replace("[ ]", "[x]"));
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
