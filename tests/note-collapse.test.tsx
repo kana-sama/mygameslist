@@ -34,12 +34,14 @@ afterEach(() => {
 
 describe("scrollable long note cards", () => {
   it("caps the text viewport and removes every expand/collapse layout state", () => {
+    const root = /:root\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
     const frame = /\.note-card__viewport-frame\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
     const viewport = /\.note-card__viewport\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
 
+    expect(root).toContain("--note-text-height: 300px");
     expect(frame).toContain("position: relative");
-    expect(frame).toContain("max-height: 300px");
-    expect(viewport).toContain("max-height: 300px");
+    expect(frame).toContain("max-height: var(--note-text-height)");
+    expect(viewport).toContain("max-height: var(--note-text-height)");
     expect(viewport).toContain("overflow-y: auto");
     expect(viewport).toContain("overscroll-behavior: contain");
     expect(viewport).toContain("scrollbar-width: thin");
@@ -48,6 +50,21 @@ describe("scrollable long note cards", () => {
     expect(styles).not.toContain("note-card__collapse-toggle");
     expect(styles).not.toContain("note-card--collapsed");
     expect(styles).not.toContain("note-card--expanded");
+  });
+
+  it("gives both editor DOM branches the shared full text height", () => {
+    const editorSlots = /\.note-card--editing > \.game-link-markdown-textarea, \.note-card--editing > \.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const gameLinkWrapper = /\.game-link-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const wrappedEditor = /\.note-card--editing > \.game-link-markdown-textarea > \.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    const textarea = /(?:^|\n)\.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+
+    expect(editorSlots).toContain("min-height: var(--note-text-height)");
+    expect(editorSlots).toContain("flex: 1 0 auto");
+    expect(gameLinkWrapper).toContain("display: flex");
+    expect(gameLinkWrapper).toContain("flex-direction: column");
+    expect(wrappedEditor).toContain("min-height: var(--note-text-height)");
+    expect(wrappedEditor).toContain("flex: 1 0 auto");
+    expect(textarea).toContain("overflow-y: auto");
   });
 
   it("renders long and short text through the same stable scroll viewport", async () => {
@@ -147,5 +164,36 @@ describe("scrollable long note cards", () => {
     expect(editor).toHaveValue("Long note");
     expect(editor.closest("article")).toHaveClass("note-card--editing");
     expect(screen.queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+  });
+
+  it("keeps attachments, either editor branch, and the footer in flow order", async () => {
+    const user = userEvent.setup();
+    const note: Note = {
+      ...makeNote("22222222-2222-4222-8222-222222222222", "Long note", 1024),
+      attachments: [{ type: "link", url: "https://example.com/guide", label: "Guide" }],
+    };
+    const flowOrder = (card: HTMLElement) => Array.from(card.children)
+      .filter((child) => child.matches(".note-attachments, .plain-markdown-textarea, .game-link-markdown-textarea, .note-editor-actions"))
+      .map((child) => child.classList.contains("note-attachments")
+        ? "attachments"
+        : child.classList.contains("note-editor-actions")
+          ? "footer"
+          : child.classList.contains("game-link-markdown-textarea") ? "wrapper" : "textarea");
+
+    const directRender = render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+    let card = screen.getByText("Long note").closest<HTMLElement>("article")!;
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    card = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
+    expect(flowOrder(card)).toEqual(["attachments", "textarea", "footer"]);
+    directRender.unmount();
+
+    const suggestedGame: Game = { ...game, id: "44444444-4444-4444-8444-444444444444", title: "Suggested game" };
+    render(<GamePage assets={{}} game={game} gameSuggestions={[suggestedGame]} mode="game" notes={[note]} onSave={vi.fn()} />);
+    card = screen.getByText("Long note").closest<HTMLElement>("article")!;
+    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
+    const wrappedTextarea = screen.getByRole("combobox", { name: "Текст заметки" });
+    card = wrappedTextarea.closest<HTMLElement>("article")!;
+    expect(wrappedTextarea.parentElement).toHaveClass("game-link-markdown-textarea");
+    expect(flowOrder(card)).toEqual(["attachments", "wrapper", "footer"]);
   });
 });

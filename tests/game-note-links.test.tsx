@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,8 +69,8 @@ function storedNote(draft: EditableNote): Note {
   };
 }
 
-function ExistingNoteHarness({ onSave }: { onSave: (input: GameSaveInput) => void }) {
-  const [notes, setNotes] = useState<Note[]>([existingNote]);
+function ExistingNoteHarness({ note = existingNote, onSave }: { note?: Note; onSave: (input: GameSaveInput) => void }) {
+  const [notes, setNotes] = useState<Note[]>([note]);
   return (
     <GamePage
       assets={{}}
@@ -87,6 +87,27 @@ function ExistingNoteHarness({ onSave }: { onSave: (input: GameSaveInput) => voi
 }
 
 describe("game links in notes", () => {
+  it.each([
+    { modifier: { ctrlKey: true }, shortcut: "Ctrl+Enter" },
+    { modifier: { metaKey: true }, shortcut: "Cmd+Enter" },
+  ])("saves a list unchanged with $shortcut instead of adding an item", async ({ modifier }) => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const listNote = { ...existingNote, bodyMarkdown: "- [ ] Existing task" };
+    render(<ExistingNoteHarness note={listNote} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = screen.getByRole("combobox", { name: "Текст заметки" }) as HTMLTextAreaElement;
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    const enter = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter", ...modifier });
+    fireEvent(editor, enter);
+
+    expect(enter.defaultPrevented).toBe(true);
+    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(listNote.bodyMarkdown);
+    expect(screen.queryByLabelText("Текст заметки")).not.toBeInTheDocument();
+  });
+
   it("links another game while editing an existing note and excludes the current game", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();

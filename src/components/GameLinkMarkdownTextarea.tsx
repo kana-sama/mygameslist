@@ -9,6 +9,7 @@ import {
 import { gameSearchScore } from "../domain/catalogue";
 import type { Game } from "../domain/types";
 import { PlainMarkdownTextarea, type PlainMarkdownTextareaProps } from "./Markdown";
+import { isInsideFencedMarkdownCode, resolveMarkdownListEnter } from "./markdownListEditing";
 
 export const GAME_LINK_SUGGESTION_LIMIT = 8;
 
@@ -31,27 +32,6 @@ function isEscaped(markdown: string, position: number): boolean {
   let backslashes = 0;
   for (let index = position - 1; index >= 0 && markdown[index] === "\\"; index -= 1) backslashes += 1;
   return backslashes % 2 === 1;
-}
-
-function isInsideFencedCode(markdown: string, position: number): boolean {
-  let fence: { character: string; length: number } | null = null;
-  let lineStart = 0;
-
-  while (lineStart <= position) {
-    const lineEnd = markdown.indexOf("\n", lineStart);
-    const boundedLineEnd = lineEnd === -1 ? markdown.length : lineEnd;
-    const line = markdown.slice(lineStart, boundedLineEnd);
-    const marker = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line)?.[1];
-    if (marker) {
-      if (!fence) fence = { character: marker[0], length: marker.length };
-      else if (marker[0] === fence.character && marker.length >= fence.length) fence = null;
-    }
-    if (position <= boundedLineEnd) return fence !== null;
-    if (lineEnd === -1) break;
-    lineStart = lineEnd + 1;
-  }
-
-  return false;
 }
 
 function isInsideInlineCode(markdown: string, position: number): boolean {
@@ -94,7 +74,7 @@ export function findActiveGameLinkQuery(markdown: string, caret: number): Active
   if (query.length > 0 && /^\s/u.test(query)) return null;
   if (/[#\r\n]/u.test(query)) return null;
   if (isEscaped(markdown, trigger)) return null;
-  if (isInsideFencedCode(markdown, trigger) || isInsideInlineCode(markdown, trigger)) return null;
+  if (isInsideFencedMarkdownCode(markdown, trigger) || isInsideInlineCode(markdown, trigger)) return null;
   if (isInsideMarkdownLinkDestination(markdown, trigger)) return null;
   return { start: trigger, end: caret, query };
 }
@@ -199,100 +179,100 @@ export function GameLinkMarkdownTextarea({
     onChange(inserted.markdown);
   };
 
-  if (!autocompleteEnabled) {
-    return (
-      <PlainMarkdownTextarea
-        {...textareaProps}
-        onBlur={onBlur}
-        onChange={onChange}
-        onClick={onClick}
-        onCompositionEnd={onCompositionEnd}
-        onCompositionStart={onCompositionStart}
-        onFocus={onFocus}
-        onKeyDown={onKeyDown}
-        onKeyUp={onKeyUp}
-        onSelect={onSelect}
-        value={value}
-      />
-    );
-  }
+  const textarea = (
+    <PlainMarkdownTextarea
+      {...textareaProps}
+      aria-activedescendant={activeOptionId}
+      aria-autocomplete={autocompleteEnabled ? "list" : undefined}
+      aria-controls={open ? listId : undefined}
+      aria-expanded={autocompleteEnabled ? open : undefined}
+      onBlur={(event) => {
+        setFocused(false);
+        onBlur?.(event);
+      }}
+      onChange={(markdown) => {
+        const element = textareaRef.current;
+        setSelection({
+          start: element?.selectionStart ?? markdown.length,
+          end: element?.selectionEnd ?? markdown.length,
+        });
+        setDismissedQuery(null);
+        onChange(markdown);
+      }}
+      onClick={(event) => {
+        syncSelection();
+        onClick?.(event);
+      }}
+      onCompositionEnd={(event) => {
+        setComposing(false);
+        syncSelection();
+        onCompositionEnd?.(event);
+      }}
+      onCompositionStart={(event) => {
+        setComposing(true);
+        onCompositionStart?.(event);
+      }}
+      onFocus={(event) => {
+        setFocused(true);
+        setDismissedQuery(null);
+        syncSelection();
+        onFocus?.(event);
+      }}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing || composing || (event.key === "Enter" && (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey))) {
+          onKeyDown?.(event);
+          return;
+        }
+        if (open && event.key === "Escape") {
+          event.preventDefault();
+          setDismissedQuery(queryKey);
+          return;
+        }
+        if (open && suggestions.length && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+          event.preventDefault();
+          setSelectedIndex((current) => event.key === "ArrowDown"
+            ? (current + 1) % suggestions.length
+            : (current - 1 + suggestions.length) % suggestions.length);
+          return;
+        }
+        if (open && suggestions.length && (event.key === "Enter" || event.key === "Tab" && !event.shiftKey)) {
+          event.preventDefault();
+          chooseGame(suggestions[boundedSelectedIndex]);
+          return;
+        }
+        onKeyDown?.(event);
+        if (event.defaultPrevented || event.key !== "Enter") return;
+
+        const edit = resolveMarkdownListEnter(
+          event.currentTarget.value,
+          event.currentTarget.selectionStart,
+          event.currentTarget.selectionEnd,
+        );
+        if (!edit) return;
+        event.preventDefault();
+        pendingCaret.current = edit.caret;
+        setDismissedQuery(null);
+        onChange(edit.value);
+      }}
+      onKeyUp={(event) => {
+        syncSelection();
+        onKeyUp?.(event);
+      }}
+      onSelect={(event) => {
+        syncSelection();
+        onSelect?.(event);
+      }}
+      ref={textareaRef}
+      role={autocompleteEnabled ? "combobox" : undefined}
+      value={value}
+    />
+  );
+
+  if (!autocompleteEnabled) return textarea;
 
   return (
     <div className={`game-link-markdown-textarea${open ? " is-open" : ""}`}>
-      <PlainMarkdownTextarea
-        {...textareaProps}
-        aria-activedescendant={activeOptionId}
-        aria-autocomplete={autocompleteEnabled ? "list" : undefined}
-        aria-controls={open ? listId : undefined}
-        aria-expanded={autocompleteEnabled ? open : undefined}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        onChange={(markdown) => {
-          const textarea = textareaRef.current;
-          setSelection({
-            start: textarea?.selectionStart ?? markdown.length,
-            end: textarea?.selectionEnd ?? markdown.length,
-          });
-          setDismissedQuery(null);
-          onChange(markdown);
-        }}
-        onClick={(event) => {
-          syncSelection();
-          onClick?.(event);
-        }}
-        onCompositionEnd={(event) => {
-          setComposing(false);
-          syncSelection();
-          onCompositionEnd?.(event);
-        }}
-        onCompositionStart={(event) => {
-          setComposing(true);
-          onCompositionStart?.(event);
-        }}
-        onFocus={(event) => {
-          setFocused(true);
-          setDismissedQuery(null);
-          syncSelection();
-          onFocus?.(event);
-        }}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing || composing || (event.key === "Enter" && (event.metaKey || event.ctrlKey))) {
-            onKeyDown?.(event);
-            return;
-          }
-          if (open && event.key === "Escape") {
-            event.preventDefault();
-            setDismissedQuery(queryKey);
-            return;
-          }
-          if (open && suggestions.length && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
-            event.preventDefault();
-            setSelectedIndex((current) => event.key === "ArrowDown"
-              ? (current + 1) % suggestions.length
-              : (current - 1 + suggestions.length) % suggestions.length);
-            return;
-          }
-          if (open && suggestions.length && (event.key === "Enter" || event.key === "Tab" && !event.shiftKey)) {
-            event.preventDefault();
-            chooseGame(suggestions[boundedSelectedIndex]);
-            return;
-          }
-          onKeyDown?.(event);
-        }}
-        onKeyUp={(event) => {
-          syncSelection();
-          onKeyUp?.(event);
-        }}
-        onSelect={(event) => {
-          syncSelection();
-          onSelect?.(event);
-        }}
-        ref={textareaRef}
-        role={autocompleteEnabled ? "combobox" : undefined}
-        value={value}
-      />
+      {textarea}
       {open ? (
         <div aria-label="Подсказки игр" className="game-link-markdown-textarea__suggestions" id={listId} role="listbox">
           {suggestions.map((game, index) => (

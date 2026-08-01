@@ -59,6 +59,20 @@ function placeCaret(textarea: HTMLTextAreaElement, position: number): void {
   fireEvent.select(textarea);
 }
 
+function pressEnter(
+  textarea: HTMLTextAreaElement,
+  init: Omit<KeyboardEventInit, "bubbles" | "cancelable" | "key"> = {},
+): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    key: "Enter",
+    ...init,
+  });
+  fireEvent(textarea, event);
+  return event;
+}
+
 afterEach(cleanup);
 
 describe("game link Markdown helpers", () => {
@@ -112,6 +126,159 @@ describe("game link Markdown helpers", () => {
 });
 
 describe("GameLinkMarkdownTextarea", () => {
+  it.each([
+    { games: [] as Game[], mode: "without game suggestions" },
+    { games: [zelda], mode: "with game suggestions" },
+  ])("continues a Markdown list and restores the controlled caret $mode", async ({ games }) => {
+    const initialValue = "- alphaBeta";
+    const splitAt = "- alpha".length;
+    render(<Harness games={games} initialValue={initialValue} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, splitAt);
+
+    const enter = pressEnter(textarea);
+
+    const expected = "- alpha\n- Beta";
+    const expectedCaret = "- alpha\n- ".length;
+    expect(enter.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(expected);
+    expect(screen.getByTestId("markdown-value").textContent).toBe(expected);
+    await waitFor(() => {
+      expect(textarea).toHaveFocus();
+      expect(textarea.selectionStart).toBe(expectedCaret);
+      expect(textarea.selectionEnd).toBe(expectedCaret);
+    });
+  });
+
+  it("gives an open autocomplete selection priority over Markdown list continuation", async () => {
+    const initialValue = "- #zel";
+    render(<Harness games={[zelda]} initialValue={initialValue} />);
+    const textarea = screen.getByRole("combobox", { name: "Текст заметки" }) as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+    expect(await screen.findByRole("option", { name: /The Legend of Zelda/ })).toHaveAttribute("aria-selected", "true");
+
+    const enter = pressEnter(textarea);
+
+    const expected = `- [The Legend of Zelda](#/games/${zelda.id})`;
+    expect(enter.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(expected);
+    expect(textarea.value).not.toContain("\n");
+    await waitFor(() => {
+      expect(textarea).toHaveFocus();
+      expect(textarea.selectionStart).toBe(expected.length);
+      expect(textarea.selectionEnd).toBe(expected.length);
+    });
+  });
+
+  it("continues the list when autocomplete is open but has no matching suggestion", async () => {
+    const initialValue = "- #missing";
+    render(<Harness games={[zelda]} initialValue={initialValue} />);
+    const textarea = screen.getByRole("combobox", { name: "Текст заметки" }) as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+    expect(await screen.findByText("Игры не найдены")).toBeInTheDocument();
+
+    const enter = pressEnter(textarea);
+
+    const expected = "- #missing\n- ";
+    expect(enter.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(expected);
+    await waitFor(() => {
+      expect(textarea.selectionStart).toBe(expected.length);
+      expect(textarea.selectionEnd).toBe(expected.length);
+    });
+  });
+
+  it("does not smart-edit modified Enter combinations and delegates save shortcuts", () => {
+    const onKeyDown = vi.fn((event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.ctrlKey || event.metaKey) event.preventDefault();
+    });
+    const initialValue = "- item";
+    render(<Harness initialValue={initialValue} onKeyDown={onKeyDown} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+
+    for (const { modifier, prevented } of [
+      { modifier: { shiftKey: true }, prevented: false },
+      { modifier: { altKey: true }, prevented: false },
+      { modifier: { ctrlKey: true }, prevented: true },
+      { modifier: { metaKey: true }, prevented: true },
+    ]) {
+      const enter = pressEnter(textarea, modifier);
+      expect(enter.defaultPrevented, JSON.stringify(modifier)).toBe(prevented);
+      expect(textarea).toHaveValue(initialValue);
+    }
+    expect(onKeyDown).toHaveBeenCalledTimes(4);
+  });
+
+  it("leaves Enter native for a selected range", () => {
+    const onKeyDown = vi.fn();
+    const initialValue = "- selected item";
+    render(<Harness initialValue={initialValue} onKeyDown={onKeyDown} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(2, 10);
+    fireEvent.select(textarea);
+
+    const enter = pressEnter(textarea);
+
+    expect(enter.defaultPrevented).toBe(false);
+    expect(textarea).toHaveValue(initialValue);
+    expect(onKeyDown).toHaveBeenCalledOnce();
+  });
+
+  it("respects an external preventDefault before applying smart list editing", () => {
+    const onKeyDown = vi.fn((event: ReactKeyboardEvent<HTMLTextAreaElement>) => event.preventDefault());
+    const initialValue = "- item";
+    render(<Harness initialValue={initialValue} onKeyDown={onKeyDown} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+
+    const enter = pressEnter(textarea);
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(onKeyDown).toHaveBeenCalledOnce();
+    expect(textarea).toHaveValue(initialValue);
+    expect(screen.getByTestId("markdown-value")).toHaveTextContent(initialValue);
+  });
+
+  it("does not intercept Enter while an IME composition is active", () => {
+    const onKeyDown = vi.fn();
+    const initialValue = "- item";
+    render(<Harness initialValue={initialValue} onKeyDown={onKeyDown} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+    fireEvent.compositionStart(textarea);
+
+    const enter = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter" });
+    Object.defineProperty(enter, "isComposing", { value: true });
+    fireEvent(textarea, enter);
+
+    expect(enter.defaultPrevented).toBe(false);
+    expect(onKeyDown).toHaveBeenCalledOnce();
+    expect(textarea).toHaveValue(initialValue);
+  });
+
+  it("leaves Enter native for ordinary text and list-looking lines inside fenced code", () => {
+    const onKeyDown = vi.fn();
+    const cases = [
+      { caret: "ordinary text".length, value: "ordinary text" },
+      { caret: "```md\n- code item".length, value: "```md\n- code item\n```" },
+    ];
+
+    for (const testCase of cases) {
+      const view = render(<Harness initialValue={testCase.value} onKeyDown={onKeyDown} />);
+      const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+      placeCaret(textarea, testCase.caret);
+
+      const enter = pressEnter(textarea);
+
+      expect(enter.defaultPrevented, testCase.value).toBe(false);
+      expect(textarea).toHaveValue(testCase.value);
+      view.unmount();
+    }
+    expect(onKeyDown).toHaveBeenCalledTimes(2);
+  });
+
   it("opens on #, supports a spaced query and selects a keyboard-highlighted game with Enter", async () => {
     const user = userEvent.setup();
     render(<Harness initialValue="См. " />);
