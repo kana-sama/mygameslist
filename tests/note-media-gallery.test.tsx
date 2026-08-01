@@ -65,10 +65,15 @@ describe("note media gallery", () => {
 
   it("defines compact templates for three, four, and larger media runs", () => {
     const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+    const largeGallery = /\.note-media-gallery--count-5 \{([^}]*)\}/.exec(styles)?.[1] ?? "";
 
+    expect(styles).toMatch(/\.note-media-gallery--count-2 \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
     expect(styles).toMatch(/\.note-media-gallery--count-3 > \.note-attachment-shell:first-child \{ grid-row: 1 \/ -1; \}/);
     expect(styles).toMatch(/\.note-media-gallery--count-4 > \.note-attachment-shell:first-child \{ grid-column: 1 \/ -1; \}/);
-    expect(styles).toMatch(/\.note-media-gallery--count-5 \{ height: auto; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); grid-auto-rows: 128px; \}/);
+    expect(largeGallery).toContain("height: auto");
+    expect(largeGallery).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(largeGallery).not.toContain("grid-auto-rows");
+    expect(styles).not.toMatch(/\.note-media-gallery--count-5\s*\{[^}]*grid-auto-rows:/);
     expect(styles).toMatch(/@media \(max-width: 500px\)[\s\S]*?\.note-media-gallery \{ height: 220px; \}/);
   });
 });
