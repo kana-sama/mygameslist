@@ -45,7 +45,7 @@ export interface PreparedFile {
 export type EditableAttachment = NoteAttachment
   | { type: "pending-image"; image: PreparedImage; alt: string }
   | { type: "pending-file"; file: PreparedFile; label: string };
-export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; groupRank?: number; rank: number }
+export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; collapsedChecklistSections?: string[]; groupRank?: number; rank: number }
 export interface GameSaveInput {
   id?: string;
   title: string;
@@ -274,7 +274,15 @@ function isInlineMediaAttachment(attachment: EditableAttachment, assets: Record<
 function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNote[] {
   let editable = [...notes]
     .sort((a, b) => (a.groupRank ?? DEFAULT_NOTE_GROUP_RANK) - (b.groupRank ?? DEFAULT_NOTE_GROUP_RANK) || a.rank - b.rank || a.id.localeCompare(b.id))
-    .map((note) => ({ id: note.id, clientId: note.id, bodyMarkdown: note.bodyMarkdown, attachments: [...note.attachments] as EditableAttachment[], ...(note.groupRank === undefined ? {} : { groupRank: note.groupRank }), rank: note.rank }));
+    .map((note) => ({
+      id: note.id,
+      clientId: note.id,
+      bodyMarkdown: note.bodyMarkdown,
+      attachments: [...note.attachments] as EditableAttachment[],
+      ...(note.collapsedChecklistSections === undefined ? {} : { collapsedChecklistSections: [...note.collapsedChecklistSections] }),
+      ...(note.groupRank === undefined ? {} : { groupRank: note.groupRank }),
+      rank: note.rank,
+    }));
   if (!game?.reviewMarkdown.trim()) return editable;
 
   let reviewRank = 1024;
@@ -716,10 +724,10 @@ function InlineNoteCard({ note, index, count, editing, sortingDisabled, dropIndi
 }) {
   if (editing) return <PlainNoteEditor assets={assets} autoFocus canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} gameSuggestions={gameSuggestions} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing) => { if (processing) onChange(note); }} onSubmit={() => onSave(note)} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
-  return <SortableNoteCard assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
+  return <SortableNoteCard assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onCollapsedChecklistSectionsChange={(collapsedChecklistSections) => onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined })} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
 
-function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled }: {
+function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   disabled: boolean;
@@ -727,6 +735,7 @@ function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAs
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
+  onCollapsedChecklistSectionsChange: (sections: string[]) => void;
   taskChangesDisabled: boolean;
 }) {
   const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
@@ -737,15 +746,16 @@ function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAs
     disabled,
   });
 
-  return <ScrollableNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
+  return <ScrollableNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable={!disabled} taskChangesDisabled={taskChangesDisabled} />;
 }
 
-function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
+function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
+  onCollapsedChecklistSectionsChange: (sections: string[]) => void;
   taskChangesDisabled: boolean;
   dragActivatorRef?: (node: HTMLElement | null) => void;
   dragAttributes?: DraggableAttributes;
@@ -782,7 +792,7 @@ function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChang
     if (viewport.firstElementChild) observer?.observe(viewport.firstElementChild);
     updateScrollState();
     return () => observer?.disconnect();
-  }, [note.bodyMarkdown]);
+  }, [note.bodyMarkdown, note.collapsedChecklistSections]);
 
   return (
     <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} ref={nodeRef}>
@@ -792,7 +802,7 @@ function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChang
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
               <div className="note-card__content">
-                {note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+                {note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
               </div>
             </div>
           </div>
@@ -883,7 +893,7 @@ function useNoteFileDragReveal() {
 }
 
 function NoteDragPreview({ note }: { note: EditableNote }) {
-  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.bodyMarkdown.trim() ? <MarkdownView markdown={note.bodyMarkdown} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
+  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
 }
 
 function useNoteGroupFileDrop(disabled: boolean, onFiles: (files: File[]) => void) {

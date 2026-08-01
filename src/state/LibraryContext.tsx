@@ -731,6 +731,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           gameId: id,
           bodyMarkdown: draft.bodyMarkdown,
           attachments,
+          ...(draft.collapsedChecklistSections?.length ? { collapsedChecklistSections: [...new Set(draft.collapsedChecklistSections)] } : {}),
           ...(groupRank === DEFAULT_NOTE_GROUP_RANK ? {} : { groupRank }),
           rank: draft.rank,
           createdAt: previousNote?.createdAt ?? now,

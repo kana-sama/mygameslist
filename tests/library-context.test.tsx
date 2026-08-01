@@ -179,6 +179,7 @@ function NoteGroupProbe() {
   return <div>
     <span data-testid="group-loading">{String(library.loading)}</span>
     <span data-testid="group-rank">{currentNote?.groupRank ?? 1024}</span>
+    <span data-testid="collapsed-checklists">{currentNote?.collapsedChecklistSections?.join(",") ?? "expanded"}</span>
     <span data-testid="group-operation-paths">{Object.keys(library.patch.operations).sort().join(",")}</span>
     <button onClick={() => {
       if (!current || !currentNote) return;
@@ -195,6 +196,29 @@ function NoteGroupProbe() {
         notes: [{ id: currentNote.id, clientId: currentNote.id, bodyMarkdown: currentNote.bodyMarkdown, attachments: [...currentNote.attachments], groupRank: 2048, rank: currentNote.rank }],
       });
     }} type="button">Переместить заметку в группу</button>
+    <button onClick={() => {
+      if (!current || !currentNote) return;
+      void library.saveGame({
+        id: current.id,
+        title: current.title,
+        coverAssetId: current.coverAssetId,
+        pendingCover: null,
+        platforms: current.platforms,
+        tags: current.tags,
+        status: current.status,
+        tierId: current.placement.tierId,
+        reviewMarkdown: current.reviewMarkdown,
+        notes: [{
+          id: currentNote.id,
+          clientId: currentNote.id,
+          bodyMarkdown: currentNote.bodyMarkdown,
+          attachments: [...currentNote.attachments],
+          collapsedChecklistSections: ["heading:abc"],
+          ...(currentNote.groupRank === undefined ? {} : { groupRank: currentNote.groupRank }),
+          rank: currentNote.rank,
+        }],
+      });
+    }} type="button">Свернуть checklist</button>
   </div>;
 }
 
@@ -273,6 +297,21 @@ describe("LibraryProvider patch reload and reconciliation", () => {
 
     await waitFor(() => expect(screen.getByTestId("group-rank")).toHaveTextContent("2048"));
     expect(screen.getByTestId("group-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/groupRank`);
+  });
+
+  it("persists collapsed checklist sections as a sparse field operation", async () => {
+    const draftBase = empty();
+    draftBase.games[GAME_ID] = game("Checklist game");
+    draftBase.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "# Route\n- [ ] Task", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const base = withComputedRevision(draftBase);
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><NoteGroupProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("group-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Свернуть checklist" }));
+
+    await waitFor(() => expect(screen.getByTestId("collapsed-checklists")).toHaveTextContent("heading:abc"));
+    expect(screen.getByTestId("group-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/collapsedChecklistSections`);
   });
 
   it("migrates schema-1 game changes and drops obsolete collection operations", async () => {

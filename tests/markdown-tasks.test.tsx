@@ -314,6 +314,147 @@ describe("Markdown tasks", () => {
     expect(empty.querySelector(".markdown-checklist-progress")).toBeNull();
   });
 
+  it("shows independent totals for checklist groups at every nested list depth", () => {
+    const markdown = [
+      "## DK Challenge",
+      "- Nintendo Classics",
+      "  - [x] Rumble in the Jungle!",
+      "  - [ ] High-Flying Mine Cart!",
+      "- Donkey Kong Bananza",
+      "  - Bananza Transformations!",
+      "    - [x] Kong Charge Punch!",
+      "    - [x] Zebra Water Dash!",
+      "  - Against the Clock",
+      "    - [ ] Kong and Destroy!",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const challenge = screen.getByRole("heading", { name: /^DK Challenge / });
+    const nintendo = screen.getByText("Nintendo Classics").closest(".markdown-checklist-group");
+    const bananza = screen.getByText("Donkey Kong Bananza").closest(".markdown-checklist-group");
+    const transformations = screen.getByText("Bananza Transformations!").closest(".markdown-checklist-group");
+    const clock = screen.getByText("Against the Clock").closest(".markdown-checklist-group");
+
+    expect(challenge.querySelector(".markdown-checklist-progress")).toHaveTextContent("3/5");
+    expect(nintendo?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("1/2");
+    expect(bananza?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("2/3");
+    expect(transformations?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("2/2");
+    expect(transformations).toHaveClass("markdown-checklist-group--complete");
+    expect(clock?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("0/1");
+    expect(nintendo).toHaveAttribute("data-markdown-source-line", "1");
+
+    const topLevelList = nintendo?.parentElement;
+    expect(topLevelList?.parentElement).toHaveClass("markdown");
+    expect(screen.getByText("Rumble in the Jungle!").closest(".markdown-checklist-group")).toBe(nintendo);
+  });
+
+  it("updates list-group totals and completion styles when a descendant task changes", async () => {
+    const user = userEvent.setup();
+    let currentMarkdown = "# Route\n- Nintendo Classics\n  - [x] Finished\n  - [ ] Pending";
+    const view = render(<MarkdownView markdown={currentMarkdown} onTaskChange={(nextMarkdown) => {
+      currentMarkdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={currentMarkdown} onTaskChange={() => undefined} />);
+    }} />);
+
+    const getGroup = () => screen.getByText("Nintendo Classics").closest(".markdown-checklist-group");
+    expect(getGroup()?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("1/2");
+    expect(getGroup()).not.toHaveClass("markdown-checklist-group--complete");
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Pending" }));
+
+    expect(getGroup()?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("2/2");
+    expect(getGroup()).toHaveClass("markdown-checklist-group--complete");
+    expect(screen.getByRole("heading", { name: /^Route / })).toHaveClass("markdown-checklist-heading--complete");
+  });
+
+  it("collapses checklist headings and groups while retaining nested collapse state", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "# Root",
+      "## DK Challenge",
+      "- Nintendo Classics",
+      "  - [x] Finished",
+      "  - [ ] Pending",
+      "- Other group",
+      "  - [ ] Other task",
+      "## Sibling",
+      "- [x] Sibling task",
+      "# Next",
+      "- [ ] Next task",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView collapsedChecklistSections={collapsed} markdown={markdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} />,
+      );
+    });
+    view = render(
+      <MarkdownView collapsedChecklistSections={collapsed} markdown={markdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} />,
+    );
+
+    const challenge = screen.getByRole("button", { name: /^DK Challenge / });
+    const nintendo = screen.getByRole("button", { name: /^Nintendo Classics / });
+    expect(challenge).toHaveAttribute("aria-expanded", "true");
+    expect(nintendo).toHaveAttribute("aria-expanded", "true");
+    expect(document.querySelector(".markdown-checklist-toggle__indicator")).toBeNull();
+
+    await user.click(challenge);
+    expect(screen.getByRole("button", { name: /^DK Challenge / })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /^Nintendo Classics / })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Sibling / })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Next / })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^DK Challenge / }));
+    await user.click(screen.getByRole("button", { name: /^Nintendo Classics / }));
+    expect(screen.getByRole("button", { name: /^Nintendo Classics / })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: "Снять отметку: Finished" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Отметить: Other task" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Root / }));
+    expect(screen.queryByRole("button", { name: /^DK Challenge / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Sibling / })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Next / })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Root / }));
+    expect(screen.getByRole("button", { name: /^Nintendo Classics / })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: "Снять отметку: Finished" })).not.toBeInTheDocument();
+    expect(onCollapsedChecklistSectionsChange).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps semantic collapse ids stable when unrelated lines are inserted", () => {
+    const markdown = "# Route\n- Nintendo Classics\n  - [ ] Task";
+    const view = render(<MarkdownView markdown={markdown} onCollapsedChecklistSectionsChange={vi.fn()} />);
+    const headingId = screen.getByRole("heading", { name: /^Route / }).getAttribute("data-checklist-section-id");
+    const groupId = screen.getByText("Nintendo Classics").closest(".markdown-checklist-group")?.getAttribute("data-checklist-section-id");
+
+    view.rerender(<MarkdownView markdown={`Unrelated introduction.\n\n${markdown}`} onCollapsedChecklistSectionsChange={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: /^Route / })).toHaveAttribute("data-checklist-section-id", headingId);
+    expect(screen.getByText("Nintendo Classics").closest(".markdown-checklist-group")).toHaveAttribute("data-checklist-section-id", groupId);
+  });
+
+  it("uses unique DOM ids for identical checklist groups in separate notes", () => {
+    const markdown = "# Route\n- Nintendo Classics\n  - [ ] Task";
+    const onChange = vi.fn();
+
+    render(<>
+      <MarkdownView markdown={markdown} onCollapsedChecklistSectionsChange={onChange} />
+      <MarkdownView markdown={markdown} onCollapsedChecklistSectionsChange={onChange} />
+    </>);
+
+    const toggles = screen.getAllByRole("button", { name: /^Nintendo Classics / });
+    const contentIds = toggles.map((toggle) => toggle.getAttribute("aria-controls"));
+    expect(contentIds[0]).toBeTruthy();
+    expect(contentIds[1]).toBeTruthy();
+    expect(contentIds[0]).not.toBe(contentIds[1]);
+    for (const contentId of contentIds) {
+      expect(document.getElementById(contentId!)).toBeInTheDocument();
+    }
+  });
+
   it("propagates progress through every supported and skipped heading depth", () => {
     const markdown = [
       "# Full depth",
@@ -416,6 +557,61 @@ describe("Markdown tasks", () => {
 
     expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(bodyMarkdown.replace("[ ]", "[x]"));
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("saves collapsed checklist sections as note state without editing Markdown", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note = makeNote("# DK Challenge\n- Nintendo Classics\n  - [x] Finished\n  - [ ] Pending");
+    const view = render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: /^Nintendo Classics / }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const savedNote = onSave.mock.calls[0][0].notes[0];
+    expect(savedNote.bodyMarkdown).toBe(note.bodyMarkdown);
+    expect(savedNote.collapsedChecklistSections).toHaveLength(1);
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+
+    view.rerender(
+      <GamePage
+        assets={{}}
+        game={game}
+        mode="game"
+        notes={[{ ...note, collapsedChecklistSections: savedNote.collapsedChecklistSections }]}
+        onSave={onSave}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Nintendo Classics / })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: "Снять отметку: Finished" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a checklist section expanded when saving its collapse state fails", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>().mockRejectedValue(new Error("Storage failed"));
+    const note = makeNote("# Route\n- Nintendo Classics\n  - [ ] Task");
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: /^Nintendo Classics / }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Storage failed");
+    expect(screen.getByRole("button", { name: /^Nintendo Classics / })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("checkbox", { name: "Отметить: Task" })).toBeInTheDocument();
+  });
+
+  it("preserves committed checklist collapse state when the note text is edited", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note = { ...makeNote("# Route\n- [ ] Task"), collapsedChecklistSections: ["heading:stored-state"] };
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    await user.type(editor, " More context");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    expect(onSave.mock.calls[0][0].notes[0].collapsedChecklistSections).toEqual(note.collapsedChecklistSections);
   });
 
   it("keeps the controlled checkbox unchanged when saving fails", async () => {

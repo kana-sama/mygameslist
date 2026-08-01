@@ -5,11 +5,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { gameSearchScore } from "../domain/catalogue";
 import type { Game } from "../domain/types";
 import { PlainMarkdownTextarea, type PlainMarkdownTextareaProps } from "./Markdown";
-import { isInsideFencedMarkdownCode, resolveMarkdownListEnter } from "./markdownListEditing";
+import {
+  isInsideFencedMarkdownCode,
+  resolveMarkdownListEnter,
+  resolveMarkdownListIndent,
+  type MarkdownListIndentDirection,
+} from "./markdownListEditing";
 
 export const GAME_LINK_SUGGESTION_LIMIT = 8;
 
@@ -113,6 +119,13 @@ interface TextSelection {
   end: number;
 }
 
+function markdownListIndentDirection(event: ReactKeyboardEvent<HTMLTextAreaElement>): MarkdownListIndentDirection | null {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return null;
+  if (event.key === "]" || event.code === "BracketRight") return "indent";
+  if (event.key === "[" || event.code === "BracketLeft") return "outdent";
+  return null;
+}
+
 export function GameLinkMarkdownTextarea({
   gameSuggestions,
   value,
@@ -128,7 +141,7 @@ export function GameLinkMarkdownTextarea({
   ...textareaProps
 }: GameLinkMarkdownTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const pendingCaret = useRef<number | null>(null);
+  const pendingSelection = useRef<TextSelection | null>(null);
   const listId = useId();
   const [focused, setFocused] = useState(false);
   const [composing, setComposing] = useState(false);
@@ -162,19 +175,19 @@ export function GameLinkMarkdownTextarea({
   }, [activeQuery?.query, activeQuery?.start]);
 
   useLayoutEffect(() => {
-    const caret = pendingCaret.current;
+    const nextSelection = pendingSelection.current;
     const textarea = textareaRef.current;
-    if (caret === null || !textarea || textarea.value !== value) return;
-    pendingCaret.current = null;
+    if (!nextSelection || !textarea || textarea.value !== value) return;
+    pendingSelection.current = null;
     textarea.focus({ preventScroll: true });
-    textarea.setSelectionRange(caret, caret);
-    setSelection({ start: caret, end: caret });
+    textarea.setSelectionRange(nextSelection.start, nextSelection.end);
+    setSelection(nextSelection);
   }, [value]);
 
   const chooseGame = (game: Game) => {
     if (!activeQuery) return;
     const inserted = insertGameMarkdownLink(value, activeQuery, game);
-    pendingCaret.current = inserted.caret;
+    pendingSelection.current = { start: inserted.caret, end: inserted.caret };
     setDismissedQuery(null);
     onChange(inserted.markdown);
   };
@@ -219,7 +232,11 @@ export function GameLinkMarkdownTextarea({
         onFocus?.(event);
       }}
       onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing || composing || (event.key === "Enter" && (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey))) {
+        if (event.nativeEvent.isComposing || composing) {
+          onKeyDown?.(event);
+          return;
+        }
+        if (event.key === "Enter" && (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)) {
           onKeyDown?.(event);
           return;
         }
@@ -241,7 +258,25 @@ export function GameLinkMarkdownTextarea({
           return;
         }
         onKeyDown?.(event);
-        if (event.defaultPrevented || event.key !== "Enter") return;
+        if (event.defaultPrevented) return;
+
+        const indentDirection = markdownListIndentDirection(event);
+        if (indentDirection) {
+          const edit = resolveMarkdownListIndent(
+            event.currentTarget.value,
+            event.currentTarget.selectionStart,
+            event.currentTarget.selectionEnd,
+            indentDirection,
+          );
+          if (!edit) return;
+          event.preventDefault();
+          pendingSelection.current = { start: edit.selectionStart, end: edit.selectionEnd };
+          setDismissedQuery(null);
+          onChange(edit.value);
+          return;
+        }
+
+        if (event.key !== "Enter") return;
 
         const edit = resolveMarkdownListEnter(
           event.currentTarget.value,
@@ -250,7 +285,7 @@ export function GameLinkMarkdownTextarea({
         );
         if (!edit) return;
         event.preventDefault();
-        pendingCaret.current = edit.caret;
+        pendingSelection.current = { start: edit.caret, end: edit.caret };
         setDismissedQuery(null);
         onChange(edit.value);
       }}

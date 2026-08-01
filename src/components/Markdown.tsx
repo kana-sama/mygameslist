@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { forwardRef, Fragment, useId, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { safeUrl } from "./libraryUi";
 
 function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
@@ -50,6 +50,7 @@ interface MarkdownBlock {
   depth?: number;
   table?: MarkdownTable;
   checklistProgress?: ChecklistProgress;
+  collapseId?: string;
 }
 
 interface ChecklistProgress {
@@ -62,6 +63,8 @@ interface MarkdownListItem {
   sourceLine: number;
   taskChecked?: boolean;
   children: MarkdownBlock[];
+  checklistProgress?: ChecklistProgress;
+  collapseId?: string;
 }
 
 type MarkdownTableAlignment = "center" | "left" | "right" | undefined;
@@ -275,7 +278,7 @@ function parseTable(lines: string[], startIndex: number): { block: MarkdownBlock
 
 function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
   if (block.type === "table") {
-    return (block.table?.rows ?? []).reduce<ChecklistProgress>((progress, row) => {
+    const tableProgress = (block.table?.rows ?? []).reduce<ChecklistProgress>((progress, row) => {
       for (const cell of row.cells) {
         if (cell.taskChecked === undefined) continue;
         progress.total += 1;
@@ -283,19 +286,59 @@ function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
       }
       return progress;
     }, { checked: 0, total: 0 });
+    block.checklistProgress = tableProgress.total > 0 ? tableProgress : undefined;
+    return tableProgress;
   }
-  return (block.items ?? []).reduce<ChecklistProgress>((progress, item) => {
+
+  const blockProgress = (block.items ?? []).reduce<ChecklistProgress>((progress, item) => {
+    const itemProgress: ChecklistProgress = { checked: 0, total: 0 };
     if (item.taskChecked !== undefined) {
-      progress.total += 1;
-      if (item.taskChecked) progress.checked += 1;
+      itemProgress.total += 1;
+      if (item.taskChecked) itemProgress.checked += 1;
     }
     for (const child of item.children) {
       const childProgress = getChecklistProgress(child);
-      progress.checked += childProgress.checked;
-      progress.total += childProgress.total;
+      itemProgress.checked += childProgress.checked;
+      itemProgress.total += childProgress.total;
     }
+    item.checklistProgress = itemProgress.total > 0 ? itemProgress : undefined;
+    progress.checked += itemProgress.checked;
+    progress.total += itemProgress.total;
     return progress;
   }, { checked: 0, total: 0 });
+  block.checklistProgress = blockProgress.total > 0 ? blockProgress : undefined;
+  return blockProgress;
+}
+
+function normalizedCollapsePathPart(value: string): string {
+  return markdownLabel(value).normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function hashCollapsePath(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${(hash >>> 0).toString(36)}-${value.length.toString(36)}`;
+}
+
+function nextCollapsePath(base: string, occurrences: Map<string, number>): string {
+  const occurrence = occurrences.get(base) ?? 0;
+  occurrences.set(base, occurrence + 1);
+  return `${base}\u0000${occurrence}`;
+}
+
+function annotateChecklistGroupIds(block: MarkdownBlock, parentPath: string, occurrences: Map<string, number>): void {
+  for (const item of block.items ?? []) {
+    const kind = item.taskChecked === undefined ? "item" : "task";
+    const base = `${parentPath}\u0000${block.type}\u0000${kind}\u0000${normalizedCollapsePathPart(item.value)}`;
+    const itemPath = nextCollapsePath(base, occurrences);
+    if (item.taskChecked === undefined && item.checklistProgress) {
+      item.collapseId = `group:${hashCollapsePath(itemPath)}`;
+    }
+    for (const child of item.children) annotateChecklistGroupIds(child, itemPath, occurrences);
+  }
 }
 
 export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
@@ -395,21 +438,29 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     blocks.push({ type: "paragraph", value: paragraph.join("\n") });
   }
-  const activeHeadings: MarkdownBlock[] = [];
+  const activeHeadings: Array<{ block: MarkdownBlock; path: string }> = [];
+  const collapsePathOccurrences = new Map<string, number>();
   for (const block of blocks) {
     if (block.type === "heading") {
       const depth = block.depth ?? 0;
-      while (activeHeadings.length && (activeHeadings[activeHeadings.length - 1].depth ?? 0) >= depth) {
+      while (activeHeadings.length && (activeHeadings[activeHeadings.length - 1].block.depth ?? 0) >= depth) {
         activeHeadings.pop();
       }
-      activeHeadings.push(block);
+      const parentPath = activeHeadings[activeHeadings.length - 1]?.path ?? "root";
+      const headingBase = `${parentPath}\u0000heading\u0000${depth}\u0000${normalizedCollapsePathPart(block.value ?? "")}`;
+      const headingPath = nextCollapsePath(headingBase, collapsePathOccurrences);
+      block.collapseId = `heading:${hashCollapsePath(headingPath)}`;
+      activeHeadings.push({ block, path: headingPath });
       continue;
     }
     if (block.type !== "list" && block.type !== "ordered-list" && block.type !== "table") continue;
 
     const progress = getChecklistProgress(block);
     if (progress.total === 0) continue;
-    for (const heading of activeHeadings) {
+    if (block.type === "list" || block.type === "ordered-list") {
+      annotateChecklistGroupIds(block, activeHeadings[activeHeadings.length - 1]?.path ?? "root", collapsePathOccurrences);
+    }
+    for (const { block: heading } of activeHeadings) {
       const headingProgress = heading.checklistProgress ?? { checked: 0, total: 0 };
       headingProgress.checked += progress.checked;
       headingProgress.total += progress.total;
@@ -443,14 +494,37 @@ function getTableRowProgress(row: MarkdownTableRow): ChecklistProgress {
 export interface MarkdownViewProps {
   markdown: string;
   className?: string;
+  collapsedChecklistSections?: readonly string[];
   emptyText?: string;
+  onCollapsedChecklistSectionsChange?: (sections: string[]) => void;
   onTaskChange?: (markdown: string) => void;
   taskChangesDisabled?: boolean;
 }
 
-export function MarkdownView({ markdown, className = "", emptyText = "Текста пока нет", onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
+export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
+  const collapseDomIdPrefix = useId();
   if (!blocks.length) return <p className={`markdown-empty ${className}`}>{emptyText}</p>;
+
+  const collapsedSections = new Set(collapsedChecklistSections);
+  const validCollapseIds = new Set<string>();
+  const collectListCollapseIds = (block: MarkdownBlock): void => {
+    for (const item of block.items ?? []) {
+      if (item.collapseId) validCollapseIds.add(item.collapseId);
+      for (const child of item.children) collectListCollapseIds(child);
+    }
+  };
+  for (const block of blocks) {
+    if (block.type === "heading" && block.checklistProgress && block.collapseId) validCollapseIds.add(block.collapseId);
+    if (block.type === "list" || block.type === "ordered-list") collectListCollapseIds(block);
+  }
+  const toggleChecklistSection = (collapseId: string): void => {
+    if (!onCollapsedChecklistSectionsChange || taskChangesDisabled) return;
+    const next = new Set(collapsedChecklistSections.filter((id) => validCollapseIds.has(id)));
+    if (next.has(collapseId)) next.delete(collapseId);
+    else next.add(collapseId);
+    onCollapsedChecklistSectionsChange([...next].sort());
+  };
 
   const renderList = (block: MarkdownBlock, key: string): ReactNode => {
     const Tag = block.type === "list" ? "ul" : "ol";
@@ -460,7 +534,31 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
           const itemKey = `${key}-${item.sourceLine}-${itemIndex}`;
           const children = item.children.map((child, childIndex) => renderList(child, `${itemKey}-child-${childIndex}`));
           if (item.taskChecked === undefined) {
-            return <li key={itemKey}>{renderInline(item.value, itemKey)}{children}</li>;
+            const progress = item.checklistProgress;
+            if (!progress) return <li key={itemKey}>{renderInline(item.value, itemKey)}{children}</li>;
+            const complete = progress.checked === progress.total;
+            const collapseId = item.collapseId;
+            const collapsed = Boolean(collapseId && collapsedSections.has(collapseId));
+            const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
+            const headerChildren = <>
+              <span className="markdown-checklist-group__title">{renderInline(item.value, itemKey)}</span>{" "}
+              <span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">
+                {progress.checked}/{progress.total}
+              </span>
+            </>;
+            return (
+              <li
+                className={`markdown-checklist-group${complete ? " markdown-checklist-group--complete" : ""}${collapsed ? " markdown-checklist-group--collapsed" : ""}`}
+                data-checklist-section-id={collapseId}
+                data-markdown-source-line={item.sourceLine}
+                key={itemKey}
+              >
+                {onCollapsedChecklistSectionsChange && collapseId ? (
+                  <button aria-controls={contentId} aria-expanded={!collapsed} className="markdown-checklist-group__header markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{headerChildren}</button>
+                ) : <div className="markdown-checklist-group__header">{headerChildren}</div>}
+                <div className="markdown-checklist-group__content" hidden={collapsed} id={contentId}>{children}</div>
+              </li>
+            );
           }
           return (
             <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemKey}>
@@ -554,10 +652,20 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
     );
   };
 
+  let hiddenHeadingDepth: number | null = null;
   return (
     <div className={`markdown ${className}`}>
       {blocks.map((block, index) => {
         const key = `${block.type}-${index}`;
+        if (block.type === "heading") {
+          const depth = block.depth ?? 0;
+          if (hiddenHeadingDepth !== null) {
+            if (depth > hiddenHeadingDepth) return null;
+            hiddenHeadingDepth = null;
+          }
+        } else if (hiddenHeadingDepth !== null) {
+          return null;
+        }
         if (block.type === "code") return <pre key={key}><code>{block.value}</code></pre>;
         if (block.type === "rule") return <hr key={key} />;
         if (block.type === "quote") {
@@ -570,11 +678,17 @@ export function MarkdownView({ markdown, className = "", emptyText = "Текст
         if (block.type === "heading") {
           const children = renderInline(block.value ?? "", key);
           const progress = block.checklistProgress;
-          const headingClassName = progress ? `markdown-checklist-heading${progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}` : undefined;
-          const headingChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">{progress.checked}/{progress.total}</span></> : children;
-          if (block.depth === 1) return <h2 className={headingClassName} key={key}>{headingChildren}</h2>;
-          if (block.depth === 2) return <h3 className={headingClassName} key={key}>{headingChildren}</h3>;
-          return <h4 className={headingClassName} key={key}>{headingChildren}</h4>;
+          const collapseId = block.collapseId;
+          const collapsed = Boolean(progress && collapseId && collapsedSections.has(collapseId));
+          if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
+          const headingClassName = progress ? `markdown-checklist-heading${progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
+          const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">{progress.checked}/{progress.total}</span></> : children;
+          const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
+            <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{progressChildren}</button>
+          ) : progressChildren;
+          if (block.depth === 1) return <h2 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h2>;
+          if (block.depth === 2) return <h3 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h3>;
+          return <h4 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h4>;
         }
         return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
       })}

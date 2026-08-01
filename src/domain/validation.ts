@@ -18,13 +18,13 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
-  notes: ["id", "gameId", "bodyMarkdown", "attachments", "groupRank", "rank", "createdAt", "updatedAt"],
+  notes: ["id", "gameId", "bodyMarkdown", "attachments", "collapsedChecklistSections", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"],
-  notes: ["bodyMarkdown", "attachments", "groupRank", "rank"],
+  notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "groupRank", "rank"],
   assets: [],
 };
 
@@ -145,7 +145,8 @@ function validateGame(value: unknown, path: string, issues: ValidationIssue[]): 
 
 function validateNote(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект заметки"); return; }
-  exactKeys(value, ENTITY_FIELDS.notes.filter((field) => field !== "groupRank"), path, issues, ["groupRank"]);
+  const optionalFields = ["collapsedChecklistSections", "groupRank"];
+  exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
   markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues);
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
@@ -166,6 +167,7 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
       string(attachment.label, `${attachmentPath}/label`, issues, false, 1_000);
     } else issue(issues, `${attachmentPath}/type`, "Неизвестный тип вложения");
   });
+  if (value.collapsedChecklistSections !== undefined) stringList(value.collapsedChecklistSections, `${path}/collapsedChecklistSections`, issues);
   if (value.groupRank !== undefined) rank(value.groupRank, `${path}/groupRank`, issues);
   rank(value.rank, `${path}/rank`, issues);
   isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);

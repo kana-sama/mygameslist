@@ -52,6 +52,7 @@ const fieldLabels: Record<string, string> = {
   reviewMarkdown: "Заметка",
   bodyMarkdown: "Текст заметки",
   attachments: "Вложения",
+  collapsedChecklistSections: "Свёрнутые чеклисты",
   groupRank: "Группа",
   rank: "Порядок",
   gameId: "Игра",

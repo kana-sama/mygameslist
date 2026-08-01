@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isInsideFencedMarkdownCode,
   resolveMarkdownListEnter,
+  resolveMarkdownListIndent,
 } from "../src/components/markdownListEditing";
 
 function atEnd(value: string) {
@@ -164,5 +165,124 @@ describe("resolveMarkdownListEnter", () => {
 
     expect(isInsideFencedMarkdownCode(source, caret)).toBe(true);
     expect(resolveMarkdownListEnter(source, caret, caret)).toBeNull();
+  });
+});
+
+describe("resolveMarkdownListIndent", () => {
+  it("indents a list item beneath its previous sibling and restores the caret", () => {
+    const source = "- Parent\n- [x] Child";
+
+    expect(resolveMarkdownListIndent(source, source.length, source.length, "indent")).toEqual({
+      value: "- Parent\n  - [x] Child",
+      selectionStart: source.length + 2,
+      selectionEnd: source.length + 2,
+    });
+  });
+
+  it("uses the previous ordered item's content indent", () => {
+    const source = "9) Parent\n10) Child";
+
+    expect(resolveMarkdownListIndent(source, source.length, source.length, "indent")).toEqual({
+      value: "9) Parent\n   10) Child",
+      selectionStart: source.length + 3,
+      selectionEnd: source.length + 3,
+    });
+  });
+
+  it("moves a collapsed item's descendant block with it", () => {
+    const source = [
+      "- Parent",
+      "- Child",
+      "  - Grandchild",
+      "- Next",
+    ].join("\n");
+    const caret = "- Parent\n- Child".length;
+
+    expect(resolveMarkdownListIndent(source, caret, caret, "indent")).toEqual({
+      value: [
+        "- Parent",
+        "  - Child",
+        "    - Grandchild",
+        "- Next",
+      ].join("\n"),
+      selectionStart: caret + 2,
+      selectionEnd: caret + 2,
+    });
+  });
+
+  it("moves descendants when only part of the parent text is selected", () => {
+    const source = [
+      "- Previous",
+      "- Parent",
+      "  - Child",
+      "- Next",
+    ].join("\n");
+    const selectionStart = source.indexOf("Parent");
+    const selectionEnd = selectionStart + "Parent".length;
+
+    expect(resolveMarkdownListIndent(source, selectionStart, selectionEnd, "indent")).toEqual({
+      value: [
+        "- Previous",
+        "  - Parent",
+        "    - Child",
+        "- Next",
+      ].join("\n"),
+      selectionStart: selectionStart + 2,
+      selectionEnd: selectionEnd + 2,
+    });
+  });
+
+  it("outdents one structural level and keeps the list marker", () => {
+    const source = "- Parent\n  * [ ] Child";
+
+    expect(resolveMarkdownListIndent(source, source.length, source.length, "outdent")).toEqual({
+      value: "- Parent\n* [ ] Child",
+      selectionStart: source.length - 2,
+      selectionEnd: source.length - 2,
+    });
+  });
+
+  it("outdents mixed tab indentation to the exact parent column", () => {
+    const source = "  - Parent\n  \t- Child";
+
+    expect(resolveMarkdownListIndent(source, source.length, source.length, "outdent")).toEqual({
+      value: "  - Parent\n  - Child",
+      selectionStart: source.length - 1,
+      selectionEnd: source.length - 1,
+    });
+  });
+
+  it("changes every selected list line while preserving the selected range", () => {
+    const source = [
+      "- Parent",
+      "- One",
+      "  - Nested",
+      "- Two",
+    ].join("\n");
+    const selectionStart = "- Parent\n".length;
+
+    expect(resolveMarkdownListIndent(source, selectionStart, source.length, "indent")).toEqual({
+      value: [
+        "- Parent",
+        "  - One",
+        "    - Nested",
+        "  - Two",
+      ].join("\n"),
+      selectionStart: selectionStart + 2,
+      selectionEnd: source.length + 6,
+    });
+  });
+
+  it("does not indent the first sibling, outdent a root item, or edit fenced code", () => {
+    expect(resolveMarkdownListIndent("- First", 7, 7, "indent")).toBeNull();
+    expect(resolveMarkdownListIndent("- Root", 6, 6, "outdent")).toBeNull();
+
+    const fenced = "```\n- Code\n```";
+    const caret = "```\n- Code".length;
+    expect(resolveMarkdownListIndent(fenced, caret, caret, "indent")).toBeNull();
+
+    const selectedFence = "- Parent\n- Child\n  ```\n  code\n  ```";
+    const selectionStart = "- Parent\n".length;
+    expect(resolveMarkdownListIndent(selectedFence, selectionStart, selectedFence.length, "indent")).toBeNull();
   });
 });

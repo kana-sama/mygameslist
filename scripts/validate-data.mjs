@@ -213,10 +213,11 @@ function validateGame(key, game, assets, at, error) {
 function validateNote(key, note, games, assets, at, error) {
   const keys = ["id", "gameId", "bodyMarkdown", "attachments", "rank", "createdAt", "updatedAt"];
   if (!isPlainObject(note)) return error(at, "must be an object");
-  exactKeys(note, keys, at, error, ["groupRank"]);
+  exactKeys(note, keys, at, error, ["collapsedChecklistSections", "groupRank"]);
   validateEntityId(key, note.id, `${at}.id`, error);
   if (!isUuid(note.gameId) || !Object.hasOwn(games, note.gameId)) error(`${at}.gameId`, "references a missing game");
   markdown(note.bodyMarkdown, `${at}.bodyMarkdown`, error);
+  if (note.collapsedChecklistSections !== undefined) stringSet(note.collapsedChecklistSections, `${at}.collapsedChecklistSections`, error);
   if (note.groupRank !== undefined) rank(note.groupRank, `${at}.groupRank`, error);
   rank(note.rank, `${at}.rank`, error);
   isoDate(note.createdAt, `${at}.createdAt`, error);

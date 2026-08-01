@@ -330,6 +330,36 @@ Images:
     expect(after.assets[ducktalesAssetId]).not.toHaveProperty("base64");
   });
 
+  it("validates, applies, and describes committed checklist collapse state", () => {
+    const database = emptyDatabase();
+    database.games[GAME_ID] = game();
+    database.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "# Route\n- [ ] Task");
+    database.revision = computeRevision(database);
+    const collapsedChecklistSections = ["heading:abc", "group:def"];
+    const patch = {
+      patchVersion: 2,
+      schemaVersion: 2,
+      baseRevision: database.revision,
+      operations: {
+        [`/notes/${DUCKTALES_NOTE_ID}/collapsedChecklistSections`]: {
+          operation: "set",
+          value: collapsedChecklistSections,
+          baseExists: false,
+          baseHash: MISSING_VALUE_HASH,
+          changedAt: NOW,
+          transactionId: TRANSACTION_ID,
+        },
+      },
+      blobs: {},
+    };
+
+    expect(() => validatePatchEnvelope(patch, database)).not.toThrow();
+    const result = applyPatch(database, patch);
+    expect(result.notes[DUCKTALES_NOTE_ID].collapsedChecklistSections).toEqual(collapsedChecklistSections);
+    expect(() => validateLibrary(result)).not.toThrow();
+    expect(buildCommitMessage(database, result).body).toContain("collapsed checklists");
+  });
+
   it("bounds and sanitizes commit messages for large patches", () => {
     const before = emptyDatabase();
     const after = emptyDatabase();

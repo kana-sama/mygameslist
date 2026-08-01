@@ -65,11 +65,15 @@ describe("library validation", () => {
     expect(validateLibrary(database).ok).toBe(true);
   });
 
-  it("accepts legacy and grouped notes while rejecting invalid group ranks", () => {
+  it("accepts legacy, grouped, and collapsed-checklist note state while rejecting invalid values", () => {
     const database = empty(); database.games[GAME_ID] = game(); database.notes[NOTE_ID] = note();
     expect(validateLibrary(database).ok).toBe(true);
     database.notes[NOTE_ID] = note(2048);
     expect(validateLibrary(database).ok).toBe(true);
+    database.notes[NOTE_ID] = { ...note(), collapsedChecklistSections: ["heading:abc", "list:def"] };
+    expect(validateLibrary(database).ok).toBe(true);
+    database.notes[NOTE_ID] = { ...note(), collapsedChecklistSections: ["heading:abc", "heading:abc"] };
+    expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/collapsedChecklistSections/1` }));
     database.notes[NOTE_ID] = note(-1);
     expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/groupRank` }));
   });
@@ -123,6 +127,25 @@ describe("patch lifecycle", () => {
     const returnPatch = diffLibrary(published, returned, { changedAt: NOW, transactionId: "return-note-group" });
     expect(returnPatch.operations[`/notes/${NOTE_ID}/groupRank`]).toMatchObject({ operation: "delete", baseExists: true });
     expect(applyPatch(published, returnPatch).notes[NOTE_ID]).not.toHaveProperty("groupRank");
+  });
+
+  it("publishes collapsed checklist sections as committed note state", () => {
+    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const current = structuredClone(base);
+    current.notes[NOTE_ID].collapsedChecklistSections = ["heading:abc", "list:def"];
+
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "collapse-checklists" });
+
+    expect(Object.keys(patch.operations)).toEqual([`/notes/${NOTE_ID}/collapsedChecklistSections`]);
+    expect(validatePatch(patch).ok).toBe(true);
+    const published = applyPatch(base, patch);
+    expect(published.notes[NOTE_ID].collapsedChecklistSections).toEqual(["heading:abc", "list:def"]);
+
+    const expanded = structuredClone(published);
+    delete expanded.notes[NOTE_ID].collapsedChecklistSections;
+    const expandPatch = diffLibrary(published, expanded, { changedAt: NOW, transactionId: "expand-checklists" });
+    expect(expandPatch.operations[`/notes/${NOTE_ID}/collapsedChecklistSections`]).toMatchObject({ operation: "delete", baseExists: true });
+    expect(applyPatch(published, expandPatch).notes[NOTE_ID]).not.toHaveProperty("collapsedChecklistSections");
   });
 
   it("requires root set values to use the entity ID from their operation path", () => {

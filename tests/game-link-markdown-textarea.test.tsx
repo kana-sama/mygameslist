@@ -73,6 +73,22 @@ function pressEnter(
   return event;
 }
 
+function pressBracketShortcut(
+  textarea: HTMLTextAreaElement,
+  key: "[" | "]",
+  modifier: "meta" | "ctrl",
+): KeyboardEvent {
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    code: key === "[" ? "BracketLeft" : "BracketRight",
+    key,
+    [modifier === "meta" ? "metaKey" : "ctrlKey"]: true,
+  });
+  fireEvent(textarea, event);
+  return event;
+}
+
 afterEach(cleanup);
 
 describe("game link Markdown helpers", () => {
@@ -147,6 +163,57 @@ describe("GameLinkMarkdownTextarea", () => {
       expect(textarea).toHaveFocus();
       expect(textarea.selectionStart).toBe(expectedCaret);
       expect(textarea.selectionEnd).toBe(expectedCaret);
+    });
+  });
+
+  it.each([
+    { games: [] as Game[], mode: "without game suggestions" },
+    { games: [zelda], mode: "with game suggestions" },
+  ])("indents with Cmd+] and outdents with Ctrl+[ $mode", async ({ games }) => {
+    const initialValue = "- Parent\n- [ ] Child";
+    render(<Harness games={games} initialValue={initialValue} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+
+    const indent = pressBracketShortcut(textarea, "]", "meta");
+    const indented = "- Parent\n  - [ ] Child";
+
+    expect(indent.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(indented);
+    await waitFor(() => {
+      expect(textarea).toHaveFocus();
+      expect(textarea.selectionStart).toBe(indented.length);
+      expect(textarea.selectionEnd).toBe(indented.length);
+    });
+
+    const outdent = pressBracketShortcut(textarea, "[", "ctrl");
+
+    expect(outdent.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(initialValue);
+    await waitFor(() => {
+      expect(textarea).toHaveFocus();
+      expect(textarea.selectionStart).toBe(initialValue.length);
+      expect(textarea.selectionEnd).toBe(initialValue.length);
+    });
+  });
+
+  it("restores a multi-line selection after changing its list level", async () => {
+    const initialValue = "- Parent\n- One\n- Two";
+    const selectionStart = "- Parent\n".length;
+    render(<Harness games={[]} initialValue={initialValue} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    textarea.focus();
+    textarea.setSelectionRange(selectionStart, initialValue.length);
+    fireEvent.select(textarea);
+
+    const indent = pressBracketShortcut(textarea, "]", "meta");
+    const expected = "- Parent\n  - One\n  - Two";
+
+    expect(indent.defaultPrevented).toBe(true);
+    expect(textarea).toHaveValue(expected);
+    await waitFor(() => {
+      expect(textarea.selectionStart).toBe(selectionStart + 2);
+      expect(textarea.selectionEnd).toBe(expected.length);
     });
   });
 
@@ -239,6 +306,20 @@ describe("GameLinkMarkdownTextarea", () => {
     expect(onKeyDown).toHaveBeenCalledOnce();
     expect(textarea).toHaveValue(initialValue);
     expect(screen.getByTestId("markdown-value")).toHaveTextContent(initialValue);
+  });
+
+  it("gives an external key handler priority over a list-level shortcut", () => {
+    const onKeyDown = vi.fn((event: ReactKeyboardEvent<HTMLTextAreaElement>) => event.preventDefault());
+    const initialValue = "- Parent\n- Child";
+    render(<Harness games={[]} initialValue={initialValue} onKeyDown={onKeyDown} />);
+    const textarea = screen.getByLabelText("Текст заметки") as HTMLTextAreaElement;
+    placeCaret(textarea, initialValue.length);
+
+    const indent = pressBracketShortcut(textarea, "]", "meta");
+
+    expect(indent.defaultPrevented).toBe(true);
+    expect(onKeyDown).toHaveBeenCalledOnce();
+    expect(textarea).toHaveValue(initialValue);
   });
 
   it("does not intercept Enter while an IME composition is active", () => {

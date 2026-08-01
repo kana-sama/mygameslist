@@ -65,6 +65,7 @@ describe("notes shelf CSS", () => {
   it("keeps top-level Markdown lists flush with the note content", () => {
     expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item)))")).toMatch(/padding-inline-start:\s*0/);
     expect(declarationsFor(".markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown-task-item")).not.toMatch(/display:\s*flex/);
     expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
@@ -103,12 +104,31 @@ describe("notes shelf CSS", () => {
   it("keeps checklist progress compact and marks complete headings green", () => {
     const heading = declarationsFor(".markdown-checklist-heading");
     const title = declarationsFor(".markdown-checklist-heading__title");
+    const group = declarationsFor(".markdown-checklist-group__header");
     const progress = declarationsFor(".markdown-checklist-progress");
 
     expect(heading).toMatch(/display:\s*flex/);
     expect(title).toMatch(/flex:\s*1/);
+    expect(declarationsFor(".markdown-checklist-group")).toMatch(/list-style:\s*none/);
+    expect(group).toMatch(/display:\s*flex/);
+    expect(declarationsFor(".markdown-checklist-group__title")).toMatch(/flex:\s*1/);
     expect(progress).toMatch(/margin-inline-start:\s*auto/);
     expect(progress).toMatch(/font-variant-numeric:\s*tabular-nums/);
     expect(declarationsFor(".markdown .markdown-checklist-heading--complete")).toMatch(/color:\s*var\(--success\)/);
+    expect(declarationsFor(".markdown .markdown-checklist-group--complete > .markdown-checklist-group__header")).toMatch(/color:\s*var\(--success\)/);
+  });
+
+  it("makes checklist headings full-width accessible collapse controls", () => {
+    const toggle = declarationsFor(".markdown-checklist-toggle");
+    const headingToggle = declarationsFor(".markdown-checklist-heading__toggle");
+
+    expect(toggle).toMatch(/width:\s*100%/);
+    expect(toggle).toMatch(/appearance:\s*none/);
+    expect(toggle).toMatch(/padding:\s*0/);
+    expect(toggle).toMatch(/cursor:\s*pointer/);
+    expect(headingToggle).toMatch(/display:\s*flex/);
+    expect(headingToggle).toMatch(/flex:\s*1/);
+    expect(declarationsFor(".markdown-checklist-toggle:focus-visible")).toMatch(/outline:\s*2px solid var\(--accent\)/);
+    expect(declarationsFor(".markdown-checklist-group__content[hidden]")).toMatch(/display:\s*none/);
   });
 });

@@ -50,6 +50,7 @@ export interface Note {
   gameId: string;
   bodyMarkdown: string;
   attachments: NoteAttachment[];
+  collapsedChecklistSections?: string[];
   groupRank?: number;
   rank: number;
   createdAt: string;

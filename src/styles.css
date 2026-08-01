@@ -330,13 +330,25 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown p, .markdown ul, .markdown ol { margin-top: .55em; margin-bottom: .55em; }
 .markdown > ul, .markdown > ol { padding-inline-start: 18px; }
 .markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item) { padding-inline-start: 0; }
+.markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))) { padding-inline-start: 0; }
 .markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol { margin-top: .15em; margin-bottom: .15em; padding-inline-start: 18px; border-inline-start: 1px solid var(--line-soft); }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
 .markdown-checklist-heading { display: flex; align-items: baseline; gap: 6px; }
 .markdown-checklist-heading__title { min-width: 0; flex: 1; }
+.markdown-checklist-group { list-style: none; }
+.markdown-checklist-group__header { display: flex; align-items: baseline; gap: 6px; font-weight: 600; }
+.markdown-checklist-group__title { min-width: 0; flex: 1; }
+.markdown-checklist-heading__toggle { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 6px; }
+.markdown-checklist-toggle { width: 100%; appearance: none; padding: 0; border: 0; border-radius: 3px; color: inherit; background: transparent; font: inherit; line-height: inherit; text-align: start; cursor: pointer; }
+.markdown-checklist-toggle:disabled { cursor: default; }
+.markdown-checklist-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.markdown-checklist-group__content { display: contents; }
+.markdown-checklist-group__content[hidden] { display: none; }
 .markdown-checklist-progress { flex: 0 0 auto; margin-inline-start: auto; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .82em; font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: 0; }
 .markdown .markdown-checklist-heading--complete { color: var(--success); }
 .markdown-checklist-heading--complete .markdown-checklist-progress { color: inherit; }
+.markdown .markdown-checklist-group--complete > .markdown-checklist-group__header { color: var(--success); }
+.markdown-checklist-group--complete > .markdown-checklist-group__header .markdown-checklist-progress { color: inherit; }
 .markdown-table-scroll { max-width: 100%; margin: .65em 0; overflow-x: auto; }
 .markdown-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: .95em; }
 .markdown-table th, .markdown-table td { padding: 4px 6px; border: 1px solid var(--line-soft); vertical-align: middle; text-align: left; }
