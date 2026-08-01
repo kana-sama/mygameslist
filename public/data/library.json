@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "2e5ce2e97810e1f9f47c97596a0f324874a414f7c8bafaab229768258d496272",
-  "publicationId": "37955c72-7aa5-48cd-9f57-cfcf5bf12b44",
+  "revision": "b2be7bd7c36000bb47f19cf68e5e9b79f3b26e0ea7fbf50d945c2541d0c36f76",
+  "publicationId": "83e60052-59e1-4ea0-ac63-dcf0bd6c8327",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4825,7 +4825,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-07-23T06:34:49.864Z",
-      "updatedAt": "2026-08-01T22:48:56.035Z"
+      "updatedAt": "2026-08-01T23:32:54.462Z"
     },
     "10daef06-f315-4bb1-9a91-e4e3c04e6c2f": {
       "id": "10daef06-f315-4bb1-9a91-e4e3c04e6c2f",
@@ -7454,11 +7454,11 @@
     "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c": {
       "id": "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c",
       "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
-      "bodyMarkdown": "# Платина\n\n## Donkey Kong Bananza\n- [x] 777 бананов\n- [x] все навыки\n- [x] 110 дисков\n- [x] 696 окаменелостей\n\n## DK Island & Emerald Rush\n- [ ] 2000 баллов рейтинга\n- [ ] 7 новых дисков\n- [x] Банандиумтон\n\n## DK Challenge\n- Nintendo Classics\n  - [x] Rumble in the Jungle!\n  - [x] High-Flying Mine Cart!\n  - [x] Barreling to the Top!\n  - [x] Barrel Cannon Blowout!\n  - [x] Dodging Fireballs!\n  - [x] Freedom from DK!\n  - [x] The Fall of DK!\n  - [x] Freedom for DK?!\n  - [x] Catch the Key!\n  - [x] A Blast with DK!\n  - [x] DK Accounting!\n  - [x] DK's Construction Site!\n  - [x] DK on the High Seas!\n  - [x] DK Sets Sail!\n  - [x] King K. Rool Battle!\n- Donkey Kong Bananza\n  - Bananza Transformations!\n    - [x] Kong Charge Punch!\n    - [x] Zebra Water Dash!\n    - [x] Ostrich Egg Bomb!\n    - [x] Elephant Water Vacuum!\n    - [x] Snake Slow-Down Glare!\n  - To the Planet Core\n    - [x] Grumpy Kong Battle!\n    - [x] Poppy Kong Battle!\n    - [x] Void Kong Battle!\n    - [x] Harmoneel Battle!\n    - [x] Planet Core's Secret!\n  - Feel the Nostalgia\n    - [x] Find the Hiding Spot!\n    - [x] Escape the Maze!\n    - [x] Mine-Cart Madness!\n    - [x] Jump Those Girders!\n  - Against the Clock\n    - [x] Kong and Destroy!\n    - [x] Skate and Attack!\n    - [x] Dig and Freeze!\n    - [x] Miracle Shots!\n    - [x] Thorny Surfing!\n  - Developer Challenges\n    - [x] Demolition Challenge\n    - [x] Rambi Rumble Challenge\n    - [x] Bonus Stage Challenge\n    - [ ] Boss Rush Challenge\n    - [x] Rehearsal Challenge\n",
+      "bodyMarkdown": "# Платина\n\n## Donkey Kong Bananza\n- [x] 777 бананов\n- [x] все навыки\n- [x] 110 дисков\n- [x] 696 окаменелостей\n\n## DK Challenge\n- Nintendo Classics\n  - [x] Rumble in the Jungle!\n  - [x] High-Flying Mine Cart!\n  - [x] Barreling to the Top!\n  - [x] Barrel Cannon Blowout!\n  - [x] Dodging Fireballs!\n  - [x] Freedom from DK!\n  - [x] The Fall of DK!\n  - [x] Freedom for DK?!\n  - [x] Catch the Key!\n  - [x] A Blast with DK!\n  - [x] DK Accounting!\n  - [x] DK's Construction Site!\n  - [x] DK on the High Seas!\n  - [x] DK Sets Sail!\n  - [x] King K. Rool Battle!\n- Donkey Kong Bananza\n  - Bananza Transformations!\n    - [x] Kong Charge Punch!\n    - [x] Zebra Water Dash!\n    - [x] Ostrich Egg Bomb!\n    - [x] Elephant Water Vacuum!\n    - [x] Snake Slow-Down Glare!\n  - To the Planet Core\n    - [x] Grumpy Kong Battle!\n    - [x] Poppy Kong Battle!\n    - [x] Void Kong Battle!\n    - [x] Harmoneel Battle!\n    - [x] Planet Core's Secret!\n  - Feel the Nostalgia\n    - [x] Find the Hiding Spot!\n    - [x] Escape the Maze!\n    - [x] Mine-Cart Madness!\n    - [x] Jump Those Girders!\n  - Against the Clock\n    - [x] Kong and Destroy!\n    - [x] Skate and Attack!\n    - [x] Dig and Freeze!\n    - [x] Miracle Shots!\n    - [x] Thorny Surfing!\n  - Developer Challenges\n    - [x] Demolition Challenge\n    - [x] Rambi Rumble Challenge\n    - [x] Bonus Stage Challenge\n    - [ ] Boss Rush Challenge\n    - [x] Rehearsal Challenge\n\n## DK Island & Emerald Rush\n- [ ] 2000 баллов рейтинга\n- [ ] 7 новых дисков\n- [x] Банандиумтон\nЭто DLC с рогалик-геймплеем, мне слишком скучно чтобы это выгриндивать.",
       "attachments": [],
       "rank": 6144,
       "createdAt": "2026-08-01T19:10:19.379Z",
-      "updatedAt": "2026-08-01T22:48:56.035Z",
+      "updatedAt": "2026-08-01T23:32:54.462Z",
       "collapsedChecklistSections": [
         "group:13qjjqf-3a",
         "group:1nu97a4-34",
