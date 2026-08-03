@@ -214,6 +214,65 @@ describe("Markdown tasks", () => {
     expect(screen.getByRole("heading", { name: "After | the table" })).toBeInTheDocument();
   });
 
+  it("renders framed one-cell rows as table groups", () => {
+    const markdown = [
+      "# Campaign",
+      "| Stage | Main | Secret |",
+      "| --- | :---: | :---: |",
+      "| Philosopher's Stone |",
+      "| --- | --- | --- |",
+      "| Start | [x] | [ ] |",
+      "| Finish | [x] | [x] |",
+      "| --- | --- | --- |",
+      "| Chamber of Secrets |",
+      "| --- | --- | --- |",
+      "| Dobby | [x] | [x] |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const stoneHeading = screen.getByText("Philosopher's Stone").closest("th");
+    const chamberHeading = screen.getByText("Chamber of Secrets").closest("th");
+    expect(stoneHeading).toHaveAttribute("colspan", "3");
+    expect(chamberHeading).toHaveAttribute("colspan", "3");
+    expect(stoneHeading?.querySelector(".markdown-checklist-progress")).toHaveTextContent("3/4");
+    expect(chamberHeading?.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/2");
+    expect(stoneHeading?.closest(".markdown-table-group")).not.toHaveClass("markdown-table-group--complete");
+    expect(chamberHeading?.closest(".markdown-table-group")).toHaveClass("markdown-table-group--complete");
+    expect(screen.getByRole("heading", { name: /^Campaign / }).querySelector(".markdown-checklist-progress")).toHaveTextContent("5/6");
+    expect(screen.getAllByRole("row")).toHaveLength(6);
+  });
+
+  it("updates only the selected grouped-table task and completes its group", async () => {
+    const user = userEvent.setup();
+    let currentMarkdown = [
+      "# Route",
+      "| Stage | Main | Secret |",
+      "| --- | --- | --- |",
+      "| Philosopher's Stone |",
+      "| --- | --- | --- |",
+      "| Start | [x] | [ ] |",
+      "| --- | --- | --- |",
+      "| Chamber of Secrets |",
+      "| --- | --- | --- |",
+      "| Dobby | [ ] | [ ] |",
+    ].join("\r\n");
+    const expectedMarkdown = currentMarkdown.replace("| Start | [x] | [ ] |", "| Start | [x] | [x] |");
+    let view: ReturnType<typeof render>;
+    const onTaskChange = vi.fn((nextMarkdown: string) => {
+      currentMarkdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={currentMarkdown} onTaskChange={onTaskChange} />);
+    });
+    view = render(<MarkdownView markdown={currentMarkdown} onTaskChange={onTaskChange} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Start — Secret" }));
+
+    expect(onTaskChange).toHaveBeenCalledWith(expectedMarkdown);
+    expect(screen.getByText("Philosopher's Stone").closest(".markdown-table-group")).toHaveClass("markdown-table-group--complete");
+    expect(screen.getByText("Chamber of Secrets").closest(".markdown-table-group")).not.toHaveClass("markdown-table-group--complete");
+    expect(screen.getByRole("heading", { name: /^Route / }).querySelector(".markdown-checklist-progress")).toHaveTextContent("2/4");
+  });
+
   it("toggles table tasks, includes them in heading progress, and completes fully checked rows", async () => {
     const user = userEvent.setup();
     const onTaskChange = vi.fn();

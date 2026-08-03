@@ -87,10 +87,26 @@ interface MarkdownTableRow {
   sourceLine: number;
 }
 
+interface MarkdownTableRows {
+  type: "rows";
+  rows: MarkdownTableRow[];
+}
+
+interface MarkdownTableGroup {
+  type: "group";
+  title: MarkdownTableCell;
+  titleSourceLine: number;
+  rows: MarkdownTableRow[];
+  checklistProgress?: ChecklistProgress;
+  collapseId?: string;
+}
+
+type MarkdownTableSection = MarkdownTableRows | MarkdownTableGroup;
+
 interface MarkdownTable {
   alignments: MarkdownTableAlignment[];
   headers: MarkdownTableCell[];
-  rows: MarkdownTableRow[];
+  sections: MarkdownTableSection[];
 }
 
 const TASK_MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
@@ -272,63 +288,127 @@ function tableAlignment(delimiter: string): MarkdownTableAlignment {
   return undefined;
 }
 
+function parseTableDelimiter(line: string, columnCount: number): ParsedTableCell[] | null {
+  const cells = splitTableLine(line);
+  if (!cells || cells.length !== columnCount) return null;
+  return cells.every((cell) => /^:?-+:?$/.test(cell.value)) ? cells : null;
+}
+
+interface ParsedTableGroupHeader {
+  nextIndex: number;
+  sourceLine: number;
+  title: MarkdownTableCell;
+}
+
+function parseTableGroupHeader(
+  lines: readonly string[],
+  index: number,
+  columnCount: number,
+  useHeaderDelimiter: boolean,
+): ParsedTableGroupHeader | null {
+  const titleIndex = useHeaderDelimiter ? index : index + 1;
+  if (!useHeaderDelimiter && !parseTableDelimiter(lines[index] ?? "", columnCount)) return null;
+  const titleCells = splitTableLine(lines[titleIndex] ?? "");
+  if (titleCells?.length !== 1 || !titleCells[0].value.trim()) return null;
+  if (!parseTableDelimiter(lines[titleIndex + 1] ?? "", columnCount)) return null;
+  return {
+    nextIndex: titleIndex + 2,
+    sourceLine: titleIndex,
+    title: { value: titleCells[0].value },
+  };
+}
+
 function parseTableStart(lines: string[], startIndex: number): { alignments: MarkdownTableAlignment[]; headers: MarkdownTableCell[] } | null {
   if (startIndex + 1 >= lines.length) return null;
   const headerCells = splitTableLine(lines[startIndex]);
-  const delimiterCells = splitTableLine(lines[startIndex + 1]);
-  if (!headerCells?.length || !delimiterCells || delimiterCells.length !== headerCells.length) return null;
-  if (!delimiterCells.every((cell) => /^:?-+:?$/.test(cell.value))) return null;
+  if (!headerCells?.length) return null;
+  const delimiterCells = parseTableDelimiter(lines[startIndex + 1], headerCells.length);
+  if (!delimiterCells) return null;
   return {
     alignments: delimiterCells.map((cell) => tableAlignment(cell.value)),
     headers: headerCells.map((cell) => ({ value: cell.value })),
   };
 }
 
+function parseTableRow(parsedCells: readonly ParsedTableCell[], columnCount: number, sourceLine: number): MarkdownTableRow {
+  const cells = parsedCells.slice(0, columnCount).map<MarkdownTableCell>((cell) => {
+    const task = TASK_MARKER.exec(cell.value);
+    return {
+      value: task ? cell.value.slice(task[0].length) : cell.value,
+      taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+      taskSourceColumn: task ? cell.sourceColumn : undefined,
+    };
+  });
+  while (cells.length < columnCount) cells.push({ value: "" });
+  return { cells, sourceLine };
+}
+
+function isTableBlockBoundary(line: string): boolean {
+  return (
+    /^\s*```/.test(line)
+    || /^(#{1,4})\s+/.test(line)
+    || /^\s*(?:---+|___+|\*\*\*+)\s*$/.test(line)
+    || parseListLine(line) !== null
+    || /^\s*>\s?/.test(line)
+  );
+}
+
 function parseTable(lines: string[], startIndex: number): { block: MarkdownBlock; nextIndex: number } | null {
   const start = parseTableStart(lines, startIndex);
   if (!start) return null;
 
-  const rows: MarkdownTableRow[] = [];
+  const sections: MarkdownTableSection[] = [];
+  let looseRows: MarkdownTableRow[] = [];
+  let activeGroup: MarkdownTableGroup | null = null;
   let index = startIndex + 2;
+
+  const flushLooseRows = (): void => {
+    if (!looseRows.length) return;
+    sections.push({ type: "rows", rows: looseRows });
+    looseRows = [];
+  };
+
   while (index < lines.length && lines[index].trim()) {
-    if (
-      /^\s*```/.test(lines[index]) ||
-      /^(#{1,4})\s+/.test(lines[index]) ||
-      /^\s*(?:---+|___+|\*\*\*+)\s*$/.test(lines[index]) ||
-      parseListLine(lines[index]) ||
-      /^\s*>\s?/.test(lines[index])
-    ) break;
+    if (isTableBlockBoundary(lines[index])) break;
+    const groupHeader = parseTableGroupHeader(lines, index, start.headers.length, index === startIndex + 2);
+    if (groupHeader) {
+      flushLooseRows();
+      activeGroup = {
+        type: "group",
+        title: groupHeader.title,
+        titleSourceLine: groupHeader.sourceLine,
+        rows: [],
+      };
+      sections.push(activeGroup);
+      index = groupHeader.nextIndex;
+      continue;
+    }
     const parsedCells = splitTableLine(lines[index]);
     if (!parsedCells) break;
-    const cells = parsedCells.slice(0, start.headers.length).map<MarkdownTableCell>((cell) => {
-      const task = TASK_MARKER.exec(cell.value);
-      return {
-        value: task ? cell.value.slice(task[0].length) : cell.value,
-        taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
-        taskSourceColumn: task ? cell.sourceColumn : undefined,
-      };
-    });
-    while (cells.length < start.headers.length) cells.push({ value: "" });
-    rows.push({ cells, sourceLine: index });
+    const row = parseTableRow(parsedCells, start.headers.length, index);
+    if (activeGroup) activeGroup.rows.push(row);
+    else looseRows.push(row);
     index += 1;
   }
+  flushLooseRows();
 
   return {
-    block: { type: "table", table: { ...start, rows } },
+    block: { type: "table", table: { ...start, sections } },
     nextIndex: index,
   };
 }
 
 function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
   if (block.type === "table") {
-    const tableProgress = (block.table?.rows ?? []).reduce<ChecklistProgress>((progress, row) => {
-      for (const cell of row.cells) {
-        if (cell.taskChecked === undefined) continue;
-        progress.total += 1;
-        if (cell.taskChecked) progress.checked += 1;
+    const tableProgress: ChecklistProgress = { checked: 0, open: false, total: 0 };
+    for (const section of block.table?.sections ?? []) {
+      const sectionProgress = getTableRowsProgress(section.rows);
+      if (section.type === "group") {
+        section.checklistProgress = sectionProgress.total > 0 ? sectionProgress : undefined;
       }
-      return progress;
-    }, { checked: 0, open: false, total: 0 });
+      tableProgress.checked += sectionProgress.checked;
+      tableProgress.total += sectionProgress.total;
+    }
     block.checklistProgress = tableProgress.total > 0 ? tableProgress : undefined;
     return tableProgress;
   }
@@ -353,6 +433,17 @@ function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
   }, { checked: 0, open: false, total: 0 });
   block.checklistProgress = blockProgress.total > 0 || blockProgress.open ? blockProgress : undefined;
   return blockProgress;
+}
+
+function getTableRowsProgress(rows: readonly MarkdownTableRow[]): ChecklistProgress {
+  return rows.reduce<ChecklistProgress>((progress, row) => {
+    for (const cell of row.cells) {
+      if (cell.taskChecked === undefined) continue;
+      progress.total += 1;
+      if (cell.taskChecked) progress.checked += 1;
+    }
+    return progress;
+  }, { checked: 0, open: false, total: 0 });
 }
 
 function normalizedCollapsePathPart(value: string): string {
@@ -856,6 +947,48 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
     if (!table) return null;
     const alignmentClass = (index: number) => table.alignments[index] ? `markdown-table-cell--${table.alignments[index]}` : undefined;
 
+    const renderTableRow = (row: MarkdownTableRow, rowIndex: number, rowKey: string): ReactNode => {
+      const progress = getTableRowProgress(row);
+      const rowComplete = progress.total > 0 && progress.checked === progress.total;
+      const rowLabel = row.cells.map((cell) => markdownLabel(cell.value)).find(Boolean);
+      const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
+      return (
+        <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`}>
+          {row.cells.map((cell, cellIndex) => {
+            const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
+            if (cell.taskChecked === undefined) {
+              return <td className={alignmentClass(cellIndex)} key={cellKey}>{renderInline(cell.value, cellKey)}</td>;
+            }
+            const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
+            const cellLabel = markdownLabel(cell.value);
+            const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
+            return (
+              <td className={alignmentClass(cellIndex)} key={cellKey}>
+                <div className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}`}>
+                  <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      aria-label={`${cell.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
+                      checked={cell.taskChecked}
+                      className="markdown-task-checkbox"
+                      disabled={!onTaskChange || taskChangesDisabled}
+                      onChange={(event) => {
+                        if (cell.taskSourceColumn === undefined) return;
+                        const nextMarkdown = setMarkdownTableTaskChecked(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked);
+                        if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      type="checkbox"
+                    />
+                  </label>
+                  {cell.value ? <span>{renderInline(cell.value, `${cellKey}-content`)}</span> : null}
+                </div>
+              </td>
+            );
+          })}
+        </tr>
+      );
+    };
+
     return (
       <div className="markdown-table-scroll" key={key}>
         <table className="markdown-table">
@@ -868,49 +1001,34 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
               ))}
             </tr>
           </thead>
-          <tbody>
-            {table.rows.map((row, rowIndex) => {
-              const progress = getTableRowProgress(row);
-              const rowComplete = progress.total > 0 && progress.checked === progress.total;
-              const rowLabel = row.cells.map((cell) => markdownLabel(cell.value)).find(Boolean);
-              const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
+          {table.sections.map((section, sectionIndex) => {
+            if (section.type === "rows") {
               return (
-                <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${key}-row-${row.sourceLine}`}>
-                  {row.cells.map((cell, cellIndex) => {
-                    const cellKey = `${key}-row-${row.sourceLine}-cell-${cellIndex}`;
-                    if (cell.taskChecked === undefined) {
-                      return <td className={alignmentClass(cellIndex)} key={cellKey}>{renderInline(cell.value, cellKey)}</td>;
-                    }
-                    const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
-                    const cellLabel = markdownLabel(cell.value);
-                    const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
-                    return (
-                      <td className={alignmentClass(cellIndex)} key={cellKey}>
-                        <div className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}`}>
-                          <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
-                            <input
-                              aria-label={`${cell.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
-                              checked={cell.taskChecked}
-                              className="markdown-task-checkbox"
-                              disabled={!onTaskChange || taskChangesDisabled}
-                              onChange={(event) => {
-                                if (cell.taskSourceColumn === undefined) return;
-                                const nextMarkdown = setMarkdownTableTaskChecked(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked);
-                                if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
-                              }}
-                              onClick={(event) => event.stopPropagation()}
-                              type="checkbox"
-                            />
-                          </label>
-                          {cell.value ? <span>{renderInline(cell.value, `${cellKey}-content`)}</span> : null}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
+                <tbody key={`${key}-rows-${sectionIndex}`}>
+                  {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, `${key}-rows-${sectionIndex}`))}
+                </tbody>
               );
-            })}
-          </tbody>
+            }
+            const progress = section.checklistProgress;
+            const complete = Boolean(progress && progress.total > 0 && progress.checked === progress.total);
+            return (
+              <tbody
+                className={`markdown-table-group${complete ? " markdown-table-group--complete" : ""}`}
+                data-markdown-source-line={section.titleSourceLine}
+                key={`${key}-group-${section.titleSourceLine}`}
+              >
+                <tr className="markdown-table-group__heading">
+                  <th colSpan={table.headers.length} scope="rowgroup">
+                    <div className="markdown-table-group__header">
+                      <span className="markdown-table-group__title">{renderInline(section.title.value, `${key}-group-${section.titleSourceLine}-title`)}</span>
+                      {progress ? <ChecklistProgressView progress={progress} /> : null}
+                    </div>
+                  </th>
+                </tr>
+                {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, `${key}-group-${section.titleSourceLine}`))}
+              </tbody>
+            );
+          })}
         </table>
       </div>
     );
