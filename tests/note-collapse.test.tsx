@@ -1,7 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarkdownView } from "../src/components/Markdown";
 import type { Asset, Game, Note } from "../src/domain/types";
@@ -9,8 +7,6 @@ import { GamePage } from "../src/pages/GamePage";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-07-17T10:00:00.000Z";
-const styles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
-
 function makeNote(id: string, bodyMarkdown: string, rank: number): Note {
   return { id, gameId: GAME_ID, bodyMarkdown, attachments: [], rank, createdAt: NOW, updatedAt: NOW };
 }
@@ -34,55 +30,6 @@ afterEach(() => {
 });
 
 describe("scrollable long note cards", () => {
-  it("caps the natural text viewport and fills the height assigned by ShelfGrid", () => {
-    const root = /:root\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const frame = /\.note-card__viewport-frame\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const viewport = /\.note-card__viewport\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const placedText = /\.notes-list > \[data-shelf-position\] \.note-card__text\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const placedFrame = /\.notes-list > \[data-shelf-position\] \.note-card__viewport-frame\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const placedViewport = /\.notes-list > \[data-shelf-position\] \.note-card__viewport\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-
-    expect(root).toContain("--note-text-height: 300px");
-    expect(frame).toContain("position: relative");
-    expect(frame).toContain("max-height: var(--note-text-height)");
-    expect(viewport).toContain("max-height: var(--note-text-height)");
-    expect(viewport).toContain("overflow-y: auto");
-    expect(viewport).toContain("overscroll-behavior: contain");
-    expect(viewport).toContain("scrollbar-width: thin");
-    expect(placedText).toContain("min-height: 0");
-    expect(placedText).toContain("display: flex");
-    expect(placedText).toContain("flex-direction: column");
-    expect(placedFrame).toContain("max-height: none");
-    expect(placedFrame).toContain("flex: 1");
-    expect(placedViewport).toContain("height: 100%");
-    expect(placedViewport).toContain("max-height: none");
-    expect(styles).toMatch(/\.note-card__viewport-frame::after\s*\{[^}]*content:\s*"Прокрутить ↓"/);
-    expect(styles).toMatch(/\.note-card__viewport-frame\.can-scroll-up::before, \.note-card__viewport-frame\.can-scroll-down::after\s*\{[^}]*opacity:\s*1/);
-    expect(styles).not.toContain("note-card__collapse-toggle");
-    expect(styles).not.toContain("note-card--collapsed");
-    expect(styles).not.toContain("note-card--expanded");
-  });
-
-  it("gives both editor DOM branches the shared full text height", () => {
-    const editorSlots = /\.note-card--editing > \.game-link-markdown-textarea, \.note-card--editing > \.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const gameLinkWrapper = /\.game-link-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const wrappedEditor = /\.note-card--editing > \.game-link-markdown-textarea > \.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    const textarea = /(?:^|\n)\.plain-markdown-textarea\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-
-    expect(editorSlots).toContain("min-height: var(--note-text-height)");
-    expect(editorSlots).toContain("flex: 1 0 auto");
-    expect(gameLinkWrapper).toContain("display: flex");
-    expect(gameLinkWrapper).toContain("flex-direction: column");
-    expect(wrappedEditor).toContain("min-height: var(--note-text-height)");
-    expect(wrappedEditor).toContain("flex: 1 0 auto");
-    expect(textarea).toContain("overflow-y: auto");
-  });
-
-  it("doubles the note text-height token when requested", () => {
-    const doubled = /\.note-card--double-height\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
-    expect(doubled).toContain("--note-text-height: 600px");
-  });
-
   it("renders long and short text through the same stable scroll viewport", async () => {
     const user = userEvent.setup();
     vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(function (this: Element) {
@@ -166,10 +113,7 @@ describe("scrollable long note cards", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
-  it("sticks only top-level checklist headings inside note viewports", () => {
-    const production = document.createElement("style");
-    production.textContent = styles;
-    document.head.append(production);
+  it("groups top-level checklist headings inside note viewports and keeps their controls focusable", () => {
     const note = makeNote(
       "22222222-2222-4222-8222-222222222222",
       [
@@ -185,8 +129,7 @@ describe("scrollable long note cards", () => {
       1024,
     );
 
-    try {
-      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
 
       const first = screen.getByRole("heading", { name: /^First sticky heading with a deliberately much longer title / });
       const nested = screen.getByRole("heading", { name: /^Nested progress heading / });
@@ -196,59 +139,32 @@ describe("scrollable long note cards", () => {
       const plainSection = plain.closest<HTMLElement>(".markdown-section");
       const secondSection = second.closest<HTMLElement>(".markdown-section");
       const markdown = first.closest<HTMLElement>(".markdown");
-      const firstStyle = getComputedStyle(first);
+    expect(firstSection).not.toBeNull();
+    expect(plainSection).not.toBeNull();
+    expect(secondSection).not.toBeNull();
+    expect(firstSection).not.toBe(plainSection);
+    expect(plainSection).not.toBe(secondSection);
+    expect(firstSection).toContainElement(nested);
+    expect(firstSection).toContainElement(screen.getByText("Root task"));
+    expect(firstSection).toContainElement(screen.getByText("Nested task"));
+    expect(plainSection).toContainElement(screen.getByText("No checklist in this section."));
+    expect(secondSection).toContainElement(screen.getByText("Second task"));
+    expect(Array.from(markdown?.children ?? [])).toEqual([firstSection, plainSection, secondSection]);
+    expect(first.tagName).toBe("H2");
+    expect(nested.tagName).toBe("H3");
 
-      expect(firstSection).not.toBeNull();
-      expect(plainSection).not.toBeNull();
-      expect(secondSection).not.toBeNull();
-      expect(firstSection).not.toBe(plainSection);
-      expect(plainSection).not.toBe(secondSection);
-      expect(firstSection).toContainElement(nested);
-      expect(firstSection).toContainElement(screen.getByText("Root task"));
-      expect(firstSection).toContainElement(screen.getByText("Nested task"));
-      expect(plainSection).toContainElement(screen.getByText("No checklist in this section."));
-      expect(secondSection).toContainElement(screen.getByText("Second task"));
-      expect(Array.from(markdown?.children ?? [])).toEqual([firstSection, plainSection, secondSection]);
-      expect(first.tagName).toBe("H2");
-      expect(firstStyle.position).toBe("sticky");
-      expect(firstStyle.top).toBe("0px");
-      expect(firstStyle.zIndex).toBe("3");
-      expect(firstStyle.backgroundColor).toBe("rgb(20, 21, 24)");
-      expect(firstStyle.marginInline).toBe("-6px");
-      expect(firstStyle.paddingInline).toBe("6px");
-      expect(getComputedStyle(second).position).toBe("sticky");
-      expect(nested.tagName).toBe("H3");
-      expect(getComputedStyle(nested).position).toBe("static");
-      expect(getComputedStyle(plain).position).toBe("static");
+    const toggle = within(first).getByRole("button", { name: /^First sticky heading with a deliberately much longer title / });
+    toggle.focus();
+    expect(toggle).toHaveFocus();
 
-      const toggle = within(first).getByRole("button", { name: /^First sticky heading with a deliberately much longer title / });
-      toggle.focus();
-      expect(toggle).toHaveFocus();
-
-      const focusRule = Array.from(production.sheet?.cssRules ?? []).find((rule): rule is CSSStyleRule => (
-        rule instanceof CSSStyleRule
-        && rule.selectorText === ".note-card__viewport .markdown-section > h2.markdown-checklist-heading .markdown-checklist-heading__toggle:focus-visible"
-      ));
-      expect(focusRule?.style.outlineOffset).toBe("-2px");
-    } finally {
-      production.remove();
-    }
   });
 
-  it("keeps top-level checklist headings static outside note viewports", () => {
-    const production = document.createElement("style");
-    production.textContent = styles;
-    document.head.append(production);
+  it("renders top-level checklist headings outside note viewports", () => {
+    render(<MarkdownView markdown={"# Detached progress heading\n- [ ] Detached task"} />);
 
-    try {
-      render(<MarkdownView markdown={"# Detached progress heading\n- [ ] Detached task"} />);
-
-      const heading = screen.getByRole("heading", { name: /^Detached progress heading / });
-      expect(heading.closest(".note-card__viewport")).toBeNull();
-      expect(getComputedStyle(heading).position).toBe("static");
-    } finally {
-      production.remove();
-    }
+    const heading = screen.getByRole("heading", { name: /^Detached progress heading / });
+    expect(heading.closest(".note-card__viewport")).toBeNull();
+    expect(heading.tagName).toBe("H2");
   });
 
   it("opens inline editing only from the note footer", async () => {

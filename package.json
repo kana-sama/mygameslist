@@ -11,7 +11,6 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "push:ci": "bash scripts/push-and-wait-ci.sh",
-    "publish:clipboard": "node scripts/publish-clipboard.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "data:migrate-assets": "node scripts/migrate-inline-assets.mjs",

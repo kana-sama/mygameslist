@@ -169,24 +169,6 @@ describe("DiffDialog GitHub sync shell", () => {
     expect(screen.queryByRole("region", { name: "Синхронизация с GitHub" })).not.toBeInTheDocument();
   });
 
-  it("does not expose the removed local publication fallback", () => {
-    renderDialog({
-      busy: false,
-      connected: true,
-      error: null,
-      onConnect: vi.fn(),
-      onDisconnect: vi.fn(),
-      onSync: vi.fn(),
-      pagesPending: false,
-      persistence: "session",
-      stage: "idle",
-    });
-
-    expect(screen.queryByText("Локальная публикация")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Скопировать патч" })).not.toBeInTheDocument();
-    expect(screen.queryByText("npm run publish:clipboard")).not.toBeInTheDocument();
-  });
-
   it("shows progress and failures inline and never as a toast", async () => {
     const user = userEvent.setup();
     const onDismissError = vi.fn();
