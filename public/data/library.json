@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "dbb7f9a92cb1557b6b5228d4082b081e67c150123cd9b968a45a725d08d0e5b4",
-  "publicationId": "a7156d5d-9f30-465a-8685-71555ba6b934",
+  "revision": "c2bc089f35367dee184dd6b7a2325aa711a38de8f199282b8b347d6a53522a68",
+  "publicationId": "e85ac0ea-e0ff-43d3-a8ff-4db68a88e646",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4889,21 +4889,6 @@
       "createdAt": "2026-07-30T11:58:39.722Z",
       "updatedAt": "2026-07-30T11:58:39.728Z"
     },
-    "de302cfd-9467-4711-88bb-895be358b5c1": {
-      "id": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "title": "Lego Harry Potter: Years 1–4",
-      "coverAssetId": "ec02245ec8e8909d1e88a5c5557728dab9a742d6998626c80052e3d4935ea373",
-      "platforms": [],
-      "tags": [],
-      "status": "playing",
-      "placement": {
-        "tierId": "s",
-        "rank": 33792
-      },
-      "reviewMarkdown": "",
-      "createdAt": "2026-08-01T10:28:41.801Z",
-      "updatedAt": "2026-08-03T00:56:06.715Z"
-    },
     "fdddb013-33a6-4f8c-827a-cf61448c4b26": {
       "id": "fdddb013-33a6-4f8c-827a-cf61448c4b26",
       "title": "Cocoon",
@@ -4933,6 +4918,21 @@
       "reviewMarkdown": "",
       "createdAt": "2026-08-01T23:01:41.288Z",
       "updatedAt": "2026-08-01T23:01:41.297Z"
+    },
+    "41a1ab64-e29e-4c3e-801f-7ebce6532da2": {
+      "id": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "title": "Lego Harry Potter: Years 1–4",
+      "coverAssetId": "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684",
+      "platforms": [],
+      "tags": [],
+      "status": "playing",
+      "placement": {
+        "tierId": "s",
+        "rank": 33792
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-08-03T00:59:42.616Z",
+      "updatedAt": "2026-08-03T03:29:50.100Z"
     }
   },
   "notes": {
@@ -7371,56 +7371,6 @@
       "createdAt": "2026-07-30T11:58:39.722Z",
       "updatedAt": "2026-07-30T11:58:39.728Z"
     },
-    "afbc5a4e-9a49-40e6-8d68-8b482cc5646f": {
-      "id": "afbc5a4e-9a49-40e6-8d68-8b482cc5646f",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "Очень веселая игра, в каждой комнате куча небольших забавных секретиков, анимаций, просто приколов. ",
-      "attachments": [],
-      "groupRank": 2048,
-      "rank": 3072,
-      "createdAt": "2026-08-01T10:55:54.722Z",
-      "updatedAt": "2026-08-01T14:16:47.524Z"
-    },
-    "3bc3367b-99c8-4edc-9405-9daaf827e892": {
-      "id": "3bc3367b-99c8-4edc-9405-9daaf827e892",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Пикси\n- [ ] справа в круглом коридоре у гостиной\n- [ ] лобби\n- [ ] двор\n- [ ] опушка (тыква)\n- [ ] опушка (не тыква)\n- [ ] опушка (хижина хагрида)\n- [ ] A Jinxed Broom",
-      "attachments": [],
-      "groupRank": 4096,
-      "rank": 4096,
-      "createdAt": "2026-08-01T14:42:31.223Z",
-      "updatedAt": "2026-08-02T01:08:41.866Z"
-    },
-    "46b68b83-0c4a-4e60-bdc1-e2cf35a298e8": {
-      "id": "46b68b83-0c4a-4e60-bdc1-e2cf35a298e8",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Зеленые замки\n- [ ] лобби\n- [ ] двор\n- [ ] коридор Снейпа",
-      "attachments": [],
-      "groupRank": 4096,
-      "rank": 6144,
-      "createdAt": "2026-08-01T15:49:15.620Z",
-      "updatedAt": "2026-08-01T18:04:09.571Z"
-    },
-    "4c4f64fd-42ed-4b2d-aa3d-74bcb8f272fd": {
-      "id": "4c4f64fd-42ed-4b2d-aa3d-74bcb8f272fd",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Коричневые сундуки\n- [ ] справа в круглом коридоре у гостиной\n- [ ] лобби\n- [ ] двор\n- [ ] коридор Снейпа",
-      "attachments": [],
-      "groupRank": 4096,
-      "rank": 2048,
-      "createdAt": "2026-08-01T14:42:03.733Z",
-      "updatedAt": "2026-08-01T18:04:15.454Z"
-    },
-    "538bd693-bcae-4462-93ec-49bf1a4d902a": {
-      "id": "538bd693-bcae-4462-93ec-49bf1a4d902a",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Замки\n- коридор e класса Чар\n- класс Чар\n- факел в коридоре под пивом\n- класс Травологии\n- класс Полетов\n- опушка, справа\n- класс Трансфигурации\n- \"Дырявый Котел\"",
-      "attachments": [],
-      "groupRank": 4096,
-      "rank": 3072,
-      "createdAt": "2026-08-01T15:05:17.438Z",
-      "updatedAt": "2026-08-02T03:06:16.207Z"
-    },
     "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c": {
       "id": "98fd7686-a1aa-47f9-8c3b-bb5a1e9cd53c",
       "gameId": "b277d3c8-733c-4eee-ae70-3daea325f28d",
@@ -7437,26 +7387,6 @@
         "group:xq1mza-27"
       ]
     },
-    "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917": {
-      "id": "a90a5c7e-b18d-4649-b34b-1b2d5ea8a917",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Зацепки\n\n### спальня\n- часы\n\n### круглый коридор у гостиной\n- ворота с фиолетовыми пластинами справа\n- блок с розовым верхом слева\n\n### лестница\n- игрок в квидич с картины кинул квофл куда-то на другую сторону\n\n### двор\n- игрок в квидич в броне\n- куча банок\n\n### зал перед обеденным\n- пуфендйский проход справа\n- ящик с красными точками слева\n- статуя заграждает проход\n- горшок и цветы, можно чет приготовить\n\n### уровень с троллем\n- как включить фонтан?\n- круглый замок на столе?\n\n## коридор Снейпа\n- слева белая стена\n- справа не пускает шкет\n- банки",
-      "attachments": [],
-      "groupRank": 4096,
-      "rank": 1024,
-      "createdAt": "2026-08-01T14:35:42.631Z",
-      "updatedAt": "2026-08-02T00:13:27.544Z"
-    },
-    "bd07ec51-5e6c-48a5-966b-41314c5d98c0": {
-      "id": "bd07ec51-5e6c-48a5-966b-41314c5d98c0",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Красные ящики\n- [x] спальня\n- [x] двор\n- [x] большой зал\n- [x] опушка\n- [ ] ...",
-      "attachments": [],
-      "groupRank": 3072,
-      "rank": 12288,
-      "createdAt": "2026-08-01T15:32:29.532Z",
-      "updatedAt": "2026-08-03T00:55:22.518Z"
-    },
     "92399ecb-f3aa-41c2-8c64-74db3fc4da22": {
       "id": "92399ecb-f3aa-41c2-8c64-74db3fc4da22",
       "gameId": "0a5a3c40-9667-44b7-b97c-74d30f1920c7",
@@ -7466,31 +7396,63 @@
       "createdAt": "2026-08-01T23:01:41.288Z",
       "updatedAt": "2026-08-01T23:01:41.297Z"
     },
-    "801e48af-31a9-4d52-86dd-195cfe4478fb": {
-      "id": "801e48af-31a9-4d52-86dd-195cfe4478fb",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Почва\n- [ ] поле для уроков метлы\n- [ ] у квидичного поля",
+    "2df1685d-97e1-497b-8505-a3a41d3da985": {
+      "id": "2df1685d-97e1-497b-8505-a3a41d3da985",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "## Замки\n- [ ] Коридор Чар\n- [ ] Класс Чар (правый)\n- [ ] Внешний коридор (картина слева)\n- [ ] Внешний коридор (факел справа)\n- [ ] ...\n\n## Коричневые сундуки\n- [ ] Коридор Домов\n- [ ] Главный зал\n- [ ] Двор\n- [ ] ...\n\n## Зеленые лианы\n- [ ] Внешний коридор\n- [ ] Учебный коридор\n- [ ] Двор\n- [ ] ...\n\n## Котлы\n- [ ] Двор - вишня, парик, яблоко\n- [ ] Холл - вишня, парик, яблоко\n- [ ] ...",
       "attachments": [],
-      "groupRank": 4096,
-      "rank": 7168,
-      "createdAt": "2026-08-02T00:18:27.352Z",
-      "updatedAt": "2026-08-02T00:42:22.847Z"
+      "doubleHeight": true,
+      "groupRank": 2048,
+      "rank": 2048,
+      "createdAt": "2026-08-03T02:14:29.101Z",
+      "updatedAt": "2026-08-03T03:05:45.219Z"
     },
-    "d587ac40-bf45-4c12-a4b6-cd210159af2b": {
-      "id": "d587ac40-bf45-4c12-a4b6-cd210159af2b",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики\n\n| Philosopher's Stone    | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [x] | [x] | [ ] | [ ] |\n| The Restricted Section | [x] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [x] | [x] | [x] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |\n\n- Хогвартс\n  - [x] кровати 4/4 - спальня грифиндора\n  - [x] гобелены 5/5 - круглый коридор\n  - [x] свечей 6/6 - лоби\n  - [ ] факела 8/9 - лобби\n  - [x] гобелена 4/4 - перед обеденным залом\n  - [ ] факелы 6/8 - коридор Снейпа\n  - [x] сок 6/6 - большой зал\n  - [x] почистил камни 3/3 - опушка\n  - [x] скатил шар - у квидичного поля\n  - [ ] ...\n\n- Уроки\n  - Заклинания\n    - [x] Wingardium Leviosa\n    - [x] Lumos\n    - [x] Lumos Solem\n    - [x] Transfiguration\n    - [ ] ...\n  - Умения\n    - [x] Зелье силы\n    - [x] Полеты на метле\n    - [ ] ...\n\n- SiP в хогварсте\n  - [x] спас из дивана в гостиной\n  - [x] падал в лобби\n  - [x] избивали во дворе\n  - [x] перед обеденным залом\n  - [x] ??? \n  - [x] большой зал\n  - [x] опушка\n  - [ ] ...\n\n- Бонусные уровни\n  - [x] Город\n  - [ ] ...",
+    "3163b0eb-caf1-464d-b675-d10e8f5233b9": {
+      "id": "3163b0eb-caf1-464d-b675-d10e8f5233b9",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "# Золотые кирпичики\n\n| Philosopher's Stone    | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [ ] | [ ] | [ ] | [ ] |\n| The Restricted Section | [ ] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [ ] | [ ] | [ ] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |\n\n## Хогвартс\n- [x] Спальня Грифиндора - 4 кровати\n- [x] Коридор Домов - 5 гобеленов\n- [ ] Главный зал - 8/9 факелов\n- [x] Главный зал - 6 свечей\n- [x] Холл - 4 гобелена\n- [ ] ...\n\n## Хогвартс: Студенты в Беде\n- [x] Спальня Грифиндора - диван съел студента\n- [x] Коридор Чар - студент прыгал за яблоком\n- [x] Главный зал - студент застрял на книжном шкафу\n- [x] Двор - над студентом издевались \n- [x] Холл - студент повис на гобелене\n- [ ] ...\n\n## Уроки\n- [x] Wingardium Leviosa\n- [ ] Lumos\n- [ ] Зелье силы\n- [ ] Lumos Solem\n- [ ] Transfiguration\n- [ ] Полеты на метле\n- [ ] ...\n\n## Бонусные уровни\n- [ ] ...",
       "attachments": [],
-      "groupRank": 3072,
-      "rank": 11264,
-      "createdAt": "2026-08-02T03:34:26.150Z",
-      "updatedAt": "2026-08-03T00:56:06.715Z",
       "collapsedChecklistSections": [
-        "group:1ea4ok-1q",
-        "group:1n5y51c-1j",
-        "group:59eavo-1g",
-        "group:v6melv-1q"
-      ]
+        "heading:1ig7z87-1q",
+        "heading:9vncnz-1g"
+      ],
+      "doubleHeight": true,
+      "rank": 1024,
+      "createdAt": "2026-08-03T01:00:27.564Z",
+      "updatedAt": "2026-08-03T03:28:56.866Z"
+    },
+    "364b1333-e4ee-46e0-b0de-64a57aecbc82": {
+      "id": "364b1333-e4ee-46e0-b0de-64a57aecbc82",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "# Заметки на будущее\n\n## Неизвестно\n- [ ] Коридор Домов - розовый пирог?\n- [ ] Коридор Домов - парселтанг\n- [ ] Лестницы - квофл\n- [ ] Холл - слева статуя закрывает проход\n- [ ] Холл - картина справа\n- [ ] ...\n",
+      "attachments": [],
+      "doubleHeight": true,
+      "groupRank": 2048,
+      "rank": 1024,
+      "createdAt": "2026-08-03T01:53:35.353Z",
+      "updatedAt": "2026-08-03T03:02:16.096Z"
+    },
+    "3df90019-eb27-4d3e-b209-2518071a6171": {
+      "id": "3df90019-eb27-4d3e-b209-2518071a6171",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "## Посылки\n- [x] Двор\n- [x] Спальня Грифиндора\n- [ ] ...",
+      "attachments": [],
+      "rank": 2048,
+      "createdAt": "2026-08-03T02:52:48.435Z",
+      "updatedAt": "2026-08-03T02:52:58.274Z"
+    },
+    "bb0b0dcc-c504-4f6b-ab27-bc4daaf4d064": {
+      "id": "bb0b0dcc-c504-4f6b-ab27-bc4daaf4d064",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "## Часы\n- [ ] Спальня Грифиндора\n- [ ] ...\n\n## Стеклянные банки\n- [ ] Двор\n- [ ] ...\n\n## Зеленые замки\n- [ ] Главный зал\n- [ ] Двор\n- [ ] ...\n\n## Пикси\n- [ ] Коридор Домов\n- [ ] Главный зал\n- [ ] Двор\n- [ ] ...\n\n## Красные искры\n- [ ] Двор - квидичист в броне\n- [ ] Холл - ящик слева\n- [ ] ...",
+      "attachments": [],
+      "collapsedChecklistSections": [
+        "heading:1isihsk-l"
+      ],
+      "groupRank": 2048,
+      "rank": 3072,
+      "createdAt": "2026-08-03T02:53:16.095Z",
+      "updatedAt": "2026-08-03T03:00:26.760Z"
     }
   },
   "assets": {
@@ -11146,16 +11108,6 @@
       "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     },
-    "ec02245ec8e8909d1e88a5c5557728dab9a742d6998626c80052e3d4935ea373": {
-      "id": "ec02245ec8e8909d1e88a5c5557728dab9a742d6998626c80052e3d4935ea373",
-      "kind": "image",
-      "mime": "image/webp",
-      "width": 512,
-      "height": 512,
-      "byteLength": 53154,
-      "alt": "Обложка игры",
-      "originalName": "clipboard-image.png"
-    },
     "3a6ef2ee138f94e3967598d8a497f02ef0066e874d10059e321438b8deb9816f": {
       "id": "3a6ef2ee138f94e3967598d8a497f02ef0066e874d10059e321438b8deb9816f",
       "kind": "image",
@@ -11163,6 +11115,16 @@
       "width": 512,
       "height": 512,
       "byteLength": 16166,
+      "alt": "Обложка игры",
+      "originalName": "clipboard-image.png"
+    },
+    "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684": {
+      "id": "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 52044,
       "alt": "Обложка игры",
       "originalName": "clipboard-image.png"
     }
