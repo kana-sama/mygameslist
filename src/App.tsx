@@ -21,17 +21,11 @@ import {
   parsePatchPath,
   webkitStringBytes,
   type Asset,
-  type PatchEnvelope,
   type PatchOperation,
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage } from "./pages";
 import { formatBytes } from "./components/libraryUi";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
-import {
-  PUBLISH_CLIPBOARD_COMMAND,
-  copyText,
-  createPublishPayload,
-} from "./state/publishCommand";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -125,8 +119,6 @@ function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
-  const [preparedPayload, setPreparedPayload] = useState<{ patch: PatchEnvelope; payload: string } | null>(null);
-  const [publishFailure, setPublishFailure] = useState<{ patch: PatchEnvelope; message: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const githubPatRef = useRef<string | null>(null);
   const [githubPatPersistence, setGitHubPatPersistence] = useState<GitHubPatPersistence | null>(null);
@@ -150,9 +142,6 @@ function LibraryRoutes() {
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
-  const publishPayload = preparedPayload?.patch === library.patch ? preparedPayload.payload : "";
-  const publishError = publishFailure?.patch === library.patch ? publishFailure.message : null;
-  const publishPayloadPreparing = operationEntries.length > 0 && !publishPayload && !publishError;
   const patchBytes = useMemo(
     () => webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(library.patch)),
     [library.patch],
@@ -170,29 +159,6 @@ function LibraryRoutes() {
     }
     previousPendingCommitRef.current = commitSha;
   }, [library.pendingPublication]);
-
-  useEffect(() => {
-    let active = true;
-    if (!operationEntries.length) {
-      setPreparedPayload(null);
-      setPublishFailure(null);
-      return () => { active = false; };
-    }
-    const patch = library.patch;
-    void createPublishPayload(patch).then((payload) => {
-      if (!active) return;
-      setPreparedPayload({ patch, payload });
-      setPublishFailure(null);
-    }).catch((error) => {
-      if (!active) return;
-      setPreparedPayload(null);
-      setPublishFailure({
-        patch,
-        message: `Не удалось подготовить патч: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    });
-    return () => { active = false; };
-  }, [library.patch, operationEntries.length]);
 
   const items = useMemo<DiffItem[]>(() => operationEntries.map(([path, operation]) => {
     const parsed = parsePatchPath(path);
@@ -232,15 +198,6 @@ function LibraryRoutes() {
     if (!window.confirm("Удалить все локальные копии вложений? Неопубликованные ссылки на них также будут удалены; текст сохранится.")) return;
     void library.deleteAllLocalAssets().catch(showError);
   };
-  const copyPatch = async () => {
-    try {
-      await copyText(publishPayload);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const syncWithGitHub = async (token: string) => {
     setGitHubSyncState((current) => ({ ...current, busy: true, stage: "connecting", error: null }));
     try {
@@ -408,8 +365,7 @@ function LibraryRoutes() {
 
       <DiffDialog
         conflicts={conflictItems}
-        copyPatch={copyPatch}
-        error={actionError ?? publishError ?? library.persistenceError ?? undefined}
+        error={actionError ?? library.persistenceError ?? undefined}
         items={items}
         localAssets={{
           bytes: library.localAssetBytes,
@@ -440,9 +396,6 @@ function LibraryRoutes() {
         }}
         open={diffOpen}
         patchBytes={patchBytes}
-        payload={publishPayload}
-        payloadPreparing={publishPayloadPreparing}
-        publishCommand={PUBLISH_CLIPBOARD_COMMAND}
         sync={githubSyncController}
       />
     </AppShell>

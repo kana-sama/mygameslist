@@ -42,9 +42,6 @@ export interface DiffDialogProps {
   items: DiffItem[];
   conflicts?: DiffConflictItem[];
   patchBytes: number;
-  payload: string;
-  payloadPreparing?: boolean;
-  publishCommand: string;
   error?: string;
   onClose: () => void;
   onUndoItem?: (itemId: string) => void;
@@ -55,7 +52,6 @@ export interface DiffDialogProps {
   onResolveConflict?: (conflictId: string, resolution: "static" | "local", manualValue?: unknown) => void;
   onDownloadCorruptedRaw?: () => void;
   onDismissError?: () => void;
-  copyPatch?: () => Promise<boolean>;
   sync?: DiffSyncController;
   localAssets?: LocalAssetsSummary;
 }
@@ -90,9 +86,6 @@ export function DiffDialog({
   items,
   conflicts = [],
   patchBytes,
-  payload,
-  payloadPreparing = false,
-  publishCommand,
   error,
   onClose,
   onUndoItem,
@@ -103,14 +96,11 @@ export function DiffDialog({
   onResolveConflict,
   onDownloadCorruptedRaw,
   onDismissError,
-  copyPatch,
   sync,
   localAssets,
 }: DiffDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const copyAttemptRef = useRef(0);
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "fallback">("idle");
   const [importError, setImportError] = useState<string | null>(null);
   const [manualConflict, setManualConflict] = useState<string | null>(null);
   const [manualValue, setManualValue] = useState("");
@@ -125,7 +115,6 @@ export function DiffDialog({
 
   useEffect(() => {
     if (!open) return;
-    setCopyState("idle");
     const element = dialogRef.current;
     const focusable = () => Array.from(element?.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex='0']") ?? []);
     requestAnimationFrame(() => focusable()[0]?.focus());
@@ -157,11 +146,6 @@ export function DiffDialog({
     setSyncSubmitting(false);
   }, [open]);
 
-  useEffect(() => {
-    copyAttemptRef.current += 1;
-    setCopyState("idle");
-  }, [payload]);
-
   if (!open) return null;
 
   const syncBlockedReason = !items.length
@@ -184,16 +168,6 @@ export function DiffDialog({
   const closeSyncPanel = () => {
     setSyncOpen(false);
     requestAnimationFrame(() => syncToggleRef.current?.focus());
-  };
-
-  const copy = async () => {
-    const attempt = ++copyAttemptRef.current;
-    try {
-      const success = copyPatch ? await copyPatch() : await navigator.clipboard.writeText(payload).then(() => true);
-      if (attempt === copyAttemptRef.current) setCopyState(success ? "copied" : "fallback");
-    } catch {
-      if (attempt === copyAttemptRef.current) setCopyState("fallback");
-    }
   };
 
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -336,30 +310,10 @@ export function DiffDialog({
             <div className="empty-state empty-state--compact">
               <span className="empty-state__icon"><Icon name="check" /></span>
               <h3>Всё опубликовано</h3>
-              <p>Локальный патч пуст — копировать и применять нечего.</p>
+              <p>Локальный патч пуст — синхронизировать нечего.</p>
             </div>
           )}
 
-          {items.length ? (
-            <details className="publish-panel publish-panel--fallback">
-              <summary><Icon name="clipboard" size={14} /><span>Локальная публикация</span><small>резервный способ</small></summary>
-              <div className="publish-panel__fallback-body">
-                <p>Скопируйте патч и запустите постоянную команду в локальном клоне.</p>
-                {conflicts.length ? <p className="publish-panel__blocked"><Icon name="warning" size={17} />Сначала разрешите все конфликты.</p> : null}
-                <code className="publish-panel__command">{publishCommand}</code>
-                <button className="button button--secondary button--wide" disabled={Boolean(conflicts.length) || payloadPreparing || !payload} onClick={() => void copy()} type="button">
-                  <Icon name={copyState === "copied" ? "check" : "clipboard"} size={18} />
-                  {copyState === "copied" ? "Патч скопирован" : payloadPreparing ? "Подготавливаем патч…" : "Скопировать патч"}
-                </button>
-                {copyState === "fallback" ? (
-                  <div className="copy-fallback">
-                    <label htmlFor="publish-payload">Safari не разрешил доступ к буферу. Скопируйте патч вручную; в терминал его вставлять не нужно:</label>
-                    <textarea id="publish-payload" onFocus={(event) => event.currentTarget.select()} readOnly rows={5} value={payload} />
-                  </div>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
         </div>
 
         {(items.length || onDownloadCorruptedRaw) && onClearAll ? (

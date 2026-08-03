@@ -32,8 +32,6 @@ describe("local-only storage UI", () => {
         onImport={vi.fn()}
         open
         patchBytes={120}
-        payload=""
-        publishCommand="npm run publish:clipboard"
       />
     </>);
 

@@ -27,15 +27,6 @@
 .diff-sync-saved { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 7px 8px; }
 .diff-sync-saved > div { min-width: 150px; display: flex; flex: 1; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; }
 .diff-sync-saved > div svg { color: var(--success); }
-.publish-panel--fallback { padding: 0; border-color: var(--line-soft); background: transparent; }
-.publish-panel--fallback > summary { min-height: 30px; display: flex; align-items: center; gap: 5px; padding: 4px 7px; color: var(--muted); font-size: 10px; cursor: pointer; list-style: none; }
-.publish-panel--fallback > summary::-webkit-details-marker { display: none; }
-.publish-panel--fallback > summary::after { margin-left: auto; content: "›"; color: var(--muted-2); transform: rotate(90deg); }
-.publish-panel--fallback[open] > summary::after { transform: rotate(-90deg); }
-.publish-panel--fallback > summary small { color: var(--muted-2); font-size: 9px; }
-.publish-panel__fallback-body { padding: 0 7px 7px; border-top: 1px solid var(--line-soft); }
-.publish-panel__fallback-body > p:first-child { margin: 7px 0; color: var(--muted-2); font-size: 9px; }
-
 @keyframes diff-sync-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 500px) {
@@ -49,7 +40,6 @@
   .diff-sync-auth__input input, .diff-sync-auth__create { min-height: 44px; }
   .diff-sync-auth__remember { min-height: 44px; }
   .diff-sync-auth__remember input { width: 20px; height: 20px; }
-  .publish-panel--fallback > summary { min-height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
