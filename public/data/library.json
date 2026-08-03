@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "8c0c4108d1cc0cf97c5cbb4e052e1d968edbf3ae2a4ce7178daa6a11775d5237",
-  "publicationId": "d2d5efe8-848e-4fbf-85d7-eafe30f5f924",
+  "revision": "dbb7f9a92cb1557b6b5228d4082b081e67c150123cd9b968a45a725d08d0e5b4",
+  "publicationId": "a7156d5d-9f30-465a-8685-71555ba6b934",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4902,7 +4902,7 @@
       },
       "reviewMarkdown": "",
       "createdAt": "2026-08-01T10:28:41.801Z",
-      "updatedAt": "2026-08-02T15:00:27.360Z"
+      "updatedAt": "2026-08-03T00:56:06.715Z"
     },
     "fdddb013-33a6-4f8c-827a-cf61448c4b26": {
       "id": "fdddb013-33a6-4f8c-827a-cf61448c4b26",
@@ -7381,26 +7381,6 @@
       "createdAt": "2026-08-01T10:55:54.722Z",
       "updatedAt": "2026-08-01T14:16:47.524Z"
     },
-    "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39": {
-      "id": "c9c4c9fc-142d-42f3-aeb8-c385ae1edf39",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за уровни\n\n| Philosopher's Stone                | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [x] | [x] | [ ] | [ ] |\n| The Restricted Section | [x] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [x] | [x] | [x] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |",
-      "attachments": [],
-      "groupRank": 3072,
-      "rank": 1024,
-      "createdAt": "2026-08-01T10:31:27.916Z",
-      "updatedAt": "2026-08-02T15:00:27.360Z"
-    },
-    "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49": {
-      "id": "efcd5d1d-87d1-43a6-8bb1-79bc44f84a49",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики в Хогвартсе\n- [x] кровати 4/4 - спальня грифиндора\n- [x] гобелены 5/5 - круглый коридор\n- [x] свечей 6/6 - лоби\n- [ ] факела 8/9 - лобби\n- [x] гобелена 4/4 - перед обеденным залом\n- [ ] факелы 6/8 - коридор Снейпа\n- [x] сок 6/6 - большой зал\n- [x] почистил камни 3/3 - опушка\n- [x] скатил шар - у квидичного поля\n- [ ] ...",
-      "attachments": [],
-      "groupRank": 3072,
-      "rank": 2048,
-      "createdAt": "2026-08-01T10:36:50.310Z",
-      "updatedAt": "2026-08-02T00:45:39.578Z"
-    },
     "3bc3367b-99c8-4edc-9405-9daaf827e892": {
       "id": "3bc3367b-99c8-4edc-9405-9daaf827e892",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
@@ -7430,16 +7410,6 @@
       "rank": 2048,
       "createdAt": "2026-08-01T14:42:03.733Z",
       "updatedAt": "2026-08-01T18:04:15.454Z"
-    },
-    "5353c68d-246e-47e7-a3e6-f681c5e42d1c": {
-      "id": "5353c68d-246e-47e7-a3e6-f681c5e42d1c",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за SiP в хогварсте:\n- [x] спас из дивана в гостиной\n- [x] падал в лобби\n- [x] избивали во дворе\n- [x] перед обеденным залом\n- [x] ??? \n- [x] большой зал\n- [x] опушка\n- [ ] ...",
-      "attachments": [],
-      "groupRank": 3072,
-      "rank": 9216,
-      "createdAt": "2026-08-01T17:04:02.938Z",
-      "updatedAt": "2026-08-02T00:34:24.815Z"
     },
     "538bd693-bcae-4462-93ec-49bf1a4d902a": {
       "id": "538bd693-bcae-4462-93ec-49bf1a4d902a",
@@ -7482,20 +7452,10 @@
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
       "bodyMarkdown": "# Красные ящики\n- [x] спальня\n- [x] двор\n- [x] большой зал\n- [x] опушка\n- [ ] ...",
       "attachments": [],
-      "groupRank": 4096,
-      "rank": 1536,
-      "createdAt": "2026-08-01T15:32:29.532Z",
-      "updatedAt": "2026-08-02T00:39:15.470Z"
-    },
-    "c69cabd0-16e3-4d4b-8b58-39e8c8575be8": {
-      "id": "c69cabd0-16e3-4d4b-8b58-39e8c8575be8",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за уроки:\n\n## Заклинания\n- [x] Wingardium Leviosa\n- [x] Lumos\n- [x] Lumos Solem\n- [x] Transfiguration\n- [ ] ...\n\n## Умения\n- [x] Зелье силы\n- [x] Полеты на метле\n- [ ] ...",
-      "attachments": [],
       "groupRank": 3072,
-      "rank": 7168,
-      "createdAt": "2026-08-01T15:11:31.421Z",
-      "updatedAt": "2026-08-02T02:12:09.953Z"
+      "rank": 12288,
+      "createdAt": "2026-08-01T15:32:29.532Z",
+      "updatedAt": "2026-08-03T00:55:22.518Z"
     },
     "92399ecb-f3aa-41c2-8c64-74db3fc4da22": {
       "id": "92399ecb-f3aa-41c2-8c64-74db3fc4da22",
@@ -7516,25 +7476,21 @@
       "createdAt": "2026-08-02T00:18:27.352Z",
       "updatedAt": "2026-08-02T00:42:22.847Z"
     },
-    "8897c782-a14a-4815-ac67-c0be5d1bf452": {
-      "id": "8897c782-a14a-4815-ac67-c0be5d1bf452",
-      "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики за бонусные уровни\n- [x] Город\n- [ ] ...",
-      "attachments": [],
-      "groupRank": 3072,
-      "rank": 10240,
-      "createdAt": "2026-08-02T03:31:15.045Z",
-      "updatedAt": "2026-08-02T03:31:15.056Z"
-    },
     "d587ac40-bf45-4c12-a4b6-cd210159af2b": {
       "id": "d587ac40-bf45-4c12-a4b6-cd210159af2b",
       "gameId": "de302cfd-9467-4711-88bb-895be358b5c1",
-      "bodyMarkdown": "# Золотые кирпичики\n\n| Philosopher's Stone    | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [x] | [x] | [ ] | [ ] |\n| The Restricted Section | [x] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [x] | [x] | [x] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |\n\n- Хогвартс\n  - [x] кровати 4/4 - спальня грифиндора\n  - [x] гобелены 5/5 - круглый коридор\n  - [x] свечей 6/6 - лоби\n  - [ ] факела 8/9 - лобби\n  - [x] гобелена 4/4 - перед обеденным залом\n  - [ ] факелы 6/8 - коридор Снейпа\n  - [x] сок 6/6 - большой зал\n  - [x] почистил камни 3/3 - опушка\n  - [x] скатил шар - у квидичного поля\n\n- Уроки\n  - Заклинания\n    - [x] Wingardium Leviosa\n    - [x] Lumos\n    - [x] Lumos Solem\n    - [x] Transfiguration\n  - Умения\n    - [x] Зелье силы\n    - [x] Полеты на метле\n\n- SiP в хогварсте\n  - [x] спас из дивана в гостиной\n  - [x] падал в лобби\n  - [x] избивали во дворе\n  - [x] перед обеденным залом\n  - [x] ??? \n  - [x] большой зал\n  - [x] опушка\n\n- Бонусные уровни\n  - [x] Город",
+      "bodyMarkdown": "# Золотые кирпичики\n\n| Philosopher's Stone    | ✓   | TW  | SiP | HC  |\n|------------------------|-----|-----|-----|-----|\n| The Magic Begins       | [x] | [x] | [x] | [ ] |\n| Out of the Dungeon     | [x] | [x] | [x] | [ ] |\n| A Jinxed Broom         | [x] | [x] | [ ] | [ ] |\n| The Restricted Section | [x] | [ ] | [ ] | [ ] |\n| The Forbidden Forest   | [x] | [x] | [x] | [ ] |\n| Face of the Enemy      | [ ] | [ ] | [ ] | [ ] |\n\n- Хогвартс\n  - [x] кровати 4/4 - спальня грифиндора\n  - [x] гобелены 5/5 - круглый коридор\n  - [x] свечей 6/6 - лоби\n  - [ ] факела 8/9 - лобби\n  - [x] гобелена 4/4 - перед обеденным залом\n  - [ ] факелы 6/8 - коридор Снейпа\n  - [x] сок 6/6 - большой зал\n  - [x] почистил камни 3/3 - опушка\n  - [x] скатил шар - у квидичного поля\n  - [ ] ...\n\n- Уроки\n  - Заклинания\n    - [x] Wingardium Leviosa\n    - [x] Lumos\n    - [x] Lumos Solem\n    - [x] Transfiguration\n    - [ ] ...\n  - Умения\n    - [x] Зелье силы\n    - [x] Полеты на метле\n    - [ ] ...\n\n- SiP в хогварсте\n  - [x] спас из дивана в гостиной\n  - [x] падал в лобби\n  - [x] избивали во дворе\n  - [x] перед обеденным залом\n  - [x] ??? \n  - [x] большой зал\n  - [x] опушка\n  - [ ] ...\n\n- Бонусные уровни\n  - [x] Город\n  - [ ] ...",
       "attachments": [],
       "groupRank": 3072,
       "rank": 11264,
       "createdAt": "2026-08-02T03:34:26.150Z",
-      "updatedAt": "2026-08-02T03:39:15.626Z"
+      "updatedAt": "2026-08-03T00:56:06.715Z",
+      "collapsedChecklistSections": [
+        "group:1ea4ok-1q",
+        "group:1n5y51c-1j",
+        "group:59eavo-1g",
+        "group:v6melv-1q"
+      ]
     }
   },
   "assets": {
