@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PATCH_STORAGE_KEY,
@@ -240,6 +240,21 @@ function GitHubSyncProbe() {
     <button onClick={() => { void library.verifyGitHubAccess(GITHUB_TOKEN).then(() => setResult("connected")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Connect GitHub</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync GitHub</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
+  </div>;
+}
+
+function StorageEventOnLoadedProbe({ onLoaded }: { onLoaded: () => void }) {
+  const library = useLibrary();
+  const dispatched = useRef(false);
+  useLayoutEffect(() => {
+    if (library.loading || dispatched.current) return;
+    dispatched.current = true;
+    onLoaded();
+  }, [library.loading, onLoaded]);
+  return <div>
+    <span data-testid="queued-sync-loading">{String(library.loading)}</span>
+    <span data-testid="queued-sync-title">{library.effective.games[GAME_ID]?.title ?? "empty"}</span>
+    <span data-testid="queued-sync-pending">{String(library.pendingPublication !== null)}</span>
   </div>;
 }
 
@@ -640,6 +655,24 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-tier")).toHaveTextContent(keepPlacementPatch ? "s" : "a");
     expect(screen.getByTestId("sync-operations").textContent).toBe(keepPlacementPatch ? `/games/${GAME_ID}/placement` : "");
     expect(screen.getByTestId("sync-conflicts")).toHaveTextContent("0");
+  });
+
+  it("applies a storage event dispatched before post-load effects can subscribe", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const source = withComputedRevision(draft);
+    const committed = committedTitleDatabase(source);
+    const remaining = diffLibrary(committed, committed, { changedAt: "2026-07-17T10:02:00.000Z", transactionId: "queued-empty-patch" });
+    mockStaticDatabase(source);
+
+    render(<LibraryProvider><StorageEventOnLoadedProbe onLoaded={() => {
+      installPendingPublication(localStorage, pendingReceipt(source, committed), remaining);
+      window.dispatchEvent(new StorageEvent("storage", { key: PENDING_PUBLICATION_STORAGE_KEY }));
+    }} /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("queued-sync-loading")).toHaveTextContent("false"));
+    await waitFor(() => expect(screen.getByTestId("queued-sync-pending")).toHaveTextContent("true"));
+    expect(screen.getByTestId("queued-sync-title")).toHaveTextContent("Committed title");
   });
 
   it("commits the snapshot, switches to the committed base, and keeps only edits made after click", async () => {

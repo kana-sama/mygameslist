@@ -276,9 +276,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [attachmentWriteBlocked, setAttachmentWriteBlocked] = useState(false);
   const [localAssets, setLocalAssets] = useState<LocalAsset[]>([]);
   const [localAssetUrls, setLocalAssetUrls] = useState<Record<string, string>>({});
+  const [storageChangeVersion, setStorageChangeVersion] = useState(0);
   const localAssetUrlsRef = useRef<Record<string, string>>({});
   const undoStack = useRef<PatchEnvelope[]>([]);
   const stateRef = useRef<LibraryState | null>(null);
+  const installedStorageChangeVersionRef = useRef(0);
   const localAssetsRef = useRef<LocalAsset[]>([]);
   const persistRequestedRef = useRef(false);
   const syncInFlightRef = useRef(false);
@@ -506,8 +508,25 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [refreshLocalAssets, refreshQuota]);
 
   useEffect(() => {
-    if (!state) return;
     let timer: number | undefined;
+    const receive = (event: StorageEvent) => {
+      if (event.key !== PATCH_STORAGE_KEY && event.key !== PENDING_PUBLICATION_STORAGE_KEY) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        setStorageChangeVersion((version) => version + 1);
+      }, 0);
+    };
+    window.addEventListener("storage", receive);
+    return () => {
+      window.removeEventListener("storage", receive);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!state || installedStorageChangeVersionRef.current === storageChangeVersion) return;
+    installedStorageChangeVersionRef.current = storageChangeVersion;
     const installStoredState = () => {
       const current = stateRef.current;
       if (!current) return;
@@ -568,17 +587,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         setLibraryState({ base: current.base, effective: current.base, patch, conflicts: [], pendingPublication: null });
       }
     };
-    const receive = (event: StorageEvent) => {
-      if (event.key !== PATCH_STORAGE_KEY && event.key !== PENDING_PUBLICATION_STORAGE_KEY) return;
-      if (timer !== undefined) window.clearTimeout(timer);
-      timer = window.setTimeout(installStoredState, 0);
-    };
-    window.addEventListener("storage", receive);
-    return () => {
-      window.removeEventListener("storage", receive);
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
-  }, [setLibraryState, state?.base]);
+    installStoredState();
+  }, [setLibraryState, state, storageChangeVersion]);
 
   useEffect(() => {
     const pending = state?.pendingPublication;
