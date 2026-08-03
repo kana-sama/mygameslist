@@ -1080,47 +1080,64 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
   };
 
   let hiddenHeadingDepth: number | null = null;
-  return (
-    <div className={`markdown ${className}`}>
-      {blocks.map((block, index) => {
-        const key = `${block.type}-${index}`;
-        if (block.type === "heading") {
-          const depth = block.depth ?? 0;
-          if (hiddenHeadingDepth !== null) {
-            if (depth > hiddenHeadingDepth) return null;
-            hiddenHeadingDepth = null;
-          }
-        } else if (hiddenHeadingDepth !== null) {
-          return null;
-        }
-        if (block.type === "code") return <pre key={key}><code>{block.value}</code></pre>;
-        if (block.type === "rule") return <hr key={key} />;
-        if (block.type === "quote") {
-          return <blockquote key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</blockquote>;
-        }
-        if (block.type === "list" || block.type === "ordered-list") {
-          return renderList(block, key);
-        }
-        if (block.type === "table") return renderTable(block, key);
-        if (block.type === "heading") {
-          const children = renderInline(block.value ?? "", key);
-          const progress = block.checklistProgress;
-          const collapseId = block.collapseId;
-          const collapsed = Boolean(progress && collapseId && collapsedSections.has(collapseId));
-          if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
-          const headingClassName = progress ? `markdown-checklist-heading${!progress.open && progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
-          const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<ChecklistProgressView progress={progress} /></> : children;
-          const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
-            <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{progressChildren}</button>
-          ) : progressChildren;
-          if (block.depth === 1) return <h2 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h2>;
-          if (block.depth === 2) return <h3 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h3>;
-          return <h4 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h4>;
-        }
-        return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
-      })}
-    </div>
-  );
+  const renderBlock = (block: MarkdownBlock, index: number): ReactNode => {
+    const key = `${block.type}-${index}`;
+    if (block.type === "heading") {
+      const depth = block.depth ?? 0;
+      if (hiddenHeadingDepth !== null) {
+        if (depth > hiddenHeadingDepth) return null;
+        hiddenHeadingDepth = null;
+      }
+    } else if (hiddenHeadingDepth !== null) {
+      return null;
+    }
+    if (block.type === "code") return <pre key={key}><code>{block.value}</code></pre>;
+    if (block.type === "rule") return <hr key={key} />;
+    if (block.type === "quote") {
+      return <blockquote key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</blockquote>;
+    }
+    if (block.type === "list" || block.type === "ordered-list") {
+      return renderList(block, key);
+    }
+    if (block.type === "table") return renderTable(block, key);
+    if (block.type === "heading") {
+      const children = renderInline(block.value ?? "", key);
+      const progress = block.checklistProgress;
+      const collapseId = block.collapseId;
+      const collapsed = Boolean(progress && collapseId && collapsedSections.has(collapseId));
+      if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
+      const headingClassName = progress ? `markdown-checklist-heading${!progress.open && progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
+      const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<ChecklistProgressView progress={progress} /></> : children;
+      const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
+        <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{progressChildren}</button>
+      ) : progressChildren;
+      if (block.depth === 1) return <h2 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h2>;
+      if (block.depth === 2) return <h3 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h3>;
+      return <h4 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h4>;
+    }
+    return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
+  };
+
+  const content: ReactNode[] = [];
+  let sectionStartIndex: number | null = null;
+  let sectionChildren: ReactNode[] = [];
+  const flushSection = (): void => {
+    if (sectionStartIndex === null) return;
+    content.push(<div className="markdown-section" key={`section-${sectionStartIndex}`}>{sectionChildren}</div>);
+  };
+  blocks.forEach((block, index) => {
+    if (block.type === "heading" && block.depth === 1) {
+      flushSection();
+      sectionStartIndex = index;
+      sectionChildren = [];
+    }
+    const rendered = renderBlock(block, index);
+    if (sectionStartIndex === null) content.push(rendered);
+    else sectionChildren.push(rendered);
+  });
+  flushSection();
+
+  return <div className={`markdown ${className}`}>{content}</div>;
 }
 
 const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i;

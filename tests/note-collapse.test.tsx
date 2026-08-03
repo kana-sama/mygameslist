@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MarkdownView } from "../src/components/Markdown";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { GamePage } from "../src/pages/GamePage";
 
@@ -172,7 +173,7 @@ describe("scrollable long note cards", () => {
     const note = makeNote(
       "22222222-2222-4222-8222-222222222222",
       [
-        "# First sticky heading",
+        "# First sticky heading with a deliberately much longer title than the short second heading",
         "- [x] Root task",
         "## Nested progress heading",
         "- [ ] Nested task",
@@ -187,12 +188,27 @@ describe("scrollable long note cards", () => {
     try {
       render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
 
-      const first = screen.getByRole("heading", { name: /^First sticky heading / });
+      const first = screen.getByRole("heading", { name: /^First sticky heading with a deliberately much longer title / });
       const nested = screen.getByRole("heading", { name: /^Nested progress heading / });
       const plain = screen.getByRole("heading", { name: "Plain heading" });
       const second = screen.getByRole("heading", { name: /^Second sticky heading / });
+      const firstSection = first.closest<HTMLElement>(".markdown-section");
+      const plainSection = plain.closest<HTMLElement>(".markdown-section");
+      const secondSection = second.closest<HTMLElement>(".markdown-section");
+      const markdown = first.closest<HTMLElement>(".markdown");
       const firstStyle = getComputedStyle(first);
 
+      expect(firstSection).not.toBeNull();
+      expect(plainSection).not.toBeNull();
+      expect(secondSection).not.toBeNull();
+      expect(firstSection).not.toBe(plainSection);
+      expect(plainSection).not.toBe(secondSection);
+      expect(firstSection).toContainElement(nested);
+      expect(firstSection).toContainElement(screen.getByText("Root task"));
+      expect(firstSection).toContainElement(screen.getByText("Nested task"));
+      expect(plainSection).toContainElement(screen.getByText("No checklist in this section."));
+      expect(secondSection).toContainElement(screen.getByText("Second task"));
+      expect(Array.from(markdown?.children ?? [])).toEqual([firstSection, plainSection, secondSection]);
       expect(first.tagName).toBe("H2");
       expect(firstStyle.position).toBe("sticky");
       expect(firstStyle.top).toBe("0px");
@@ -205,9 +221,31 @@ describe("scrollable long note cards", () => {
       expect(getComputedStyle(nested).position).toBe("static");
       expect(getComputedStyle(plain).position).toBe("static");
 
-      const toggle = within(first).getByRole("button", { name: /^First sticky heading / });
+      const toggle = within(first).getByRole("button", { name: /^First sticky heading with a deliberately much longer title / });
       toggle.focus();
       expect(toggle).toHaveFocus();
+
+      const focusRule = Array.from(production.sheet?.cssRules ?? []).find((rule): rule is CSSStyleRule => (
+        rule instanceof CSSStyleRule
+        && rule.selectorText === ".note-card__viewport .markdown-section > h2.markdown-checklist-heading .markdown-checklist-heading__toggle:focus-visible"
+      ));
+      expect(focusRule?.style.outlineOffset).toBe("-2px");
+    } finally {
+      production.remove();
+    }
+  });
+
+  it("keeps top-level checklist headings static outside note viewports", () => {
+    const production = document.createElement("style");
+    production.textContent = styles;
+    document.head.append(production);
+
+    try {
+      render(<MarkdownView markdown={"# Detached progress heading\n- [ ] Detached task"} />);
+
+      const heading = screen.getByRole("heading", { name: /^Detached progress heading / });
+      expect(heading.closest(".note-card__viewport")).toBeNull();
+      expect(getComputedStyle(heading).position).toBe("static");
     } finally {
       production.remove();
     }

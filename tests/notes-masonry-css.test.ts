@@ -63,10 +63,12 @@ describe("notes shelf CSS", () => {
   });
 
   it("keeps top-level Markdown lists flush with the note content", () => {
-    expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
-    expect(declarationsFor(".markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
-    expect(declarationsFor(".markdown > ul:has(> .markdown-open-checklist-marker), .markdown > ol:has(> .markdown-open-checklist-marker)")).toMatch(/padding-inline-start:\s*0/);
-    expect(declarationsFor(".markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item)))")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown > :first-child, .markdown > .markdown-section:first-child > :first-child")).toMatch(/margin-top:\s*0/);
+    expect(declarationsFor(".markdown > :last-child, .markdown > .markdown-section:last-child > :last-child")).toMatch(/margin-bottom:\s*0/);
+    expect(declarationsFor(".markdown > ul, .markdown > ol, .markdown-section > ul, .markdown-section > ol")).toMatch(/padding-inline-start:\s*18px/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item), .markdown-section > ul:has(> .markdown-task-item), .markdown-section > ol:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-open-checklist-marker), .markdown > ol:has(> .markdown-open-checklist-marker), .markdown-section > ul:has(> .markdown-open-checklist-marker), .markdown-section > ol:has(> .markdown-open-checklist-marker)")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item)))")).toMatch(/padding-inline-start:\s*0/);
     expect(declarationsFor(".markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown-task-item")).not.toMatch(/display:\s*flex/);
     expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
