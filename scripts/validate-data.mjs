@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Runtime validation shared by the data check and the publishing CLI.
+ * Runtime validation shared by the data check and deploy/published-data validation.
  *
  * This file deliberately uses only Node built-ins: it must still be usable when
  * a freshly cloned repository has not had its npm dependencies installed yet.

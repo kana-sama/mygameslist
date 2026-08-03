@@ -124,7 +124,7 @@ export interface PatchEnvelopeV1 {
   operations: Record<string, PatchOperation>;
 }
 
-/** `blobs` is accepted only for legacy patch import and CLI transport. Browser persistence always strips it. */
+/** `blobs` supports website GitHub publication and export/import recovery. Browser persistence always strips it. */
 export interface PatchEnvelope {
   patchVersion: 2;
   schemaVersion: typeof LIBRARY_SCHEMA_VERSION;
