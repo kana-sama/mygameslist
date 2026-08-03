@@ -67,6 +67,25 @@ describe("ordered shelf layout", () => {
     ]);
   });
 
+  it("reserves two adjacent columns for a wide card", () => {
+    const layout = buildShelfLayout([120, 90, 80], 3, { columnSpans: [2, 1, 1] });
+
+    expect(layout.placements).toEqual([
+      expect.objectContaining({ index: 0, shelf: 0, column: 0, columnSpan: 2, height: 120 }),
+      expect.objectContaining({ index: 1, shelf: 0, column: 2, columnSpan: 1, height: 120 }),
+      expect.objectContaining({ index: 2, shelf: 1, column: 0, columnSpan: 1, top: 132, height: 80 }),
+    ]);
+  });
+
+  it("falls a wide card back to one column when only one is available", () => {
+    const layout = buildShelfLayout([120, 90], 1, { columnSpans: [2, 1] });
+
+    expect(layout.placements).toEqual([
+      expect.objectContaining({ index: 0, shelf: 0, column: 0, columnSpan: 1 }),
+      expect.objectContaining({ index: 1, shelf: 1, column: 0, columnSpan: 1 }),
+    ]);
+  });
+
   it("measures natural card heights without grid stretch before packing adjacent cards", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
@@ -159,6 +178,40 @@ describe("ordered shelf layout", () => {
       ["single", "1", "span 180"],
       ["single", "2", "span 180"],
       ["single", "3", "span 180"],
+    ]);
+  });
+
+  it("repacks a changed column span immediately while ordinary packing is frozen", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    const { container, rerender } = render(
+      <ShelfGrid className="notes-list" layoutKey="sizes">
+        <article data-note-id="first" key="first" />
+        <article data-note-id="second" key="second" />
+        <article data-note-id="third" key="third" />
+      </ShelfGrid>,
+    );
+    const originalCards = Array.from(container.querySelectorAll("article"));
+    expect(originalCards.map((card) => card.style.gridColumnStart)).toEqual(["1", "2", "3"]);
+
+    rerender(
+      <ShelfGrid className="notes-list" layoutKey="sizes" packingFrozen>
+        <article data-note-id="first" data-shelf-column-span="2" key="first" />
+        <article data-note-id="second" key="second" />
+        <article data-note-id="third" key="third" />
+      </ShelfGrid>,
+    );
+
+    const updatedCards = Array.from(container.querySelectorAll("article"));
+    expect(updatedCards).toEqual(originalCards);
+    expect(updatedCards.map((card) => [card.dataset.shelfIndex, card.style.gridColumnStart, card.style.gridColumnEnd])).toEqual([
+      ["0", "1", "span 2"],
+      ["0", "3", "auto"],
+      ["1", "1", "auto"],
     ]);
   });
 

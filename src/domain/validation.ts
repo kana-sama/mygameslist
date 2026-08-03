@@ -18,13 +18,13 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
-  notes: ["id", "gameId", "bodyMarkdown", "attachments", "collapsedChecklistSections", "groupRank", "rank", "createdAt", "updatedAt"],
+  notes: ["id", "gameId", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"],
-  notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "groupRank", "rank"],
+  notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
   assets: [],
 };
 
@@ -145,7 +145,7 @@ function validateGame(value: unknown, path: string, issues: ValidationIssue[]): 
 
 function validateNote(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект заметки"); return; }
-  const optionalFields = ["collapsedChecklistSections", "groupRank"];
+  const optionalFields = ["collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
   exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
   markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues);
@@ -168,6 +168,8 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
     } else issue(issues, `${attachmentPath}/type`, "Неизвестный тип вложения");
   });
   if (value.collapsedChecklistSections !== undefined) stringList(value.collapsedChecklistSections, `${path}/collapsedChecklistSections`, issues);
+  if (value.doubleHeight !== undefined && typeof value.doubleHeight !== "boolean") issue(issues, `${path}/doubleHeight`, "Ожидалось логическое значение");
+  if (value.doubleWidth !== undefined && typeof value.doubleWidth !== "boolean") issue(issues, `${path}/doubleWidth`, "Ожидалось логическое значение");
   if (value.groupRank !== undefined) rank(value.groupRank, `${path}/groupRank`, issues);
   rank(value.rank, `${path}/rank`, issues);
   isoDate(value.createdAt, `${path}/createdAt`, issues); isoDate(value.updatedAt, `${path}/updatedAt`, issues);

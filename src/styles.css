@@ -409,6 +409,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-group-add-button:disabled { opacity: .35; cursor: default; }
 .game-notes.is-file-dragging iframe, .game-notes.is-file-dragging video, .game-notes.is-file-dragging .note-attachment-image-open { pointer-events: none; }
 .note-card { position: relative; min-width: 0; height: 100%; display: block; align-self: stretch; padding: 0; border: 0; background: transparent; }
+.note-card--double-height { --note-text-height: 600px; }
 .note-card:not(.note-card--editing) { overflow: visible; }
 .note-card__surface { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 4; }
@@ -456,6 +457,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .note-editor-actions button:hover:not(:disabled), .note-editor-actions a:hover, .note-youtube-input-row button:hover, .note-attachment-remove:hover { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-editor-actions > div:first-child button:last-child:hover:not(:disabled) { color: #dc858c; }
 .note-editor-actions button:disabled { opacity: .28; cursor: default; }
+.note-editor-actions .note-editor-size-actions button[aria-pressed="true"] { color: var(--accent-strong); background: var(--accent-wash); }
 .note-editor-actions .note-editor-youtube:hover, .note-editor-actions .note-editor-youtube:focus-visible { color: #ed5656; }
 .note-attachments { display: grid; gap: 0; margin: 0; }
 .note-attachments__sequence { display: contents; }
@@ -688,6 +690,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .game-sidebar { grid-template-columns: 96px minmax(0, 1fr); column-gap: 8px; }
   .game-sidebar__meta > div { padding: 4px 0 5px; }
   .notes-list, .note-editors-grid { grid-template-columns: 1fr; }
+  .note-editor-actions { flex-wrap: wrap; }
+  .note-editor-actions .note-editor-size-actions { width: 100%; justify-content: center; order: -1; }
   .note-attachment-shell--image, .note-attachment-shell--youtube, .note-attachment-shell--video { height: 220px; }
   .note-media-gallery { height: 220px; }
   .note-media-gallery--count-5 { height: auto; }

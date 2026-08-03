@@ -11,6 +11,8 @@ export type IconName =
   | "download"
   | "drag"
   | "edit"
+  | "expand-horizontal"
+  | "expand-vertical"
   | "external"
   | "filter"
   | "gamepad"
@@ -44,6 +46,8 @@ const paths: Record<IconName, React.ReactNode> = {
   download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
   drag: <><circle cx="9" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="5" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="19" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="19" r="1" fill="currentColor" stroke="none" /></>,
   edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></>,
+  "expand-horizontal": <><rect height="14" rx="1" width="8" x="8" y="5" /><path d="M6 9 3 12l3 3M3 12h5M18 9l3 3-3 3M16 12h5" /></>,
+  "expand-vertical": <><rect height="8" rx="1" width="14" x="5" y="8" /><path d="m9 6 3-3 3 3M12 3v5M9 18l3 3 3-3M12 16v5" /></>,
   external: <><path d="M15 3h6v6" /><path d="m10 14 11-11" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></>,
   filter: <><path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" /></>,
   gamepad: <><path d="M6 10h4M8 8v4" /><path d="M15 11h.01M18 9h.01" /><path d="M6.5 5h11a4.5 4.5 0 0 1 4.2 6.1l-1.5 4A3 3 0 0 1 17.4 17H17l-2.5-2h-5L7 17h-.4a3 3 0 0 1-2.8-1.9l-1.5-4A4.5 4.5 0 0 1 6.5 5Z" /></>,

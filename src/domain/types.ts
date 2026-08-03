@@ -51,6 +51,8 @@ export interface Note {
   bodyMarkdown: string;
   attachments: NoteAttachment[];
   collapsedChecklistSections?: string[];
+  doubleHeight?: boolean;
+  doubleWidth?: boolean;
   groupRank?: number;
   rank: number;
   createdAt: string;

@@ -180,6 +180,7 @@ function NoteGroupProbe() {
     <span data-testid="group-loading">{String(library.loading)}</span>
     <span data-testid="group-rank">{currentNote?.groupRank ?? 1024}</span>
     <span data-testid="collapsed-checklists">{currentNote?.collapsedChecklistSections?.join(",") ?? "expanded"}</span>
+    <span data-testid="note-size">{currentNote ? `${currentNote.doubleHeight ? "double-height" : "normal-height"},${currentNote.doubleWidth ? "double-width" : "normal-width"}` : "missing"}</span>
     <span data-testid="group-operation-paths">{Object.keys(library.patch.operations).sort().join(",")}</span>
     <button onClick={() => {
       if (!current || !currentNote) return;
@@ -219,6 +220,30 @@ function NoteGroupProbe() {
         }],
       });
     }} type="button">Свернуть checklist</button>
+    <button onClick={() => {
+      if (!current || !currentNote) return;
+      void library.saveGame({
+        id: current.id,
+        title: current.title,
+        coverAssetId: current.coverAssetId,
+        pendingCover: null,
+        platforms: current.platforms,
+        tags: current.tags,
+        status: current.status,
+        tierId: current.placement.tierId,
+        reviewMarkdown: current.reviewMarkdown,
+        notes: [{
+          id: currentNote.id,
+          clientId: currentNote.id,
+          bodyMarkdown: currentNote.bodyMarkdown,
+          attachments: [...currentNote.attachments],
+          doubleHeight: true,
+          doubleWidth: true,
+          ...(currentNote.groupRank === undefined ? {} : { groupRank: currentNote.groupRank }),
+          rank: currentNote.rank,
+        }],
+      });
+    }} type="button">Увеличить заметку</button>
   </div>;
 }
 
@@ -327,6 +352,21 @@ describe("LibraryProvider patch reload and reconciliation", () => {
 
     await waitFor(() => expect(screen.getByTestId("collapsed-checklists")).toHaveTextContent("heading:abc"));
     expect(screen.getByTestId("group-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/collapsedChecklistSections`);
+  });
+
+  it("persists note sizes as sparse field operations", async () => {
+    const draftBase = empty();
+    draftBase.games[GAME_ID] = game("Sized note game");
+    draftBase.notes[NOTE_ID] = { id: NOTE_ID, gameId: GAME_ID, bodyMarkdown: "Guide", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    const base = withComputedRevision(draftBase);
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><NoteGroupProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("group-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Увеличить заметку" }));
+
+    await waitFor(() => expect(screen.getByTestId("note-size")).toHaveTextContent("double-height,double-width"));
+    expect(screen.getByTestId("group-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/doubleHeight,/notes/${NOTE_ID}/doubleWidth`);
   });
 
   it("migrates schema-1 game changes and drops obsolete collection operations", async () => {

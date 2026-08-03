@@ -77,6 +77,11 @@ describe("scrollable long note cards", () => {
     expect(textarea).toContain("overflow-y: auto");
   });
 
+  it("doubles the note text-height token when requested", () => {
+    const doubled = /\.note-card--double-height\s*\{([^}]*)\}/.exec(styles)?.[1] ?? "";
+    expect(doubled).toContain("--note-text-height: 600px");
+  });
+
   it("renders long and short text through the same stable scroll viewport", async () => {
     const user = userEvent.setup();
     vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(function (this: Element) {
@@ -174,6 +179,57 @@ describe("scrollable long note cards", () => {
     expect(editor).toHaveValue("Long note");
     expect(editor.closest("article")).toHaveClass("note-card--editing");
     expect(screen.queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
+  });
+
+  it("toggles and saves double height and double width from the editor footer", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const note = makeNote("22222222-2222-4222-8222-222222222222", "Resizable note", 1024);
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+    const viewCard = screen.getByText("Resizable note").closest<HTMLElement>("article")!;
+    await user.click(within(viewCard).getByRole("button", { name: "Редактировать заметку" }));
+
+    const heightButton = screen.getByRole("button", { name: "Двойная высота заметки" });
+    const widthButton = screen.getByRole("button", { name: "Двойная ширина заметки" });
+    expect(heightButton).toHaveAttribute("aria-pressed", "false");
+    expect(widthButton).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(heightButton);
+    await user.click(widthButton);
+    const editorCard = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
+    expect(heightButton).toHaveAttribute("aria-pressed", "true");
+    expect(widthButton).toHaveAttribute("aria-pressed", "true");
+    expect(editorCard).toHaveClass("note-card--double-height", "note-card--double-width");
+    expect(editorCard).toHaveAttribute("data-shelf-column-span", "2");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ doubleHeight: true, doubleWidth: true });
+  });
+
+  it("restores saved note sizes in view and lets the editor turn them off", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const note: Note = { ...makeNote("22222222-2222-4222-8222-222222222222", "Saved size", 1024), doubleHeight: true, doubleWidth: true };
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+    const viewCard = screen.getByText("Saved size").closest<HTMLElement>("article")!;
+    expect(viewCard).toHaveClass("note-card--double-height", "note-card--double-width");
+    expect(viewCard).toHaveAttribute("data-shelf-column-span", "2");
+
+    await user.click(within(viewCard).getByRole("button", { name: "Редактировать заметку" }));
+    const heightButton = screen.getByRole("button", { name: "Двойная высота заметки" });
+    const widthButton = screen.getByRole("button", { name: "Двойная ширина заметки" });
+    expect(heightButton).toHaveAttribute("aria-pressed", "true");
+    expect(widthButton).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(heightButton);
+    await user.click(widthButton);
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0]).not.toHaveProperty("doubleHeight");
+    expect(onSave.mock.calls[0][0].notes[0]).not.toHaveProperty("doubleWidth");
   });
 
   it("keeps attachments, either editor branch, and the footer in flow order", async () => {

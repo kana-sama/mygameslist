@@ -77,6 +77,16 @@ describe("library validation", () => {
     database.notes[NOTE_ID] = note(-1);
     expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/groupRank` }));
   });
+
+  it("accepts optional note sizes and rejects non-boolean values", () => {
+    const database = empty(); database.games[GAME_ID] = game();
+    database.notes[NOTE_ID] = { ...note(), doubleHeight: true, doubleWidth: true };
+    expect(validateLibrary(database).ok).toBe(true);
+
+    const invalid = structuredClone(database) as unknown as { notes: Record<string, Record<string, unknown>> };
+    invalid.notes[NOTE_ID].doubleWidth = 2;
+    expect(validateLibrary(invalid).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/doubleWidth` }));
+  });
 });
 
 describe("patch lifecycle", () => {
@@ -146,6 +156,22 @@ describe("patch lifecycle", () => {
     const expandPatch = diffLibrary(published, expanded, { changedAt: NOW, transactionId: "expand-checklists" });
     expect(expandPatch.operations[`/notes/${NOTE_ID}/collapsedChecklistSections`]).toMatchObject({ operation: "delete", baseExists: true });
     expect(applyPatch(published, expandPatch).notes[NOTE_ID]).not.toHaveProperty("collapsedChecklistSections");
+  });
+
+  it("publishes note size changes as sparse field operations", () => {
+    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const current = structuredClone(base);
+    current.notes[NOTE_ID].doubleHeight = true;
+    current.notes[NOTE_ID].doubleWidth = true;
+
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "resize-note" });
+
+    expect(Object.keys(patch.operations).sort()).toEqual([
+      `/notes/${NOTE_ID}/doubleHeight`,
+      `/notes/${NOTE_ID}/doubleWidth`,
+    ]);
+    expect(validatePatch(patch).ok).toBe(true);
+    expect(applyPatch(base, patch).notes[NOTE_ID]).toMatchObject({ doubleHeight: true, doubleWidth: true });
   });
 
   it("requires root set values to use the entity ID from their operation path", () => {
