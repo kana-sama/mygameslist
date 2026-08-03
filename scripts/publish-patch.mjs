@@ -48,7 +48,7 @@ const MEDIA_FILE_RE = /^[0-9a-f]{64}\.(?:webp|mp4|bin)$/;
 const PROTOTYPE_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const FIELDS = {
   games: new Set(["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"]),
-  notes: new Set(["bodyMarkdown", "attachments", "collapsedChecklistSections", "groupRank", "rank"]),
+  notes: new Set(["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"]),
   assets: new Set(),
 };
 const JJ_NO_AUTO_TRACK = ["--config", 'snapshot.auto-track="none()"'];

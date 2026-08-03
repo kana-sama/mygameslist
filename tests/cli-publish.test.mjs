@@ -360,6 +360,65 @@ Images:
     expect(buildCommitMessage(database, result).body).toContain("collapsed checklists");
   });
 
+  it("accepts optional boolean note size fields", () => {
+    const database = emptyDatabase();
+    database.games[GAME_ID] = game();
+    database.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "# Route", {
+      doubleHeight: false,
+      doubleWidth: true,
+    });
+    database.revision = computeRevision(database);
+
+    expect(() => validateLibrary(database)).not.toThrow();
+  });
+
+  it.each(["doubleHeight", "doubleWidth"])("rejects non-boolean %s note size values", (field) => {
+    const database = emptyDatabase();
+    database.games[GAME_ID] = game();
+    database.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "# Route", {
+      [field]: "yes",
+    });
+    database.revision = computeRevision(database);
+
+    expect(() => validateLibrary(database)).toThrow(new RegExp(`${field}.*must be a boolean`));
+  });
+
+  it("validates and applies note size field operations", () => {
+    const database = emptyDatabase();
+    database.games[GAME_ID] = game();
+    database.notes[DUCKTALES_NOTE_ID] = note(DUCKTALES_NOTE_ID, GAME_ID, "# Route");
+    database.revision = computeRevision(database);
+    const patch = {
+      patchVersion: 2,
+      schemaVersion: 2,
+      baseRevision: database.revision,
+      operations: {
+        [`/notes/${DUCKTALES_NOTE_ID}/doubleHeight`]: {
+          operation: "set",
+          value: true,
+          baseExists: false,
+          baseHash: MISSING_VALUE_HASH,
+          changedAt: NOW,
+          transactionId: TRANSACTION_ID,
+        },
+        [`/notes/${DUCKTALES_NOTE_ID}/doubleWidth`]: {
+          operation: "set",
+          value: true,
+          baseExists: false,
+          baseHash: MISSING_VALUE_HASH,
+          changedAt: NOW,
+          transactionId: TRANSACTION_ID,
+        },
+      },
+      blobs: {},
+    };
+
+    expect(() => validatePatchEnvelope(patch, database)).not.toThrow();
+    const result = applyPatch(database, patch);
+    expect(result.notes[DUCKTALES_NOTE_ID]).toMatchObject({ doubleHeight: true, doubleWidth: true });
+    expect(() => validateLibrary(result)).not.toThrow();
+  });
+
   it("bounds and sanitizes commit messages for large patches", () => {
     const before = emptyDatabase();
     const after = emptyDatabase();
