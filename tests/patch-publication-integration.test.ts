@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  applyPatch,
   diffLibrary,
   reconcilePatch,
   withComputedRevision,
@@ -10,7 +11,6 @@ import {
   type Note,
   type PatchEnvelope,
 } from "../src/domain";
-import { applyPatch as applyCliPatchUntyped } from "../scripts/publish-patch.mjs";
 
 const EXISTING_GAME_ID = "00000000-0000-4000-8000-000000000001";
 const NEW_GAME_ID = "00000000-0000-4000-8000-000000000002";
@@ -21,8 +21,6 @@ const TX_2 = "00000000-0000-4000-8000-000000000006";
 const CREATED_AT = "2026-07-17T10:00:00.000Z";
 const T1 = "2026-07-17T10:01:00.000Z";
 const T2 = "2026-07-17T10:02:00.000Z";
-
-const applyCliPatch = applyCliPatchUntyped as (database: LibraryDatabase, patch: PatchEnvelope) => LibraryDatabase;
 
 function emptyDatabase(): LibraryDatabase {
   return withComputedRevision({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
@@ -72,7 +70,7 @@ describe("browser patch publication lifecycle", () => {
     expect(operationValue(patch, `/notes/${NOTE_A_ID}`).updatedAt).toBe(T1);
     expect(operationValue(patch, `/notes/${NOTE_B_ID}`).updatedAt).toBe(T1);
 
-    const published = applyCliPatch(base, patch);
+    const published = applyPatch(base, patch);
     const reconciled = reconcilePatch(published, patch);
 
     expect(reconciled.conflicts).toEqual([]);
@@ -80,7 +78,7 @@ describe("browser patch publication lifecycle", () => {
     expect(reconciled.prunedCount).toBe(3);
   });
 
-  it("publishes a note group move through the CLI patch path", () => {
+  it("publishes a note group move through the domain patch path", () => {
     const draftBase = emptyDatabase();
     draftBase.games[NEW_GAME_ID] = game(NEW_GAME_ID, "New game");
     draftBase.notes[NOTE_A_ID] = note(NOTE_A_ID, "Grouped note");
@@ -90,7 +88,7 @@ describe("browser patch publication lifecycle", () => {
     const patch = diffLibrary(base, local, { changedAt: T1, transactionId: TX_1 });
 
     expect(Object.keys(patch.operations)).toEqual([`/notes/${NOTE_A_ID}/groupRank`]);
-    const published = applyCliPatch(base, patch);
+    const published = applyPatch(base, patch);
     expect(published.notes[NOTE_A_ID].groupRank).toBe(2048);
     expect(reconcilePatch(published, patch)).toMatchObject({ conflicts: [], patch: { operations: {} } });
   });
@@ -110,7 +108,7 @@ describe("browser patch publication lifecycle", () => {
     expect(secondPatch.operations[`/notes/${NOTE_A_ID}`].changedAt).toBe(T1);
     expect(secondPatch.operations[`/notes/${NOTE_B_ID}`].changedAt).toBe(T2);
 
-    const published = applyCliPatch(base, secondPatch);
+    const published = applyPatch(base, secondPatch);
     expect(published.games[NEW_GAME_ID].updatedAt).toBe(T2);
     expect(published.notes[NOTE_A_ID].updatedAt).toBe(T1);
     expect(published.notes[NOTE_B_ID].updatedAt).toBe(T2);
@@ -152,7 +150,7 @@ describe("browser patch publication lifecycle", () => {
     expect(retained.operations[`/games/${NEW_GAME_ID}`]).toEqual(legacyPatch.operations[`/games/${NEW_GAME_ID}`]);
     expect(retained.operations[`/notes/${NOTE_A_ID}`]).toEqual(legacyPatch.operations[`/notes/${NOTE_A_ID}`]);
 
-    const published = applyCliPatch(base, legacyPatch);
+    const published = applyPatch(base, legacyPatch);
     expect(published.games[NEW_GAME_ID].updatedAt).toBe(T2);
     expect(reconcilePatch(published, legacyPatch)).toMatchObject({ conflicts: [], patch: { operations: {} } });
 
