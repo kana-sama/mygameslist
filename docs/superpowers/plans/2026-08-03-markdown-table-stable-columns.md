@@ -4,7 +4,7 @@
 
 **Goal:** Keep Markdown table column widths identical to the fully expanded layout when a table group is collapsed, including after loading a saved collapsed state.
 
-**Architecture:** Preserve the existing React markup and collapse-state flow. Change only the collapsed table-row-group CSS so the rows participate in intrinsic table sizing while taking no rendered height, then verify the behavior with the existing CSS regression test and a real Chromium layout check.
+**Architecture:** Preserve the existing React markup and collapse-state flow. Change only the collapsed table-row-group CSS so the rows participate in intrinsic table sizing while taking no rendered height, then verify the computed CSS behavior in JSDOM and the actual column layout in Chromium.
 
 **Tech Stack:** React 19, TypeScript 7, CSS table layout, Vitest 4, Testing Library, Vite, in-app Chromium browser, Jujutsu.
 
@@ -21,7 +21,7 @@
 
 ## File Structure
 
-- Modify `tests/notes-masonry-css.test.ts`: encode the required CSS contract for collapsed Markdown table row groups.
+- Modify `tests/notes-masonry-css.test.ts`: apply the production stylesheet to a hidden table row group and assert its computed collapsed-layout behavior.
 - Modify `src/styles.css`: keep a hidden table group in table layout with collapsed visibility.
 
 ### Task 1: Preserve intrinsic column sizing for collapsed groups
@@ -34,40 +34,59 @@
 **Interfaces:**
 
 - Consumes: the existing `.markdown-table-group__content[hidden]` selector and the `hidden={collapsed}` attribute emitted by `MarkdownView`.
-- Produces: `.markdown-table-group__content[hidden] { display: table-row-group; visibility: collapse; }`, which remains a table sizing participant while occupying no row-group height.
+- Produces: `.markdown-table-group__content[hidden] { display: table-row-group!important; visibility: collapse; }`, which overrides the user-agent `hidden` display while preserving hidden semantics and keeps the row group as a table sizing participant with no rendered height.
 
-- [ ] **Step 1: Write the failing CSS regression assertion**
+- [ ] **Step 1: Write the failing computed-style regression test**
 
-In the existing test named `frames Markdown tables with compact collapsible group headings`, replace the old hidden-group assertion:
+Remove the source-text assertion below from the existing test named `frames Markdown tables with compact collapsible group headings`:
 
 ```ts
 expect(hiddenGroup).toMatch(/display:\s*none/);
 ```
 
-with the complete collapsed-layout contract:
+Also remove the now-unused `hiddenGroup` local from that test. Add this separate behavior test after it:
 
 ```ts
-expect(hiddenGroup).toMatch(/display:\s*table-row-group/);
-expect(hiddenGroup).toMatch(/visibility:\s*collapse/);
-expect(hiddenGroup).not.toMatch(/display:\s*none/);
+it("keeps collapsed table groups in table layout", () => {
+  const baseline = document.createElement("style");
+  baseline.textContent = ".markdown-table-group__content[hidden] { display: block; visibility: visible; }";
+  const production = document.createElement("style");
+  production.textContent = styles;
+  const table = document.createElement("table");
+  table.innerHTML = '<tbody class="markdown-table-group__content" hidden><tr><td>Wide value</td></tr></tbody>';
+  document.head.append(baseline, production);
+  document.body.append(table);
+
+  try {
+    const group = table.querySelector<HTMLElement>(".markdown-table-group__content")!;
+    expect(getComputedStyle(group).display).toBe("table-row-group");
+    expect(getComputedStyle(group).visibility).toBe("collapse");
+  } finally {
+    table.remove();
+    baseline.remove();
+    production.remove();
+  }
+});
 ```
+
+The baseline rule makes both expectations independent: retaining `display: none` fails the display assertion, while omitting `visibility: collapse` leaves the computed visibility as `visible` and fails the visibility assertion.
 
 - [ ] **Step 2: Run the targeted test and verify the new assertion fails**
 
 Run:
 
 ```bash
-npm test -- tests/notes-masonry-css.test.ts -t "frames Markdown tables with compact collapsible group headings"
+npm test -- tests/notes-masonry-css.test.ts -t "keeps collapsed table groups in table layout"
 ```
 
-Expected: FAIL because the current rule contains `display: none` and does not contain `display: table-row-group` or `visibility: collapse`.
+Expected: FAIL with computed `display` equal to `none` instead of `table-row-group`.
 
 - [ ] **Step 3: Implement the minimal table-layout fix**
 
 Replace the current rule in `src/styles.css` with:
 
 ```css
-.markdown-table-group__content[hidden] { display: table-row-group; visibility: collapse; }
+.markdown-table-group__content[hidden] { display: table-row-group!important; visibility: collapse; }
 ```
 
 Do not modify `src/components/Markdown.tsx`; its existing `hidden` attribute continues to provide the collapsed semantics and persisted-state behavior.
@@ -77,7 +96,7 @@ Do not modify `src/components/Markdown.tsx`; its existing `hidden` attribute con
 Run:
 
 ```bash
-npm test -- tests/notes-masonry-css.test.ts -t "frames Markdown tables with compact collapsible group headings"
+npm test -- tests/notes-masonry-css.test.ts -t "keeps collapsed table groups in table layout"
 npm test -- tests/markdown-tasks.test.tsx -t "collapses table groups independently"
 ```
 
