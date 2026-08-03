@@ -243,6 +243,87 @@ describe("Markdown tasks", () => {
     expect(screen.getAllByRole("row")).toHaveLength(6);
   });
 
+  it("collapses table groups independently", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "| Stage | Main | Secret |",
+      "| --- | --- | --- |",
+      "| Philosopher's Stone |",
+      "| --- | --- | --- |",
+      "| Start | [x] | [ ] |",
+      "| --- | --- | --- |",
+      "| Chamber of Secrets |",
+      "| --- | --- | --- |",
+      "| Dobby | [x] | [x] |",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+    });
+    view = render(
+      <MarkdownView
+        collapsedChecklistSections={collapsed}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^Philosopher's Stone / }));
+
+    const stone = screen.getByRole("button", { name: /^Philosopher's Stone / });
+    expect(stone).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: "Снять отметку: Start — Main" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Dobby — Main" })).toBeInTheDocument();
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0]).toMatch(/^table-group:/);
+  });
+
+  it("keeps table-group ids stable when unrelated text is inserted", () => {
+    const markdown = [
+      "| Stage | Complete |",
+      "| --- | --- |",
+      "| Reference |",
+      "| --- | --- |",
+      "| Prologue | [ ] |",
+    ].join("\n");
+    const onChange = vi.fn();
+    const view = render(<MarkdownView markdown={markdown} onCollapsedChecklistSectionsChange={onChange} />);
+    const firstToggle = screen.getByRole("button", { name: /^Reference / });
+    const firstId = firstToggle.closest(".markdown-table-group")?.getAttribute("data-checklist-section-id");
+
+    view.rerender(<MarkdownView markdown={`Unrelated introduction.\n\n${markdown}`} onCollapsedChecklistSectionsChange={onChange} />);
+
+    const stableToggle = screen.getByRole("button", { name: /^Reference / });
+    expect(stableToggle.closest(".markdown-table-group")).toHaveAttribute("data-checklist-section-id", firstId);
+  });
+
+  it("lets table groups without tasks collapse without showing progress", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "| Stage | Notes |",
+      "| --- | --- |",
+      "| Reference |",
+      "| --- | --- |",
+      "| Prologue | Read later |",
+    ].join("\n");
+    const onChange = vi.fn();
+    render(<MarkdownView markdown={markdown} onCollapsedChecklistSectionsChange={onChange} />);
+    const toggle = screen.getByRole("button", { name: "Reference" });
+    const collapseId = toggle.closest(".markdown-table-group")?.getAttribute("data-checklist-section-id");
+    expect(toggle.querySelector(".markdown-checklist-progress")).toBeNull();
+
+    await user.click(toggle);
+    expect(onChange).toHaveBeenCalledWith([collapseId]);
+  });
+
   it("updates only the selected grouped-table task and completes its group", async () => {
     const user = userEvent.setup();
     let currentMarkdown = [
@@ -643,6 +724,28 @@ describe("Markdown tasks", () => {
     );
     expect(screen.getByRole("button", { name: /^Nintendo Classics / })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("checkbox", { name: "Снять отметку: Finished" })).not.toBeInTheDocument();
+  });
+
+  it("saves a collapsed table group as note state", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const bodyMarkdown = [
+      "| Stage | Complete |",
+      "| --- | --- |",
+      "| Philosopher's Stone |",
+      "| --- | --- |",
+      "| Intro | [ ] |",
+    ].join("\n");
+    const note = makeNote(bodyMarkdown);
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+    await user.click(screen.getByRole("button", { name: /^Philosopher's Stone / }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const savedNote = onSave.mock.calls[0][0].notes[0];
+    expect(savedNote.bodyMarkdown).toBe(bodyMarkdown);
+    expect(savedNote.collapsedChecklistSections).toHaveLength(1);
+    expect(savedNote.collapsedChecklistSections?.[0]).toMatch(/^table-group:/);
   });
 
   it("keeps a checklist section expanded when saving its collapse state fails", async () => {

@@ -477,6 +477,21 @@ function annotateChecklistGroupIds(block: MarkdownBlock, parentPath: string, occ
   }
 }
 
+function annotateTableGroupIds(block: MarkdownBlock, parentPath: string, occurrences: Map<string, number>): void {
+  const table = block.table;
+  if (!table) return;
+  const headerLabel = table.headers.map((header) => normalizedCollapsePathPart(header.value)).join("\u0000");
+  const tablePath = nextCollapsePath(`${parentPath}\u0000table\u0000${headerLabel}`, occurrences);
+  for (const section of table.sections) {
+    if (section.type !== "group") continue;
+    const groupPath = nextCollapsePath(
+      `${tablePath}\u0000group\u0000${normalizedCollapsePathPart(section.title.value)}`,
+      occurrences,
+    );
+    section.collapseId = `table-group:${hashCollapsePath(groupPath)}`;
+  }
+}
+
 export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
   const parts = markdown.split(/(\r\n?|\n)/);
   const lineIndex = sourceLine * 2;
@@ -669,6 +684,9 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     if (block.type !== "list" && block.type !== "ordered-list" && block.type !== "table") continue;
 
+    if (block.type === "table") {
+      annotateTableGroupIds(block, activeHeadings[activeHeadings.length - 1]?.path ?? "root", collapsePathOccurrences);
+    }
     const progress = getChecklistProgress(block);
     if (progress.total === 0 && !progress.open) continue;
     if (block.type === "list" || block.type === "ordered-list") {
@@ -806,6 +824,11 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
   for (const block of blocks) {
     if (block.type === "heading" && block.checklistProgress && block.collapseId) validCollapseIds.add(block.collapseId);
     if (block.type === "list" || block.type === "ordered-list") collectListCollapseIds(block);
+    if (block.type === "table") {
+      for (const section of block.table?.sections ?? []) {
+        if (section.type === "group" && section.collapseId) validCollapseIds.add(section.collapseId);
+      }
+    }
   }
   const toggleChecklistSection = (collapseId: string): void => {
     if (!onCollapsedChecklistSectionsChange || taskChangesDisabled) return;
@@ -1011,22 +1034,44 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
             }
             const progress = section.checklistProgress;
             const complete = Boolean(progress && progress.total > 0 && progress.checked === progress.total);
+            const collapseId = section.collapseId;
+            const collapsed = Boolean(collapseId && collapsedSections.has(collapseId));
+            const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
+            const groupKey = `${key}-group-${section.titleSourceLine}`;
+            const headerChildren = <>
+              <span className="markdown-table-group__title">
+                {renderInline(section.title.value, `${groupKey}-title`)}
+              </span>{" "}
+              {progress ? <ChecklistProgressView progress={progress} /> : null}
+            </>;
             return (
-              <tbody
-                className={`markdown-table-group${complete ? " markdown-table-group--complete" : ""}`}
-                data-markdown-source-line={section.titleSourceLine}
-                key={`${key}-group-${section.titleSourceLine}`}
-              >
-                <tr className="markdown-table-group__heading">
-                  <th colSpan={table.headers.length} scope="rowgroup">
-                    <div className="markdown-table-group__header">
-                      <span className="markdown-table-group__title">{renderInline(section.title.value, `${key}-group-${section.titleSourceLine}-title`)}</span>
-                      {progress ? <ChecklistProgressView progress={progress} /> : null}
-                    </div>
-                  </th>
-                </tr>
-                {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, `${key}-group-${section.titleSourceLine}`))}
-              </tbody>
+              <Fragment key={groupKey}>
+                <tbody
+                  className={`markdown-table-group${complete ? " markdown-table-group--complete" : ""}`}
+                  data-checklist-section-id={collapseId}
+                  data-markdown-source-line={section.titleSourceLine}
+                >
+                  <tr className="markdown-table-group__heading">
+                    <th colSpan={table.headers.length} scope="rowgroup">
+                      {onCollapsedChecklistSectionsChange && collapseId ? (
+                        <button
+                          aria-controls={contentId}
+                          aria-expanded={!collapsed}
+                          className="markdown-table-group__header markdown-checklist-toggle"
+                          disabled={taskChangesDisabled}
+                          onClick={() => toggleChecklistSection(collapseId)}
+                          type="button"
+                        >
+                          {headerChildren}
+                        </button>
+                      ) : <div className="markdown-table-group__header">{headerChildren}</div>}
+                    </th>
+                  </tr>
+                </tbody>
+                <tbody className="markdown-table-group__content" hidden={collapsed} id={contentId}>
+                  {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, groupKey))}
+                </tbody>
+              </Fragment>
             );
           })}
         </table>
