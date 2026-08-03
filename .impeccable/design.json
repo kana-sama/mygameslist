@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-03T12:28:46Z",
+  "title": "Design System: Моя игровая библиотека",
+  "extensions": {
+    "colorMeta": {
+      "workbench-black": {
+        "role": "neutral",
+        "displayName": "Чёрный верстака",
+        "canonical": "#111214",
+        "tonalRamp": ["oklch(15% 0.006 260)", "oklch(25% 0.006 260)", "oklch(35% 0.006 260)", "oklch(45% 0.006 260)", "oklch(58% 0.006 260)", "oklch(72% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"]
+      },
+      "surface-base": {
+        "role": "neutral",
+        "displayName": "Базовая поверхность",
+        "canonical": "#17181b",
+        "tonalRamp": ["oklch(15% 0.006 260)", "oklch(25% 0.006 260)", "oklch(35% 0.006 260)", "oklch(45% 0.006 260)", "oklch(58% 0.006 260)", "oklch(72% 0.006 260)", "oklch(84% 0.006 260)", "oklch(95% 0.006 260)"]
+      },
+      "surface-middle": {
+        "role": "neutral",
+        "displayName": "Средняя поверхность",
+        "canonical": "#1c1d21",
+        "tonalRamp": ["oklch(15% 0.007 260)", "oklch(25% 0.007 260)", "oklch(35% 0.007 260)", "oklch(45% 0.007 260)", "oklch(58% 0.007 260)", "oklch(72% 0.007 260)", "oklch(84% 0.007 260)", "oklch(95% 0.007 260)"]
+      },
+      "surface-active": {
+        "role": "neutral",
+        "displayName": "Активная поверхность",
+        "canonical": "#24262a",
+        "tonalRamp": ["oklch(15% 0.008 260)", "oklch(25% 0.008 260)", "oklch(35% 0.008 260)", "oklch(45% 0.008 260)", "oklch(58% 0.008 260)", "oklch(72% 0.008 260)", "oklch(84% 0.008 260)", "oklch(95% 0.008 260)"]
+      },
+      "field-black": {
+        "role": "neutral",
+        "displayName": "Углублённое поле",
+        "canonical": "#0e0f11",
+        "tonalRamp": ["oklch(15% 0.005 260)", "oklch(25% 0.005 260)", "oklch(35% 0.005 260)", "oklch(45% 0.005 260)", "oklch(58% 0.005 260)", "oklch(72% 0.005 260)", "oklch(84% 0.005 260)", "oklch(95% 0.005 260)"]
+      },
+      "structural-line": {
+        "role": "neutral",
+        "displayName": "Структурная линия",
+        "canonical": "#35373c",
+        "tonalRamp": ["oklch(15% 0.008 260)", "oklch(25% 0.008 260)", "oklch(35% 0.008 260)", "oklch(45% 0.008 260)", "oklch(58% 0.008 260)", "oklch(72% 0.008 260)", "oklch(84% 0.008 260)", "oklch(95% 0.008 260)"]
+      },
+      "soft-divider": {
+        "role": "neutral",
+        "displayName": "Мягкий разделитель",
+        "canonical": "#292b2f",
+        "tonalRamp": ["oklch(15% 0.007 260)", "oklch(25% 0.007 260)", "oklch(35% 0.007 260)", "oklch(45% 0.007 260)", "oklch(58% 0.007 260)", "oklch(72% 0.007 260)", "oklch(84% 0.007 260)", "oklch(95% 0.007 260)"]
+      },
+      "primary-text": {
+        "role": "neutral",
+        "displayName": "Основной текст",
+        "canonical": "#e7e7e9",
+        "tonalRamp": ["oklch(15% 0.004 260)", "oklch(25% 0.004 260)", "oklch(35% 0.004 260)", "oklch(45% 0.004 260)", "oklch(58% 0.004 260)", "oklch(72% 0.004 260)", "oklch(84% 0.004 260)", "oklch(95% 0.004 260)"]
+      },
+      "secondary-text": {
+        "role": "neutral",
+        "displayName": "Вторичный текст",
+        "canonical": "#a2a4aa",
+        "tonalRamp": ["oklch(15% 0.008 260)", "oklch(25% 0.008 260)", "oklch(35% 0.008 260)", "oklch(45% 0.008 260)", "oklch(58% 0.008 260)", "oklch(72% 0.008 260)", "oklch(84% 0.008 260)", "oklch(95% 0.008 260)"]
+      },
+      "tertiary-text": {
+        "role": "neutral",
+        "displayName": "Третичный текст",
+        "canonical": "#74777e",
+        "tonalRamp": ["oklch(15% 0.01 260)", "oklch(25% 0.01 260)", "oklch(35% 0.01 260)", "oklch(45% 0.01 260)", "oklch(58% 0.01 260)", "oklch(72% 0.01 260)", "oklch(84% 0.01 260)", "oklch(95% 0.01 260)"]
+      },
+      "instrumental-blue": {
+        "role": "primary",
+        "displayName": "Инструментальный синий",
+        "canonical": "#6c9fc8",
+        "tonalRamp": ["oklch(15% 0.075 240)", "oklch(25% 0.075 240)", "oklch(35% 0.075 240)", "oklch(45% 0.075 240)", "oklch(58% 0.075 240)", "oklch(72% 0.075 240)", "oklch(84% 0.075 240)", "oklch(95% 0.075 240)"]
+      },
+      "instrumental-blue-strong": {
+        "role": "primary",
+        "displayName": "Сильный инструментальный синий",
+        "canonical": "#83b4dc",
+        "tonalRamp": ["oklch(15% 0.08 240)", "oklch(25% 0.08 240)", "oklch(35% 0.08 240)", "oklch(45% 0.08 240)", "oklch(58% 0.08 240)", "oklch(72% 0.08 240)", "oklch(84% 0.08 240)", "oklch(95% 0.08 240)"]
+      },
+      "instrumental-blue-wash": {
+        "role": "primary",
+        "displayName": "Инструментальная дымка",
+        "canonical": "rgba(108, 159, 200, 0.12)",
+        "tonalRamp": ["oklch(15% 0.075 240 / 0.12)", "oklch(25% 0.075 240 / 0.12)", "oklch(35% 0.075 240 / 0.12)", "oklch(45% 0.075 240 / 0.12)", "oklch(58% 0.075 240 / 0.12)", "oklch(72% 0.075 240 / 0.12)", "oklch(84% 0.075 240 / 0.12)", "oklch(95% 0.075 240 / 0.12)"]
+      },
+      "danger-rose": {
+        "role": "semantic",
+        "displayName": "Разрушительный розовый",
+        "canonical": "#d8767e",
+        "tonalRamp": ["oklch(15% 0.09 20)", "oklch(25% 0.09 20)", "oklch(35% 0.09 20)", "oklch(45% 0.09 20)", "oklch(58% 0.09 20)", "oklch(72% 0.09 20)", "oklch(84% 0.09 20)", "oklch(95% 0.09 20)"]
+      },
+      "warning-amber": {
+        "role": "semantic",
+        "displayName": "Предупреждающий янтарный",
+        "canonical": "#c8a260",
+        "tonalRamp": ["oklch(15% 0.08 80)", "oklch(25% 0.08 80)", "oklch(35% 0.08 80)", "oklch(45% 0.08 80)", "oklch(58% 0.08 80)", "oklch(72% 0.08 80)", "oklch(84% 0.08 80)", "oklch(95% 0.08 80)"]
+      },
+      "success-green": {
+        "role": "semantic",
+        "displayName": "Подтверждённый зелёный",
+        "canonical": "#6fa686",
+        "tonalRamp": ["oklch(15% 0.07 150)", "oklch(25% 0.07 150)", "oklch(35% 0.07 150)", "oklch(45% 0.07 150)", "oklch(58% 0.07 150)", "oklch(72% 0.07 150)", "oklch(84% 0.07 150)", "oklch(95% 0.07 150)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Заголовок самостоятельной страницы или формы." },
+      "headline": { "displayName": "Headline", "purpose": "Название игры и крупный локальный заголовок." },
+      "title": { "displayName": "Title", "purpose": "Название сущности в плотной карточке или списке." },
+      "body": { "displayName": "Body", "purpose": "Базовый рабочий текст интерфейса." },
+      "reading": { "displayName": "Reading", "purpose": "Markdown-заметки и непрерывное чтение." },
+      "control": { "displayName": "Control", "purpose": "Кнопки и короткие интерактивные подписи." },
+      "label": { "displayName": "Label", "purpose": "Категории, метаданные и компактные служебные подписи." },
+      "mono": { "displayName": "Mono", "purpose": "Прогресс, команды и технические значения." }
+    },
+    "shadows": [
+      { "name": "floating-tool", "value": "0 10px 30px rgba(0, 0, 0, 0.32)", "purpose": "Меню и компактные элементы, физически отделившиеся от потока." },
+      { "name": "search-popover", "value": "0 14px 34px rgba(0, 0, 0, 0.48)", "purpose": "Результаты глобального поиска над плотным каталогом." },
+      { "name": "side-panel", "value": "-12px 0 30px rgba(0, 0, 0, 0.36)", "purpose": "Боковой modal diff; никогда не применяется к обычной карточке." },
+      { "name": "drag-preview", "value": "0 10px 28px rgba(0, 0, 0, 0.4)", "purpose": "Объект, временно поднятый во время перетаскивания." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "120ms ease", "purpose": "Hover, focus, появление локальных действий и изменение opacity." },
+      { "name": "activity-spin", "value": "800ms linear", "purpose": "Только непрерывная индикация загрузки или вращение кнопки случайной игры." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "1180px" },
+      { "name": "desktop-compact", "value": "980px" },
+      { "name": "tablet", "value": "720px" },
+      { "name": "single-column", "value": "640px" },
+      { "name": "phone", "value": "500px" },
+      { "name": "phone-compact", "value": "440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Единственное главное действие в компактной группе.",
+      "html": "<button class=\"ds-button-primary\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M12 5v14M5 12h14\"/></svg>Добавить игру</button>",
+      "css": ".ds-button-primary { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 10px; border: 1px solid #527d9f; border-radius: 5px; color: #f7fbff; background: #416d8f; font: 500 12px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; cursor: pointer; transition: background 120ms ease, border-color 120ms ease; } .ds-button-primary svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; } .ds-button-primary:hover { border-color: #6896ba; background: #4b789a; } .ds-button-primary:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; } .ds-button-primary:active { background: #38617f; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Обычное рабочее действие без конкуренции с primary.",
+      "html": "<button class=\"ds-button-secondary\">Экспортировать</button>",
+      "css": ".ds-button-secondary { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--line, #35373c); border-radius: 5px; color: #d5d6da; background: var(--surface-2, #1c1d21); font: 500 12px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; cursor: pointer; transition: background 120ms ease, border-color 120ms ease; } .ds-button-secondary:hover { border-color: #4a4d53; background: var(--surface-3, #24262a); } .ds-button-secondary:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; } .ds-button-secondary:active { background: #292b30; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Низкий акцент для отмены, закрытия и вторичных инструментов.",
+      "html": "<button class=\"ds-button-ghost\">Отмена</button>",
+      "css": ".ds-button-ghost { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid transparent; border-radius: 5px; color: var(--muted, #a2a4aa); background: transparent; font: 500 12px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; cursor: pointer; transition: color 120ms ease, background 120ms ease; } .ds-button-ghost:hover { color: var(--text, #e7e7e9); background: rgba(255, 255, 255, 0.045); } .ds-button-ghost:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; } .ds-button-ghost:active { background: rgba(255, 255, 255, 0.07); }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Глобальный поиск как компактный углублённый инструмент.",
+      "html": "<label class=\"ds-search-field\"><span class=\"ds-search-label\">Глобальный поиск игр</span><span class=\"ds-search-shell\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"m20 20-4-4\"/></svg><input aria-label=\"Глобальный поиск игр\" placeholder=\"Поиск игр…\" /></span></label>",
+      "css": ".ds-search-field { display: inline-grid; gap: 4px; color: var(--text, #e7e7e9); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; } .ds-search-label { color: var(--muted-2, #74777e); font-size: 9px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; } .ds-search-shell { min-width: 250px; min-height: 32px; display: flex; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--line, #35373c); border-radius: 5px; color: var(--muted, #a2a4aa); background: var(--field, #0e0f11); } .ds-search-shell:focus-within { border-color: var(--accent, #6c9fc8); box-shadow: 0 0 0 2px var(--accent-wash, rgba(108, 159, 200, 0.12)); } .ds-search-shell svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; } .ds-search-shell input { min-width: 0; flex: 1; padding: 0; border: 0; outline: 0; color: var(--text, #e7e7e9); background: transparent; font: inherit; font-size: 12px; line-height: 1.4; }"
+    },
+    {
+      "name": "Active Navigation",
+      "kind": "nav",
+      "refersTo": "active-nav",
+      "description": "Активный раздел отмечается линией, а не залитой вкладкой.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Основная навигация\"><a class=\"ds-nav-link is-active\" href=\"#\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"M4 19.5A2.5 2.5 0 0 1 6.5 17H20\"/><path d=\"M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z\"/></svg>Тирлист</a><a class=\"ds-nav-link\" href=\"#\">Каталог</a></nav>",
+      "css": ".ds-nav { height: 44px; display: inline-flex; align-items: stretch; gap: 1px; color: var(--text, #e7e7e9); background: var(--bg, #111214); font: 400 13px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; } .ds-nav-link { min-height: 30px; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; color: var(--muted, #a2a4aa); text-decoration: none; } .ds-nav-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; } .ds-nav-link:hover { color: var(--text, #e7e7e9); background: rgba(255, 255, 255, 0.035); } .ds-nav-link:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: -2px; } .ds-nav-link.is-active { color: var(--text, #e7e7e9); box-shadow: inset 0 -2px var(--accent, #6c9fc8); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Текстовый статус с семантической линией; цвет никогда не работает один.",
+      "html": "<span class=\"ds-status-chip\">Играю</span>",
+      "css": ".ds-status-chip { width: max-content; display: inline-flex; align-items: center; padding: 2px 5px; border: 1px solid #3e6177; border-radius: 3px; color: #8abbd9; background: transparent; font: 600 9px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; }"
+    },
+    {
+      "name": "Catalog Game Card",
+      "kind": "card",
+      "refersTo": "catalog-card",
+      "description": "Регулярная строка каталога: фиксированная обложка, гибкая иерархия текста.",
+      "html": "<article class=\"ds-game-card\"><span class=\"ds-game-cover\" aria-hidden=\"true\"></span><div class=\"ds-game-body\"><strong>Castlevania: Symphony of the Night</strong><small>Sony PlayStation</small><span class=\"ds-game-status\">Платина</span></div></article>",
+      "css": ".ds-game-card { width: 420px; max-width: 100%; min-height: 86px; display: grid; grid-template-columns: 84px minmax(0, 1fr); overflow: hidden; border: 1px solid var(--line-soft, #292b2f); border-radius: 5px; color: var(--text, #e7e7e9); background: var(--surface, #17181b); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; transition: background 120ms ease, border-color 120ms ease; } .ds-game-card:hover { border-color: #44474d; background: var(--surface-2, #1c1d21); } .ds-game-card:focus-within { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; } .ds-game-cover { min-height: 84px; background: linear-gradient(145deg, #171922, #67768c 44%, #a2685f 45%, #211820 76%); } .ds-game-body { min-width: 0; display: flex; align-items: flex-start; justify-content: center; flex-direction: column; padding: 8px 9px; } .ds-game-body strong { overflow: hidden; max-width: 100%; font-size: 13px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; } .ds-game-body small { margin-top: 2px; color: var(--muted-2, #74777e); font-size: 10px; } .ds-game-status { margin-top: 5px; padding: 2px 5px; border: 1px solid #687d84; border-radius: 3px; color: #c7d9de; font-size: 9px; font-weight: 600; }"
+    },
+    {
+      "name": "Local Patch Pill",
+      "kind": "custom",
+      "refersTo": "patch-pill",
+      "description": "Постоянная компактная сводка локального состояния без тостов.",
+      "html": "<button class=\"ds-patch-pill\"><span class=\"ds-patch-dot\" aria-hidden=\"true\"></span><span>Локальные правки</span><strong>3</strong><small>18 КБ</small></button>",
+      "css": ".ds-patch-pill { min-height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border: 1px solid var(--line, #35373c); border-radius: 5px; color: var(--muted, #a2a4aa); background: var(--surface, #17181b); font: 400 13px/1.4 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; cursor: pointer; } .ds-patch-pill:hover { color: var(--text, #e7e7e9); border-color: #484b51; background: var(--surface-2, #1c1d21); } .ds-patch-pill:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; } .ds-patch-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success, #6fa686); } .ds-patch-pill strong { min-width: 18px; padding: 0 4px; border-radius: 3px; color: var(--text, #e7e7e9); background: var(--surface-3, #24262a); font-size: 10px; text-align: center; } .ds-patch-pill small { color: var(--muted-2, #74777e); font-size: 10px; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Tier Row",
+      "kind": "custom",
+      "refersTo": "tier-row",
+      "description": "Горизонтальный ранг с фиксированной меткой и квадратными обложками слева направо.",
+      "html": "<section class=\"ds-tier-row\" aria-label=\"S\"><strong class=\"ds-tier-label\">S</strong><div class=\"ds-tier-games\"><span class=\"ds-tier-cover ds-tier-cover-one\"></span><span class=\"ds-tier-cover ds-tier-cover-two\"></span><span class=\"ds-tier-cover ds-tier-cover-three\"></span></div></section>",
+      "css": ".ds-tier-row { width: 480px; max-width: 100%; min-height: 72px; display: grid; grid-template-columns: 34px minmax(0, 1fr); overflow: hidden; color: var(--text, #e7e7e9); background: var(--bg, #111214); } .ds-tier-row:focus-within { box-shadow: inset 0 0 0 1px var(--accent, #6c9fc8); } .ds-tier-label { display: grid; place-items: center; color: #161719; background: #bd7379; font: 750 14px/1 -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; } .ds-tier-games { display: flex; align-items: flex-start; overflow: hidden; } .ds-tier-cover { width: 72px; height: 72px; flex: 0 0 72px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.09); } .ds-tier-cover-one { background: linear-gradient(135deg, #153743, #6a8b98 45%, #d0d8d9 46%, #212d32 80%); } .ds-tier-cover-two { background: linear-gradient(145deg, #17151b, #6e6a86 45%, #aa685d 46%, #241a22 78%); } .ds-tier-cover-three { background: radial-gradient(circle at 70% 30%, #d1a864, #4d7781 28%, #182932 62%, #111214 63%); }"
+    },
+    {
+      "name": "Hierarchical Diff Group",
+      "kind": "custom",
+      "refersTo": "diff-group",
+      "description": "Проверка от группы к сущности, полю и значению перед публикацией.",
+      "html": "<section class=\"ds-diff-group\"><header><span class=\"ds-diff-icon\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m5 12 4 4L19 6\"/></svg></span><strong>Изменено</strong><span class=\"ds-diff-count\">2</span></header><ul><li><div><strong>Hollow Knight</strong><span>Статус · Играю → Пройдено</span></div><button aria-label=\"Отменить изменение Hollow Knight\">×</button></li><li><div><strong>Outer Wilds</strong><span>Заметка · текст изменён</span></div><button aria-label=\"Отменить изменение Outer Wilds\">×</button></li></ul></section>",
+      "css": ".ds-diff-group { width: 420px; max-width: 100%; overflow: hidden; border: 1px solid var(--line-soft, #292b2f); border-radius: 5px; color: var(--text, #e7e7e9); background: var(--surface, #17181b); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', sans-serif; } .ds-diff-group > header { min-height: 38px; display: flex; align-items: center; gap: 6px; padding: 4px 7px; border-bottom: 1px solid var(--line-soft, #292b2f); } .ds-diff-group > header > strong { font-size: 12px; } .ds-diff-icon { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--line, #35373c); border-radius: 4px; color: var(--success, #6fa686); background: var(--surface-2, #1c1d21); } .ds-diff-icon svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; } .ds-diff-count { min-width: 17px; margin-left: auto; padding: 0 4px; border-radius: 3px; color: var(--muted, #a2a4aa); background: var(--surface-3, #24262a); font-size: 9px; text-align: center; } .ds-diff-group ul { margin: 0; padding: 0; list-style: none; } .ds-diff-group li { display: flex; align-items: center; gap: 7px; padding: 7px; border-top: 1px solid rgba(255, 255, 255, 0.035); } .ds-diff-group li:first-child { border-top: 0; } .ds-diff-group li > div { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 1px; } .ds-diff-group li strong { font-size: 11px; } .ds-diff-group li span { overflow: hidden; color: var(--muted, #a2a4aa); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; } .ds-diff-group li button { width: 26px; height: 26px; border: 0; border-radius: 4px; color: var(--muted, #a2a4aa); background: transparent; cursor: pointer; } .ds-diff-group li button:hover { color: var(--text, #e7e7e9); background: rgba(255, 255, 255, 0.055); } .ds-diff-group li button:focus-visible { outline: 2px solid var(--accent-strong, #83b4dc); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Рабочий стол коллекционера",
+    "overview": "Интерфейс — это личная рабочая поверхность, где инструменты находятся рядом с материалом: обложками, статусами, заметками, файлами и diff. Он сдержанный, плотный и утилитарный. Выразительность дают реальные игровые обложки и несколько точных статусных цветов; оболочка остаётся тихой, чтобы большая коллекция читалась быстро.\n\nПлотность строится не из хаотичного заполнения пространства, а из регулярной сетки, устойчивого порядка чтения и повторяемой иерархии. Пустое место используется как структурный зазор, а не как декоративная роскошь. Интерфейс рассчитан на опытного владельца: безопасные действия не требуют страховочного диалога и не создают тост, который пересказывает только что сделанное.",
+    "keyCharacteristics": [
+      "Тёмная почти чёрная рабочая плоскость с тонкими тональными слоями.",
+      "Регулярные компактные сетки и списки с предсказуемым порядком чтения.",
+      "Инструментальный синий только для действий, выбора, фокуса и ссылок.",
+      "Малые радиусы, тонкие границы и минимальная декоративная глубина.",
+      "Игровые обложки несут визуальную индивидуальность; оболочка не конкурирует с ними.",
+      "Иерархичный diff важнее уведомлений о завершённых безопасных действиях."
+    ],
+    "rules": [
+      { "name": "The Tool Signal Rule", "body": "Инструментальный синий сообщает «с этим можно взаимодействовать» или «это выбрано»; он не используется как декоративная заливка больших поверхностей.", "section": "colors" },
+      { "name": "The Cover Leads Rule", "body": "Насыщенные цвета принадлежат обложкам и вложениям. Интерфейсная оболочка не пытается собрать из них вторую палитру.", "section": "colors" },
+      { "name": "The Compression without Confusion Rule", "body": "Мелкие подписи допустимы только как вторичная метаинформация; название сущности и текущее действие всегда остаются на более сильной ступени.", "section": "typography" },
+      { "name": "The Stable Column Rule", "body": "Числа, счётчики, ранги и прогресс используют табличные цифры или моноширинную роль, чтобы изменение значения не ломало визуальный порядок.", "section": "typography" },
+      { "name": "The Ordered Density Rule", "body": "Сначала задайте строку, колонку и порядок чтения, затем утилизируйте оставшееся место. Нельзя повышать плотность ценой скачущей masonry-геометрии или неоднозначного следующего элемента.", "section": "layout" },
+      { "name": "The Aligned Evidence Rule", "body": "В diff заголовок группы, количество, сущность, поле и изменение образуют устойчивые вложенные уровни; сравниваемые значения выравниваются на общей сетке.", "section": "layout" },
+      { "name": "The Flat Work Surface Rule", "body": "Если элемент остаётся в документном потоке, его отделяют тон и линия, а не тень. Тень означает реальное наложение или перенос.", "section": "elevation" },
+      { "name": "The Small Geometry Rule", "body": "Радиус показывает масштаб элемента, но не делает рабочий интерфейс мягким или «дружелюбным» ради самого тона.", "section": "shapes" },
+      { "name": "The Trust the Operator Rule", "body": "Безопасное и обратимое действие завершается молча и сразу. Подтверждение используется для удаления; тост нужен только если появляется новая информация, которую нельзя прочитать из изменившегося состояния.", "section": "components" },
+      { "name": "The Diff before Publish Rule", "body": "Публикация никогда не маскирует состав изменения одной общей кнопкой: иерархичный diff остаётся основной поверхностью проверки.", "section": "components" }
+    ],
+    "dos": [
+      "Do заполняйте доступное место регулярными колонками, строками и выровненными группами.",
+      "Do сохраняйте фиксированный порядок чтения даже у карточек и заметок разной высоты.",
+      "Do используйте инструментальный синий для действия, выбора, ссылки и фокуса.",
+      "Do делайте diff вложенным и сканируемым от группы к сущности, полю и значению.",
+      "Do подтверждайте удаление данных, включая очистку всего локального патча.",
+      "Do позволяйте обложкам и реальным вложениям быть самым насыщенным содержимым экрана."
+    ],
+    "donts": [
+      "Don't используйте masonry или свободное визуальное пакование, которое ломает предсказуемый следующий элемент.",
+      "Don't добавляйте декоративное пустое место, oversized-заголовки или широкие промо-блоки в рабочие поверхности.",
+      "Don't превращайте продукт в социальную сеть: никаких публичных реакций, профилей, лент активности или социального визуального языка.",
+      "Don't показывайте тост, который только повторяет безопасное действие, уже видимое в интерфейсе.",
+      "Don't спрашивайте подтверждение для безопасного обратимого действия.",
+      "Don't добавляйте тени потоковым карточкам и кнопкам или использовать инструментальный синий как фоновое украшение."
+    ]
+  }
+}
