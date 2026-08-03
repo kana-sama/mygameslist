@@ -452,6 +452,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card__viewport-frame::after { content: "Прокрутить ↓"; bottom: 0; height: 38px; align-items: flex-end; padding-bottom: 4px; color: var(--muted); background: linear-gradient(to bottom, rgba(20, 21, 24, 0), #141518 72%); font-size: 9px; letter-spacing: .02em; }
 .note-card__viewport-frame.can-scroll-up::before, .note-card__viewport-frame.can-scroll-down::after { opacity: 1; }
 .note-card__content > .markdown { padding: 6px; }
+.note-card__viewport .markdown > h2.markdown-checklist-heading { position: sticky; z-index: 3; top: 0; margin-inline: -6px; padding-inline: 6px; background: #141518; }
+.note-card__viewport .markdown > h2.markdown-checklist-heading .markdown-checklist-heading__toggle:focus-visible { outline-offset: -2px; }
 .note-card__actions { position: absolute; z-index: 3; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__actions button:hover:not(:disabled), .note-card__actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }

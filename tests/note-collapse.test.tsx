@@ -165,6 +165,54 @@ describe("scrollable long note cards", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
+  it("sticks only top-level checklist headings inside note viewports", () => {
+    const production = document.createElement("style");
+    production.textContent = styles;
+    document.head.append(production);
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      [
+        "# First sticky heading",
+        "- [x] Root task",
+        "## Nested progress heading",
+        "- [ ] Nested task",
+        "# Plain heading",
+        "No checklist in this section.",
+        "# Second sticky heading",
+        "- [ ] Second task",
+      ].join("\n"),
+      1024,
+    );
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+
+      const first = screen.getByRole("heading", { name: /^First sticky heading / });
+      const nested = screen.getByRole("heading", { name: /^Nested progress heading / });
+      const plain = screen.getByRole("heading", { name: "Plain heading" });
+      const second = screen.getByRole("heading", { name: /^Second sticky heading / });
+      const firstStyle = getComputedStyle(first);
+
+      expect(first.tagName).toBe("H2");
+      expect(firstStyle.position).toBe("sticky");
+      expect(firstStyle.top).toBe("0px");
+      expect(firstStyle.zIndex).toBe("3");
+      expect(firstStyle.backgroundColor).toBe("rgb(20, 21, 24)");
+      expect(firstStyle.marginInline).toBe("-6px");
+      expect(firstStyle.paddingInline).toBe("6px");
+      expect(getComputedStyle(second).position).toBe("sticky");
+      expect(nested.tagName).toBe("H3");
+      expect(getComputedStyle(nested).position).toBe("static");
+      expect(getComputedStyle(plain).position).toBe("static");
+
+      const toggle = within(first).getByRole("button", { name: /^First sticky heading / });
+      toggle.focus();
+      expect(toggle).toHaveFocus();
+    } finally {
+      production.remove();
+    }
+  });
+
   it("opens inline editing only from the note footer", async () => {
     const user = userEvent.setup();
     const note = makeNote("22222222-2222-4222-8222-222222222222", "Long note", 1024);
