@@ -65,10 +65,23 @@ describe("notes shelf CSS", () => {
   it("keeps top-level Markdown lists flush with the note content", () => {
     expect(declarationsFor(".markdown > ul, .markdown > ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item)")).toMatch(/padding-inline-start:\s*0/);
+    expect(declarationsFor(".markdown > ul:has(> .markdown-open-checklist-marker), .markdown > ol:has(> .markdown-open-checklist-marker)")).toMatch(/padding-inline-start:\s*0/);
     expect(declarationsFor(".markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item)))")).toMatch(/padding-inline-start:\s*0/);
     expect(declarationsFor(".markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol")).toMatch(/padding-inline-start:\s*18px/);
     expect(declarationsFor(".markdown-task-item")).not.toMatch(/display:\s*flex/);
     expect(declarationsFor(".markdown-task-row")).toMatch(/display:\s*flex/);
+  });
+
+  it("reveals keyboard-accessible checklist edit affordances on hover and focus", () => {
+    const button = declarationsFor(".markdown-task-edit-button");
+    const reveal = declarationsFor(".markdown-task-row:hover > .markdown-task-edit-button, .markdown-task-row:focus-within > .markdown-task-edit-button");
+
+    expect(button).toMatch(/opacity:\s*0/);
+    expect(button).toMatch(/cursor:\s*pointer/);
+    expect(reveal).toMatch(/opacity:\s*1/);
+    expect(declarationsFor(".markdown-task-edit-button:focus-visible")).toMatch(/outline:\s*1px solid var\(--accent\)/);
+    expect(declarationsFor(".markdown-open-checklist-add")).toMatch(/color:\s*var\(--muted-2\)/);
+    expect(styles).toMatch(/@media \(pointer: coarse\)[\s\S]*?\.markdown-task-edit-button \{[^}]*opacity:\s*1/);
   });
 
   it("keeps Markdown tables compact and scrollable inside narrow notes", () => {

@@ -330,6 +330,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown p, .markdown ul, .markdown ol { margin-top: .55em; margin-bottom: .55em; }
 .markdown > ul, .markdown > ol { padding-inline-start: 18px; }
 .markdown > ul:has(> .markdown-task-item), .markdown > ol:has(> .markdown-task-item) { padding-inline-start: 0; }
+.markdown > ul:has(> .markdown-open-checklist-marker), .markdown > ol:has(> .markdown-open-checklist-marker) { padding-inline-start: 0; }
 .markdown > ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))) { padding-inline-start: 0; }
 .markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol { margin-top: .15em; margin-bottom: .15em; padding-inline-start: 18px; border-inline-start: 1px solid var(--line-soft); }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
@@ -376,6 +377,17 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-task-checkbox:checked { accent-color: var(--success); }
 .markdown-task-checkbox:disabled { cursor: default; }
 .markdown-task-control:has(.markdown-task-checkbox:disabled) { cursor: default; }
+.markdown-task-content { min-width: 0; flex: 1; }
+.markdown-task-edit-button { width: 20px; height: 18px; display: grid; flex: 0 0 auto; place-items: center; padding: 0; border: 0; border-radius: 3px; opacity: 0; color: var(--muted-2); background: transparent; cursor: pointer; }
+.markdown-task-row:hover > .markdown-task-edit-button, .markdown-task-row:focus-within > .markdown-task-edit-button { opacity: 1; }
+.markdown-task-edit-button:hover { color: var(--text); background: var(--surface-2); }
+.markdown-task-edit-button:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.markdown-task-inline-input { width: 100%; min-width: 72px; height: 20px; padding: 1px 4px; border: 1px solid var(--line); border-radius: 3px; color: var(--text); background: var(--field); font: inherit; line-height: 1.2; }
+.markdown-task-inline-input:focus { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -1px; }
+.markdown-open-checklist-marker { list-style: none; }
+.markdown-open-checklist-add { min-height: 18px; padding: 0 4px; border: 0; border-radius: 3px; color: var(--muted-2); background: transparent; font: inherit; font-size: .9em; cursor: pointer; }
+.markdown-open-checklist-add:hover { color: var(--text); background: var(--surface-2); }
+.markdown-open-checklist-add:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .markdown-task-item--checked > .markdown-task-row > .markdown-task-content { color: var(--success); }
 .markdown-task-item--checked > .markdown-task-row > .markdown-task-content a { color: inherit; }
 .markdown-empty { margin: 0; color: var(--muted-2); font-size: 11px; font-style: italic; }
@@ -698,6 +710,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
   .markdown-task-row { min-height: 44px; align-items: center; }
   .markdown-task-control { width: 44px; height: 44px; margin-inline: -12px; }
   .markdown-task-checkbox { width: 18px; height: 18px; }
+  .markdown-task-edit-button { width: 44px; height: 44px; margin-inline: -8px; opacity: 1; }
+  .markdown-open-checklist-add { min-height: 44px; }
   button, summary, .button, .filter-menu__panel label { min-width: 44px; min-height: 44px; }
   .note-editor-actions a { min-width: 44px; min-height: 44px; }
   .note-youtube-input-row { grid-template-columns: minmax(0, 1fr) 44px 44px; }

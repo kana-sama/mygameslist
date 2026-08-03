@@ -1,4 +1,5 @@
-import { forwardRef, Fragment, useId, useMemo, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { forwardRef, Fragment, useEffect, useId, useMemo, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
 
 function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
@@ -55,12 +56,18 @@ interface MarkdownBlock {
 
 interface ChecklistProgress {
   checked: number;
+  open: boolean;
   total: number;
 }
 
 interface MarkdownListItem {
   value: string;
+  firstLineValue: string;
+  openMarker: boolean;
   sourceLine: number;
+  sourceLineStart: number;
+  sourceTextEnd: number;
+  sourceTextStart: number;
   taskChecked?: boolean;
   children: MarkdownBlock[];
   checklistProgress?: ChecklistProgress;
@@ -93,6 +100,31 @@ interface ParsedListLine {
   contentIndent: number;
   type: "list" | "ordered-list";
   value: string;
+  valueColumn: number;
+}
+
+interface MarkdownSourceLine {
+  content: string;
+  eol: string;
+  start: number;
+}
+
+function splitMarkdownSourceLines(value: string): MarkdownSourceLine[] {
+  const lines: MarkdownSourceLine[] = [];
+  let start = 0;
+
+  while (start <= value.length) {
+    let end = start;
+    while (end < value.length && value[end] !== "\r" && value[end] !== "\n") end += 1;
+    const eol = end < value.length
+      ? value[end] === "\r" && value[end + 1] === "\n" ? "\r\n" : value[end]
+      : "";
+    lines.push({ content: value.slice(start, end), eol, start });
+    if (!eol) break;
+    start = end + eol.length;
+  }
+
+  return lines;
 }
 
 function indentationWidth(value: string, initialWidth = 0): number {
@@ -111,10 +143,12 @@ function parseListLine(line: string): ParsedListLine | null {
     contentIndent: indentationWidth(match[3], indent + match[2].length),
     type: /^\d/.test(match[2]) ? "ordered-list" : "list",
     value: match[4],
+    valueColumn: match[1].length + match[2].length + match[3].length,
   };
 }
 
-function parseList(lines: string[], startIndex: number, minimumIndent = 0): { block: MarkdownBlock; nextIndex: number } {
+function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: number, minimumIndent = 0): { block: MarkdownBlock; nextIndex: number } {
+  const lines = sourceLines.map((line) => line.content);
   const firstLine = parseListLine(lines[startIndex]);
   if (!firstLine) throw new Error("Expected a Markdown list line");
 
@@ -127,9 +161,15 @@ function parseList(lines: string[], startIndex: number, minimumIndent = 0): { bl
 
     const sourceLine = index;
     const task = TASK_MARKER.exec(line.value);
+    const sourceTextStart = sourceLines[index].start + line.valueColumn + (task?.[0].length ?? 0);
     const item: MarkdownListItem = {
       value: task ? line.value.slice(task[0].length) : line.value,
+      firstLineValue: task ? line.value.slice(task[0].length) : line.value,
+      openMarker: false,
       sourceLine,
+      sourceLineStart: sourceLines[index].start,
+      sourceTextEnd: sourceLines[index].start + sourceLines[index].content.length,
+      sourceTextStart,
       taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
       children: [],
     };
@@ -138,7 +178,7 @@ function parseList(lines: string[], startIndex: number, minimumIndent = 0): { bl
     while (index < lines.length) {
       const childLine = parseListLine(lines[index]);
       if (childLine?.indent !== undefined && childLine.indent >= line.contentIndent) {
-        const child = parseList(lines, index, line.contentIndent);
+        const child = parseList(sourceLines, index, line.contentIndent);
         item.children.push(child.block);
         index = child.nextIndex;
         continue;
@@ -166,6 +206,9 @@ function parseList(lines: string[], startIndex: number, minimumIndent = 0): { bl
 
     block.items?.push(item);
   }
+
+  const lastItem = block.items?.at(-1);
+  if (lastItem?.taskChecked === false && lastItem.value.trim() === "...") lastItem.openMarker = true;
 
   return { block, nextIndex: index };
 }
@@ -285,28 +328,30 @@ function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
         if (cell.taskChecked) progress.checked += 1;
       }
       return progress;
-    }, { checked: 0, total: 0 });
+    }, { checked: 0, open: false, total: 0 });
     block.checklistProgress = tableProgress.total > 0 ? tableProgress : undefined;
     return tableProgress;
   }
 
   const blockProgress = (block.items ?? []).reduce<ChecklistProgress>((progress, item) => {
-    const itemProgress: ChecklistProgress = { checked: 0, total: 0 };
-    if (item.taskChecked !== undefined) {
+    const itemProgress: ChecklistProgress = { checked: 0, open: item.openMarker, total: 0 };
+    if (item.taskChecked !== undefined && !item.openMarker) {
       itemProgress.total += 1;
       if (item.taskChecked) itemProgress.checked += 1;
     }
     for (const child of item.children) {
       const childProgress = getChecklistProgress(child);
       itemProgress.checked += childProgress.checked;
+      itemProgress.open ||= childProgress.open;
       itemProgress.total += childProgress.total;
     }
-    item.checklistProgress = itemProgress.total > 0 ? itemProgress : undefined;
+    item.checklistProgress = itemProgress.total > 0 || itemProgress.open ? itemProgress : undefined;
     progress.checked += itemProgress.checked;
+    progress.open ||= itemProgress.open;
     progress.total += itemProgress.total;
     return progress;
-  }, { checked: 0, total: 0 });
-  block.checklistProgress = blockProgress.total > 0 ? blockProgress : undefined;
+  }, { checked: 0, open: false, total: 0 });
+  block.checklistProgress = blockProgress.total > 0 || blockProgress.open ? blockProgress : undefined;
   return blockProgress;
 }
 
@@ -367,8 +412,86 @@ function setMarkdownTableTaskChecked(markdown: string, sourceLine: number, sourc
   return parts.join("");
 }
 
+function markdownSingleLine(value: string): string {
+  return value.replace(/\r\n|\r|\n/g, " ");
+}
+
+function findListItem(
+  blocks: readonly MarkdownBlock[],
+  sourceLine: number,
+  predicate: (item: MarkdownListItem) => boolean,
+): MarkdownListItem | null {
+  const findInBlock = (block: MarkdownBlock): MarkdownListItem | null => {
+    for (const item of block.items ?? []) {
+      if (item.sourceLine === sourceLine && predicate(item)) return item;
+      for (const child of item.children) {
+        const match = findInBlock(child);
+        if (match) return match;
+      }
+    }
+    return null;
+  };
+
+  for (const block of blocks) {
+    const match = findInBlock(block);
+    if (match) return match;
+  }
+  return null;
+}
+
+function preferredMarkdownEol(lines: readonly MarkdownSourceLine[], lineIndex: number): string {
+  if (lines[lineIndex]?.eol) return lines[lineIndex].eol;
+  for (let index = lineIndex - 1; index >= 0; index -= 1) {
+    if (lines[index].eol) return lines[index].eol;
+  }
+  for (let index = lineIndex + 1; index < lines.length; index += 1) {
+    if (lines[index].eol) return lines[index].eol;
+  }
+  return "\n";
+}
+
+export function insertMarkdownOpenChecklistItem(markdown: string, markerSourceLine: number, value: string): string {
+  const singleLineValue = markdownSingleLine(value);
+  if (!singleLineValue.trim()) return markdown;
+
+  const marker = findListItem(parseBlocks(markdown), markerSourceLine, (item) => item.openMarker);
+  const sourceLines = splitMarkdownSourceLines(markdown);
+  const sourceLine = sourceLines[markerSourceLine];
+  if (
+    !marker
+    || !sourceLine
+    || marker.sourceLineStart !== sourceLine.start
+    || marker.sourceTextEnd !== sourceLine.start + sourceLine.content.length
+    || markdown.slice(marker.sourceTextStart, marker.sourceTextEnd).trim() !== "..."
+  ) return markdown;
+
+  const prefix = markdown.slice(marker.sourceLineStart, marker.sourceTextStart);
+  const insertedLine = `${prefix}${singleLineValue}${preferredMarkdownEol(sourceLines, markerSourceLine)}`;
+  return `${markdown.slice(0, marker.sourceLineStart)}${insertedLine}${markdown.slice(marker.sourceLineStart)}`;
+}
+
+export function setMarkdownTaskItemText(markdown: string, sourceLine: number, value: string): string {
+  const item = findListItem(
+    parseBlocks(markdown),
+    sourceLine,
+    (candidate) => candidate.taskChecked !== undefined && !candidate.openMarker,
+  );
+  if (
+    !item
+    || item.sourceTextStart < item.sourceLineStart
+    || item.sourceTextEnd < item.sourceTextStart
+    || markdown.slice(item.sourceTextStart, item.sourceTextEnd) !== item.firstLineValue
+  ) return markdown;
+
+  const singleLineValue = markdownSingleLine(value);
+  const prefix = markdown.slice(item.sourceLineStart, item.sourceTextStart);
+  const missingTaskSeparator = Boolean(singleLineValue) && prefix.endsWith("]");
+  return `${markdown.slice(0, item.sourceTextStart)}${missingTaskSeparator ? " " : ""}${singleLineValue}${markdown.slice(item.sourceTextEnd)}`;
+}
+
 function parseBlocks(markdown: string): MarkdownBlock[] {
-  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const sourceLines = splitMarkdownSourceLines(markdown);
+  const lines = sourceLines.map((line) => line.content);
   const blocks: MarkdownBlock[] = [];
   let index = 0;
 
@@ -402,7 +525,7 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
       continue;
     }
     if (parseListLine(line)) {
-      const list = parseList(lines, index);
+      const list = parseList(sourceLines, index);
       blocks.push(list.block);
       index = list.nextIndex;
       continue;
@@ -456,13 +579,14 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     if (block.type !== "list" && block.type !== "ordered-list" && block.type !== "table") continue;
 
     const progress = getChecklistProgress(block);
-    if (progress.total === 0) continue;
+    if (progress.total === 0 && !progress.open) continue;
     if (block.type === "list" || block.type === "ordered-list") {
       annotateChecklistGroupIds(block, activeHeadings[activeHeadings.length - 1]?.path ?? "root", collapsePathOccurrences);
     }
     for (const { block: heading } of activeHeadings) {
-      const headingProgress = heading.checklistProgress ?? { checked: 0, total: 0 };
+      const headingProgress = heading.checklistProgress ?? { checked: 0, open: false, total: 0 };
       headingProgress.checked += progress.checked;
+      headingProgress.open ||= progress.open;
       headingProgress.total += progress.total;
       heading.checklistProgress = headingProgress;
     }
@@ -472,7 +596,10 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
 }
 
 export function hasMarkdownTasks(markdown: string): boolean {
-  return parseBlocks(markdown).some((block) => getChecklistProgress(block).total > 0);
+  return parseBlocks(markdown).some((block) => {
+    const progress = getChecklistProgress(block);
+    return progress.total > 0 || progress.open;
+  });
 }
 
 function markdownLabel(source: string): string {
@@ -488,7 +615,7 @@ function getTableRowProgress(row: MarkdownTableRow): ChecklistProgress {
     progress.total += 1;
     if (cell.taskChecked) progress.checked += 1;
     return progress;
-  }, { checked: 0, total: 0 });
+  }, { checked: 0, open: false, total: 0 });
 }
 
 export interface MarkdownViewProps {
@@ -501,9 +628,80 @@ export interface MarkdownViewProps {
   taskChangesDisabled?: boolean;
 }
 
+interface MarkdownSingleLineEditorProps {
+  ariaLabel: string;
+  initialValue: string;
+  onCancel: () => void;
+  onCommit: (value: string) => void;
+}
+
+function MarkdownSingleLineEditor({ ariaLabel, initialValue, onCancel, onCommit }: MarkdownSingleLineEditorProps) {
+  const [value, setValue] = useState(initialValue);
+  const pasteSingleLine = (event: ClipboardEvent<HTMLInputElement>): void => {
+    const pasted = event.clipboardData.getData("text/plain");
+    if (!/[\r\n]/.test(pasted)) return;
+    event.preventDefault();
+    const start = event.currentTarget.selectionStart ?? value.length;
+    const end = event.currentTarget.selectionEnd ?? start;
+    setValue(`${value.slice(0, start)}${markdownSingleLine(pasted)}${value.slice(end)}`);
+  };
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      onCancel();
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      onCommit(value);
+    }
+  };
+
+  return (
+    <input
+      aria-label={ariaLabel}
+      autoFocus
+      className="markdown-task-inline-input"
+      onChange={(event) => setValue(markdownSingleLine(event.currentTarget.value))}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={handleKeyDown}
+      onPaste={pasteSingleLine}
+      type="text"
+      value={value}
+    />
+  );
+}
+
+type ActiveMarkdownTaskEditor =
+  | { baseMarkdown: string; kind: "add"; sourceLine: number }
+  | { baseMarkdown: string; initialValue: string; kind: "edit"; sourceLine: number };
+
+function checklistProgressLabel(progress: ChecklistProgress): string {
+  return progress.open
+    ? `Выполнено ${progress.checked}, общее количество неизвестно`
+    : `Выполнено ${progress.checked} из ${progress.total}`;
+}
+
+function ChecklistProgressView({ progress }: { progress: ChecklistProgress }) {
+  return (
+    <span aria-label={checklistProgressLabel(progress)} className="markdown-checklist-progress">
+      {progress.checked}/{progress.open ? "?" : progress.total}
+    </span>
+  );
+}
+
 export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
   const collapseDomIdPrefix = useId();
+  const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
+  const taskTextEditingEnabled = Boolean(onTaskChange) && !taskChangesDisabled;
+  useEffect(() => {
+    if (activeTaskEditor && (!taskTextEditingEnabled || activeTaskEditor.baseMarkdown !== markdown)) {
+      setActiveTaskEditor(null);
+    }
+  }, [activeTaskEditor, markdown, taskTextEditingEnabled]);
   if (!blocks.length) return <p className={`markdown-empty ${className}`}>{emptyText}</p>;
 
   const collapsedSections = new Set(collapsedChecklistSections);
@@ -533,18 +731,52 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
         {block.items?.map((item, itemIndex) => {
           const itemKey = `${key}-${item.sourceLine}-${itemIndex}`;
           const children = item.children.map((child, childIndex) => renderList(child, `${itemKey}-child-${childIndex}`));
+          if (item.openMarker) {
+            if (!taskTextEditingEnabled) return null;
+            const adding = activeTaskEditor?.kind === "add" && activeTaskEditor.sourceLine === item.sourceLine;
+            return (
+              <li className="markdown-open-checklist-marker" key={itemKey}>
+                {adding ? (
+                  <MarkdownSingleLineEditor
+                    ariaLabel="Новый пункт чеклиста"
+                    initialValue=""
+                    key={`${itemKey}-input`}
+                    onCancel={() => setActiveTaskEditor(null)}
+                    onCommit={(value) => {
+                      if (activeTaskEditor.baseMarkdown !== markdown) {
+                        setActiveTaskEditor(null);
+                        return;
+                      }
+                      const nextMarkdown = insertMarkdownOpenChecklistItem(markdown, item.sourceLine, value);
+                      setActiveTaskEditor(null);
+                      if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                    }}
+                  />
+                ) : (
+                  <button
+                    aria-label="Добавить пункт чеклиста"
+                    className="markdown-open-checklist-add"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveTaskEditor({ baseMarkdown: markdown, kind: "add", sourceLine: item.sourceLine });
+                    }}
+                    type="button"
+                  >Добавить</button>
+                )}
+                {children}
+              </li>
+            );
+          }
           if (item.taskChecked === undefined) {
             const progress = item.checklistProgress;
             if (!progress) return <li key={itemKey}>{renderInline(item.value, itemKey)}{children}</li>;
-            const complete = progress.checked === progress.total;
+            const complete = !progress.open && progress.checked === progress.total;
             const collapseId = item.collapseId;
             const collapsed = Boolean(collapseId && collapsedSections.has(collapseId));
             const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
             const headerChildren = <>
               <span className="markdown-checklist-group__title">{renderInline(item.value, itemKey)}</span>{" "}
-              <span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">
-                {progress.checked}/{progress.total}
-              </span>
+              <ChecklistProgressView progress={progress} />
             </>;
             return (
               <li
@@ -560,6 +792,8 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
               </li>
             );
           }
+          const editing = activeTaskEditor?.kind === "edit" && activeTaskEditor.sourceLine === item.sourceLine;
+          const taskLabel = markdownLabel(item.firstLineValue) || "пункт";
           return (
             <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemKey}>
               <div className="markdown-task-row">
@@ -577,7 +811,37 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
                     type="checkbox"
                   />
                 </label>
-                <span className="markdown-task-content">{renderInline(item.value, itemKey)}</span>
+                <span className="markdown-task-content">
+                  {editing ? (
+                    <MarkdownSingleLineEditor
+                      ariaLabel={`Текст пункта: ${taskLabel}`}
+                      initialValue={activeTaskEditor.initialValue}
+                      key={`${itemKey}-input`}
+                      onCancel={() => setActiveTaskEditor(null)}
+                      onCommit={(value) => {
+                        if (activeTaskEditor.baseMarkdown !== markdown) {
+                          setActiveTaskEditor(null);
+                          return;
+                        }
+                        const nextMarkdown = setMarkdownTaskItemText(markdown, item.sourceLine, value);
+                        setActiveTaskEditor(null);
+                        if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                      }}
+                    />
+                  ) : renderInline(item.value, itemKey)}
+                </span>
+                {taskTextEditingEnabled && !editing ? (
+                  <button
+                    aria-label={`Редактировать пункт: ${taskLabel}`}
+                    className="markdown-task-edit-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setActiveTaskEditor({ baseMarkdown: markdown, initialValue: item.firstLineValue, kind: "edit", sourceLine: item.sourceLine });
+                    }}
+                    title="Редактировать пункт"
+                    type="button"
+                  ><Icon name="edit" size={13} /></button>
+                ) : null}
               </div>
               {children}
             </li>
@@ -681,8 +945,8 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
           const collapseId = block.collapseId;
           const collapsed = Boolean(progress && collapseId && collapsedSections.has(collapseId));
           if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
-          const headingClassName = progress ? `markdown-checklist-heading${progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
-          const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<span aria-label={`Выполнено ${progress.checked} из ${progress.total}`} className="markdown-checklist-progress">{progress.checked}/{progress.total}</span></> : children;
+          const headingClassName = progress ? `markdown-checklist-heading${!progress.open && progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
+          const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<ChecklistProgressView progress={progress} /></> : children;
           const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
             <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{progressChildren}</button>
           ) : progressChildren;

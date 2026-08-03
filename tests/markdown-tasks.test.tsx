@@ -1,7 +1,7 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { hasMarkdownTasks, MarkdownView, setMarkdownTaskChecked } from "../src/components/Markdown";
+import { hasMarkdownTasks, insertMarkdownOpenChecklistItem, MarkdownView, setMarkdownTaskChecked, setMarkdownTaskItemText } from "../src/components/Markdown";
 import type { Game, Note } from "../src/domain/types";
 import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
 
@@ -653,5 +653,196 @@ describe("Markdown tasks", () => {
     expect(checkbox).not.toBeDisabled();
     await user.click(checkbox);
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  });
+
+  describe("open checklists and focused item editing", () => {
+    it("hides only a final unchecked ellipsis marker and replaces it with Add", () => {
+      const editable = render(<MarkdownView markdown={"- [x] First\n- [ ] Second\n- [ ] ..."} onTaskChange={vi.fn()} />);
+
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+      expect(screen.queryByText("...")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Добавить пункт чеклиста" })).toHaveTextContent("Добавить");
+
+      editable.rerender(<MarkdownView markdown={"- [ ] ...\n- [ ] Later"} onTaskChange={vi.fn()} />);
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+      expect(screen.getByText("...")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Добавить пункт чеклиста" })).not.toBeInTheDocument();
+    });
+
+    it("keeps checked and non-exact ellipses as ordinary tasks", () => {
+      render(<MarkdownView markdown={"- [ ] ... позже\n- [x] ..."} onTaskChange={vi.fn()} />);
+
+      expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+      expect(screen.getByText("... позже")).toBeInTheDocument();
+      expect(screen.getByText("...")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Добавить пункт чеклиста" })).not.toBeInTheDocument();
+    });
+
+    it("excludes the marker from totals and propagates an unknown denominator through ancestors", () => {
+      const markdown = [
+        "# Root",
+        "- Open group",
+        "  - [x] Done",
+        "  - [ ] Pending",
+        "  - [ ] ...",
+        "- Closed group",
+        "  - [x] Complete",
+        "  - [ ] Remaining",
+      ].join("\n");
+      render(<MarkdownView markdown={markdown} onTaskChange={vi.fn()} />);
+
+      const root = screen.getByRole("heading", { name: /^Root / });
+      const open = screen.getByText("Open group").closest(".markdown-checklist-group");
+      const closed = screen.getByText("Closed group").closest(".markdown-checklist-group");
+      expect(root.querySelector(".markdown-checklist-progress")).toHaveTextContent("2/?");
+      expect(root.querySelector(".markdown-checklist-progress")).toHaveAttribute("aria-label", "Выполнено 2, общее количество неизвестно");
+      expect(open?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("1/?");
+      expect(open).not.toHaveClass("markdown-checklist-group--complete");
+      expect(closed?.querySelector(":scope > .markdown-checklist-group__header > .markdown-checklist-progress")).toHaveTextContent("1/2");
+      expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+      expect(hasMarkdownTasks("- [ ] ...")).toBe(true);
+    });
+
+    it("inserts immediately before the marker while preserving nesting, bullet style, and CRLF", async () => {
+      const user = userEvent.setup();
+      const onTaskChange = vi.fn();
+      const markdown = "- Parent\r\n\t* [x] Existing\r\n\t* [ ] ...\r\n- Sibling";
+      render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+      await user.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+      const input = screen.getByRole("textbox", { name: "Новый пункт чеклиста" });
+      expect(input).toHaveFocus();
+      await user.type(input, "Новый пункт{Enter}");
+
+      expect(onTaskChange).toHaveBeenCalledWith(
+        "- Parent\r\n\t* [x] Existing\r\n\t* [ ] Новый пункт\r\n\t* [ ] ...\r\n- Sibling",
+      );
+      expect(screen.queryByRole("textbox", { name: "Новый пункт чеклиста" })).not.toBeInTheDocument();
+    });
+
+    it("cancels Add with Escape and ignores whitespace-only input", async () => {
+      const user = userEvent.setup();
+      const onTaskChange = vi.fn();
+      render(<MarkdownView markdown={"- [ ] Existing\n- [ ] ..."} onTaskChange={onTaskChange} />);
+
+      await user.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+      await user.keyboard("{Escape}");
+      expect(onTaskChange).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+      await user.type(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), "   {Enter}");
+      expect(onTaskChange).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Добавить пункт чеклиста" })).toBeInTheDocument();
+    });
+
+    it("flattens multiline pasted text without touching adjacent source", async () => {
+      const user = userEvent.setup();
+      const onTaskChange = vi.fn();
+      const markdown = "+ [ ] Before\n+ [ ] ...\nAfter";
+      render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+      await user.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+      const input = screen.getByRole("textbox", { name: "Новый пункт чеклиста" });
+      fireEvent.paste(input, { clipboardData: { getData: () => "First\r\nSecond\nThird" } });
+      expect(input).toHaveValue("First Second Third");
+      await user.keyboard("{Enter}");
+      expect(onTaskChange).toHaveBeenCalledWith("+ [ ] Before\n+ [ ] First Second Third\n+ [ ] ...\nAfter");
+
+      expect(insertMarkdownOpenChecklistItem("* [ ] ...\r\nNeighbor", 0, "One\nTwo")).toBe(
+        "* [ ] One Two\r\n* [ ] ...\r\nNeighbor",
+      );
+    });
+
+    it("edits only the selected first-line text range and preserves prefix, state, children, and continuations", () => {
+      const markdown = [
+        "  + [x]\tParent",
+        "    continued detail",
+        "    - [ ] Child",
+        "  + [ ] Neighbor",
+        "  + [ ] ...",
+      ].join("\n");
+
+      expect(setMarkdownTaskItemText(markdown, 0, "Renamed\nparent")).toBe([
+        "  + [x]\tRenamed parent",
+        "    continued detail",
+        "    - [ ] Child",
+        "  + [ ] Neighbor",
+        "  + [ ] ...",
+      ].join("\n"));
+      expect(setMarkdownTaskItemText(markdown, 2, "Renamed child")).toBe([
+        "  + [x]\tParent",
+        "    continued detail",
+        "    - [ ] Renamed child",
+        "  + [ ] Neighbor",
+        "  + [ ] ...",
+      ].join("\n"));
+      expect(setMarkdownTaskItemText("- [ ]", 0, "Started")).toBe("- [ ] Started");
+    });
+
+    it("edits the chosen duplicate, supports empty text safely, and cancels with Escape", async () => {
+      const user = userEvent.setup();
+      const onTaskChange = vi.fn();
+      const markdown = "- [ ] Duplicate\n- [ ] Duplicate\n- [ ] ...";
+      render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+      const editButtons = screen.getAllByRole("button", { name: "Редактировать пункт: Duplicate" });
+      await user.click(editButtons[1]);
+      const input = screen.getByRole("textbox", { name: "Текст пункта: Duplicate" });
+      expect(input).toHaveFocus();
+      await user.clear(input);
+      await user.keyboard("{Escape}");
+      expect(onTaskChange).not.toHaveBeenCalled();
+      expect(screen.getAllByText("Duplicate")).toHaveLength(2);
+
+      await user.click(screen.getAllByRole("button", { name: "Редактировать пункт: Duplicate" })[1]);
+      await user.clear(screen.getByRole("textbox", { name: "Текст пункта: Duplicate" }));
+      await user.keyboard("{Enter}");
+      expect(onTaskChange).toHaveBeenCalledWith("- [ ] Duplicate\n- [ ] \n- [ ] ...");
+      expect(setMarkdownTaskItemText(markdown, 1, "Second only")).toBe("- [ ] Duplicate\n- [ ] Second only\n- [ ] ...");
+    });
+
+    it("does not expose Add or edit controls in read-only mode", () => {
+      render(<MarkdownView markdown={"- [ ] Visible\n- [ ] ..."} />);
+
+      expect(screen.getByRole("checkbox", { name: "Отметить: Visible" })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Добавить пункт чеклиста" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Редактировать пункт/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("...")).not.toBeInTheDocument();
+    });
+
+    it("cancels a source-range editor when the controlled Markdown version changes", async () => {
+      const user = userEvent.setup();
+      const onTaskChange = vi.fn();
+      const view = render(<MarkdownView markdown={"- [ ] Original\n- [ ] ..."} onTaskChange={onTaskChange} />);
+
+      await user.click(screen.getByRole("button", { name: "Редактировать пункт: Original" }));
+      expect(screen.getByRole("textbox", { name: "Текст пункта: Original" })).toBeInTheDocument();
+      view.rerender(<MarkdownView markdown={"Intro\n- [ ] Original\n- [ ] ..."} onTaskChange={onTaskChange} />);
+
+      await waitFor(() => expect(screen.queryByRole("textbox", { name: "Текст пункта: Original" })).not.toBeInTheDocument());
+      expect(onTaskChange).not.toHaveBeenCalled();
+    });
+
+    it("persists Add and item edits through the existing note save path", async () => {
+      const user = userEvent.setup();
+      const onSave = vi.fn<(input: GameSaveInput) => void>();
+      const original = makeNote("- [ ] ...");
+      const view = render(<GamePage assets={{}} game={game} mode="game" notes={[original]} onSave={onSave} />);
+
+      await user.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+      await user.type(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), "Added{Enter}");
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      const addedMarkdown = "- [ ] Added\n- [ ] ...";
+      expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(addedMarkdown);
+
+      onSave.mockClear();
+      view.rerender(<GamePage assets={{}} game={game} mode="game" notes={[{ ...original, bodyMarkdown: addedMarkdown }]} onSave={onSave} />);
+      await user.click(screen.getByRole("button", { name: "Редактировать пункт: Added" }));
+      const input = screen.getByRole("textbox", { name: "Текст пункта: Added" });
+      await user.clear(input);
+      await user.type(input, "Edited{Enter}");
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe("- [ ] Edited\n- [ ] ...");
+    });
   });
 });
