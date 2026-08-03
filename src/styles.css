@@ -342,7 +342,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-heading__toggle { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 6px; }
 .markdown-checklist-toggle { width: 100%; appearance: none; padding: 0; border: 0; border-radius: 3px; color: inherit; background: transparent; font: inherit; line-height: inherit; text-align: start; cursor: pointer; }
 .markdown-checklist-toggle:disabled { cursor: default; }
-.markdown-checklist-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.markdown-checklist-toggle:focus-visible, .markdown-table-group__header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .markdown-checklist-group__content { display: contents; }
 .markdown-checklist-group__content[hidden] { display: none; }
 .markdown-checklist-progress { flex: 0 0 auto; margin-inline-start: auto; color: var(--muted); font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: .82em; font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: 0; }
@@ -362,7 +362,6 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-table-group__header { width: 100%; min-height: 28px; display: flex; align-items: baseline; gap: 6px; padding: 5px 6px; color: inherit; font-weight: 650; }
 button.markdown-table-group__header { cursor: pointer; }
 button.markdown-table-group__header:disabled { cursor: default; }
-.markdown-table-group__header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .markdown-table-group__title { min-width: 0; flex: 1; }
 .markdown-table-group--complete .markdown-table-group__header { color: var(--success); }
 .markdown-table-group--complete .markdown-checklist-progress { color: inherit; }

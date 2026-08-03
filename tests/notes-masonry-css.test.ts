@@ -147,9 +147,10 @@ describe("notes shelf CSS", () => {
     expect(declarationsFor(".markdown .markdown-checklist-group--complete > .markdown-checklist-group__header")).toMatch(/color:\s*var\(--success\)/);
   });
 
-  it("makes checklist headings full-width accessible collapse controls", () => {
+  it("shares a focus ring between checklist and table group collapse controls", () => {
     const toggle = declarationsFor(".markdown-checklist-toggle");
     const headingToggle = declarationsFor(".markdown-checklist-heading__toggle");
+    const sharedFocusVisible = styles.match(/\.markdown-checklist-toggle:focus-visible,\s*\.markdown-table-group__header:focus-visible\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(toggle).toMatch(/width:\s*100%/);
     expect(toggle).toMatch(/appearance:\s*none/);
@@ -157,7 +158,7 @@ describe("notes shelf CSS", () => {
     expect(toggle).toMatch(/cursor:\s*pointer/);
     expect(headingToggle).toMatch(/display:\s*flex/);
     expect(headingToggle).toMatch(/flex:\s*1/);
-    expect(declarationsFor(".markdown-checklist-toggle:focus-visible")).toMatch(/outline:\s*2px solid var\(--accent\)/);
+    expect(sharedFocusVisible).toMatch(/outline:\s*2px solid var\(--accent\)/);
     expect(declarationsFor(".markdown-checklist-group__content[hidden]")).toMatch(/display:\s*none/);
   });
 });
