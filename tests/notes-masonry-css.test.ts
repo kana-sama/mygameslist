@@ -106,6 +106,22 @@ describe("notes shelf CSS", () => {
     expect(declarationsFor(".markdown-table-row--complete > td a, .markdown-table-row--complete > td code")).toMatch(/color:\s*inherit/);
   });
 
+  it("frames Markdown tables with compact collapsible group headings", () => {
+    const groupCell = declarationsFor(".markdown-table-group__heading > th");
+    const groupHeader = declarationsFor(".markdown-table-group__header");
+    const groupTitle = declarationsFor(".markdown-table-group__title");
+    const completeGroup = declarationsFor(".markdown-table-group--complete .markdown-table-group__header");
+    const hiddenGroup = declarationsFor(".markdown-table-group__content[hidden]");
+
+    expect(groupCell).toMatch(/padding:\s*0/);
+    expect(groupCell).toMatch(/background:\s*var\(--surface-2\)/);
+    expect(groupHeader).toMatch(/display:\s*flex/);
+    expect(groupHeader).toMatch(/width:\s*100%/);
+    expect(groupTitle).toMatch(/flex:\s*1/);
+    expect(completeGroup).toMatch(/color:\s*var\(--success\)/);
+    expect(hiddenGroup).toMatch(/display:\s*none/);
+  });
+
   it("uses positive green styling for completed checklist rows", () => {
     const completed = declarationsFor(".markdown-task-item--checked > .markdown-task-row > .markdown-task-content");
 

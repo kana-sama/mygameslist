@@ -358,6 +358,15 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-table-cell--right { text-align: right!important; }
 .markdown-table th:first-child { text-align: left!important; }
 .markdown-table th:not(:first-child) { text-align: center!important; }
+.markdown-table-group__heading > th { padding: 0; color: var(--text); background: var(--surface-2); text-align: left!important; }
+.markdown-table-group__header { width: 100%; min-height: 28px; display: flex; align-items: baseline; gap: 6px; padding: 5px 6px; color: inherit; font-weight: 650; }
+button.markdown-table-group__header { cursor: pointer; }
+button.markdown-table-group__header:disabled { cursor: default; }
+.markdown-table-group__header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.markdown-table-group__title { min-width: 0; flex: 1; }
+.markdown-table-group--complete .markdown-table-group__header { color: var(--success); }
+.markdown-table-group--complete .markdown-checklist-progress { color: inherit; }
+.markdown-table-group__content[hidden] { display: none; }
 .markdown-table-task { min-height: 18px; display: flex; align-items: center; gap: 5px; }
 .markdown-table-cell--center > .markdown-table-task { justify-content: center; }
 .markdown-table-cell--right > .markdown-table-task { justify-content: flex-end; }
