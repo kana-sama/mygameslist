@@ -111,7 +111,6 @@ describe("notes shelf CSS", () => {
     const groupHeader = declarationsFor(".markdown-table-group__header");
     const groupTitle = declarationsFor(".markdown-table-group__title");
     const completeGroup = declarationsFor(".markdown-table-group--complete .markdown-table-group__header");
-    const hiddenGroup = declarationsFor(".markdown-table-group__content[hidden]");
 
     expect(groupCell).toMatch(/padding:\s*0/);
     expect(groupCell).toMatch(/background:\s*var\(--surface-2\)/);
@@ -119,7 +118,27 @@ describe("notes shelf CSS", () => {
     expect(groupHeader).toMatch(/width:\s*100%/);
     expect(groupTitle).toMatch(/flex:\s*1/);
     expect(completeGroup).toMatch(/color:\s*var\(--success\)/);
-    expect(hiddenGroup).toMatch(/display:\s*none/);
+  });
+
+  it("keeps collapsed table groups in table layout", () => {
+    const baseline = document.createElement("style");
+    baseline.textContent = ".markdown-table-group__content[hidden] { display: block; visibility: visible; }";
+    const production = document.createElement("style");
+    production.textContent = styles;
+    const table = document.createElement("table");
+    table.innerHTML = '<tbody class="markdown-table-group__content" hidden><tr><td>Wide value</td></tr></tbody>';
+    document.head.append(baseline, production);
+    document.body.append(table);
+
+    try {
+      const group = table.querySelector<HTMLElement>(".markdown-table-group__content")!;
+      expect(getComputedStyle(group).display).toBe("table-row-group");
+      expect(getComputedStyle(group).visibility).toBe("collapse");
+    } finally {
+      table.remove();
+      baseline.remove();
+      production.remove();
+    }
   });
 
   it("uses positive green styling for completed checklist rows", () => {

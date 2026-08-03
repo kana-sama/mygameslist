@@ -365,7 +365,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-table-group__title { min-width: 0; flex: 1; }
 .markdown-table-group--complete .markdown-table-group__header { color: var(--success); }
 .markdown-table-group--complete .markdown-checklist-progress { color: inherit; }
-.markdown-table-group__content[hidden] { display: none; }
+.markdown-table-group__content[hidden] { display: table-row-group!important; visibility: collapse; }
 .markdown-table-task { min-height: 18px; display: flex; align-items: center; gap: 5px; }
 .markdown-table-cell--center > .markdown-table-task { justify-content: center; }
 .markdown-table-cell--right > .markdown-table-task { justify-content: flex-end; }
