@@ -6,6 +6,10 @@ import { ImageLightbox } from "../src/components/ImageLightbox";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { GamePage } from "../src/pages/GamePage";
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "33333333-3333-4333-8333-333333333333";
 const ASSET_ID = "a".repeat(64);

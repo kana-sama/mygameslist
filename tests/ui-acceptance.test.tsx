@@ -35,6 +35,10 @@ import {
   TierListPage,
 } from "../src/pages/TierListPage";
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 vi.mock("../src/domain/assets", async () => {
   const actual = await vi.importActual<typeof import("../src/domain/assets")>("../src/domain/assets");
   return { ...actual, optimizeNoteImage: vi.fn(actual.optimizeNoteImage) };
@@ -696,7 +700,8 @@ describe("GamePage", () => {
     const textarea = screen.getByRole("textbox", { name: "Текст заметки" });
     const editor = textarea.closest<HTMLElement>("article")!;
     expect(editor.children[0]).toHaveClass("note-attachments");
-    expect(editor.children[1]).toBe(textarea);
+    expect(editor.children[1]).toHaveClass("monaco-note-editor");
+    expect(editor.children[1]).toContainElement(textarea);
   });
 
   it("opens YouTube upload and attaches one canonical video to the note draft", async () => {
@@ -763,6 +768,30 @@ describe("GamePage", () => {
         }],
       }),
     ]);
+  });
+
+  it("closes only the YouTube URL input on Escape and keeps the note editor mounted", async () => {
+    const user = userEvent.setup();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "Видео прохождения",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
+
+    await user.click(within(screen.getByText("Видео прохождения").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const modelKey = editor.closest(".monaco-note-editor")?.getAttribute("data-model-key");
+    await user.click(screen.getByRole("link", { name: "Загрузить видео на YouTube" }));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("textbox", { name: "Ссылка на YouTube" })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBe(editor);
+    expect(editor.closest(".monaco-note-editor")).toHaveAttribute("data-model-key", modelKey);
   });
 
   it("renders YouTube links as removable privacy-enhanced videos and keeps ordinary links", async () => {

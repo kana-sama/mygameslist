@@ -27,6 +27,10 @@ import {
 } from "../src/state/pendingPublication";
 import { GITHUB_PAT_STORAGE_KEY } from "../src/state/githubPat";
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 const localAssetStateControl = vi.hoisted(() => ({
   afterUpdate: undefined as undefined | ((state: string) => Promise<void>),
 }));

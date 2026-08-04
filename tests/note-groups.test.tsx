@@ -13,6 +13,10 @@ import {
   type GameSaveInput,
 } from "../src/pages/GamePage";
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_A_ID = "22222222-2222-4222-8222-222222222222";
 const NOTE_B_ID = "33333333-3333-4333-8333-333333333333";
@@ -212,12 +216,32 @@ describe("anonymous note groups", () => {
 
   it("focuses a newly added draft note before a new game is saved", async () => {
     const user = userEvent.setup();
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrameId = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      const frameId = ++nextFrameId;
+      frames.set(frameId, callback);
+      return frameId;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => { frames.delete(frameId); });
+    const flushFrame = () => act(() => {
+      const callbacks = [...frames.values()];
+      frames.clear();
+      callbacks.forEach((callback) => callback(performance.now()));
+    });
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const lowLevelEditor = editor.closest<HTMLElement>(".monaco-markdown-editor")!;
+
+    expect(editor).toHaveFocus();
+    expect(lowLevelEditor).toHaveAttribute("data-auto-focus", "true");
+    flushFrame();
+    flushFrame();
 
     await waitFor(() => {
-      expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveFocus();
+      expect(lowLevelEditor).not.toHaveAttribute("data-auto-focus");
       expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "auto", block: "nearest", inline: "nearest" });
     });
   });
@@ -265,24 +289,98 @@ describe("anonymous note groups", () => {
     expect(created).toMatchObject({ groupRank: 2048, rank: 2048 });
   });
 
-  it("keeps a textarea file drop in the edited note instead of creating another note", async () => {
+  it("keeps an editor file drop in the current note after the group observes it as prevented", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const group = editor.closest(".note-group")!;
+    const groupObservedDefaultPrevented = vi.fn<(prevented: boolean) => void>();
+    group.addEventListener("drop", (event) => groupObservedDefaultPrevented(event.defaultPrevented));
     const drop = fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })]));
 
     fireEvent(editor, drop);
 
     expect(drop.defaultPrevented).toBe(true);
+    expect(groupObservedDefaultPrevented).toHaveBeenCalledWith(true);
     expect(await screen.findByRole("link", { name: /guide\.pdf/ })).toBeInTheDocument();
     expect(screen.getAllByRole("textbox", { name: "Текст заметки" })).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].notes).toHaveLength(1);
     expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ clientId: NOTE_A_ID, attachments: [expect.objectContaining({ type: "pending-file", label: "guide.pdf" })] });
+  });
+
+  it("keeps portaled editor drops in their draft while free group drops create one new draft", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={onSave} />);
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+
+    const firstEditor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const firstGroup = firstEditor.closest(".note-group")!;
+    const groupObservedDefaultPrevented = vi.fn<(prevented: boolean) => void>();
+    firstGroup.addEventListener("drop", (event) => groupObservedDefaultPrevented(event.defaultPrevented));
+    const editorDrop = fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })]));
+
+    fireEvent(firstEditor, editorDrop);
+
+    expect(editorDrop.defaultPrevented).toBe(true);
+    expect(groupObservedDefaultPrevented).toHaveBeenCalledWith(true);
+    expect(await screen.findByRole("link", { name: /guide\.pdf/ })).toBeInTheDocument();
+    expect(document.querySelectorAll(".note-editor-sortable")).toHaveLength(1);
+
+    const titleInput = screen.getByPlaceholderText("Например, DuckTales");
+    titleInput.focus();
+    fireEvent(firstGroup, fileDragEvent("drop", fileTransfer([new File(["manual"], "manual.pdf", { type: "application/pdf" })])));
+
+    const manualLink = await screen.findByRole("link", { name: /manual\.pdf/ });
+    expect(manualLink.closest(".note-group")).toBe(firstGroup);
+    expect(document.querySelectorAll(".note-editor-sortable")).toHaveLength(2);
+    expect(titleInput).toHaveFocus();
+    await user.type(titleInput, "Portal files");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes).toHaveLength(2);
+    const manualDraft = onSave.mock.calls[0][0].notes.find((note) => note.attachments.some((attachment) => attachment.type === "pending-file" && attachment.label === "manual.pdf"));
+    expect(manualDraft).toMatchObject({ groupRank: 1024, rank: 2048 });
+  });
+
+  it("does not autofocus a draft created by dropping a file", async () => {
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} />);
+    const group = screen.getByRole("group", { name: "Группа заметок 1" });
+
+    fireEvent(group, fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })])));
+
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    expect(editor).not.toHaveFocus();
+  });
+
+  it("removes persistent editor hosts on draft deletion and form unmount", async () => {
+    const user = userEvent.setup();
+    const view = render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
+    const deletedHost = document.querySelector<HTMLElement>(".note-editor-sortable")!;
+    const deletedEditor = deletedHost.querySelector<HTMLElement>(".monaco-note-editor")!;
+    const survivingHost = document.querySelectorAll<HTMLElement>(".note-editor-sortable")[1];
+    const survivingEditor = survivingHost.querySelector<HTMLElement>(".monaco-note-editor")!;
+    const survivingGrid = survivingHost.parentElement;
+
+    await user.click(within(deletedHost).getByRole("button", { name: "Удалить заметку" }));
+
+    await waitFor(() => expect(deletedHost.isConnected).toBe(false));
+    expect(deletedEditor.isConnected).toBe(false);
+    expect(survivingHost.isConnected).toBe(true);
+    expect(survivingEditor.isConnected).toBe(true);
+    expect(survivingHost.parentElement).toBe(survivingGrid);
+    view.unmount();
+
+    expect(survivingHost.isConnected).toBe(false);
+    expect(survivingEditor.isConnected).toBe(false);
   });
 
   it("ignores non-file drags over a group", () => {
@@ -513,6 +611,7 @@ describe("anonymous note groups", () => {
 
   it("groups draft notes with drag and drop before a new game is saved", async () => {
     const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       const rank = this.closest<HTMLElement>(".note-group")?.dataset.noteGroupRank;
       if (this.dataset.noteId) return rank === "2048" ? rect(0, 300, 360, 130) : rect(0, 100, 360, 130);
@@ -523,22 +622,117 @@ describe("anonymous note groups", () => {
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
     });
-    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={onSave} />);
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
     const editors = [...document.querySelectorAll<HTMLElement>(".note-editor-sortable")];
-    const secondHandle = editors[1].querySelector<HTMLElement>('button[aria-label="Перетащить заметку"]')!;
+    const modelKeys = editors.map((editor) => editor.querySelector<HTMLElement>(".monaco-note-editor")!.dataset.modelKey);
+    expect(modelKeys).toEqual(editors.map((editor) => `note:${editor.dataset.noteId}`));
+    expect(new Set(modelKeys).size).toBe(2);
+    const movingEditor = editors[1];
+    const movingNoteEditor = movingEditor.querySelector<HTMLElement>(".monaco-note-editor")!;
+    const movingLowLevelEditor = movingNoteEditor.querySelector<HTMLElement>(".monaco-markdown-editor")!;
+    const movingTextArea = movingLowLevelEditor.querySelector<HTMLTextAreaElement>("textarea")!;
+    const firstTextArea = editors[0].querySelector<HTMLTextAreaElement>("textarea")!;
+    const movingNoteId = movingEditor.dataset.noteId!;
+    const secondHandle = movingEditor.querySelector<HTMLElement>('button[aria-label="Перетащить заметку"]')!;
     const firstGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="1024"]')!;
+    const titleInput = screen.getByPlaceholderText("Например, DuckTales");
+
+    await waitFor(() => expect(movingLowLevelEditor).not.toHaveAttribute("data-auto-focus"));
+    fireEvent.change(firstTextArea, { target: { value: "Первая заметка" } });
+    fireEvent.change(movingTextArea, { target: { value: "Вторая заметка" } });
 
     await user.pointer([
       { keys: "[MouseLeft>]", target: secondHandle, coords: { clientX: 20, clientY: 420 } },
       { target: secondHandle, coords: { clientX: 40, clientY: 420 } },
+    ]);
+    titleInput.focus();
+    expect(titleInput).toHaveFocus();
+    await user.pointer([
       { target: firstGroup, coords: { clientX: 600, clientY: 220 } },
       { keys: "[/MouseLeft]", target: firstGroup, coords: { clientX: 600, clientY: 220 } },
     ]);
 
     await waitFor(() => expect(document.querySelectorAll(".note-group")).toHaveLength(1));
+    const movedEditor = [...firstGroup.querySelectorAll<HTMLElement>(".note-editor-sortable")]
+      .find((editor) => editor.dataset.noteId === movingNoteId)!;
+    expect(movedEditor).toBe(movingEditor);
+    expect(movedEditor.querySelector(".monaco-note-editor")).toBe(movingNoteEditor);
+    expect(movedEditor.querySelector(".monaco-markdown-editor")).toBe(movingLowLevelEditor);
+    expect(movingEditor.isConnected).toBe(true);
+    expect(movingNoteEditor.isConnected).toBe(true);
+    expect(movingLowLevelEditor.isConnected).toBe(true);
+    expect(movedEditor.parentElement).toHaveClass("note-editors-grid");
+    expect(movedEditor.closest(".note-group")).toBe(firstGroup);
+    expect(movingNoteEditor).toHaveAttribute("data-model-key", `note:${movingNoteId}`);
+    expect(titleInput).toHaveFocus();
     expect(firstGroup.querySelectorAll(".note-editor-sortable")).toHaveLength(2);
+
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 60)); });
+    const moveUp = within(movingEditor).getByRole("button", { name: "Переместить заметку выше" });
+    expect(moveUp).toBeEnabled();
+    fireEvent.click(moveUp);
+    await waitFor(() => expect(firstGroup.querySelector(".note-editors-grid")?.firstElementChild).toBe(movingEditor));
+    expect(movingEditor.querySelector(".monaco-note-editor")).toBe(movingNoteEditor);
+    expect(movingEditor.querySelector(".monaco-markdown-editor")).toBe(movingLowLevelEditor);
+
+    await user.type(titleInput, "Portal game");
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const savedNotes = [...onSave.mock.calls[0][0].notes].sort((left, right) => left.rank - right.rank);
+    expect(savedNotes.map((note) => [note.bodyMarkdown, note.groupRank])).toEqual([
+      ["Вторая заметка", 1024],
+      ["Первая заметка", 1024],
+    ]);
     expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+  });
+
+  it("keeps four persistent hosts in ranked order after a non-adjacent move", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      const host = this.matches(".note-editor-sortable") ? this : this.closest<HTMLElement>(".note-editor-sortable");
+      const hostIndex = host?.parentElement ? [...host.parentElement.children].indexOf(host) : 0;
+      const hostRect = rect(0, 100 + Math.max(0, hostIndex) * 140, 360, 130);
+      if (this.matches(".note-editor-sortable, .note-card--editing")) return hostRect;
+      if (this.matches(".note-drop-zone--before")) return rect(hostRect.left, hostRect.top, hostRect.width, 65);
+      if (this.matches(".note-drop-zone--after")) return rect(hostRect.left, hostRect.top + 65, hostRect.width, 65);
+      if (this.matches(".note-editors-grid, .note-group")) return rect(0, 100, 727, 560);
+      if (this.matches(".note-empty-group")) return rect(0, 700, 727, 40);
+      if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 130);
+      return rect(0, 0, 1024, 768);
+    });
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    const addToFirstGroup = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
+    await user.click(addToFirstGroup);
+    await user.click(addToFirstGroup);
+    await user.click(addToFirstGroup);
+    const [hostA, , hostC, hostD] = [...document.querySelectorAll<HTMLElement>(".note-editor-sortable")];
+    const grid = hostA.parentElement!;
+    const hostIds = (hosts: Element[]) => hosts.map((host) => (host as HTMLElement).dataset.noteId);
+
+    fireEvent.click(within(hostC).getByRole("button", { name: "Переместить заметку выше" }));
+    await waitFor(() => expect(grid.children.item(1)).toBe(hostC));
+    fireEvent.click(within(hostC).getByRole("button", { name: "Переместить заметку выше" }));
+    await waitFor(() => expect(grid.firstElementChild).toBe(hostC));
+    const orderBeforeDrag = [...grid.children];
+    const originalEditors = new Map(orderBeforeDrag.map((host) => [host, host.querySelector(".monaco-note-editor")]));
+
+    const dragHandle = within(hostD).getByRole("button", { name: "Перетащить заметку" });
+    const beforeFirst = hostC.querySelector<HTMLElement>(".note-drop-zone--before")!;
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: dragHandle, coords: { clientX: 20, clientY: 585 } },
+      { target: dragHandle, coords: { clientX: 40, clientY: 585 } },
+      { target: beforeFirst, coords: { clientX: 20, clientY: 110 } },
+      { keys: "[/MouseLeft]", target: beforeFirst, coords: { clientX: 20, clientY: 110 } },
+    ]);
+
+    const desiredOrder = [hostD, ...orderBeforeDrag.filter((host) => host !== hostD)];
+    await waitFor(() => expect(hostIds([...grid.children])).toEqual(hostIds(desiredOrder)));
+    desiredOrder.forEach((host, index) => {
+      expect(grid.children.item(index)).toBe(host);
+      expect(host.querySelector(".monaco-note-editor")).toBe(originalEditors.get(host));
+    });
   });
 });

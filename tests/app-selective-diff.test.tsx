@@ -23,6 +23,10 @@ vi.mock("../src/state/LibraryContext", () => ({
   },
 }));
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 import App from "../src/App";
 
 const GAME_A_ID = "00000000-0000-4000-8000-000000000001";

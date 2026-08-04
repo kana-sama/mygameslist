@@ -1,23 +1,12 @@
 import type { Game } from "../domain/types";
 import { isInsideFencedMarkdownCode } from "./markdownListEditing";
 
-export interface ActiveGameLinkQuery {
-  start: number;
-  end: number;
-  query: string;
-}
-
 export interface ActiveBracketGameLinkQuery {
   openBracketOffset: number;
   queryStartOffset: number;
   queryEndOffset: number;
   replaceEndOffset: number;
   query: string;
-}
-
-export interface InsertedGameMarkdownLink {
-  markdown: string;
-  caret: number;
 }
 
 type GameMarkdownLinkTarget = Pick<Game, "id" | "title">;
@@ -104,26 +93,6 @@ function scanMarkdownLineStructure(
   return { destinationDepth, inlineCodeDelimiterLength, openBrackets };
 }
 
-export function findActiveGameLinkQuery(markdown: string, caret: number): ActiveGameLinkQuery | null {
-  if (!Number.isInteger(caret) || caret < 0 || caret > markdown.length) return null;
-  const lineStart = lineStartAt(markdown, caret);
-  if (caret <= lineStart) return null;
-  let trigger = markdown.lastIndexOf("#", Math.max(lineStart, caret - 1));
-  while (trigger >= lineStart && trigger > 0 && !/\s/u.test(markdown[trigger - 1])) {
-    trigger = markdown.lastIndexOf("#", trigger - 1);
-  }
-  if (trigger < lineStart) return null;
-
-  const query = markdown.slice(trigger + 1, caret);
-  if (query.length > 0 && /^\s/u.test(query)) return null;
-  if (/[#\r\n]/u.test(query)) return null;
-  if (isEscaped(markdown, trigger)) return null;
-  if (isInsideFencedMarkdownCode(markdown, trigger)) return null;
-  const structure = scanMarkdownLineStructure(markdown, lineStart, trigger);
-  if (structure.inlineCodeDelimiterLength || structure.destinationDepth) return null;
-  return { start: trigger, end: caret, query };
-}
-
 export function findActiveBracketGameLinkQuery(
   markdown: string,
   caret: number,
@@ -150,14 +119,4 @@ export function findActiveBracketGameLinkQuery(
     replaceEndOffset: markdown[caret] === "]" ? caret + 1 : caret,
     query,
   };
-}
-
-export function insertGameMarkdownLink(
-  markdown: string,
-  range: Pick<ActiveGameLinkQuery, "start" | "end">,
-  game: Pick<Game, "id" | "title">,
-): InsertedGameMarkdownLink {
-  const link = formatGameMarkdownLink(game);
-  const nextMarkdown = `${markdown.slice(0, range.start)}${link}${markdown.slice(range.end)}`;
-  return { markdown: nextMarkdown, caret: range.start + link.length };
 }

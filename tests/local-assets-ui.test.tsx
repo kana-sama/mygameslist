@@ -1,9 +1,14 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../src/components/AppShell";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { GamePage } from "../src/pages/GamePage";
 import type { ChangeReviewModel } from "../src/domain";
+
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
 
 const emptyReview: ChangeReviewModel = { groups: [], changesById: {}, changesBySelectionId: {}, uniqueSelectionIds: [] };
 const emptySelection = {
@@ -79,6 +84,11 @@ describe("local-only storage UI", () => {
     const editor = screen.getByRole("textbox", { name: "Текст заметки" });
     await user.type(editor, "Текст остаётся редактируемым");
     expect(editor).toHaveValue("Текст остаётся редактируемым");
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", { value: { files: [new File(["guide"], "guide.pdf", { type: "application/pdf" })], items: [], types: ["Files"] } });
+    fireEvent(editor, drop);
+    expect(drop.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("link", { name: /guide\.pdf/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Добавить вложение" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Сохранить" })).toBeEnabled();
   });

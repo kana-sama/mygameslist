@@ -1,9 +1,14 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Game, Note } from "../src/domain";
 import { GamePage, type EditableNote, type GameSaveInput } from "../src/pages/GamePage";
+import { emitMonacoMarkdownChange } from "./mocks/MonacoMarkdownEditorMock";
+
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
 
 const CURRENT_GAME_ID = "11111111-1111-4111-8111-111111111111";
 const ZELDA_ID = "22222222-2222-4222-8222-222222222222";
@@ -87,45 +92,21 @@ function ExistingNoteHarness({ note = existingNote, onSave }: { note?: Note; onS
 }
 
 describe("game links in notes", () => {
-  it.each([
-    { modifier: { ctrlKey: true }, shortcut: "Ctrl+Enter" },
-    { modifier: { metaKey: true }, shortcut: "Cmd+Enter" },
-  ])("saves a list unchanged with $shortcut instead of adding an item", async ({ modifier }) => {
-    const user = userEvent.setup();
-    const onSave = vi.fn<(input: GameSaveInput) => void>();
-    const listNote = { ...existingNote, bodyMarkdown: "- [ ] Existing task" };
-    render(<ExistingNoteHarness note={listNote} onSave={onSave} />);
-
-    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("combobox", { name: "Текст заметки" }) as HTMLTextAreaElement;
-    editor.setSelectionRange(editor.value.length, editor.value.length);
-    const enter = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Enter", ...modifier });
-    fireEvent(editor, enter);
-
-    expect(enter.defaultPrevented).toBe(true);
-    await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
-    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(listNote.bodyMarkdown);
-    expect(screen.queryByLabelText("Текст заметки")).not.toBeInTheDocument();
-  });
-
-  it("links another game while editing an existing note and excludes the current game", async () => {
+  it("renders an existing note with its stable Monaco model and persists a rendered game link", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     render(<ExistingNoteHarness onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("combobox", { name: "Текст заметки" });
-    await user.type(editor, " #Zel");
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const root = editor.closest(".monaco-note-editor");
+    expect(root).toHaveAttribute("data-model-key", `note:${NOTE_ID}`);
 
-    const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).getByRole("option", { name: /Zelda/ })).toBeInTheDocument();
-    expect(within(listbox).queryByRole("option", { name: /DuckTales/ })).not.toBeInTheDocument();
-
-    await user.keyboard("{Enter}");
     const expectedMarkdown = `Сравнить [Zelda](#/games/${ZELDA_ID})`;
-    expect(editor).toHaveValue(expectedMarkdown);
-
-    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    act(() => {
+      fireEvent.change(editor, { target: { value: expectedMarkdown } });
+      fireEvent.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    });
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(expectedMarkdown);
 
@@ -133,26 +114,67 @@ describe("game links in notes", () => {
     expect(link).toHaveAttribute("href", `#/games/${ZELDA_ID}`);
   });
 
-  it("offers a game after # and inserts its link into a new-game note", async () => {
+  it("keeps the latest body when file processing starts before the parent rerenders", async () => {
+    const user = userEvent.setup();
+    render(
+      <GamePage
+        assets={{}}
+        canAddBlob={() => "Файл не помещается"}
+        game={currentGame}
+        mode="game"
+        notes={[existingNote]}
+        onSave={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const latestBody = "Последняя версия перед файлом";
+    const file = new File(["guide"], "guide.pdf", { type: "application/pdf" });
+    const drop = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(drop, "dataTransfer", {
+      value: { files: [file], items: [], types: ["Files"] },
+    });
+
+    act(() => {
+      emitMonacoMarkdownChange(`note:${NOTE_ID}`, latestBody);
+      editor.dispatchEvent(drop);
+    });
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Файл не помещается"));
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue(latestBody);
+  });
+
+  it("keeps new-game note models distinct while persisting controlled Markdown", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     render(<GamePage assets={{}} gameSuggestions={[zelda]} mode="new" notes={[]} onSave={onSave} />);
 
     await user.type(screen.getByRole("textbox", { name: "Название *" }), "Новая игра");
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
-    const editor = await screen.findByRole("combobox", { name: "Текст заметки" });
-    await user.type(editor, "#");
-
-    const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).getByRole("option", { name: /Zelda/ })).toBeInTheDocument();
-    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
+    const editors = await screen.findAllByRole("textbox", { name: "Текст заметки" });
+    const modelKeys = editors.map((editor) => editor.closest(".monaco-note-editor")?.getAttribute("data-model-key"));
+    expect(new Set(modelKeys).size).toBe(2);
+    expect(modelKeys.every((key) => key?.startsWith("note:"))).toBe(true);
 
     const expectedMarkdown = `[Zelda](#/games/${ZELDA_ID})`;
-    expect(editor).toHaveValue(expectedMarkdown);
+    fireEvent.change(editors[0], { target: { value: expectedMarkdown } });
+    const firstCard = editors[0].closest("article")!;
+    await user.click(within(firstCard).getByRole("button", { name: "Двойная высота заметки" }));
+    fireEvent.drop(editors[0], { dataTransfer: { files: [new File(["guide"], "guide.pdf", { type: "application/pdf" })], items: [], types: ["Files"] } });
+    expect(await within(firstCard).findByRole("link", { name: /guide\.pdf/ })).toBeInTheDocument();
+    await user.click(within(firstCard).getByRole("button", { name: "Переместить заметку ниже" }));
+
+    const updatedEditors = screen.getAllByRole("textbox", { name: "Текст заметки" });
+    expect(updatedEditors.find((editor) => (editor as HTMLTextAreaElement).value === expectedMarkdown)?.closest(".monaco-note-editor")).toHaveAttribute("data-model-key", modelKeys[0]);
+    expect(updatedEditors.find((editor) => (editor as HTMLTextAreaElement).value === "")?.closest(".monaco-note-editor")).toHaveAttribute("data-model-key", modelKeys[1]);
+    expect(within(firstCard).queryByRole("button", { name: "Сохранить заметку" })).not.toBeInTheDocument();
+    expect(within(firstCard).queryByRole("button", { name: "Отменить редактирование" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0].notes).toHaveLength(1);
+    expect(onSave.mock.calls[0][0].notes).toHaveLength(2);
     expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(expectedMarkdown);
   });
 });

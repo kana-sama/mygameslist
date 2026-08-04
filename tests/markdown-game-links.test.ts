@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   findActiveBracketGameLinkQuery,
-  findActiveGameLinkQuery,
   formatGameMarkdownCompletionInsertText,
   formatGameMarkdownLink,
-  insertGameMarkdownLink,
 } from "../src/components/markdownGameLinks";
 
 describe("findActiveBracketGameLinkQuery", () => {
@@ -277,46 +275,7 @@ describe("findActiveBracketGameLinkQuery", () => {
   });
 });
 
-describe("findActiveGameLinkQuery", () => {
-  it.each([
-    {
-      name: "unclosed inline code",
-      markdown: "`code\r#zel",
-      caret: 10,
-      expected: { start: 6, end: 10, query: "zel" },
-    },
-    {
-      name: "unclosed link destination",
-      markdown: "[label](dest\r#zel",
-      caret: 17,
-      expected: { start: 13, end: 17, query: "zel" },
-    },
-  ])("starts a legacy hash query after bare CR following $name", ({ markdown, caret, expected }) => {
-    expect(findActiveGameLinkQuery(markdown, caret)).toEqual(expected);
-  });
-
-  it("rejects a legacy hash query inside a nested destination", () => {
-    const markdown = "[label](foo(bar/#zel))";
-
-    expect(findActiveGameLinkQuery(markdown, markdown.indexOf("#zel") + 4)).toBeNull();
-  });
-
-  it("does not let an escaped closing parenthesis end a legacy destination", () => {
-    const markdown = "[label](foo\\) #zel)";
-
-    expect(findActiveGameLinkQuery(markdown, markdown.indexOf("#zel") + 4)).toBeNull();
-  });
-
-  it("allows a legacy hash query after a fully closed nested destination", () => {
-    expect(findActiveGameLinkQuery("[label](foo(bar)) #zel", 22)).toEqual({
-      start: 18,
-      end: 22,
-      query: "zel",
-    });
-  });
-});
-
-describe("shared game-link insertion", () => {
+describe("game-link formatting", () => {
   it("derives the full link and completion tail from one encoded target contract", () => {
     const target = { id: "game/id with spaces", title: "The Legend of Zelda" };
 
@@ -326,20 +285,5 @@ describe("shared game-link insertion", () => {
     expect(formatGameMarkdownCompletionInsertText(target)).toBe(
       "The Legend of Zelda](#/games/game%2Fid%20with%20spaces)",
     );
-  });
-
-  it("preserves the exact link format and encodes the game ID", () => {
-    const source = "Before #zel after";
-    const inserted = insertGameMarkdownLink(
-      source,
-      { start: 7, end: 11 },
-      { id: "game/id with spaces", title: "The Legend of Zelda" },
-    );
-    const link = "[The Legend of Zelda](#/games/game%2Fid%20with%20spaces)";
-
-    expect(inserted).toEqual({
-      markdown: `Before ${link} after`,
-      caret: 7 + link.length,
-    });
   });
 });

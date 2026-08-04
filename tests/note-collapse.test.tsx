@@ -5,6 +5,10 @@ import { MarkdownView } from "../src/components/Markdown";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { GamePage } from "../src/pages/GamePage";
 
+vi.mock("../src/components/MonacoMarkdownEditor", async () => (
+  import("./mocks/MonacoMarkdownEditorMock")
+));
+
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-07-17T10:00:00.000Z";
 function makeNote(id: string, bodyMarkdown: string, rank: number): Note {
@@ -234,34 +238,24 @@ describe("scrollable long note cards", () => {
     expect(onSave.mock.calls[0][0].notes[0]).not.toHaveProperty("doubleWidth");
   });
 
-  it("keeps attachments, either editor branch, and the footer in flow order", async () => {
+  it("keeps attachments, the Monaco editor, and the footer in flow order", async () => {
     const user = userEvent.setup();
     const note: Note = {
       ...makeNote("22222222-2222-4222-8222-222222222222", "Long note", 1024),
       attachments: [{ type: "link", url: "https://example.com/guide", label: "Guide" }],
     };
     const flowOrder = (card: HTMLElement) => Array.from(card.children)
-      .filter((child) => child.matches(".note-attachments, .plain-markdown-textarea, .game-link-markdown-textarea, .note-editor-actions"))
+      .filter((child) => child.matches(".note-attachments, .monaco-note-editor, .note-editor-actions"))
       .map((child) => child.classList.contains("note-attachments")
         ? "attachments"
         : child.classList.contains("note-editor-actions")
           ? "footer"
-          : child.classList.contains("game-link-markdown-textarea") ? "wrapper" : "textarea");
+          : "editor");
 
-    const directRender = render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
     let card = screen.getByText("Long note").closest<HTMLElement>("article")!;
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
     card = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
-    expect(flowOrder(card)).toEqual(["attachments", "textarea", "footer"]);
-    directRender.unmount();
-
-    const suggestedGame: Game = { ...game, id: "44444444-4444-4444-8444-444444444444", title: "Suggested game" };
-    render(<GamePage assets={{}} game={game} gameSuggestions={[suggestedGame]} mode="game" notes={[note]} onSave={vi.fn()} />);
-    card = screen.getByText("Long note").closest<HTMLElement>("article")!;
-    await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    const wrappedTextarea = screen.getByRole("combobox", { name: "Текст заметки" });
-    card = wrappedTextarea.closest<HTMLElement>("article")!;
-    expect(wrappedTextarea.parentElement).toHaveClass("game-link-markdown-textarea");
-    expect(flowOrder(card)).toEqual(["attachments", "wrapper", "footer"]);
+    expect(flowOrder(card)).toEqual(["attachments", "editor", "footer"]);
   });
 });
