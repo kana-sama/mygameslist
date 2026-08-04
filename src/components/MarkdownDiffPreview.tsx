@@ -28,6 +28,7 @@ interface RenderedSide {
 }
 
 interface RenderedUnit {
+  changed: boolean;
   key: string;
   modified: boolean;
   sides: RenderedSide[];
@@ -127,7 +128,7 @@ function tableUnit(hunk: MarkdownDiffHunk, fragments: readonly MarkdownDiffFragm
       markdown: sideMarkdown(afterLines),
     }));
   }
-  return renderedUnit({ key: `${hunk.id}-table`, modified, sides });
+  return renderedUnit({ changed: hasRemoved || hasAdded, key: `${hunk.id}-table`, modified, sides });
 }
 
 function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
@@ -149,7 +150,7 @@ function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
       side(fragment.before, "before", "modified", "Удалено"),
       side(fragment.after, "after", "modified", "Добавлено"),
     ].filter((item): item is RenderedSide => item !== null);
-    return renderedUnit({ key: fragment.id, modified: true, sides });
+    return renderedUnit({ changed: true, key: fragment.id, modified: true, sides });
   }
   const content = fragment.kind === "removed" ? fragment.before : fragment.after ?? fragment.before;
   const rendered = side(
@@ -158,7 +159,12 @@ function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
     fragment.kind,
     fragment.kind === "added" ? "Добавлено" : fragment.kind === "removed" ? "Удалено" : undefined,
   );
-  return rendered ? renderedUnit({ key: fragment.id, modified: false, sides: [rendered] }) : null;
+  return rendered ? renderedUnit({
+    changed: fragment.kind !== "context",
+    key: fragment.id,
+    modified: false,
+    sides: [rendered],
+  }) : null;
 }
 
 function renderedUnits(hunk: MarkdownDiffHunk): RenderedUnit[] {
@@ -199,14 +205,28 @@ function truncateSide(side: RenderedSide, limit: number): RenderedSide {
   return renderedSide({ ...side, decorations, markdown: truncated.markdown });
 }
 
+function minimumUnitRows(unit: RenderedUnit): number {
+  if (!unit.modified) return Math.min(1, unit.visualRows);
+  return unit.sides.reduce(
+    (rows, side) => rows + (side.visualRows > 0 ? 1 : 0),
+    0,
+  );
+}
+
 function truncateUnit(unit: RenderedUnit, limit: number): RenderedUnit {
   if (unit.visualRows <= limit) return unit;
-  let remaining = limit;
+  let remaining = Math.max(limit, minimumUnitRows(unit));
   const sides = unit.sides.map((side, index) => {
-    const sidesLeft = unit.sides.length - index;
-    const allocation = sidesLeft === 1
-      ? remaining
-      : Math.min(side.visualRows, Math.max(1, Math.floor(remaining / sidesLeft)));
+    const sidesLeft = unit.sides.slice(index).filter((candidate) => candidate.visualRows > 0).length;
+    const minimumLaterRows = unit.sides
+      .slice(index + 1)
+      .reduce((rows, candidate) => rows + (candidate.visualRows > 0 ? 1 : 0), 0);
+    const sideMinimum = side.visualRows > 0 ? 1 : 0;
+    const fairShare = sidesLeft > 0 ? Math.floor(remaining / sidesLeft) : 0;
+    const allocation = Math.min(
+      side.visualRows,
+      Math.max(sideMinimum, Math.min(fairShare, remaining - minimumLaterRows)),
+    );
     remaining -= allocation;
     return truncateSide(side, allocation);
   });
@@ -217,10 +237,22 @@ function takeRenderedRows(units: readonly RenderedUnit[], limit: number): Render
   const visible: RenderedUnit[] = [];
   let rows = 0;
   for (const unit of units) {
-    const remaining = limit - rows;
+    let remaining = limit - rows;
     if (remaining <= 0) break;
-    visible.push(unit.visualRows <= remaining ? unit : truncateUnit(unit, remaining));
-    rows += Math.min(unit.visualRows, remaining);
+
+    const minimumRows = minimumUnitRows(unit);
+    while (remaining < minimumRows && visible.at(-1)?.changed === false) {
+      const context = visible.pop();
+      if (!context) break;
+      rows -= context.visualRows;
+      remaining = limit - rows;
+    }
+
+    const selected = unit.visualRows <= remaining
+      ? unit
+      : truncateUnit(unit, Math.max(remaining, minimumRows));
+    visible.push(selected);
+    rows += selected.visualRows;
     if (rows >= limit) break;
   }
   return visible;

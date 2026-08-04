@@ -157,6 +157,36 @@ describe("compact Markdown diff preview", () => {
     expect(screen.getAllByLabelText("Изменено").length).toBeGreaterThan(0);
   });
 
+  it("keeps both real sides of a modification when the preview budget is one row", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff("Старое значение", "Новое значение")}
+        previewRows={1}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByRole("group", { name: "Удалено" })).toHaveTextContent("Старое значение");
+    expect(within(modified).getByRole("group", { name: "Добавлено" })).toHaveTextContent("Новое значение");
+    expect(screen.queryByText("Текста пока нет")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(2);
+  });
+
+  it("displaces earlier complete context before starving a modified side at the default budget", () => {
+    const added = Array.from({ length: 10 }, (_, index) => `- Добавлено ${index + 1}`).join("\n");
+    const model = createMarkdownDiff(
+      "## Детали\nСтарое значение",
+      `${added}\n## Детали\nНовое значение`,
+    );
+    render(<MarkdownDiffPreview model={model} />);
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByRole("group", { name: "Удалено" })).toHaveTextContent("Старое значение");
+    expect(within(modified).getByRole("group", { name: "Добавлено" })).toHaveTextContent("Новое значение");
+    expect(screen.queryByText("Текста пока нет")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(12);
+  });
+
   it("falls back only the untrusted note to source with an explanation", () => {
     const safe = createMarkdownDiff("## Надёжно\nДо", "## Надёжно\nПосле");
     const fallback: MarkdownDiffModel = {
