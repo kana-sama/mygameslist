@@ -3,6 +3,12 @@ import { Blob as NodeBlob } from "node:buffer";
 import { beforeEach } from "vitest";
 
 Object.defineProperty(globalThis, "Blob", { configurable: true, writable: true, value: NodeBlob });
+if (typeof document !== "undefined") {
+  Object.defineProperty(document, "queryCommandSupported", {
+    configurable: true,
+    value: () => false,
+  });
+}
 
 class TestStorage implements Storage {
   private readonly values = new Map<string, string>();
