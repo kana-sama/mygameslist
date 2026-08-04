@@ -69,6 +69,74 @@ describe("formatMarkdownTableAtLine", () => {
     ]);
   });
 
+  it("keeps a compact unframed delimiter mixed while ordinary rows consume spare padding", () => {
+    expect(format([
+      "abc | qwe",
+      "----|----",
+      "rx  | ty",
+    ])).toEqual([
+      "abc | qwe",
+      "----|----",
+      "rx  | ty ",
+    ]);
+  });
+
+  it("grows compact unframed delimiter hyphens instead of inserting separator spaces", () => {
+    expect(format([
+      "abcd | qwe",
+      "----|----",
+      "rx   | ty",
+    ])).toEqual([
+      "abcd | qwe",
+      "-----|----",
+      "rx   | ty ",
+    ]);
+  });
+
+  it("keeps compact unframed delimiter marker minima after gutter translation", () => {
+    expect(format([
+      "A | B | C",
+      ":---|---:|:---:",
+      "x | y | z",
+    ])).toEqual([
+      "A   |  B |  C  ",
+      ":---|---:|:---:",
+      "x   |  y |  z  ",
+    ]);
+  });
+
+  it("preserves compact framed delimiter gutters, indentation, and colon markers", () => {
+    expect(format([
+      "  | A | B | C |",
+      "  |:---|---:|:---:|",
+      "  | abcd | q | z |",
+    ])).toEqual([
+      "  | A    |  B |  C  |",
+      "  |:-----|---:|:---:|",
+      "  | abcd |  q |  z  |",
+    ]);
+  });
+
+  it("does not expand a minimal framed compact delimiter", () => {
+    expect(format([
+      "| A |",
+      "|---|",
+      "| x |",
+    ])).toBeNull();
+  });
+
+  it("keeps compact framed delimiter marker minima after gutter translation", () => {
+    expect(format([
+      "| A | B | C |",
+      "|:---|---:|:---:|",
+      "| x | y | z |",
+    ])).toEqual([
+      "| A  |  B |  C  |",
+      "|:---|---:|:---:|",
+      "| x  |  y |  z  |",
+    ]);
+  });
+
   it("preserves source-unit escaped pipes and inline code", () => {
     expect(format([
       "| Left | Right |",
@@ -228,6 +296,30 @@ describe("formatMarkdownTableAtLine", () => {
       "Second group |",
       "----- | ------",
       "End   | [x]   ",
+    ]);
+  });
+
+  it("preserves compact and spaced delimiter rows independently across grouped-table boundaries", () => {
+    expect(format([
+      "| A | B |",
+      "|---|---|",
+      "| First row |",
+      "| --- | --- |",
+      "| a | done |",
+      "| --- | --- |",
+      "| Second title |",
+      "|---|---|",
+      "| b | more |",
+    ])).toEqual([
+      "| A   | B      |",
+      "|-----|--------|",
+      "| First row    |",
+      "| --- | ------ |",
+      "| a   | done   |",
+      "| --- | ------ |",
+      "| Second title |",
+      "|-----|--------|",
+      "| b   | more   |",
     ]);
   });
 

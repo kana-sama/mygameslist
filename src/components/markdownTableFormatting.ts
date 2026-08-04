@@ -128,6 +128,36 @@ function serializeCells(cells: readonly string[], framed: boolean, prefix: strin
   return framed ? `${prefix}| ${body} |` : body;
 }
 
+function hasCompactDelimiterGutters(syntax: MarkdownTableLineSyntax): boolean {
+  return syntax.cells.every((cell, column) => {
+    const cellEnd = cell.sourceColumn + cell.sourceText.length;
+    if (syntax.hasLeadingPipe || column > 0) {
+      const precedingPipe = syntax.pipeIndices[syntax.hasLeadingPipe ? column : column - 1];
+      if (cell.sourceColumn !== precedingPipe + 1) return false;
+    }
+    if (syntax.hasTrailingPipe || column < syntax.cells.length - 1) {
+      const followingPipe = syntax.pipeIndices[syntax.hasLeadingPipe ? column + 1 : column];
+      if (cellEnd !== followingPipe) return false;
+    }
+    return true;
+  });
+}
+
+function compactDelimiterGutter(framed: boolean, column: number, columnCount: number): number {
+  return framed || (column > 0 && column < columnCount - 1) ? 2 : 1;
+}
+
+function serializeDelimiterCells(
+  cells: readonly string[],
+  framed: boolean,
+  prefix: string,
+  compact: boolean,
+): string {
+  if (!compact) return serializeCells(cells, framed, prefix);
+  const body = cells.join("|");
+  return framed ? `${prefix}|${body}|` : body;
+}
+
 export function formatMarkdownTableAtLine(
   lines: readonly string[],
   triggerLine: number,
@@ -224,10 +254,14 @@ export function formatMarkdownTableAtLine(
   const delimiterCells = parsed.find((line) => line.kind === "delimiter")?.syntax.cells;
   if (!delimiterCells) return null;
   const widths = Array.from({ length: columnCount }, (_, column) => Math.max(
-    3,
     ...parsed
       .filter((line): line is OrdinaryRow => line.kind !== "title")
-      .map((line) => line.syntax.cells[column].sourceText.length),
+      .map((line) => {
+        const cell = line.syntax.cells[column];
+        return line.kind === "delimiter" && hasCompactDelimiterGutters(line.syntax)
+          ? cell.sourceText.length - compactDelimiterGutter(framed, column, columnCount)
+          : cell.sourceText.length;
+      }),
   ));
   const titleCapacity = () => widths.reduce((total, width) => total + width, 0)
     + 3 * (columnCount - 1) - (framed ? 0 : 2);
@@ -245,10 +279,19 @@ export function formatMarkdownTableAtLine(
         text: framed ? `${prefix}| ${title} |` : `${title} |`,
       };
     }
+    const compact = line.kind === "delimiter" && hasCompactDelimiterGutters(line.syntax);
     const cells = line.syntax.cells.map((cell, column) => line.kind === "delimiter"
-      ? formatDelimiter(cell.sourceText, widths[column])
+      ? formatDelimiter(
+        cell.sourceText,
+        widths[column] + (compact ? compactDelimiterGutter(framed, column, columnCount) : 0),
+      )
       : padCell(cell.sourceText, widths[column], alignments[column]));
-    return { lineIndex: line.lineIndex, text: serializeCells(cells, framed, prefix) };
+    return {
+      lineIndex: line.lineIndex,
+      text: line.kind === "delimiter"
+        ? serializeDelimiterCells(cells, framed, prefix, compact)
+        : serializeCells(cells, framed, prefix),
+    };
   });
   const changed = formatted.filter((line) => lines[line.lineIndex] !== line.text);
   return changed.length ? { lines: changed } : null;

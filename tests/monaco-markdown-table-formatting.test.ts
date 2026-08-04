@@ -295,6 +295,32 @@ describe("Monaco Markdown table typing", () => {
     formatting.dispose();
   });
 
+  it("keeps compact delimiter gutters while consuming padding in one undoable typing history element", async () => {
+    const initial = [
+      "abc | qwe",
+      "----|----",
+      "r   | ty ",
+    ];
+    const formatted = [
+      "abc | qwe",
+      "----|----",
+      "rx  | ty ",
+    ];
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.type(3, 2, "x");
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(formatted);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    harness.undo();
+    expect(harness.lines()).toEqual(initial);
+    harness.redo();
+    expect(harness.lines()).toEqual(formatted);
+    formatting.dispose();
+  });
+
   it("widens every table row when inserted content exceeds the current column width", async () => {
     const harness = createTypingHarness([
       "abc | qwe",
@@ -311,6 +337,32 @@ describe("Monaco Markdown table typing", () => {
       "---- | ---",
       "xyzq | ty ",
     ]);
+    formatting.dispose();
+  });
+
+  it("grows compact delimiter hyphens when typing overflows the column", async () => {
+    const initial = [
+      "abc | qwe",
+      "----|----",
+      "xyz | ty ",
+    ];
+    const formatted = [
+      "abc  | qwe",
+      "-----|----",
+      "xyzq | ty ",
+    ];
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.type(3, 4, "q");
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(formatted);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    harness.undo();
+    expect(harness.lines()).toEqual(initial);
+    harness.redo();
+    expect(harness.lines()).toEqual(formatted);
     formatting.dispose();
   });
 

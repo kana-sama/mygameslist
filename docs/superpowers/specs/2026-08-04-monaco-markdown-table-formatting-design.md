@@ -96,7 +96,7 @@ The formatter preserves the author's framed or unframed choice.
 
 ## Alignment and Widths
 
-Column widths are computed from header cells, ordinary rows, and every delimiter row using source UTF-16 length. Escaped source characters therefore keep their real source columns. No display-width dependency is introduced.
+Column widths are computed from header cells, ordinary rows, and every delimiter row using source UTF-16 length. Delimiter token spans are translated into the equivalent ordinary-cell width before comparison, so separator gutters are not mistaken for content width. Escaped source characters therefore keep their real source columns. No display-width dependency is introduced.
 
 The header delimiter controls normal-cell padding:
 
@@ -104,9 +104,14 @@ The header delimiter controls normal-cell padding:
 - trailing `:`: right-aligned;
 - both colons: centered with deterministic extra padding on the right.
 
-Every delimiter row preserves its own leading/trailing colon markers. Hyphens expand to the column width, with minimum source widths of three for `---`, four for `:---` or `---:`, and five for `:---:`.
+Every delimiter row preserves its own leading/trailing colon markers and its own separator-gutter style:
 
-Output uses one source space around cell content and internal separators. Framed output follows `indent + | cell | cell |`, preserving the table's consistent indentation prefix; unframed output follows `cell | cell`. All structural column separators consequently land on the same source columns.
+- a spaced delimiter keeps the established `| --- | --- |` or `--- | ---` spelling;
+- a compact delimiter keeps `|---|---|` or `---|---`, with no whitespace between delimiter tokens and structural pipes.
+
+Ordinary-row spacing is independent from delimiter-row spacing. A table such as `abc | qwe` followed by `----|----` therefore remains mixed in exactly that way. Compact delimiter tokens absorb the gutter width as additional hyphens so their structural pipes still coincide with ordinary rows; framed tokens add two gutter positions, unframed edge tokens add one, and unframed interior tokens add two. Existing delimiter spans remain a width constraint during insertion, preventing an unrelated first edit from changing the table's established width. Hyphens grow inside the token, never by adding separator spaces, and colon markers remain at their original token edges.
+
+Ordinary output uses one source space around cell content and internal separators. Framed ordinary output follows `indent + | cell | cell |`, preserving the table's consistent indentation prefix; unframed ordinary output follows `cell | cell`. Delimiter output follows the delimiter row's own spaced or compact gutter style. All structural column separators consequently land on the same source columns without normalizing compact delimiters into spaced ones.
 
 ## Group Titles
 
@@ -154,12 +159,12 @@ Ordinary Markdown text outside the candidate remains untouched. The provider exp
 
 ## Verification
 
-Pure tests cover shared pipe scanning, renderer compatibility, framed and unframed tables, alignment markers, grouped-table triples, long titles, escaped pipes, backticks, strict malformed no-ops, framing preservation, and minimal line edits.
+Pure tests cover shared pipe scanning, renderer compatibility, framed and unframed tables, spaced and compact delimiters, mixed ordinary/delimiter spacing, compact colon markers, alignment markers, grouped-table triples, long titles, escaped pipes, backticks, strict malformed no-ops, framing preservation, and minimal line edits.
 
-Provider/runtime tests cover one Markdown registration, the native `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility. Editor-local tests additionally cover sequential spare-padding consumption and overflow, framed and unframed group-title border eligibility, ordinary versus IME pipe routing, multi-update and canceled IME composition, final-coordinate mapping for multi-cursor changes, atomic rejection of line-breaking events, Monaco history grouping with Undo/Redo state, fenced-code exclusion, disposal with queued composition work, installation order, and cleanup.
+Provider/runtime tests cover one Markdown registration, the native `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility. Editor-local tests additionally cover compact-delimiter padding consumption and overflow without a gutter-style change, sequential spare-padding consumption and overflow, framed and unframed group-title border eligibility, ordinary versus IME pipe routing, multi-update and canceled IME composition, final-coordinate mapping for multi-cursor changes, atomic rejection of line-breaking events, Monaco history grouping with Undo/Redo state, fenced-code exclusion, disposal with queued composition work, installation order, and cleanup.
 
 A real-application browser smoke verifies sequential non-pipe typing through spare padding into overflow, caret continuity, exact one-step Undo/Redo without a malformed intermediate table, and console/worker cleanliness when a browser binding is available. The native final-pipe, grouped-table, marker, and exclusion paths remain covered by provider and pure-formatter suites. If the environment exposes no browser, the exact failure is recorded and the scenario remains in the final cross-stack gate.
 
 ## Stacked-Change Boundary
 
-The original specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, and tests belong to Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. That commit is immutable. JetBrains per-character parity, its documentation correction, regression tests, and editor-local wiring belong to a new descendant commit rather than rewriting the original change.
+The original specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, and tests belong to Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. That commit is immutable. JetBrains per-character parity belongs to immutable descendant `tuutvrvmrluuxknnmoqkpwqmvyqouwtm`. Compact-delimiter preservation, its specification correction, tests, and formatter change belong to a new descendant commit rather than rewriting either finalized change.

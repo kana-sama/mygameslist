@@ -210,3 +210,58 @@ Cover source scanning, renderer compatibility, ordinary/grouped framing and alig
 ```
 
 Use `jj describe` on the feature change and then `jj new`. The final working copy must be a clean empty child.
+
+## Task 6: Preserve compact delimiter gutters
+
+**Modify:**
+
+- `docs/superpowers/specs/2026-08-04-monaco-markdown-table-formatting-design.md`
+- `docs/superpowers/plans/2026-08-04-monaco-markdown-table-formatting.md`
+- `src/components/markdownTableFormatting.ts`
+- `tests/markdown-table-formatting.test.ts`
+- `tests/monaco-markdown-table-formatting.test.ts`
+
+**Interfaces:**
+
+- Consumes: `formatMarkdownTableAtLine`, `installMonacoMarkdownTableTyping`, the shared structural scanner, and existing minimal Monaco edits.
+- Produces: delimiter-row-aware serialization that preserves either compact or spaced gutters while keeping all structural pipes aligned.
+
+### Step 1: Add pure RED regressions
+
+Add exact fixtures proving that an ordinary-spaced, delimiter-compact table remains mixed while consuming spare padding and while growing:
+
+```md
+abc | qwe
+----|----
+rx  | ty
+```
+
+The no-overflow result must keep `----|----`; the overflow result must grow the first token to `-----|----` without inserting spaces. Add framed and unframed cases covering `:---`, `---:`, and `:---:` markers plus a consistently indented framed table. Run:
+
+```sh
+npm test -- tests/markdown-table-formatting.test.ts
+```
+
+Observe RED because the formatter currently serializes every delimiter through `cells.join(" | ")`.
+
+### Step 2: Preserve delimiter style in the pure formatter
+
+Classify each parsed delimiter row as compact only when all of its structural delimiter pipes have zero whitespace gutters. Keep ordinary serialization unchanged. Translate each compact delimiter token's physical source width into its ordinary-cell width by subtracting two gutter positions for framed/interior cells and one for unframed edge cells. When serializing, add those positions back as hyphens, retaining each token's leading/trailing colon markers. A spaced delimiter continues through the established serializer.
+
+Run the pure formatter suite and confirm GREEN.
+
+### Step 3: Add Monaco RED/GREEN regressions
+
+Use the existing typing harness to insert a non-pipe character into spare padding and then beyond the column width. Assert that the first edit only consumes padding, overflow grows compact hyphens, and one Undo/Redo history element still contains the user's input plus alignment. No Monaco adapter change is expected because both native and companion paths already reuse the pure formatter.
+
+Run:
+
+```sh
+npm test -- tests/markdown-table-formatting.test.ts tests/monaco-markdown-table-formatting.test.ts
+npm test
+npm run build
+```
+
+### Step 4: Review and finalize the descendant
+
+Inspect `jj status` and `jj diff`, request an independent review against this task and the matching design section, and fix any finding before finalization. Describe the current Jujutsu change in detail as compact-delimiter preservation, then create a clean child with `jj new`. Never rewrite `uxultnurvtoywymnzsnrssxoorurllkt` or `tuutvrvmrluuxknnmoqkpwqmvyqouwtm`.
