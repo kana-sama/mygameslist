@@ -85,6 +85,7 @@ function hunkDecorations(
   hunk: MarkdownDiffHunk,
   fragments: readonly MarkdownDiffFragment[],
   side: "before" | "after",
+  lineOffset = 0,
 ): MarkdownDecoration[] {
   const lines = sideLines(hunk, side);
   const lineIndexes = new Map(lines.map((line, index) => [line.id, index]));
@@ -98,8 +99,8 @@ function hunkDecorations(
     if (firstLine === undefined) continue;
     decorations.push(...content.decorations.map((decoration) => ({
       ...decoration,
-      endLine: decoration.endLine + firstLine,
-      startLine: decoration.startLine + firstLine,
+      endLine: decoration.endLine + firstLine + lineOffset,
+      startLine: decoration.startLine + firstLine + lineOffset,
     })));
   }
   return decorations;
@@ -112,20 +113,29 @@ function tableUnit(hunk: MarkdownDiffHunk, fragments: readonly MarkdownDiffFragm
   const hasAdded = hunk.lines.some((line) => line.kind === "added");
   const modified = hasRemoved && hasAdded;
   const sides: RenderedSide[] = [];
+  const withPrologue = (side: "before" | "after", markdown: string): { lineOffset: number; markdown: string } => {
+    const prologue = hunk.structuralPrologue?.[side].markdown ?? "";
+    return {
+      lineOffset: prologue.match(/\r\n|\r|\n/gu)?.length ?? 0,
+      markdown: `${prologue}${markdown}`,
+    };
+  };
   if (beforeLines.length && (hasRemoved || !hasAdded)) {
+    const content = withPrologue("before", sideMarkdown(beforeLines));
     sides.push(renderedSide({
-      decorations: hunkDecorations(hunk, fragments, "before"),
+      decorations: hunkDecorations(hunk, fragments, "before", content.lineOffset),
       key: `${hunk.id}-table-before`,
       kind: "context",
-      markdown: sideMarkdown(beforeLines),
+      markdown: content.markdown,
     }));
   }
   if (afterLines.length && (hasAdded || !hasRemoved)) {
+    const content = withPrologue("after", sideMarkdown(afterLines));
     sides.push(renderedSide({
-      decorations: hunkDecorations(hunk, fragments, "after"),
+      decorations: hunkDecorations(hunk, fragments, "after", content.lineOffset),
       key: `${hunk.id}-table-after`,
       kind: "context",
-      markdown: sideMarkdown(afterLines),
+      markdown: content.markdown,
     }));
   }
   return renderedUnit({ changed: hasRemoved || hasAdded, key: `${hunk.id}-table`, modified, sides });
@@ -303,7 +313,7 @@ function SourceRow({ line }: { line: SourceDiffLine }) {
   const label = line.kind === "added" ? "Добавлено" : line.kind === "removed" ? "Удалено" : undefined;
   return (
     <span
-      aria-label={label}
+      aria-label={label ? `${label}: ${line.value}` : undefined}
       className={`markdown-diff-source-row markdown-diff-source-row--${line.kind}`}
       data-diff-kind={line.kind}
       data-testid="diff-visual-row"

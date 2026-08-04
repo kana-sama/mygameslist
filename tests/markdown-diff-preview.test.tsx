@@ -62,7 +62,7 @@ describe("compact Markdown diff preview", () => {
     expect(screen.getAllByRole("table")).toHaveLength(2);
     const opened = screen.getByText((_content, element) => element?.tagName === "STRONG" && element.textContent === "Открыто");
     expect(opened.closest("td")).not.toBeNull();
-    expect(within(opened).getByLabelText("Добавлено")).toHaveTextContent("От");
+    expect(within(opened).getByLabelText("Добавлено: От")).toHaveTextContent("От");
     expect(screen.getByLabelText("Изменено")).toContainElement(opened);
   });
 
@@ -73,6 +73,28 @@ describe("compact Markdown diff preview", () => {
 
     expect(screen.getAllByText("Контекст")).toHaveLength(2);
     expect(screen.getAllByRole("table")).toHaveLength(2);
+  });
+
+  it("renders a deep changed table row with a neutral structural prologue", () => {
+    const before = [
+      "| Этап | Статус |",
+      "| --- | --- |",
+      ...Array.from({ length: 10 }, (_, index) => `| Строка ${index + 1} | Закрыто |`),
+    ].join("\n");
+    const after = before.replace("| Строка 9 | Закрыто |", "| Строка 9 | Открыто |");
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+    expect(screen.getAllByRole("columnheader", { name: "Этап" })).toHaveLength(2);
+    expect(screen.getAllByRole("columnheader", { name: "Статус" })).toHaveLength(2);
+    for (const header of screen.getAllByRole("columnheader", { name: "Этап" })) {
+      expect(header.closest("tr")).toHaveAttribute("data-diff-kind", "context");
+      expect(header.closest("tr")).not.toHaveAttribute("aria-label");
+    }
+    const opened = screen.getByText((_content, element) => element?.tagName === "TD" && element.textContent === "Открыто");
+    expect(opened.closest("tr")).toHaveAttribute("data-diff-kind", "added");
+    expect(screen.getAllByText("Строка 6")).toHaveLength(2);
+    expect(screen.getAllByText("Строка 10")).toHaveLength(2);
   });
 
   it.each([
@@ -99,7 +121,7 @@ describe("compact Markdown diff preview", () => {
     expect(side).not.toHaveAttribute("aria-label");
     expect(screen.getByText("Готово").closest("tr")).toHaveAttribute("data-diff-kind", "context");
     expect(screen.getByText(changed).closest("tr")).toHaveAttribute("data-diff-kind", kind);
-    expect(screen.getByText(changed).closest("tr")).toHaveAttribute("aria-label", label);
+    expect(screen.getByText(changed).closest("tr")).toHaveAccessibleName(`${label}: Бета | ${changed}`);
   });
 
   it.each([
@@ -144,9 +166,30 @@ describe("compact Markdown diff preview", () => {
     const rows = screen.getAllByTestId("diff-visual-row");
     expect(rows.map((row) => row.textContent)).toContain("  старая\tстрока");
     expect(rows.map((row) => row.textContent)).toContain("  новая\tстрока");
-    expect(screen.getByLabelText("Удалено", { selector: "[data-diff-kind='removed']" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Добавлено", { selector: "[data-diff-kind='added']" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Удалено:/u, { selector: "[data-diff-kind='removed']" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Добавлено:/u, { selector: "[data-diff-kind='added']" })).toBeInTheDocument();
     expect(rows.every((row) => !/^[+−~]/u.test(row.textContent ?? ""))).toBe(true);
+  });
+
+  it("includes rendered inline evidence in the computed accessible name", () => {
+    const { container } = render(
+      <MarkdownDiffPreview model={createMarkdownDiff("", "Новое доказательство")} />,
+    );
+
+    const inline = container.querySelector<HTMLElement>(".markdown-diff-inline--added");
+    expect(inline).not.toBeNull();
+    expect(inline).toHaveTextContent("Новое доказательство");
+    expect(inline).toHaveAccessibleName("Добавлено: Новое доказательство");
+  });
+
+  it("includes exact source-row evidence in the computed accessible name", async () => {
+    const user = userEvent.setup();
+    render(<MarkdownDiffPreview model={createMarkdownDiff("", "Новая исходная строка")} />);
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+    const row = screen.getByTestId("diff-visual-row");
+    expect(row).toHaveTextContent("Новая исходная строка");
+    expect(row).toHaveAccessibleName("Добавлено: Новая исходная строка");
   });
 
   it("labels both rendered sides of a modified fragment", () => {

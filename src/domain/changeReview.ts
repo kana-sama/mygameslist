@@ -308,15 +308,15 @@ function scalarEvidence(label: string, before: unknown, after: unknown, base: Li
   };
 }
 
-function placementLabel(database: LibraryDatabase, gameId: string): string {
-  const placement = database.games[gameId]?.placement;
-  return placement ? `${TIER_LABELS[placement.tierId]} · позиция ${placement.rank}` : "—";
+function placementLabel(value: unknown): string {
+  if (!value || typeof value !== "object") return "—";
+  const placement = value as { tierId?: unknown; rank?: unknown };
+  if (typeof placement.tierId !== "string" || !(placement.tierId in TIER_LABELS) || typeof placement.rank !== "number") return "—";
+  return `${TIER_LABELS[placement.tierId as TierId]} · позиция ${placement.rank}`;
 }
 
-function noteOrderLabel(database: LibraryDatabase, noteId: string, field: string): string {
-  const note = database.notes[noteId];
-  if (!note) return "—";
-  const value = field === "groupRank" ? note.groupRank : note.rank;
+function noteOrderLabel(value: unknown, entityExists: boolean): string {
+  if (!entityExists) return "—";
   return value === undefined ? "Без группы" : `позиция ${value}`;
 }
 
@@ -369,13 +369,34 @@ function markdownEvidence(before: unknown, after: unknown): ChangeEvidence {
   return { type: "markdown", before: beforeText, after: afterText, diff: createMarkdownDiff(beforeText, afterText) };
 }
 
+function intendedEntityForUnit(
+  unit: SemanticUnit,
+  baseEntity: Game | Note | Asset | undefined,
+  effectiveEntity: Game | Note | Asset | undefined,
+): Game | Note | Asset | undefined {
+  let intended = structuredClone(effectiveEntity ?? baseEntity);
+  for (const item of unit.operations) {
+    if (item.field === undefined) {
+      intended = item.operation.operation === "delete"
+        ? undefined
+        : structuredClone(item.operation.value as Game | Note | Asset);
+      continue;
+    }
+    if (!intended || typeof intended !== "object") continue;
+    const target = intended as unknown as Record<string, unknown>;
+    if (item.operation.operation === "delete") delete target[item.field];
+    else target[item.field] = structuredClone(item.operation.value);
+  }
+  return intended;
+}
+
 function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: LibraryDatabase): ChangeEvidence[] {
   if (unit.map === "assets") {
     const evidence = assetEvidence(unit.entityId, base, effective);
     return evidence ? [evidence] : [];
   }
   const beforeEntity = entity(base, unit.map, unit.entityId);
-  const afterEntity = entity(effective, unit.map, unit.entityId);
+  const afterEntity = intendedEntityForUnit(unit, beforeEntity, entity(effective, unit.map, unit.entityId));
   const result: ChangeEvidence[] = [];
   for (const field of operationFields(unit)) {
     const before = beforeEntity ? (beforeEntity as unknown as Record<string, unknown>)[field] : undefined;
@@ -387,9 +408,13 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
     } else if (field === "attachments") {
       result.push(chipEvidence(attachmentChips(before, base), attachmentChips(after, effective)));
     } else if (field === "placement" && unit.map === "games") {
-      result.push({ type: "move", before: placementLabel(base, unit.entityId), after: placementLabel(effective, unit.entityId) });
+      result.push({ type: "move", before: placementLabel(before), after: placementLabel(after) });
     } else if ((field === "rank" || field === "groupRank") && unit.map === "notes") {
-      result.push({ type: "move", before: noteOrderLabel(base, unit.entityId, field), after: noteOrderLabel(effective, unit.entityId, field) });
+      result.push({
+        type: "move",
+        before: noteOrderLabel(before, Boolean(beforeEntity)),
+        after: noteOrderLabel(after, Boolean(afterEntity)),
+      });
     } else {
       result.push(scalarEvidence(field, before, after, base, effective));
     }

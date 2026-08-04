@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyPatch,
   diffLibrary,
+  reconcilePatch,
   type Asset,
   type Game,
   type LibraryDatabase,
@@ -160,6 +161,35 @@ function crossGameOrderingFixture(): { context: LibraryContextValue; selectedPat
   };
 }
 
+function conflictTransitionFixture(): {
+  context: LibraryContextValue;
+  conflicted: LibraryContextValue;
+  selectedPath: string;
+} {
+  const base = database();
+  base.games[GAME_A_ID] = game(GAME_A_ID, "Static title");
+  base.notes[NOTE_A_ID] = note(NOTE_A_ID, GAME_A_ID, "# Unrelated\n\nStatic note", 1024);
+  const effective = structuredClone(base);
+  effective.games[GAME_A_ID].title = "Local title";
+  effective.notes[NOTE_A_ID].bodyMarkdown = "# Unrelated\n\nLocal note";
+  const context = libraryValue(base, effective);
+  const remote = structuredClone(base);
+  remote.games[GAME_A_ID].title = "Remote title";
+  const reconciled = reconcilePatch(remote, context.patch);
+  return {
+    context,
+    conflicted: {
+      ...context,
+      base: remote,
+      effective: reconciled.effective,
+      patch: reconciled.patch,
+      conflicts: reconciled.conflicts,
+      games: reconciled.effective.games,
+    },
+    selectedPath: `/games/${GAME_A_ID}/title`,
+  };
+}
+
 async function openDiff(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
   await user.click(screen.getByRole("button", { name: /^Локальные правки:/ }));
   return screen.getByRole("dialog", { name: "Локальные правки" });
@@ -229,5 +259,36 @@ describe("App selective diff integration", () => {
 
     expect(fixture.context.discardPaths).toHaveBeenNthCalledWith(1, fixture.selectedPaths);
     expect(fixture.context.discardPaths).toHaveBeenNthCalledWith(2, fixture.selectedPaths);
+  });
+
+  it("keeps conflict UI renderable when a selected sync discovers a same-path remote change", async () => {
+    const user = userEvent.setup();
+    const fixture = conflictTransitionFixture();
+    let rejectSync: ((reason: Error) => void) | undefined;
+    const syncResult = new Promise<never>((_resolve, reject) => { rejectSync = reject; });
+    fixture.context.syncToGitHub = vi.fn().mockReturnValue(syncResult);
+    fixture.conflicted.syncToGitHub = fixture.context.syncToGitHub;
+    libraryHarness.current = fixture.context;
+    const rendered = render(<App />);
+    const dialog = await openDiff(user);
+
+    await user.click(within(dialog).getByRole("button", { name: "Выбрать часть" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Выбрать изменение: Local title" }));
+    await user.click(within(dialog).getByRole("button", { name: "Синхронизировать выбранное · 1" }));
+    const panel = within(dialog).getByRole("region", { name: "Синхронизация с GitHub" });
+    await user.type(within(panel).getByLabelText("Fine-grained PAT"), PAT);
+    await user.click(within(panel).getByRole("button", { name: "Подключить и синхронизировать" }));
+    await waitFor(() => expect(fixture.context.syncToGitHub).toHaveBeenCalledWith(
+      PAT,
+      expect.objectContaining({ selectedPaths: [fixture.selectedPath] }),
+    ));
+
+    libraryHarness.current = fixture.conflicted;
+    expect(() => rendered.rerender(<App />)).not.toThrow();
+    await act(async () => { rejectSync?.(new Error("Remote conflict")); });
+
+    expect(within(dialog).getByRole("heading", { name: "Нужно разрешить конфликты" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Remote title", { selector: "pre" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Local title", { selector: "pre" })).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChangeReview,
   diffLibrary,
+  reconcilePatch,
   type Asset,
   type Game,
   type LibraryDatabase,
@@ -110,6 +111,27 @@ function assetDeleteOperation(asset: Asset, transactionId: string, changedAt: st
 }
 
 describe("game-grouped change review", () => {
+  it("uses a conflicting operation's local target as the after evidence", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Static title");
+    const local = structuredClone(base);
+    local.games[GAME_A_ID].title = "Local title";
+    const patch = patchBetween(base, local, "local-title");
+    const remote = structuredClone(base);
+    remote.games[GAME_A_ID].title = "Remote title";
+    const reconciled = reconcilePatch(remote, patch);
+
+    const change = buildChangeReview(remote, reconciled.effective, reconciled.patch)
+      .groups[0].changes[0];
+
+    expect(reconciled.conflicts).toHaveLength(1);
+    expect(change.evidence).toContainEqual({
+      type: "scalar",
+      before: "Remote title",
+      after: "Local title",
+    });
+  });
+
   it("groups game, note, and referenced asset evidence under the game", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Lego Harry Potter: Years 1–4");

@@ -150,6 +150,12 @@ function LibraryRoutes() {
     previousPendingCommitRef.current = commitSha;
   }, [library.pendingPublication]);
 
+  useEffect(() => {
+    if (!library.conflicts.length) return;
+    setSelectionMode(false);
+    setExplicitSelectionIds((current) => current.size ? new Set() : current);
+  }, [library.conflicts.length]);
+
   const seedsForSelectionIds = (selectionIds: Iterable<string>): PatchSelectionSeed[] => [...selectionIds].map((selectionId) => ({
     changeId: selectionId,
     operationPaths: [...new Set((review.changesBySelectionId[selectionId] ?? []).flatMap((change) => change.operationPaths))].sort(),
@@ -158,10 +164,10 @@ function LibraryRoutes() {
     () => new Set([...explicitSelectionIds].filter((selectionId) => Boolean(review.changesBySelectionId[selectionId]))),
     [explicitSelectionIds, review.changesBySelectionId],
   );
-  const selectionResult = useMemo(() => activeExplicitSelectionIds.size
+  const selectionResult = useMemo(() => !library.conflicts.length && activeExplicitSelectionIds.size
     ? resolvePatchSelection(library.base, library.effective, library.patch, seedsForSelectionIds(activeExplicitSelectionIds))
     : null,
-  [activeExplicitSelectionIds, library.base, library.effective, library.patch, review.changesBySelectionId]);
+  [activeExplicitSelectionIds, library.base, library.conflicts.length, library.effective, library.patch, review.changesBySelectionId]);
   const selectedSelectionIds = useMemo(() => {
     if (!selectionResult) return new Set<string>();
     const paths = new Set(selectionResult.selectedPaths);

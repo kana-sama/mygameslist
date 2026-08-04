@@ -52,6 +52,10 @@ export interface MarkdownDiffHunk {
   id: string;
   lines: SourceDiffLine[];
   fragments: MarkdownDiffFragment[];
+  structuralPrologue?: {
+    before: MarkdownDiffSide;
+    after: MarkdownDiffSide;
+  };
 }
 
 export interface MarkdownDiffFallback {
@@ -110,6 +114,9 @@ interface StructuralIndex {
 }
 
 const markdownParser = unified().use(remarkParse).use(remarkGfm);
+const MAX_SEMANTIC_PAIR_CHARACTER_PRODUCT = 100_000;
+const MAX_REPLACEMENT_RUN_PAIR_COMPARISONS = 256;
+const MAX_DOCUMENT_SEMANTIC_PAIR_WORK = 2_000_000;
 
 function parseMarkdown(source: string): Root {
   return markdownParser.parse(source) as Root;
@@ -498,10 +505,19 @@ function longestCommonSubsequenceLength(left: string, right: string): number {
   return previous[right.length];
 }
 
+function exceedsProduct(left: number, right: number, maximum: number): boolean {
+  return left > 0 && right > Math.floor(maximum / left);
+}
+
+function semanticPairText(value: string): string {
+  return value.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
+}
+
 function pairSimilarity(before: string, after: string): number {
-  const left = before.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
-  const right = after.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
+  const left = semanticPairText(before);
+  const right = semanticPairText(after);
   if (!left || !right) return 0;
+  if (exceedsProduct(left.length, right.length, MAX_SEMANTIC_PAIR_CHARACTER_PRODUCT)) return 0;
   const common = longestCommonSubsequenceLength(left, right);
   return common / Math.max(left.length, right.length);
 }
@@ -710,6 +726,7 @@ function annotatePairs(
 ): Map<number, number> {
   const pairs = new Map<number, number>();
   let cursor = 0;
+  let semanticPairWork = 0;
 
   while (cursor < lines.length) {
     if (lines[cursor].kind === "context") {
@@ -734,6 +751,17 @@ function annotatePairs(
     if (containsHeading && run.length > 2) continue;
 
     if (removed.length !== added.length) continue;
+    if (exceedsProduct(removed.length, added.length, MAX_REPLACEMENT_RUN_PAIR_COMPARISONS)) continue;
+    const eligiblePairProducts = removed.flatMap((left) => {
+      const leftLength = semanticPairText(left.line.value).length;
+      return added
+        .map((right) => leftLength * semanticPairText(right.line.value).length)
+        .filter((product) => product > 0 && product <= MAX_SEMANTIC_PAIR_CHARACTER_PRODUCT);
+    });
+    if (!eligiblePairProducts.length) continue;
+    const runPairWork = 4 * removed.length * added.length * Math.max(...eligiblePairProducts);
+    if (semanticPairWork + runPairWork > MAX_DOCUMENT_SEMANTIC_PAIR_WORK) continue;
+    semanticPairWork += runPairWork;
     const hasStrongerMovedMatch = removed.some((left, leftIndex) => {
       const corresponding = added[leftIndex];
       const correspondingScore = pairSimilarity(left.line.value, corresponding.line.value);
@@ -932,15 +960,108 @@ function buildHunks(
     changeCursor = runEnd + 1;
   }
 
+  const linesById = new Map(lines.map((line) => [line.id, line]));
+  const fragmentByLineId = new Map<string, MarkdownDiffFragment>();
+  for (const fragment of fragments) {
+    for (const lineId of fragment.sourceLineIds) fragmentByLineId.set(lineId, fragment);
+  }
+  const isTableFragment = (fragment: MarkdownDiffFragment | undefined): boolean =>
+    fragment?.blockType === "table" || fragment?.blockType === "tableRow" || fragment?.blockType === "tableCell";
+  const isTableDelimiter = (value: string): boolean => {
+    if (!value.includes("|")) return false;
+    const cells = value.trim().replace(/^\|/u, "").replace(/\|$/u, "").split("|");
+    return cells.length > 0 && cells.every((cell) => /^\s*:?-+:?\s*$/u.test(cell));
+  };
+  const sliceDecorations = (
+    decorations: readonly MarkdownDecoration[],
+    startLine: number,
+    endLine: number,
+    lastLineLength: number,
+  ): MarkdownDecoration[] => decorations
+    .filter((item) => item.endLine >= startLine && item.startLine <= endLine)
+    .map((item) => ({
+      ...item,
+      startLine: Math.max(item.startLine, startLine) - startLine,
+      startColumn: item.startLine < startLine ? 0 : item.startColumn,
+      endLine: Math.min(item.endLine, endLine) - startLine,
+      endColumn: item.endLine > endLine ? lastLineLength : item.endColumn,
+    }));
+  const sliceFragmentSide = (
+    fragment: MarkdownDiffFragment,
+    side: "before" | "after",
+    selectedIds: ReadonlySet<string>,
+  ): MarkdownDiffSide | undefined => {
+    const content = fragment[side];
+    if (!content) return undefined;
+    const sideLines = fragment.sourceLineIds
+      .map((lineId) => linesById.get(lineId))
+      .filter((line): line is SourceDiffLine => Boolean(line))
+      .filter((line) => side === "before" ? line.kind !== "added" : line.kind !== "removed");
+    const selectedLines = sideLines.filter((line) => selectedIds.has(line.id));
+    if (!selectedLines.length) return undefined;
+    const startLine = sideLines.findIndex((line) => line.id === selectedLines[0].id);
+    const endLine = sideLines.findIndex((line) => line.id === selectedLines.at(-1)?.id);
+    return {
+      markdown: fragmentMarkdown(selectedLines),
+      decorations: sliceDecorations(
+        content.decorations,
+        startLine,
+        endLine,
+        selectedLines.at(-1)?.value.length ?? 0,
+      ),
+    };
+  };
+  const sliceFragment = (
+    fragment: MarkdownDiffFragment,
+    selectedIds: ReadonlySet<string>,
+    hunkIndex: number,
+  ): MarkdownDiffFragment | null => {
+    const sourceLineIds = fragment.sourceLineIds.filter((lineId) => selectedIds.has(lineId));
+    if (!sourceLineIds.length) return null;
+    return {
+      ...fragment,
+      id: `${fragment.id}:hunk:${hunkIndex}`,
+      before: sliceFragmentSide(fragment, "before", selectedIds),
+      after: sliceFragmentSide(fragment, "after", selectedIds),
+      sourceLineIds,
+    };
+  };
+  const structuralPrologue = (
+    window: { start: number; end: number },
+    hunkFragments: readonly MarkdownDiffFragment[],
+  ): MarkdownDiffHunk["structuralPrologue"] => {
+    if (!hunkFragments.some(isTableFragment)) return undefined;
+    for (let delimiterIndex = window.start - 1; delimiterIndex > 0; delimiterIndex -= 1) {
+      const delimiter = lines[delimiterIndex];
+      if (delimiter.kind !== "context" || !isTableDelimiter(delimiter.value)) continue;
+      if (fragmentByLineId.get(delimiter.id)?.blockType !== "table") continue;
+      const header = lines[delimiterIndex - 1];
+      if (header.kind !== "context") continue;
+      if (fragmentByLineId.get(header.id)?.blockType !== "tableRow") continue;
+      if (!lines.slice(delimiterIndex, window.start).every((line) =>
+        isTableFragment(fragmentByLineId.get(line.id)),
+      )) continue;
+      const markdown = `${header.value}${header.eol || "\n"}${delimiter.value}${delimiter.eol || "\n"}`;
+      return {
+        before: { markdown, decorations: [] },
+        after: { markdown, decorations: [] },
+      };
+    }
+    return undefined;
+  };
+
   return windows.map((window, index) => {
     const hunkLines = lines.slice(window.start, window.end);
     const ids = new Set(hunkLines.map((line) => line.id));
+    const hunkFragments = fragments
+      .map((fragment) => sliceFragment(fragment, ids, index))
+      .filter((fragment): fragment is MarkdownDiffFragment => fragment !== null);
+    const prologue = structuralPrologue(window, hunkFragments);
     return {
       id: `hunk:${index}`,
       lines: hunkLines,
-      fragments: fragments.filter((fragment) =>
-        fragment.sourceLineIds.some((lineId) => ids.has(lineId)),
-      ),
+      fragments: hunkFragments,
+      ...(prologue ? { structuralPrologue: prologue } : {}),
     };
   });
 }

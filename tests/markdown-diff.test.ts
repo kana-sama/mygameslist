@@ -170,6 +170,54 @@ describe("exact Markdown source diff", () => {
     expect(reconstructAfter(model.lines)).toBe(after);
   });
 
+  it("declines semantic pairing when one edited line exceeds the character-product budget", () => {
+    const shared = "а".repeat(1_100);
+    const before = `${shared} старое`;
+    const after = `${shared} новое`;
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.filter((line) => line.pairId)).toHaveLength(0);
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("declines semantic pairing when a replacement run exceeds the cross-comparison budget", () => {
+    const before = Array.from(
+      { length: 65 },
+      (_, index) => `Запись ${String(index).padStart(2, "0")} имеет старое значение`,
+    ).join("\n");
+    const after = Array.from(
+      { length: 65 },
+      (_, index) => `Запись ${String(index).padStart(2, "0")} имеет новое значение`,
+    ).join("\n");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.filter((line) => line.pairId)).toHaveLength(0);
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("declines later semantic pairs when replacement runs exhaust the document work budget", () => {
+    const shared = "а".repeat(300);
+    const before = Array.from({ length: 12 }, (_, index) => [
+      `${shared} старое ${index}`,
+      `неизменный разделитель ${index}`,
+    ]).flat().join("\n");
+    const after = Array.from({ length: 12 }, (_, index) => [
+      `${shared} новое ${index}`,
+      `неизменный разделитель ${index}`,
+    ]).flat().join("\n");
+    const model = createMarkdownDiff(before, after);
+    const finalRun = model.lines.filter((line) => /(?:старое|новое) 11$/u.test(line.value));
+
+    expect(finalRun).toHaveLength(2);
+    expect(finalRun.every((line) => line.pairId === undefined && line.inline === undefined)).toBe(true);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
   it("matches identical subheadings within their own parent sections", () => {
     const before = "## A\n### Details\n- [ ] One\n\n## B\n### Details\n- [ ] Two";
     const after = "## A\n### Details\n- [x] One\n\n## B\n### Details\n- [ ] Two";
@@ -256,6 +304,49 @@ describe("exact Markdown source diff", () => {
     expect(model.hunks.map((hunk) => hunk.id)).toEqual(["hunk:0", "hunk:1"]);
     expect(model.hunks[0].lines.at(-1)?.value).toBe("Строка 6");
     expect(model.hunks[1].lines[0]?.value).toBe("Строка 9");
+  });
+
+  it("slices a shared paragraph fragment to each distant hunk window", () => {
+    const before = Array.from({ length: 20 }, (_, index) => `Строка ${index + 1}`).join("\n");
+    const afterLines = before.split("\n");
+    afterLines[2] = "Изменена строка 3";
+    afterLines[17] = "Изменена строка 18";
+    const after = afterLines.join("\n");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.hunks).toHaveLength(2);
+    for (const hunk of model.hunks) {
+      const hunkLineIds = new Set(hunk.lines.map((line) => line.id));
+      expect(hunk.fragments.every((fragment) =>
+        fragment.sourceLineIds.every((lineId) => hunkLineIds.has(lineId)),
+      )).toBe(true);
+      expect(hunk.fragments.flatMap((fragment) => [fragment.before?.markdown, fragment.after?.markdown]))
+        .not.toContain(expect.stringContaining("Строка 10"));
+    }
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("uses the parser's table delimiter rather than a delimiter-shaped body row for a hunk prologue", () => {
+    const before = [
+      "| Real A | Real B |",
+      "| --- | --- |",
+      "| Start | value |",
+      "| Fake A | Fake B |",
+      "| --- | --- |",
+      ...Array.from({ length: 8 }, (_, index) => `| Row ${index + 1} | old |`),
+    ].join("\n");
+    const after = before.replace("| Row 7 | old |", "| Row 7 | new |");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.hunks[0]?.structuralPrologue?.before.markdown).toBe(
+      "| Real A | Real B |\n| --- | --- |\n",
+    );
+    expect(model.hunks[0]?.structuralPrologue?.after.markdown).toBe(
+      "| Real A | Real B |\n| --- | --- |\n",
+    );
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
   });
 
   it("summarizes task and heading changes deterministically", () => {

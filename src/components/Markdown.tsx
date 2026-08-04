@@ -47,7 +47,7 @@ function renderDecoratedText(
     if (!decoration) return value;
     return (
       <span
-        aria-label={decoration.label}
+        aria-label={`${decoration.label}: ${value}`}
         className={`markdown-diff-inline markdown-diff-inline--${decoration.kind}`}
         data-diff-kind={decoration.kind}
         key={`${keyPrefix}-decoration-${start}`}
@@ -909,11 +909,11 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
   const visualDecoration = (sourceLine: number): MarkdownDecoration | undefined => decorations?.find(
     (decoration) => sourceLine >= decoration.startLine && sourceLine <= decoration.endLine,
   );
-  const diffVisualAttributes = (sourceLine?: number) => {
+  const diffVisualAttributes = (sourceLine?: number, evidence?: string) => {
     if (!decorations || sourceLine === undefined) return {};
     const decoration = visualDecoration(sourceLine);
     return {
-      "aria-label": decoration?.label,
+      "aria-label": decoration && evidence ? `${decoration.label}: ${evidence}` : decoration?.label,
       "data-diff-kind": decoration?.kind ?? "context",
       "data-testid": "diff-visual-row",
     };
@@ -927,7 +927,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
       <Fragment key={`${key}-line-${index}`}>
         <span
           className="markdown-diff-rendered-line"
-          {...diffVisualAttributes(locations[index]?.sourceLine)}
+          {...diffVisualAttributes(locations[index]?.sourceLine, line)}
         >
           {locatedInline(line, `${key}-line-${index}`, locations[index])}
         </span>
@@ -1105,7 +1105,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
       const rowLabel = row.cells.map((cell) => markdownLabel(cell.value)).find(Boolean);
       const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
       return (
-        <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine)}>
+        <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}>
           {row.cells.map((cell, cellIndex) => {
             const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
             if (cell.taskChecked === undefined) {
@@ -1145,7 +1145,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
       <div className="markdown-table-scroll" key={key}>
         <table className="markdown-table">
           <thead>
-            <tr {...diffVisualAttributes(table.headers[0]?.sourceLine)}>
+            <tr {...diffVisualAttributes(table.headers[0]?.sourceLine, table.headers.map((header) => header.value).join(" | "))}>
               {table.headers.map((cell, cellIndex) => (
                 <th key={`${key}-header-${cellIndex}`} scope="col">
                   {locatedInline(cell.value, `${key}-header-${cellIndex}`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}
@@ -1180,7 +1180,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
                   data-checklist-section-id={collapseId}
                   data-markdown-source-line={section.titleSourceLine}
                 >
-                  <tr className="markdown-table-group__heading" {...diffVisualAttributes(section.titleSourceLine)}>
+                  <tr className="markdown-table-group__heading" {...diffVisualAttributes(section.titleSourceLine, section.title.value)}>
                     <th colSpan={table.headers.length} scope="rowgroup">
                       {onCollapsedChecklistSectionsChange && collapseId ? (
                         <button
