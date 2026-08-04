@@ -2,12 +2,17 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { KeyboardCode, KeyboardSensor, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { rectSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { AppShell } from "../src/components/AppShell";
 import { GlobalGameSearch } from "../src/components/GlobalGameSearch";
 import { optimizeNoteImage } from "../src/domain/assets";
+import {
+  createMarkdownDiff,
+  type ChangeReviewModel,
+  type ReviewChange,
+} from "../src/domain";
 import type { Asset, Game, Note } from "../src/domain/types";
 import { CatalogPage } from "../src/pages/CatalogPage";
 import {
@@ -1435,7 +1440,316 @@ describe("GamePage", () => {
 });
 
 describe("DiffDialog", () => {
-  const item = { id: "title-op", group: "changed" as const, title: "DuckTales: название" };
+  const noteChange: ReviewChange = {
+    id: "note-parcels-row",
+    selectionId: "note-parcels",
+    entity: { map: "notes", id: NOTE_ID },
+    kind: "changed",
+    title: "Посылки",
+    summary: "Изменены детали посылок",
+    changedAt: "2026-08-04T12:00:00.000Z",
+    operationPaths: [`/notes/${NOTE_ID}/bodyMarkdown`],
+    gameIds: [DUCK_ID],
+    evidence: [{
+      type: "markdown",
+      before: Array.from({ length: 16 }, (_, index) => `- Старый пункт ${index + 1}`).join("\n"),
+      after: Array.from({ length: 16 }, (_, index) => `- Новый пункт ${index + 1}`).join("\n"),
+      diff: createMarkdownDiff(
+        Array.from({ length: 16 }, (_, index) => `- Старый пункт ${index + 1}`).join("\n"),
+        Array.from({ length: 16 }, (_, index) => `- Новый пункт ${index + 1}`).join("\n"),
+      ),
+    }],
+  };
+  const titleChange: ReviewChange = {
+    id: "game-title-row",
+    selectionId: "game-title",
+    entity: { map: "games", id: DUCK_ID },
+    kind: "changed",
+    title: "Название",
+    summary: "Название: LEGO Harry Potter → Lego Harry Potter: Years 1–4",
+    changedAt: "2026-08-04T11:00:00.000Z",
+    operationPaths: [`/games/${DUCK_ID}/title`],
+    gameIds: [DUCK_ID],
+    evidence: [{ type: "scalar", before: "LEGO Harry Potter", after: "Lego Harry Potter: Years 1–4" }],
+  };
+  const crossGameChange: ReviewChange = {
+    id: "cross-game-lego-row",
+    selectionId: "cross-game-order",
+    entity: { map: "games", id: DUCK_ID },
+    kind: "moved",
+    title: "Позиция в тирлисте",
+    summary: "Перемещено: A · позиция 2 → S · позиция 1",
+    changedAt: "2026-08-04T10:00:00.000Z",
+    operationPaths: [`/games/${DUCK_ID}/placement`],
+    gameIds: [DUCK_ID, MARIO_ID],
+    evidence: [{ type: "move", before: "A · позиция 2", after: "S · позиция 1" }],
+  };
+  const crossGameOccurrence: ReviewChange = {
+    ...crossGameChange,
+    id: "cross-game-mario-row",
+    entity: { map: "games", id: MARIO_ID },
+    operationPaths: [`/games/${MARIO_ID}/placement`],
+  };
+  const review: ChangeReviewModel = {
+    groups: [
+      {
+        id: `game:${DUCK_ID}`,
+        gameId: DUCK_ID,
+        title: "Lego Harry Potter: Years 1–4",
+        coverAssetId: null,
+        newestChangedAt: noteChange.changedAt,
+        changes: [noteChange, titleChange, crossGameChange],
+      },
+      {
+        id: `game:${MARIO_ID}`,
+        gameId: MARIO_ID,
+        title: "A Plague Tale",
+        coverAssetId: null,
+        newestChangedAt: crossGameOccurrence.changedAt,
+        changes: [crossGameOccurrence],
+      },
+    ],
+    changesById: {
+      [noteChange.id]: noteChange,
+      [titleChange.id]: titleChange,
+      [crossGameChange.id]: crossGameChange,
+      [crossGameOccurrence.id]: crossGameOccurrence,
+    },
+    changesBySelectionId: {
+      [noteChange.selectionId]: [noteChange],
+      [titleChange.selectionId]: [titleChange],
+      [crossGameChange.selectionId]: [crossGameChange, crossGameOccurrence],
+    },
+    uniqueSelectionIds: [noteChange.selectionId, titleChange.selectionId, crossGameChange.selectionId],
+  };
+  const emptyReview: ChangeReviewModel = { groups: [], changesById: {}, changesBySelectionId: {}, uniqueSelectionIds: [] };
+  const emptySelection = {
+    enabled: false,
+    explicitSelectionIds: new Set<string>(),
+    selectedSelectionIds: new Set<string>(),
+    dependencySelectionIds: new Set<string>(),
+    dependencyLabels: {},
+  };
+
+  function renderDialog(model: ChangeReviewModel = review, overrides: Partial<Parameters<typeof DiffDialog>[0]> = {}) {
+    return render(
+      <DiffDialog
+        onClose={vi.fn()}
+        onEnterSelection={vi.fn()}
+        onExport={vi.fn()}
+        onImport={vi.fn()}
+        onToggleChange={vi.fn()}
+        onToggleGame={vi.fn()}
+        open
+        patchBytes={1024}
+        review={model}
+        selection={emptySelection}
+        {...overrides}
+      />,
+    );
+  }
+
+  function ControlledDialog({ dependencies = false }: { dependencies?: boolean }) {
+    const [open, setOpen] = useState(true);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
+    const dependencySelectionIds = dependencies && explicitSelectionIds.has(noteChange.selectionId)
+      ? new Set(["guide-asset"])
+      : new Set<string>();
+    const selectedSelectionIds = new Set([...explicitSelectionIds, ...dependencySelectionIds]);
+    const assetChange: ReviewChange = {
+      id: "guide-asset-row",
+      selectionId: "guide-asset",
+      entity: { map: "assets", id: "a".repeat(64) },
+      kind: "asset",
+      title: "guide.pdf",
+      summary: "Добавлен файл «guide.pdf»",
+      changedAt: "2026-08-04T09:00:00.000Z",
+      operationPaths: [`/assets/${"a".repeat(64)}`],
+      gameIds: [DUCK_ID],
+      evidence: [{ type: "asset", assetId: "a".repeat(64), originalName: "guide.pdf", mime: "application/pdf", byteLength: 4096 }],
+    };
+    const model: ChangeReviewModel = dependencies ? {
+      ...review,
+      groups: [{ ...review.groups[0], changes: [...review.groups[0].changes, assetChange] }, review.groups[1]],
+      changesById: { ...review.changesById, [assetChange.id]: assetChange },
+      changesBySelectionId: { ...review.changesBySelectionId, [assetChange.selectionId]: [assetChange] },
+      uniqueSelectionIds: [...review.uniqueSelectionIds, assetChange.selectionId],
+    } : review;
+    const toggleChange = (selectionId: string) => setExplicitSelectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(selectionId)) next.delete(selectionId);
+      else next.add(selectionId);
+      return next;
+    });
+    const toggleGame = (gameId: string | null) => setExplicitSelectionIds((current) => {
+      const group = model.groups.find((candidate) => candidate.gameId === gameId);
+      const ids = [...new Set(group?.changes.map((change) => change.selectionId) ?? [])];
+      const next = new Set(current);
+      if (ids.every((selectionId) => selectedSelectionIds.has(selectionId))) ids.forEach((selectionId) => next.delete(selectionId));
+      else ids.forEach((selectionId) => next.add(selectionId));
+      return next;
+    });
+    const close = () => {
+      setOpen(false);
+      setSelectionMode(false);
+      setExplicitSelectionIds(new Set());
+    };
+    return <>
+      {!open ? <button onClick={() => setOpen(true)} type="button">Открыть изменения</button> : null}
+      <DiffDialog
+        onClose={close}
+        onEnterSelection={() => setSelectionMode(true)}
+        onExport={vi.fn()}
+        onImport={vi.fn()}
+        onToggleChange={toggleChange}
+        onToggleGame={toggleGame}
+        open={open}
+        patchBytes={1024}
+        review={model}
+        selection={{
+          enabled: selectionMode,
+          explicitSelectionIds,
+          selectedSelectionIds,
+          dependencySelectionIds,
+          dependencyLabels: dependencies ? { "guide-asset": "связано с «Посылки»" } : {},
+        }}
+        sync={{
+          busy: false,
+          connected: true,
+          error: null,
+          onConnect: vi.fn(),
+          onDisconnect: vi.fn(),
+          onSync: vi.fn(),
+          pagesPending: false,
+          persistence: "session",
+          stage: "idle",
+        }}
+      />
+    </>;
+  }
+
+  it("groups compact evidence by game and hides checkboxes in review mode", () => {
+    const resolveAssetUrl = vi.fn(() => "blob:local-cover");
+    renderDialog({
+      ...review,
+      groups: [{ ...review.groups[0], coverAssetId: "cover-asset" }, review.groups[1]],
+    }, { resolveAssetUrl });
+
+    const headings = screen.getAllByRole("heading", { level: 3 });
+    expect(headings[0]).toHaveTextContent("Lego Harry Potter: Years 1–4");
+    expect(headings[1]).toHaveTextContent("A Plague Tale");
+    expect(screen.getByText("Посылки")).toBeInTheDocument();
+    expect(screen.getByText("LEGO Harry Potter → Lego Harry Potter: Years 1–4")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Lego Harry Potter/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Выбрать часть" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Свернуть: Lego Harry Potter: Years 1–4" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("img", { name: "Обложка: Lego Harry Potter: Years 1–4" })).toHaveAttribute("src", "blob:local-cover");
+    expect(resolveAssetUrl).toHaveBeenCalledWith("cover-asset");
+  });
+
+  it("uses labeled chips instead of visible service markers", () => {
+    const chipChange: ReviewChange = {
+      ...titleChange,
+      id: "game-tags-row",
+      selectionId: "game-tags",
+      title: "Теги",
+      summary: "Теги: +co-op; −solo",
+      operationPaths: [`/games/${DUCK_ID}/tags`],
+      evidence: [{ type: "chips", added: ["co-op"], removed: ["solo"] }],
+    };
+    renderDialog({
+      groups: [{ ...review.groups[0], changes: [chipChange] }],
+      changesById: { [chipChange.id]: chipChange },
+      changesBySelectionId: { [chipChange.selectionId]: [chipChange] },
+      uniqueSelectionIds: [chipChange.selectionId],
+    });
+
+    expect(screen.getByLabelText("Добавлено: co-op")).toBeInTheDocument();
+    expect(screen.getByLabelText("Удалено: solo")).toBeInTheDocument();
+    expect(screen.queryByText(/\+co-op|−solo|~co-op/u)).not.toBeInTheDocument();
+  });
+
+  it("renders image asset evidence as a resolved thumbnail with exact metadata", () => {
+    const assetId = "a".repeat(64);
+    const imageChange: ReviewChange = {
+      ...titleChange,
+      id: "cover-asset-row",
+      selectionId: "cover-asset",
+      entity: { map: "assets", id: assetId },
+      kind: "asset",
+      title: "cover.webp",
+      summary: "Добавлен файл «cover.webp»",
+      operationPaths: [`/assets/${assetId}`],
+      evidence: [{ type: "asset", assetId, originalName: "cover.webp", mime: "image/webp", byteLength: 24 * 1024, width: 800, height: 600 }],
+    };
+    const resolveAssetUrl = vi.fn(() => "blob:image-evidence");
+    renderDialog({
+      groups: [{ ...review.groups[0], changes: [imageChange] }],
+      changesById: { [imageChange.id]: imageChange },
+      changesBySelectionId: { [imageChange.selectionId]: [imageChange] },
+      uniqueSelectionIds: [imageChange.selectionId],
+    }, { resolveAssetUrl });
+
+    expect(screen.getByRole("img", { name: "Превью: cover.webp" })).toHaveAttribute("src", "blob:image-evidence");
+    expect(screen.getByText("800×600 · image/webp · 24 КБ")).toBeInTheDocument();
+    expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
+  });
+
+  it("selects a game, exposes indeterminate state, and counts unique cross-game changes once", async () => {
+    const user = userEvent.setup();
+    render(<ControlledDialog />);
+    await user.click(screen.getByRole("button", { name: "Выбрать часть" }));
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать изменение: Посылки" }));
+
+    expect(screen.getByRole("checkbox", { name: "Выбрать игру: Lego Harry Potter: Years 1–4" }))
+      .toHaveProperty("indeterminate", true);
+    expect(screen.getByRole("button", { name: "Синхронизировать выбранное · 1" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать игру: Lego Harry Potter: Years 1–4" }));
+    expect(screen.getAllByRole("checkbox", { name: "Выбрать изменение: Позиция в тирлисте" }).every((checkbox) => (checkbox as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByRole("button", { name: "Синхронизировать выбранное · 3" })).toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox", { name: "Выбрать изменение: Позиция в тирлисте" })).toHaveLength(2);
+  });
+
+  it("disables dependency-only rows, explains them, and returns to full sync after the final explicit deselection", async () => {
+    const user = userEvent.setup();
+    render(<ControlledDialog dependencies />);
+    await user.click(screen.getByRole("button", { name: "Выбрать часть" }));
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать изменение: Посылки" }));
+
+    const dependency = screen.getByRole("checkbox", { name: "Выбрать изменение: guide.pdf" });
+    expect(dependency).toBeChecked();
+    expect(dependency).toBeDisabled();
+    expect(screen.getByText("связано с «Посылки»")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Синхронизировать выбранное · 2" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать изменение: Посылки" }));
+    expect(screen.getByRole("button", { name: "Синхронизировать всё" })).toBeInTheDocument();
+  });
+
+  it("keeps note preview controls local and resets selection, collapse, and preview state after reopening", async () => {
+    const user = userEvent.setup();
+    render(<ControlledDialog />);
+    const noteRow = screen.getByText("Посылки").closest("li");
+    expect(noteRow).not.toBeNull();
+    expect(within(noteRow as HTMLElement).getByRole("button", { name: /Весь diff/ })).toBeInTheDocument();
+    expect(within(noteRow as HTMLElement).getByRole("button", { name: "Показать исходник" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Выбрать часть" }));
+    await user.click(screen.getByRole("checkbox", { name: "Выбрать изменение: Посылки" }));
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+    expect(screen.getByRole("button", { name: "Показать как выглядит" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Свернуть: Lego Harry Potter: Years 1–4" }));
+
+    await user.click(screen.getByRole("button", { name: "Закрыть" }));
+    await user.click(screen.getByRole("button", { name: "Открыть изменения" }));
+
+    expect(screen.queryByRole("checkbox", { name: "Выбрать изменение: Посылки" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Свернуть: Lego Harry Potter: Years 1–4" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Показать исходник" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Синхронизировать всё" })).toBeInTheDocument();
+  });
 
   it("keeps the hidden import picker from intercepting export clicks", async () => {
     const user = userEvent.setup();
@@ -1443,12 +1757,16 @@ describe("DiffDialog", () => {
 
     const { container } = render(
       <DiffDialog
-        items={[]}
         onClose={vi.fn()}
+        onEnterSelection={vi.fn()}
         onExport={onExport}
         onImport={vi.fn()}
+        onToggleChange={vi.fn()}
+        onToggleGame={vi.fn()}
         open
         patchBytes={0}
+        review={emptyReview}
+        selection={emptySelection}
       />,
     );
 
@@ -1470,18 +1788,7 @@ describe("DiffDialog", () => {
     const user = userEvent.setup();
     const onDismissError = vi.fn();
 
-    render(
-      <DiffDialog
-        error="Safari отклонил запись"
-        items={[]}
-        onClose={vi.fn()}
-        onDismissError={onDismissError}
-        onExport={vi.fn()}
-        onImport={vi.fn()}
-        open
-        patchBytes={0}
-      />,
-    );
+    renderDialog(emptyReview, { error: "Safari отклонил запись", onDismissError });
 
     expect(screen.getByRole("alert")).toHaveTextContent("Safari отклонил запись");
     expect(screen.queryByText("Только на этом устройстве")).not.toBeInTheDocument();
@@ -1493,8 +1800,8 @@ describe("DiffDialog", () => {
   it("forwards conflict resolution and undo actions", async () => {
     const user = userEvent.setup();
     const onResolveConflict = vi.fn();
-    const onUndoItem = vi.fn();
-    const onUndoGroup = vi.fn();
+    const onUndoChange = vi.fn();
+    const onUndoGame = vi.fn();
     const onClearAll = vi.fn();
     render(
       <DiffDialog
@@ -1505,25 +1812,29 @@ describe("DiffDialog", () => {
           staticValue: "DuckTales Remastered",
           localValue: "DuckTales Local",
         }]}
-        items={[item]}
         onClearAll={onClearAll}
         onClose={vi.fn()}
+        onEnterSelection={vi.fn()}
         onExport={vi.fn()}
         onImport={vi.fn()}
         onResolveConflict={onResolveConflict}
-        onUndoGroup={onUndoGroup}
-        onUndoItem={onUndoItem}
+        onToggleChange={vi.fn()}
+        onToggleGame={vi.fn()}
+        onUndoChange={onUndoChange}
+        onUndoGame={onUndoGame}
         open
         patchBytes={2048}
+        review={review}
+        selection={emptySelection}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Оставить локальное" }));
     expect(onResolveConflict).toHaveBeenCalledWith("title-conflict", "local");
-    await user.click(screen.getByRole("button", { name: `Отменить: ${item.title}` }));
-    expect(onUndoItem).toHaveBeenCalledWith(item.id);
-    await user.click(screen.getByRole("button", { name: "Отменить группу" }));
-    expect(onUndoGroup).toHaveBeenCalledWith("changed");
+    await user.click(screen.getByRole("button", { name: "Отменить: Посылки" }));
+    expect(onUndoChange).toHaveBeenCalledWith(noteChange.selectionId);
+    await user.click(screen.getByRole("button", { name: "Отменить игру: Lego Harry Potter: Years 1–4" }));
+    expect(onUndoGame).toHaveBeenCalledWith(DUCK_ID);
     await user.click(screen.getByRole("button", { name: "Отменить все правки" }));
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });

@@ -12,19 +12,19 @@ import {
   DiffDialog,
   type AppRoute,
   type DiffSyncController,
-  type DiffGroupId,
-  type DiffItem,
 } from "./components";
 import {
   PATCH_STORAGE_KEY,
+  buildChangeReview,
   describeAssetChange,
   parsePatchPath,
+  resolvePatchSelection,
   webkitStringBytes,
   type Asset,
+  type PatchSelectionSeed,
   type PatchOperation,
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage } from "./pages";
-import { formatBytes } from "./components/libraryUi";
 import { LibraryProvider, useLibrary } from "./state/LibraryContext";
 import {
   GITHUB_REPOSITORY_NAME,
@@ -84,22 +84,6 @@ function entityName(
   return "Изображение";
 }
 
-function classifyDiff(path: string, operation: PatchOperation): DiffGroupId {
-  const parsed = parsePatchPath(path);
-  if (!parsed) return "changed";
-  if (parsed.map === "assets") return "assets";
-  if (parsed.field === "placement" || parsed.field === "groupRank" || parsed.field === "rank") return "moved";
-  if (!parsed.field && operation.operation === "set" && !operation.baseExists) return "added";
-  if (!parsed.field && operation.operation === "delete") return "deleted";
-  return "changed";
-}
-
-function assetMeta(asset: Asset | undefined): string[] | undefined {
-  if (!asset) return undefined;
-  if (asset.kind === "file") return [asset.mime, formatBytes(asset.byteLength)];
-  return [`${asset.width}×${asset.height}`, formatBytes(Math.max(0, asset.byteLength)), "WebP"];
-}
-
 function assetSummary(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   const asset = value as Partial<Asset>;
@@ -119,6 +103,8 @@ function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const githubPatRef = useRef<string | null>(null);
   const [githubPatPersistence, setGitHubPatPersistence] = useState<GitHubPatPersistence | null>(null);
@@ -142,6 +128,10 @@ function LibraryRoutes() {
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
+  const review = useMemo(
+    () => buildChangeReview(library.base, library.effective, library.patch),
+    [library.base, library.effective, library.patch],
+  );
   const patchBytes = useMemo(
     () => webkitStringBytes(PATCH_STORAGE_KEY, JSON.stringify(library.patch)),
     [library.patch],
@@ -160,22 +150,42 @@ function LibraryRoutes() {
     previousPendingCommitRef.current = commitSha;
   }, [library.pendingPublication]);
 
-  const items = useMemo<DiffItem[]>(() => operationEntries.map(([path, operation]) => {
-    const parsed = parsePatchPath(path);
-    const name = parsed ? entityName(parsed.map, parsed.id, operation, library.effective, library.base) : path;
-    const field = parsed?.field ? fieldLabels[parsed.field] ?? parsed.field : undefined;
-    const asset = parsed?.map === "assets"
-      ? (operation.operation === "set" ? operation.value as Asset : library.base.assets[parsed.id])
-      : undefined;
-    return {
-      id: path,
-      group: classifyDiff(path, operation),
-      title: name,
-      detail: field ?? (operation.operation === "delete" ? "Удаление" : operation.baseExists ? "Замена" : "Новая запись"),
-      meta: assetMeta(asset),
-      transactionId: operation.transactionId,
-    };
-  }), [library.base, library.effective, operationEntries]);
+  const seedsForSelectionIds = (selectionIds: Iterable<string>): PatchSelectionSeed[] => [...selectionIds].map((selectionId) => ({
+    changeId: selectionId,
+    operationPaths: [...new Set((review.changesBySelectionId[selectionId] ?? []).flatMap((change) => change.operationPaths))].sort(),
+  }));
+  const activeExplicitSelectionIds = useMemo(
+    () => new Set([...explicitSelectionIds].filter((selectionId) => Boolean(review.changesBySelectionId[selectionId]))),
+    [explicitSelectionIds, review.changesBySelectionId],
+  );
+  const selectionResult = useMemo(() => activeExplicitSelectionIds.size
+    ? resolvePatchSelection(library.base, library.effective, library.patch, seedsForSelectionIds(activeExplicitSelectionIds))
+    : null,
+  [activeExplicitSelectionIds, library.base, library.effective, library.patch, review.changesBySelectionId]);
+  const selectedSelectionIds = useMemo(() => {
+    if (!selectionResult) return new Set<string>();
+    const paths = new Set(selectionResult.selectedPaths);
+    return new Set(review.uniqueSelectionIds.filter((selectionId) =>
+      (review.changesBySelectionId[selectionId] ?? []).some((change) => change.operationPaths.some((path) => paths.has(path))),
+    ));
+  }, [review.changesBySelectionId, review.uniqueSelectionIds, selectionResult]);
+  const dependencySelectionIds = useMemo(
+    () => new Set([...selectedSelectionIds].filter((selectionId) => !activeExplicitSelectionIds.has(selectionId))),
+    [activeExplicitSelectionIds, selectedSelectionIds],
+  );
+  const dependencyLabels = useMemo(() => {
+    if (!selectionResult) return {};
+    const labels: Record<string, string> = {};
+    for (const reason of selectionResult.dependencyReasons) {
+      const dependencyId = review.uniqueSelectionIds.find((selectionId) =>
+        (review.changesBySelectionId[selectionId] ?? []).some((change) => change.operationPaths.includes(reason.requiredPath)),
+      );
+      if (!dependencyId || !dependencySelectionIds.has(dependencyId)) continue;
+      const requiredBy = review.changesBySelectionId[reason.requiredByChangeId]?.[0]?.title;
+      labels[dependencyId] = requiredBy ? `связано с «${requiredBy}»` : reason.message;
+    }
+    return labels;
+  }, [dependencySelectionIds, review.changesBySelectionId, review.uniqueSelectionIds, selectionResult]);
 
   const conflictItems = useMemo(() => library.conflicts.map((conflict) => {
     const parsed = parsePatchPath(conflict.path);
@@ -198,10 +208,11 @@ function LibraryRoutes() {
     if (!window.confirm("Удалить все локальные копии вложений? Неопубликованные ссылки на них также будут удалены; текст сохранится.")) return;
     void library.deleteAllLocalAssets().catch(showError);
   };
-  const syncWithGitHub = async (token: string) => {
+  const syncWithGitHub = async (token: string, selectedPaths?: readonly string[]) => {
     setGitHubSyncState((current) => ({ ...current, busy: true, stage: "connecting", error: null }));
     try {
       const result = await library.syncToGitHub(token, {
+        selectedPaths,
         onStage: (stage) => {
           setGitHubSyncState((current) => ({ ...current, busy: true, stage }));
         },
@@ -231,7 +242,7 @@ function LibraryRoutes() {
     }
   };
 
-  const connectAndSyncGitHub = async (token: string, remember: boolean) => {
+  const connectAndSyncGitHub = async (token: string, remember: boolean, selectedPaths?: readonly string[]) => {
     const saved = saveGitHubPat(token, remember);
     if (!saved.ok) {
       throw new Error(saved.error === "invalid-token"
@@ -246,7 +257,7 @@ function LibraryRoutes() {
     if (operationEntries.length) {
       githubPatRef.current = loaded.token;
       setGitHubPatPersistence(loaded.persistence);
-      await syncWithGitHub(loaded.token);
+      await syncWithGitHub(loaded.token, selectedPaths);
     } else {
       try { await connectGitHubWithoutSync(loaded.token); }
       catch (reason) {
@@ -281,32 +292,28 @@ function LibraryRoutes() {
     patCreationHref: getGitHubPatCreationUrl(),
     onConnect: connectAndSyncGitHub,
     onDisconnect: disconnectGitHub,
-    onSync: async () => {
+    onSync: async (selectedPaths) => {
       const token = githubPatRef.current;
       if (!token) throw new Error("Сначала подключите fine-grained PAT");
-      await syncWithGitHub(token);
+      await syncWithGitHub(token, selectedPaths);
     },
     onDismissError: () => setGitHubSyncState((current) => ({ ...current, error: null })),
   };
 
-  const expandedDiscardPaths = (paths: string[]): string[] => {
-    const selected = new Set(paths);
-    for (const path of paths) {
-      const parsed = parsePatchPath(path);
-      const operation = library.patch.operations[path];
-      const dependencyRoot = parsed && !parsed.field && operation && (
-        parsed.map === "games"
-        || parsed.map === "notes" && operation.operation === "delete"
-        || parsed.map === "assets" && operation.operation === "set" && !operation.baseExists
-      );
-      const dependencyField = parsed?.field === "coverAssetId" || parsed?.field === "attachments";
-      if (!dependencyRoot && !dependencyField) continue;
-      if (!operation) continue;
-      for (const [candidatePath, candidate] of operationEntries) {
-        if (candidate.transactionId === operation.transactionId) selected.add(candidatePath);
-      }
-    }
-    return [...selected];
+  const discardSelectionIds = (selectionIds: Iterable<string>) => {
+    const result = resolvePatchSelection(
+      library.base,
+      library.effective,
+      library.patch,
+      seedsForSelectionIds(selectionIds),
+    );
+    library.discardPaths(result.selectedPaths);
+  };
+
+  const closeDiff = () => {
+    setDiffOpen(false);
+    setSelectionMode(false);
+    setExplicitSelectionIds(new Set());
   };
 
   if (library.loading) {
@@ -320,7 +327,11 @@ function LibraryRoutes() {
     <AppShell
       games={games}
       onNavigate={navigateHref}
-      onOpenDiff={() => setDiffOpen(true)}
+      onOpenDiff={() => {
+        setSelectionMode(false);
+        setExplicitSelectionIds(new Set());
+        setDiffOpen(true);
+      }}
       resolveAssetUrl={library.resolveAssetUrl}
       route={routeKind(location.pathname)}
       storage={{
@@ -368,7 +379,6 @@ function LibraryRoutes() {
       <DiffDialog
         conflicts={conflictItems}
         error={actionError ?? library.persistenceError ?? undefined}
-        items={items}
         localAssets={{
           bytes: library.localAssetBytes,
           count: library.localAssets.length,
@@ -381,23 +391,52 @@ function LibraryRoutes() {
           if (!window.confirm("Отменить все локальные правки?")) return;
           try { library.clearPatch(); } catch (error) { showError(error); }
         }}
-        onClose={() => setDiffOpen(false)}
+        onClose={closeDiff}
         onDownloadCorruptedRaw={library.corruptedPatchRaw === null ? undefined : library.downloadCorruptedPatch}
         onDismissError={actionError ? () => setActionError(null) : undefined}
+        onEnterSelection={() => setSelectionMode(true)}
         onExport={exportPatch}
         onImport={(text) => { void library.importPatch(text).catch(showError); }}
         onResolveConflict={(id, resolution, manualValue) => {
           try { library.resolvePatchConflict(id, resolution, manualValue); } catch (error) { showError(error); }
         }}
-        onUndoGroup={(group) => {
-          const groupPaths = items.filter((item) => item.group === group).map((item) => item.id);
-          try { library.discardPaths(expandedDiscardPaths(groupPaths)); } catch (error) { showError(error); }
+        onToggleChange={(selectionId) => setExplicitSelectionIds((current) => {
+          const next = new Set(current);
+          if (next.has(selectionId)) next.delete(selectionId);
+          else next.add(selectionId);
+          return next;
+        })}
+        onToggleGame={(gameId) => setExplicitSelectionIds((current) => {
+          const group = review.groups.find((candidate) => candidate.gameId === gameId);
+          const selectionIds = [...new Set(group?.changes.map((change) => change.selectionId) ?? [])];
+          const next = new Set(current);
+          if (selectionIds.every((selectionId) => selectedSelectionIds.has(selectionId))) {
+            selectionIds.forEach((selectionId) => next.delete(selectionId));
+          } else {
+            selectionIds.forEach((selectionId) => next.add(selectionId));
+          }
+          return next;
+        })}
+        onUndoGame={(gameId) => {
+          const group = review.groups.find((candidate) => candidate.gameId === gameId);
+          const selectionIds = new Set(group?.changes.map((change) => change.selectionId) ?? []);
+          try { discardSelectionIds(selectionIds); } catch (error) { showError(error); }
         }}
-        onUndoItem={(id) => {
-          try { library.discardPaths(expandedDiscardPaths([id])); } catch (error) { showError(error); }
+        onUndoChange={(selectionId) => {
+          try { discardSelectionIds([selectionId]); } catch (error) { showError(error); }
         }}
         open={diffOpen}
         patchBytes={patchBytes}
+        review={review}
+        resolveAssetUrl={library.resolveAssetUrl}
+        selection={{
+          enabled: selectionMode,
+          explicitSelectionIds: activeExplicitSelectionIds,
+          selectedSelectionIds,
+          dependencySelectionIds,
+          dependencyLabels,
+          selectedPaths: selectionResult?.selectedPaths,
+        }}
         sync={githubSyncController}
       />
     </AppShell>

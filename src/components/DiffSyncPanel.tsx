@@ -25,13 +25,15 @@ export interface DiffSyncController {
   pagesPending: boolean;
   repository?: string;
   patCreationHref?: string;
-  onConnect: (token: string, remember: boolean) => void | Promise<void>;
+  actionLabel?: string;
+  onConnect: (token: string, remember: boolean, selectedPaths?: readonly string[]) => void | Promise<void>;
   onDisconnect: () => void | Promise<void>;
-  onSync: () => void | Promise<void>;
+  onSync: (selectedPaths?: readonly string[]) => void | Promise<void>;
   onDismissError?: () => void;
 }
 
 interface DiffSyncButtonProps {
+  actionLabel?: string;
   busy: boolean;
   expanded: boolean;
   onClick: () => void;
@@ -63,7 +65,7 @@ function errorMessage(reason: unknown): string {
   return reason instanceof Error ? reason.message : "Не удалось синхронизировать библиотеку";
 }
 
-export const DiffSyncButton = forwardRef<HTMLButtonElement, DiffSyncButtonProps>(function DiffSyncButton({ busy, expanded, onClick }, ref) {
+export const DiffSyncButton = forwardRef<HTMLButtonElement, DiffSyncButtonProps>(function DiffSyncButton({ actionLabel, busy, expanded, onClick }, ref) {
   return (
     <button
       aria-controls="diff-sync-panel"
@@ -74,7 +76,7 @@ export const DiffSyncButton = forwardRef<HTMLButtonElement, DiffSyncButtonProps>
       type="button"
     >
       <Icon name="upload" size={16} />
-      {busy ? "Синхронизация…" : "Синхронизировать"}
+      {busy ? "Синхронизация…" : actionLabel ?? "Синхронизировать"}
     </button>
   );
 });
@@ -90,6 +92,7 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
   const busy = submitting || controller.busy || isDiffSyncBusy(stage);
   const showPatForm = !controller.connected;
   const connectWithoutSync = showPatForm && controller.connectMode === "verify";
+  const actionLabel = controller.actionLabel ?? "Синхронизировать";
 
   useEffect(() => {
     if (!open || !showPatForm || busy) return;
@@ -231,7 +234,7 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
       ) : (
         <div className="diff-sync-saved">
           <div><Icon name="check" size={15} /><span>{controller.persistence === "persistent" ? "PAT сохранён на этом устройстве" : "PAT хранится до закрытия вкладки"}</span></div>
-          <button className="button button--primary" disabled={Boolean(blockedReason) || busy} onClick={() => void runSync()} ref={savedSyncRef} type="button">Синхронизировать</button>
+          <button className="button button--primary" disabled={Boolean(blockedReason) || busy} onClick={() => void runSync()} ref={savedSyncRef} type="button">{actionLabel}</button>
           <button className="button button--ghost button--danger-text" disabled={busy} onClick={() => void disconnect()} type="button">Отключить</button>
         </div>
       )}

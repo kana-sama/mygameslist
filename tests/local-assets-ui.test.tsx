@@ -3,6 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { AppShell } from "../src/components/AppShell";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { GamePage } from "../src/pages/GamePage";
+import type { ChangeReviewModel } from "../src/domain";
+
+const emptyReview: ChangeReviewModel = { groups: [], changesById: {}, changesBySelectionId: {}, uniqueSelectionIds: [] };
+const emptySelection = {
+  enabled: false,
+  explicitSelectionIds: new Set<string>(),
+  selectedSelectionIds: new Set<string>(),
+  dependencySelectionIds: new Set<string>(),
+  dependencyLabels: {},
+};
 
 afterEach(cleanup);
 
@@ -25,13 +35,17 @@ describe("local-only storage UI", () => {
         operationCount: 3,
       }}><div>Library</div></AppShell>
       <DiffDialog
-        items={[]}
         localAssets={{ bytes: 286 * 1024 * 1024, count: 14, oldestCreatedAt, onFreeSpace, persistent: false, quotaLevel: "critical" }}
         onClose={vi.fn()}
+        onEnterSelection={vi.fn()}
         onExport={onExport}
         onImport={vi.fn()}
+        onToggleChange={vi.fn()}
+        onToggleGame={vi.fn()}
         open
         patchBytes={120}
+        review={emptyReview}
+        selection={emptySelection}
       />
     </>);
 

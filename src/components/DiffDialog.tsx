@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react";
+import type { ChangeEvidence, ChangeReviewModel, GameChangeGroup, ReviewChange } from "../domain";
 import { Icon } from "./Icon";
+import { MarkdownDiffPreview } from "./MarkdownDiffPreview";
 import {
   DiffSyncButton,
   DiffSyncPanel,
@@ -7,17 +9,6 @@ import {
   type DiffSyncController,
 } from "./DiffSyncPanel";
 import { formatBytes } from "./libraryUi";
-
-export type DiffGroupId = "added" | "changed" | "deleted" | "moved" | "assets";
-
-export interface DiffItem {
-  id: string;
-  group: DiffGroupId;
-  title: string;
-  detail?: string;
-  meta?: string[];
-  transactionId?: string;
-}
 
 export interface DiffConflictItem {
   id: string;
@@ -37,15 +28,28 @@ export interface LocalAssetsSummary {
   onFreeSpace?: () => void;
 }
 
+export interface DiffSelectionState {
+  enabled: boolean;
+  explicitSelectionIds: ReadonlySet<string>;
+  selectedSelectionIds: ReadonlySet<string>;
+  dependencySelectionIds: ReadonlySet<string>;
+  dependencyLabels: Readonly<Record<string, string>>;
+  selectedPaths?: readonly string[];
+}
+
 export interface DiffDialogProps {
   open: boolean;
-  items: DiffItem[];
+  review: ChangeReviewModel;
+  selection: DiffSelectionState;
   conflicts?: DiffConflictItem[];
   patchBytes: number;
   error?: string;
+  onEnterSelection: () => void;
+  onToggleChange: (selectionId: string) => void;
+  onToggleGame: (gameId: string | null) => void;
+  onUndoChange?: (selectionId: string) => void;
+  onUndoGame?: (gameId: string | null) => void;
   onClose: () => void;
-  onUndoItem?: (itemId: string) => void;
-  onUndoGroup?: (groupId: DiffGroupId) => void;
   onClearAll?: () => void;
   onExport: () => void;
   onImport: (text: string, fileName: string) => void | Promise<void>;
@@ -54,23 +58,66 @@ export interface DiffDialogProps {
   onDismissError?: () => void;
   sync?: DiffSyncController;
   localAssets?: LocalAssetsSummary;
+  resolveAssetUrl?: (assetId: string) => string | null;
 }
 
-const groupLabels: Record<DiffGroupId, string> = {
+const kindLabels: Record<ReviewChange["kind"], string> = {
   added: "Добавлено",
   changed: "Изменено",
   deleted: "Удалено",
   moved: "Перемещено",
-  assets: "Изображения",
+  asset: "Файл",
 };
 
-const groupIcons: Record<DiffGroupId, "plus" | "edit" | "trash" | "drag" | "image"> = {
-  added: "plus",
-  changed: "edit",
-  deleted: "trash",
-  moved: "drag",
-  assets: "image",
-};
+function TriStateCheckbox({ checked, indeterminate, ...props }: {
+  checked: boolean;
+  indeterminate: boolean;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "checked" | "type">) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return <input {...props} aria-checked={indeterminate ? "mixed" : checked} checked={checked} ref={ref} type="checkbox" />;
+}
+
+function ChangeEvidenceView({ evidence, resolveAssetUrl }: { evidence: ChangeEvidence; resolveAssetUrl?: (assetId: string) => string | null }) {
+  if (evidence.type === "scalar" || evidence.type === "move") {
+    return <p className={`game-diff-evidence game-diff-evidence--${evidence.type}`}>{evidence.before} → {evidence.after}</p>;
+  }
+  if (evidence.type === "chips") {
+    return (
+      <div className="game-diff-evidence game-diff-evidence--chips">
+        {evidence.added.length ? <div aria-label={`Добавлено: ${evidence.added.join(", ")}`}><span>Добавлено</span>{evidence.added.map((item) => <em className="game-diff-chip game-diff-chip--added" key={`added:${item}`}>{item}</em>)}</div> : null}
+        {evidence.removed.length ? <div aria-label={`Удалено: ${evidence.removed.join(", ")}`}><span>Удалено</span>{evidence.removed.map((item) => <em className="game-diff-chip game-diff-chip--removed" key={`removed:${item}`}>{item}</em>)}</div> : null}
+      </div>
+    );
+  }
+  if (evidence.type === "asset") {
+    const dimensions = evidence.width && evidence.height ? `${evidence.width}×${evidence.height}` : null;
+    const thumbnailUrl = evidence.mime.startsWith("image/") ? resolveAssetUrl?.(evidence.assetId) ?? null : null;
+    return (
+      <div className="game-diff-evidence game-diff-evidence--asset">
+        <span className="game-diff-evidence__file">
+          {thumbnailUrl ? <img alt={`Превью: ${evidence.originalName}`} src={thumbnailUrl} /> : <Icon aria-hidden="true" name={evidence.mime.startsWith("image/") ? "image" : "note"} size={18} />}
+        </span>
+        <div><strong>{evidence.originalName}</strong><small>{[dimensions, evidence.mime, formatBytes(evidence.byteLength)].filter(Boolean).join(" · ")}</small></div>
+      </div>
+    );
+  }
+  return <MarkdownDiffPreview model={evidence.diff} />;
+}
+
+function uniqueGroupSelectionIds(group: GameChangeGroup): string[] {
+  return [...new Set(group.changes.map((change) => change.selectionId))];
+}
+
+function visibleSummary(change: ReviewChange): string {
+  if (!change.evidence.some((evidence) => evidence.type === "chips")) return change.summary;
+  return change.summary
+    .replace(/\+([^;]+)/gu, "добавлено $1")
+    .replace(/−([^;]+)/gu, "удалено $1")
+    .replace(/~([^;]+)/gu, "изменено $1");
+}
 
 function stringifyValue(value: unknown): string {
   if (typeof value === "string") return value;
@@ -83,13 +130,17 @@ function stringifyValue(value: unknown): string {
 
 export function DiffDialog({
   open,
-  items,
+  review,
+  selection,
   conflicts = [],
   patchBytes,
   error,
+  onEnterSelection,
+  onToggleChange,
+  onToggleGame,
+  onUndoChange,
+  onUndoGame,
   onClose,
-  onUndoItem,
-  onUndoGroup,
   onClearAll,
   onExport,
   onImport,
@@ -98,6 +149,7 @@ export function DiffDialog({
   onDismissError,
   sync,
   localAssets,
+  resolveAssetUrl,
 }: DiffDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,12 +158,26 @@ export function DiffDialog({
   const [manualValue, setManualValue] = useState("");
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncSubmitting, setSyncSubmitting] = useState(false);
+  const [syncScope, setSyncScope] = useState<{ actionLabel: string; selectedPaths?: readonly string[] } | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set());
   const syncToggleRef = useRef<HTMLButtonElement>(null);
-  const grouped = useMemo(() => {
-    const result = new Map<DiffGroupId, DiffItem[]>();
-    for (const item of items) result.set(item.group, [...(result.get(item.group) ?? []), item]);
-    return result;
-  }, [items]);
+  const selectedPaths = useMemo(() => {
+    if (!selection.explicitSelectionIds.size) return undefined;
+    if (selection.selectedPaths) return [...selection.selectedPaths];
+    return [...new Set([...selection.selectedSelectionIds].flatMap((selectionId) =>
+      (review.changesBySelectionId[selectionId] ?? []).flatMap((change) => change.operationPaths),
+    ))].sort();
+  }, [review.changesBySelectionId, selection.explicitSelectionIds, selection.selectedPaths, selection.selectedSelectionIds]);
+  const actionLabel = selection.explicitSelectionIds.size
+    ? `Синхронизировать выбранное · ${selection.selectedSelectionIds.size}`
+    : "Синхронизировать всё";
+  const activeSyncScope = syncOpen && syncScope ? syncScope : { actionLabel, selectedPaths };
+  const scopedSync = useMemo<DiffSyncController | undefined>(() => sync ? {
+    ...sync,
+    actionLabel: activeSyncScope.actionLabel,
+    onConnect: (token, remember) => sync.onConnect(token, remember, activeSyncScope.selectedPaths),
+    onSync: () => sync.onSync(activeSyncScope.selectedPaths),
+  } : undefined, [activeSyncScope.actionLabel, activeSyncScope.selectedPaths, sync]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,16 +210,22 @@ export function DiffDialog({
     if (open) return;
     setSyncOpen(false);
     setSyncSubmitting(false);
+    setSyncScope(null);
+    setCollapsedGroups(new Set());
   }, [open]);
+
+  useEffect(() => {
+    if (syncOpen && sync?.stage === "complete") setSyncScope(null);
+  }, [sync?.stage, syncOpen]);
 
   if (!open) return null;
 
-  const syncBlockedReason = !items.length
+  const syncBlockedReason = !review.uniqueSelectionIds.length
     ? "Нет локальных изменений для синхронизации."
     : conflicts.length
       ? "Сначала разрешите все конфликты."
       : undefined;
-  const syncBusy = syncSubmitting || Boolean(sync?.busy) || isDiffSyncBusy(sync?.stage);
+  const syncBusy = syncSubmitting || Boolean(scopedSync?.busy) || isDiffSyncBusy(scopedSync?.stage);
   const oldestLocalAssetAgeDays = localAssets?.oldestCreatedAt
     ? Math.floor((Date.now() - localAssets.oldestCreatedAt) / (24 * 60 * 60 * 1000))
     : 0;
@@ -167,6 +239,7 @@ export function DiffDialog({
 
   const closeSyncPanel = () => {
     setSyncOpen(false);
+    setSyncScope(null);
     requestAnimationFrame(() => syncToggleRef.current?.focus());
   };
 
@@ -208,16 +281,23 @@ export function DiffDialog({
         <header className="modal-header diff-dialog__header">
           <div>
             <h2 id="diff-title">Локальные правки</h2>
-            <p>{items.length} {items.length === 1 ? "изменение" : "изменений"} · {formatBytes(patchBytes)}</p>
+            <p>{review.uniqueSelectionIds.length} {review.uniqueSelectionIds.length === 1 ? "изменение" : "изменений"} · {formatBytes(patchBytes)}</p>
           </div>
           <div className="diff-dialog__header-actions">
-            {sync ? <DiffSyncButton busy={syncBusy} expanded={syncOpen} onClick={() => syncOpen ? closeSyncPanel() : setSyncOpen(true)} ref={syncToggleRef} /> : null}
+            {review.uniqueSelectionIds.length && !selection.enabled ? <button className="button button--secondary diff-selection-button" onClick={onEnterSelection} type="button">Выбрать часть</button> : null}
+            {scopedSync ? <DiffSyncButton actionLabel={syncOpen ? activeSyncScope.actionLabel : actionLabel} busy={syncBusy} expanded={syncOpen} onClick={() => {
+              if (syncOpen) closeSyncPanel();
+              else {
+                setSyncScope({ actionLabel, selectedPaths });
+                setSyncOpen(true);
+              }
+            }} ref={syncToggleRef} /> : null}
             <button aria-label="Закрыть" className="icon-button" onClick={onClose} type="button"><Icon name="close" /></button>
           </div>
         </header>
 
         <div className="diff-dialog__body">
-          {sync ? <DiffSyncPanel blockedReason={syncBlockedReason} controller={sync} onBusyChange={setSyncSubmitting} onClose={closeSyncPanel} open={syncOpen} /> : null}
+          {scopedSync ? <DiffSyncPanel blockedReason={syncBlockedReason} controller={scopedSync} onBusyChange={setSyncSubmitting} onClose={closeSyncPanel} open={syncOpen} /> : null}
           {error ? <div className="inline-alert inline-alert--error" role="alert"><Icon name="warning" /><span>{error}</span>{onDismissError ? <button onClick={onDismissError} type="button">Скрыть</button> : null}</div> : null}
           {localAssets ? (
             <section aria-labelledby="local-assets-title" className={`local-assets-panel local-assets-panel--${localAssetsLevel}`}>
@@ -283,28 +363,82 @@ export function DiffDialog({
             </section>
           ) : null}
 
-          {items.length ? (
+          {review.groups.length ? (
             <div className="diff-groups">
-              {Array.from(grouped.entries()).map(([groupId, groupItems]) => (
-                <section className="diff-group" key={groupId}>
-                  <header>
-                    <div><span className={`section-icon section-icon--${groupId}`}><Icon name={groupIcons[groupId]} /></span><h3>{groupLabels[groupId]}</h3><span>{groupItems.length}</span></div>
-                    {onUndoGroup ? <button onClick={() => onUndoGroup(groupId)} type="button">Отменить группу</button> : null}
-                  </header>
-                  <ul>
-                    {groupItems.map((item) => (
-                      <li key={item.id}>
-                        <div>
-                          <strong>{item.title}</strong>
-                          {item.detail ? <span>{item.detail}</span> : null}
-                          {item.meta?.length ? <small>{item.meta.join(" · ")}</small> : null}
-                        </div>
-                        {onUndoItem ? <button aria-label={`Отменить: ${item.title}`} className="icon-button" onClick={() => onUndoItem(item.id)} title="Отменить" type="button"><Icon name="close" size={17} /></button> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
+              {review.groups.map((group) => {
+                const groupSelectionIds = uniqueGroupSelectionIds(group);
+                const selectedCount = groupSelectionIds.filter((selectionId) => selection.selectedSelectionIds.has(selectionId)).length;
+                const collapsed = collapsedGroups.has(group.id);
+                const coverUrl = group.coverAssetId ? resolveAssetUrl?.(group.coverAssetId) ?? null : null;
+                return (
+                  <section className="game-diff-group" key={group.id}>
+                    <header>
+                      <div className="game-diff-group__identity">
+                        {selection.enabled ? (
+                          <TriStateCheckbox
+                            aria-label={`Выбрать игру: ${group.title}`}
+                            checked={selectedCount === groupSelectionIds.length}
+                            indeterminate={selectedCount > 0 && selectedCount < groupSelectionIds.length}
+                            onChange={() => onToggleGame(group.gameId)}
+                          />
+                        ) : null}
+                        <span className="game-diff-group__cover" data-cover-asset-id={group.coverAssetId ?? undefined}>
+                          {coverUrl ? <img alt={`Обложка: ${group.title}`} src={coverUrl} /> : <Icon aria-hidden="true" name={group.coverAssetId ? "image" : "gamepad"} size={15} />}
+                        </span>
+                        <div><h3>{group.title}</h3><span>{group.changes.length}</span></div>
+                      </div>
+                      <div className="game-diff-group__actions">
+                        {onUndoGame ? <button aria-label={`Отменить игру: ${group.title}`} className="icon-button" onClick={() => onUndoGame(group.gameId)} title="Отменить изменения игры" type="button"><Icon name="close" size={15} /></button> : null}
+                        <button
+                          aria-expanded={!collapsed}
+                          aria-label={`${collapsed ? "Развернуть" : "Свернуть"}: ${group.title}`}
+                          className={`icon-button game-diff-group__collapse${collapsed ? " is-collapsed" : ""}`}
+                          onClick={() => setCollapsedGroups((current) => {
+                            const next = new Set(current);
+                            if (next.has(group.id)) next.delete(group.id);
+                            else next.add(group.id);
+                            return next;
+                          })}
+                          type="button"
+                        ><Icon name="chevron-down" size={15} /></button>
+                      </div>
+                    </header>
+                    {!collapsed ? (
+                      <ul>
+                        {group.changes.map((change) => {
+                          const checked = selection.selectedSelectionIds.has(change.selectionId);
+                          const dependencyOnly = selection.dependencySelectionIds.has(change.selectionId)
+                            && !selection.explicitSelectionIds.has(change.selectionId);
+                          return (
+                            <li className={`game-diff-row game-diff-row--${change.kind}${dependencyOnly ? " is-dependency" : ""}`} data-change-kind={change.kind} key={change.id}>
+                              {selection.enabled ? (
+                                <input
+                                  aria-label={`Выбрать изменение: ${change.title}`}
+                                  checked={checked}
+                                  className="game-diff-row__selection"
+                                  disabled={dependencyOnly}
+                                  onChange={() => onToggleChange(change.selectionId)}
+                                  type="checkbox"
+                                />
+                              ) : null}
+                              <div className="game-diff-row__content">
+                                <div className="game-diff-row__heading">
+                                  <span aria-label={`Тип изменения: ${kindLabels[change.kind]}`} className={`game-diff-kind game-diff-kind--${change.kind}`}>{kindLabels[change.kind]}</span>
+                                  <strong>{change.title}</strong>
+                                </div>
+                                <p className="game-diff-row__summary">{visibleSummary(change)}</p>
+                                {dependencyOnly ? <small className="game-diff-row__dependency">{selection.dependencyLabels[change.selectionId] ?? "связано с выбранным изменением"}</small> : null}
+                                <div className="game-diff-row__evidence">{change.evidence.map((evidence, index) => <ChangeEvidenceView evidence={evidence} key={`${change.id}:evidence:${index}`} resolveAssetUrl={resolveAssetUrl} />)}</div>
+                              </div>
+                              {onUndoChange ? <button aria-label={`Отменить: ${change.title}`} className="icon-button game-diff-row__undo" onClick={() => onUndoChange(change.selectionId)} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </section>
+                );
+              })}
             </div>
           ) : (
             <div className="empty-state empty-state--compact">
@@ -316,9 +450,9 @@ export function DiffDialog({
 
         </div>
 
-        {(items.length || onDownloadCorruptedRaw) && onClearAll ? (
+        {(review.uniqueSelectionIds.length || onDownloadCorruptedRaw) && onClearAll ? (
           <footer className="diff-dialog__footer">
-            <button className="button button--ghost button--danger-text" onClick={onClearAll} type="button"><Icon name="trash" size={17} />{items.length ? "Отменить все правки" : "Сбросить повреждённый патч"}</button>
+            <button className="button button--ghost button--danger-text" onClick={onClearAll} type="button"><Icon name="trash" size={17} />{review.uniqueSelectionIds.length ? "Отменить все правки" : "Сбросить повреждённый патч"}</button>
           </footer>
         ) : null}
       </section>

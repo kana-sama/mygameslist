@@ -1,4 +1,5 @@
 .diff-dialog__header-actions { display: flex; align-items: center; gap: 4px; }
+.diff-selection-button { min-height: 28px; padding: 0 8px; font-size: 10px; white-space: nowrap; }
 .diff-sync-button { min-height: 28px; padding: 0 8px; font-size: 11px; }
 .diff-sync-panel { margin-bottom: 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
 .diff-sync-panel__header { min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 3px 5px 3px 8px; border-bottom: 1px solid var(--line-soft); }
@@ -30,13 +31,15 @@
 @keyframes diff-sync-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 500px) {
+  .diff-dialog__header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .diff-selection-button { min-height: 28px; }
   .diff-sync-button { width: 44px; padding: 0; overflow: hidden; font-size: 0; }
   .diff-sync-auth__input { grid-template-columns: 1fr; }
   .diff-sync-auth__input .button { width: 100%; }
 }
 
 @media (pointer: coarse) {
-  .diff-sync-button, .diff-sync-panel__header .icon-button, .diff-sync-auth__input .button, .diff-sync-saved .button, .diff-sync-panel__error button { min-width: 44px; min-height: 44px; }
+  .diff-selection-button, .diff-sync-button, .diff-sync-panel__header .icon-button, .diff-sync-auth__input .button, .diff-sync-saved .button, .diff-sync-panel__error button { min-width: 44px; min-height: 44px; }
   .diff-sync-auth__input input, .diff-sync-auth__create { min-height: 44px; }
   .diff-sync-auth__remember { min-height: 44px; }
   .diff-sync-auth__remember input { width: 20px; height: 20px; }
