@@ -103,6 +103,7 @@ interface LineStructure {
 interface StructuralIndex {
   lines: Map<number, LineStructure>;
   anchors: BlockAnchor[];
+  anchorDescendants: Map<string, string[]>;
   parentKeyCounts: Map<string, Map<string, number>>;
   parentTypes: Map<string, MarkdownBlockType>;
   unsupportedPosition: boolean;
@@ -262,6 +263,7 @@ function buildStructuralIndex(root: Root): StructuralIndex {
   const index: StructuralIndex = {
     lines: new Map(),
     anchors: [],
+    anchorDescendants: new Map(),
     parentKeyCounts: new Map(),
     parentTypes: new Map(),
     unsupportedPosition: false,
@@ -274,6 +276,17 @@ function buildStructuralIndex(root: Root): StructuralIndex {
     const ordinal = counters.get(counterKey) ?? 0;
     counters.set(counterKey, ordinal + 1);
     return `${counterKey}:${ordinal}`;
+  }
+
+  function registerAnchorDescendant(
+    parentSignature: string,
+    key: string,
+    descendantSignature: string,
+  ): void {
+    const anchor = `${parentSignature}\0${key}`;
+    const descendants = index.anchorDescendants.get(anchor) ?? [];
+    if (!descendants.includes(descendantSignature)) descendants.push(descendantSignature);
+    index.anchorDescendants.set(anchor, descendants);
   }
 
   function record(
@@ -328,33 +341,61 @@ function buildStructuralIndex(root: Root): StructuralIndex {
   ): void {
     const children = parent.children ?? [];
     if (parent.type === "root") {
-      const headings = children.filter((child) => child.type === "heading");
-      const headingCounts = registerParentKeys(index, "root/headings", "source", headings);
+      interface HeadingPlacement {
+        headingParent: string;
+        sectionSignature: string;
+      }
+
+      const placements = new Map<PositionedNode, string | HeadingPlacement>();
+      const headingGroups = new Map<string, PositionedNode[]>();
       const sectionChildren = new Map<string, PositionedNode[]>();
-      let currentSection = "preamble";
+      const headingStack: Array<{ depth: number; sectionSignature: string }> = [];
       for (const child of children) {
         if (child.type === "heading") {
-          currentSection = anchorKey(child) ?? `heading-line:${child.position?.start.line ?? "?"}`;
+          const depth = child.depth ?? 0;
+          while (headingStack.length > 0 && headingStack.at(-1)!.depth >= depth) {
+            headingStack.pop();
+          }
+          const parentSection = headingStack.at(-1)?.sectionSignature ?? "root";
+          const headingParent = `${parentSection}/headings`;
+          const key = anchorKey(child) ?? `heading-line:${child.position?.start.line ?? "?"}`;
+          const sectionSignature = `${parentSection}/section:${encodeURIComponent(key)}`;
+          const headings = headingGroups.get(headingParent) ?? [];
+          headings.push(child);
+          headingGroups.set(headingParent, headings);
+          placements.set(child, { headingParent, sectionSignature });
+          headingStack.push({ depth, sectionSignature });
           continue;
         }
-        const signature = `root/${currentSection}`;
+        const signature = headingStack.at(-1)?.sectionSignature ?? "root/preamble";
         const values = sectionChildren.get(signature) ?? [];
         values.push(child);
         sectionChildren.set(signature, values);
+        placements.set(child, signature);
+      }
+      for (const [signature, headings] of headingGroups) {
+        registerParentKeys(index, signature, "heading", headings);
       }
       for (const [signature, values] of sectionChildren) {
         registerParentKeys(index, signature, "source", values);
       }
 
-      currentSection = "preamble";
       for (const child of children) {
         if (child.type === "heading") {
+          const placement = placements.get(child) as HeadingPlacement;
           const key = anchorKey(child);
-          record(child, "root/headings", "source", key ? (headingCounts.get(key) ?? 0) : 0);
-          currentSection = key ?? `heading-line:${child.position?.start.line ?? "?"}`;
+          const counts = index.parentKeyCounts.get(placement.headingParent) ?? new Map();
+          record(child, placement.headingParent, "heading", key ? (counts.get(key) ?? 0) : 0);
+          if (key) {
+            registerAnchorDescendant(
+              placement.headingParent,
+              key,
+              placement.sectionSignature,
+            );
+          }
           continue;
         }
-        const scopedParent = `root/${currentSection}`;
+        const scopedParent = placements.get(child) as string;
         const counts = index.parentKeyCounts.get(scopedParent) ?? new Map<string, number>();
         const key = anchorKey(child);
         record(child, scopedParent, "source", key ? (counts.get(key) ?? 0) : 0);
@@ -379,7 +420,9 @@ function buildStructuralIndex(root: Root): StructuralIndex {
       } else if (child.type === "listItem") {
         for (const nested of child.children ?? []) {
           if (nested.type === "list") {
-            const signature = nextContainerSignature(parentSignature, nested.type);
+            const anchorParent = `${parentSignature}/anchor:${encodeURIComponent(key ?? "unkeyed")}`;
+            if (key) registerAnchorDescendant(parentSignature, key, anchorParent);
+            const signature = nextContainerSignature(anchorParent, nested.type);
             record(nested, parentSignature, parentType, 1);
             walkContainer(nested, signature, "list");
           }
@@ -416,16 +459,19 @@ function findAmbiguousParents(
       if ((beforeCounts.get(key) ?? 0) > 1 || (afterCounts.get(key) ?? 0) > 1) {
         ambiguous.add(`${signature}\0${key}`);
         const parentType = before.parentTypes.get(signature) ?? "source";
-        if (signature === "root/headings") ambiguous.add(`ancestor:root/${key}`);
+        for (const descendant of [
+          ...(before.anchorDescendants.get(`${signature}\0${key}`) ?? []),
+          ...(after.anchorDescendants.get(`${signature}\0${key}`) ?? []),
+        ]) {
+          ambiguous.add(`ancestor:${descendant}`);
+        }
         addFallback(
           fallbacks,
-          signature === "root/headings"
-            ? "heading"
-            : parentType === "table"
-              ? "table"
-              : parentType === "list"
-                ? "listItem"
-                : parentType,
+          parentType === "table"
+            ? "table"
+            : parentType === "list"
+              ? "listItem"
+              : parentType,
           "ambiguous-anchor",
         );
       }
@@ -452,12 +498,16 @@ function longestCommonSubsequenceLength(left: string, right: string): number {
   return previous[right.length];
 }
 
-function mayPair(before: string, after: string): boolean {
+function pairSimilarity(before: string, after: string): number {
   const left = before.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
   const right = after.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
-  if (!left || !right) return false;
+  if (!left || !right) return 0;
   const common = longestCommonSubsequenceLength(left, right);
-  return common / Math.max(left.length, right.length) >= 0.72;
+  return common / Math.max(left.length, right.length);
+}
+
+function mayPair(before: string, after: string): boolean {
+  return pairSimilarity(before, after) >= 0.72;
 }
 
 function safeToPair(
@@ -683,28 +733,33 @@ function annotatePairs(
     );
     if (containsHeading && run.length > 2) continue;
 
-    const candidates = new Map<number, number[]>();
-    const reverseCandidates = new Map<number, number[]>();
-    for (const left of removed) {
-      for (const right of added) {
-        if (!safeToPair(left.line, right.line, before, after, ambiguous)) continue;
-        const leftCandidates = candidates.get(left.index) ?? [];
-        leftCandidates.push(right.index);
-        candidates.set(left.index, leftCandidates);
-        const rightCandidates = reverseCandidates.get(right.index) ?? [];
-        rightCandidates.push(left.index);
-        reverseCandidates.set(right.index, rightCandidates);
-      }
-    }
+    if (removed.length !== added.length) continue;
+    const hasStrongerMovedMatch = removed.some((left, leftIndex) => {
+      const corresponding = added[leftIndex];
+      const correspondingScore = pairSimilarity(left.line.value, corresponding.line.value);
+      return added.some(
+        (right, rightIndex) =>
+          rightIndex !== leftIndex &&
+          pairSimilarity(left.line.value, right.line.value) > correspondingScore &&
+          safeToPair(left.line, right.line, before, after, ambiguous),
+      );
+    }) || added.some((right, rightIndex) => {
+      const corresponding = removed[rightIndex];
+      const correspondingScore = pairSimilarity(corresponding.line.value, right.line.value);
+      return removed.some(
+        (left, leftIndex) =>
+          leftIndex !== rightIndex &&
+          pairSimilarity(left.line.value, right.line.value) > correspondingScore &&
+          safeToPair(left.line, right.line, before, after, ambiguous),
+      );
+    });
+    if (hasStrongerMovedMatch) continue;
 
-    let previousAddedIndex = -1;
-    for (const left of removed) {
-      const choices = candidates.get(left.index) ?? [];
-      if (choices.length !== 1) continue;
-      const rightIndex = choices[0];
-      if ((reverseCandidates.get(rightIndex) ?? []).length !== 1 || rightIndex <= previousAddedIndex) {
-        continue;
-      }
+    for (let pairIndex = 0; pairIndex < removed.length; pairIndex += 1) {
+      const left = removed[pairIndex];
+      const right = added[pairIndex];
+      if (!safeToPair(left.line, right.line, before, after, ambiguous)) continue;
+      const rightIndex = right.index;
       const pairId = `pair:${left.index}:${rightIndex}`;
       const inline = inlineParts(left.line.value, lines[rightIndex].value);
       left.line.pairId = pairId;
@@ -712,7 +767,6 @@ function annotatePairs(
       lines[rightIndex].pairId = pairId;
       lines[rightIndex].inline = inline.after;
       pairs.set(left.index, rightIndex);
-      previousAddedIndex = rightIndex;
     }
   }
 
@@ -900,6 +954,7 @@ function sourceOnlyModel(
   const emptyIndex: StructuralIndex = {
     lines: new Map(),
     anchors: [],
+    anchorDescendants: new Map(),
     parentKeyCounts: new Map(),
     parentTypes: new Map(),
     unsupportedPosition: false,

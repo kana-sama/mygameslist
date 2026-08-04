@@ -128,6 +128,62 @@ describe("exact Markdown source diff", () => {
     expect(reconstructAfter(model.lines)).toBe(after);
   });
 
+  it("declines descendants of ambiguous duplicate list items", () => {
+    const before = "- Дубль\n  - [ ] Внутри\n- Дубль\n  - [ ] Внутри";
+    const after = "- Дубль\n  - [x] Внутри\n- Дубль\n  - [ ] Внутри";
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.fallbacks).toContainEqual(
+      expect.objectContaining({ blockType: "listItem", reason: "ambiguous-anchor" }),
+    );
+    expect(model.lines.every((line) => line.pairId === undefined && line.inline === undefined)).toBe(
+      true,
+    );
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("does not pair reordered non-adjacent list items as modifications", () => {
+    const before = "- Alpha one\n- Beta one";
+    const after = "- Beta two\n- Alpha two";
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.every((line) => line.pairId === undefined && line.inline === undefined)).toBe(
+      true,
+    );
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("declines positional pairs when similar list items have stronger moved matches", () => {
+    const before = "- Item one A\n- Item one B";
+    const after = "- Item one B!\n- Item one A!";
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.every((line) => line.pairId === undefined && line.inline === undefined)).toBe(
+      true,
+    );
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it("matches identical subheadings within their own parent sections", () => {
+    const before = "## A\n### Details\n- [ ] One\n\n## B\n### Details\n- [ ] Two";
+    const after = "## A\n### Details\n- [x] One\n\n## B\n### Details\n- [ ] Two";
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.fallbacks).not.toContainEqual(
+      expect.objectContaining({ blockType: "heading", reason: "ambiguous-anchor" }),
+    );
+    expect(model.fragments.filter((fragment) => fragment.kind === "modified")).toHaveLength(1);
+    expect(model.lines.filter((line) => line.pairId)).toHaveLength(2);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
   it("counts one multi-line list item as one structural fragment", () => {
     const after = "- Первая строка\n  продолжение";
     const model = createMarkdownDiff("", after);
