@@ -11,89 +11,24 @@ import { gameSearchScore } from "../domain/catalogue";
 import type { Game } from "../domain/types";
 import { PlainMarkdownTextarea, type PlainMarkdownTextareaProps } from "./Markdown";
 import {
-  isInsideFencedMarkdownCode,
   resolveMarkdownListEnter,
   resolveMarkdownListIndent,
   type MarkdownListIndentDirection,
 } from "./markdownListEditing";
+import {
+  findActiveGameLinkQuery,
+  insertGameMarkdownLink,
+} from "./markdownGameLinks";
+export {
+  findActiveGameLinkQuery,
+  insertGameMarkdownLink,
+} from "./markdownGameLinks";
+export type {
+  ActiveGameLinkQuery,
+  InsertedGameMarkdownLink,
+} from "./markdownGameLinks";
 
 export const GAME_LINK_SUGGESTION_LIMIT = 8;
-
-export interface ActiveGameLinkQuery {
-  start: number;
-  end: number;
-  query: string;
-}
-
-export interface InsertedGameMarkdownLink {
-  markdown: string;
-  caret: number;
-}
-
-function lineStartAt(markdown: string, position: number): number {
-  return markdown.lastIndexOf("\n", Math.max(0, position - 1)) + 1;
-}
-
-function isEscaped(markdown: string, position: number): boolean {
-  let backslashes = 0;
-  for (let index = position - 1; index >= 0 && markdown[index] === "\\"; index -= 1) backslashes += 1;
-  return backslashes % 2 === 1;
-}
-
-function isInsideInlineCode(markdown: string, position: number): boolean {
-  const lineStart = lineStartAt(markdown, position);
-  let delimiterLength = 0;
-  let index = lineStart;
-
-  while (index < position) {
-    if (markdown[index] !== "`" || isEscaped(markdown, index)) {
-      index += 1;
-      continue;
-    }
-    let runEnd = index + 1;
-    while (runEnd < position && markdown[runEnd] === "`") runEnd += 1;
-    const runLength = runEnd - index;
-    if (!delimiterLength) delimiterLength = runLength;
-    else if (runLength === delimiterLength) delimiterLength = 0;
-    index = runEnd;
-  }
-
-  return delimiterLength !== 0;
-}
-
-function isInsideMarkdownLinkDestination(markdown: string, position: number): boolean {
-  const prefix = markdown.slice(lineStartAt(markdown, position), position);
-  return prefix.lastIndexOf("](") > prefix.lastIndexOf(")");
-}
-
-export function findActiveGameLinkQuery(markdown: string, caret: number): ActiveGameLinkQuery | null {
-  if (!Number.isInteger(caret) || caret < 0 || caret > markdown.length) return null;
-  const lineStart = lineStartAt(markdown, caret);
-  if (caret <= lineStart) return null;
-  let trigger = markdown.lastIndexOf("#", Math.max(lineStart, caret - 1));
-  while (trigger >= lineStart && trigger > 0 && !/\s/u.test(markdown[trigger - 1])) {
-    trigger = markdown.lastIndexOf("#", trigger - 1);
-  }
-  if (trigger < lineStart) return null;
-
-  const query = markdown.slice(trigger + 1, caret);
-  if (query.length > 0 && /^\s/u.test(query)) return null;
-  if (/[#\r\n]/u.test(query)) return null;
-  if (isEscaped(markdown, trigger)) return null;
-  if (isInsideFencedMarkdownCode(markdown, trigger) || isInsideInlineCode(markdown, trigger)) return null;
-  if (isInsideMarkdownLinkDestination(markdown, trigger)) return null;
-  return { start: trigger, end: caret, query };
-}
-
-export function insertGameMarkdownLink(
-  markdown: string,
-  range: Pick<ActiveGameLinkQuery, "start" | "end">,
-  game: Pick<Game, "id" | "title">,
-): InsertedGameMarkdownLink {
-  const link = `[${game.title}](#/games/${encodeURIComponent(game.id)})`;
-  const nextMarkdown = `${markdown.slice(0, range.start)}${link}${markdown.slice(range.end)}`;
-  return { markdown: nextMarkdown, caret: range.start + link.length };
-}
 
 function titleSearchScore(game: Game, query: string): number {
   return gameSearchScore({ ...game, platforms: [], tags: [] }, query);
