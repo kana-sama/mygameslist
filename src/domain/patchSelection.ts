@@ -111,6 +111,24 @@ export function mergePatchEnvelopes(earlier: PatchEnvelope, later: PatchEnvelope
   });
 }
 
+export function rebasePostClickOverlaps(deferred: PatchEnvelope, postClick: PatchEnvelope): PatchEnvelope {
+  return {
+    ...clone(postClick),
+    operations: Object.fromEntries(Object.entries(postClick.operations).map(([path, operation]) => {
+      const deferredOperation = deferred.operations[path];
+      // The later target wins, but conflicts are still measured from the
+      // published value that the deferred operation originally observed.
+      return [path, deferredOperation
+        ? {
+          ...clone(operation),
+          baseExists: deferredOperation.baseExists,
+          baseHash: deferredOperation.baseHash,
+        }
+        : clone(operation)];
+    })),
+  };
+}
+
 export function resolvePatchSelection(
   base: LibraryDatabase,
   effective: LibraryDatabase,

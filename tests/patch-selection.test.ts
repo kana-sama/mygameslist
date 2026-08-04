@@ -8,6 +8,8 @@ import {
   canonicalStringify,
   diffLibrary,
   mergePatchEnvelopes,
+  reconcilePatch,
+  rebasePostClickOverlaps,
   resolvePatchSelection,
   type Asset,
   type Game,
@@ -427,6 +429,45 @@ describe("patch selection", () => {
 });
 
 describe("patch envelope merging", () => {
+  it("rebases post-click overlaps onto the deferred operation's original base metadata", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "First");
+    const deferredTarget = structuredClone(base);
+    deferredTarget.games[GAME_A_ID].placement = { tierId: "b", rank: 1024 };
+    const deferred = diffLibrary(base, deferredTarget, {
+      changedAt: EARLIER_CHANGED_AT,
+      transactionId: "deferred-placement",
+    });
+    const frozenEffective = applyPatch(base, deferred);
+    const postClickTarget = structuredClone(frozenEffective);
+    postClickTarget.games[GAME_A_ID].placement = { tierId: "s", rank: 2048 };
+    const postClick = diffLibrary(frozenEffective, postClickTarget, {
+      changedAt: CHANGED_AT,
+      transactionId: "post-click-placement",
+    });
+    const snapshots = [deferred, postClick].map((patch) => canonicalStringify(patch));
+
+    const rebased = rebasePostClickOverlaps(deferred, postClick);
+
+    const path = `/games/${GAME_A_ID}/placement`;
+    expect(rebased.operations[path]).toEqual({
+      ...postClick.operations[path],
+      baseExists: deferred.operations[path].baseExists,
+      baseHash: deferred.operations[path].baseHash,
+    });
+    expect([deferred, postClick].map((patch) => canonicalStringify(patch))).toEqual(snapshots);
+    const merged = mergePatchEnvelopes(deferred, rebased);
+    expect(reconcilePatch(base, merged)).toMatchObject({
+      conflicts: [],
+      effective: { games: { [GAME_A_ID]: { placement: { tierId: "s", rank: 2048 } } } },
+    });
+    const remote = structuredClone(base);
+    remote.games[GAME_A_ID].placement = { tierId: "c", rank: 1024 };
+    expect(reconcilePatch(remote, merged).conflicts).toEqual([
+      expect.objectContaining({ path }),
+    ]);
+  });
+
   it("lets the later envelope win and prunes blobs without a surviving asset set", () => {
     const base = database();
     const effective = structuredClone(base);

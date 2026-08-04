@@ -40,6 +40,7 @@ import {
   reconcilePatch,
   referencedAssetIds,
   requestPersistentOriginStorage,
+  rebasePostClickOverlaps,
   resolveConflict,
   resolvePatchSelection,
   savePatch,
@@ -86,24 +87,6 @@ import {
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
   return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
-}
-
-function rebasePostClickOverlaps(deferred: PatchEnvelope, postClick: PatchEnvelope): PatchEnvelope {
-  return {
-    ...structuredClone(postClick),
-    operations: Object.fromEntries(Object.entries(postClick.operations).map(([path, operation]) => {
-      const deferredOperation = deferred.operations[path];
-      // The later target wins, but conflicts are still measured from the
-      // published value that the deferred operation originally observed.
-      return [path, deferredOperation
-        ? {
-          ...structuredClone(operation),
-          baseExists: deferredOperation.baseExists,
-          baseHash: deferredOperation.baseHash,
-        }
-        : structuredClone(operation)];
-    })),
-  };
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -983,29 +966,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const current = stateRef.current;
-      if (!current) throw new Error("Локальное состояние закрылось во время синхронизации");
       publicationAccepted = true;
-      await updateLocalAssetState(snapshotLocalAssetIds.filter((id) => id in result.database.assets), "awaiting-verification");
-      await refreshLocalAssets();
-      const postClickPatch = diffLibrary(snapshotEffective, current.effective, {
-        previousPatch: current.patch,
-      });
-      const rebasedPostClickPatch = rebasePostClickOverlaps(snapshotDeferredPatch, postClickPatch);
-      const remainderPatch = mergePatchEnvelopes(snapshotDeferredPatch, rebasedPostClickPatch);
-      const remaining = reconcilePatch(result.database, remainderPatch);
       const pagesPending = result.status === "committed"
         || result.database.revision !== snapshotBase.revision
         || snapshot.pendingPublication !== null;
-
-      if (pagesPending) {
-        const receiptAssetIds = [...new Set([
-          ...(snapshot.pendingPublication ? pendingPublicationAssetIds(snapshot.pendingPublication) : []),
-          ...snapshotLocalAssetIds,
-          ...patchLocalAssetIds(result.reconciledPatch),
-        ])].filter((id) => id in result.database.assets);
-        const receipt: PendingPublicationReceipt = {
-          version: 2,
+      const receipt = pagesPending
+        ? {
+          version: 2 as const,
           owner: GITHUB_REPOSITORY_OWNER,
           repo: GITHUB_REPOSITORY_NAME,
           branch: "main",
@@ -1013,8 +980,24 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           commitSha: result.commitSha,
           createdAt: new Date().toISOString(),
           database: result.database,
-          assetIds: receiptAssetIds,
-        };
+          assetIds: [...new Set([
+            ...(snapshot.pendingPublication ? pendingPublicationAssetIds(snapshot.pendingPublication) : []),
+            ...snapshotLocalAssetIds,
+            ...patchLocalAssetIds(result.reconciledPatch),
+          ])].filter((id) => id in result.database.assets),
+        } satisfies PendingPublicationReceipt
+        : null;
+      const reconcileLatestRemainder = (): ReconciledPatch => {
+        const latest = stateRef.current;
+        if (!latest) throw new Error("Локальное состояние закрылось во время синхронизации");
+        const postClickPatch = diffLibrary(snapshotEffective, latest.effective, {
+          previousPatch: latest.patch,
+        });
+        const rebasedPostClickPatch = rebasePostClickOverlaps(snapshotDeferredPatch, postClickPatch);
+        return reconcilePatch(result.database, mergePatchEnvelopes(snapshotDeferredPatch, rebasedPostClickPatch));
+      };
+      const installPendingState = (remaining: ReconciledPatch) => {
+        if (!receipt) throw new Error("Ожидающая публикация не была подготовлена");
         const installed = installPendingPublication(localStorage, receipt, remaining.patch);
         if (installed.ok) {
           undoStack.current = [];
@@ -1024,13 +1007,39 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           setPersistenceError(`${installed.error.message}. Коммит уже создан; оставшиеся локальные правки сохранены только в памяти до перезагрузки.`);
           setLibraryState({ base: result.database, effective: remaining.effective, patch: remaining.patch, conflicts: remaining.conflicts, pendingPublication: receipt });
         }
-      } else {
-        await verifyAndDeletePublishedLocalAssets(snapshotLocalAssetIds, result.database);
-        await refreshLocalAssets();
-        await refreshQuota();
-        installReconciled(result.database, remaining, false, null);
-        clearPendingPublication(localStorage);
+      };
+      const installImmediateState = (remaining: ReconciledPatch, fallbackToMemory = false) => {
+        if (!fallbackToMemory) {
+          installReconciled(result.database, remaining, false, null);
+          clearPendingPublication(localStorage);
+          undoStack.current = [];
+          return;
+        }
+        try {
+          installReconciled(result.database, remaining, false, null);
+          clearPendingPublication(localStorage);
+        } catch {
+          setLibraryState({ base: result.database, effective: remaining.effective, patch: remaining.patch, conflicts: remaining.conflicts, pendingPublication: null });
+        }
         undoStack.current = [];
+      };
+
+      try {
+        await updateLocalAssetState(snapshotLocalAssetIds.filter((id) => id in result.database.assets), "awaiting-verification");
+        await refreshLocalAssets();
+        if (!pagesPending) {
+          await verifyAndDeletePublishedLocalAssets(snapshotLocalAssetIds, result.database);
+          await refreshLocalAssets();
+          await refreshQuota();
+        }
+        const remaining = reconcileLatestRemainder();
+        if (receipt) installPendingState(remaining);
+        else installImmediateState(remaining);
+      } catch (reason) {
+        const remaining = reconcileLatestRemainder();
+        if (receipt) installPendingState(remaining);
+        else installImmediateState(remaining, true);
+        throw reason;
       }
 
       return {

@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  LOCAL_ASSET_METADATA_PREFIX,
   PATCH_STORAGE_KEY,
   bytesToBase64,
   diffLibrary,
@@ -26,6 +27,21 @@ import {
 } from "../src/state/pendingPublication";
 import { GITHUB_PAT_STORAGE_KEY } from "../src/state/githubPat";
 
+const localAssetStateControl = vi.hoisted(() => ({
+  afterUpdate: undefined as undefined | ((state: string) => Promise<void>),
+}));
+
+vi.mock("../src/domain", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/domain")>();
+  return {
+    ...actual,
+    updateLocalAssetState: async (...args: Parameters<typeof actual.updateLocalAssetState>) => {
+      await actual.updateLocalAssetState(...args);
+      await localAssetStateControl.afterUpdate?.(args[1]);
+    },
+  };
+});
+
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const SECOND_GAME_ID = "33333333-3333-4333-8333-333333333333";
@@ -42,14 +58,20 @@ class MemoryStorage implements Storage {
   private values = new Map<string, string>();
   private setFailures = 0;
   private failingSetKeys = new Set<string>();
+  private failingSetMatch: ((key: string, value: string) => boolean) | null = null;
   get length() { return this.values.size; }
   clear() { this.values.clear(); }
   failNextSet() { this.setFailures += 1; }
   failNextSetFor(key: string) { this.failingSetKeys.add(key); }
+  failNextMatchingSet(matches: (key: string, value: string) => boolean) { this.failingSetMatch = matches; }
   getItem(key: string) { return this.values.get(key) ?? null; }
   key(index: number) { return [...this.values.keys()][index] ?? null; }
   removeItem(key: string) { this.values.delete(key); }
   setItem(key: string, value: string) {
+    if (this.failingSetMatch?.(key, value)) {
+      this.failingSetMatch = null;
+      throw new DOMException("Storage is full", "QuotaExceededError");
+    }
     if (this.failingSetKeys.delete(key)) {
       throw new DOMException("Storage is full", "QuotaExceededError");
     }
@@ -260,6 +282,7 @@ function GitHubSyncProbe() {
   return <div>
     <span data-testid="sync-loading">{String(library.loading)}</span>
     <span data-testid="sync-title">{library.effective.games[GAME_ID]?.title ?? "empty"}</span>
+    <span data-testid="sync-cover-id">{library.effective.games[GAME_ID]?.coverAssetId ?? "none"}</span>
     <span data-testid="sync-tier">{library.effective.games[GAME_ID]?.placement.tierId ?? "none"}</span>
     <span data-testid="sync-operations">{Object.keys(library.patch.operations).sort().join(",")}</span>
     <span data-testid="sync-conflicts">{library.conflicts.length}</span>
@@ -273,6 +296,7 @@ function GitHubSyncProbe() {
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync empty selection</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/title`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected title</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected game</button>
+    <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/coverAssetId`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected cover</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/missing`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync invalid selection</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
     <button onClick={() => {
@@ -360,6 +384,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  localAssetStateControl.afterUpdate = undefined;
   cleanup();
   localStorage.clear();
   sessionStorage.clear();
@@ -604,6 +629,19 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     local.games[GAME_ID].title = "Local title";
     local.games[GAME_ID].placement = { tierId: "b", rank: 1024 };
     return diffLibrary(base, local, { changedAt: "2026-07-17T10:00:00.000Z", transactionId: "sync-title-placement" });
+  }
+
+  async function prepareLocalCoverPatch(base: LibraryDatabase, marker: number, deferred: "title" | "placement") {
+    const bytes = new Uint8Array([82, 73, 70, 70, marker, 0, 0, 0, 87, 69, 66, 80]);
+    const cover = makeExternalWebPAsset(bytes, 1, 1, "Selected cover", "selected.webp").asset;
+    const local = structuredClone(base);
+    local.assets[cover.id] = cover;
+    local.games[GAME_ID].coverAssetId = cover.id;
+    if (deferred === "title") local.games[GAME_ID].title = "Deferred title";
+    else local.games[GAME_ID].placement = { tierId: "b", rank: 1024 };
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: `selected-cover-${deferred}` })).ok).toBe(true);
+    await writeLocalAssetsAtomic([makeLocalAsset(cover.id, new Blob([bytes], { type: "image/webp" }), "image/webp")]);
+    return cover;
   }
 
   function committedTitleDatabase(base: LibraryDatabase) {
@@ -930,6 +968,70 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/notes/${NOTE_ID}/bodyMarkdown`);
     expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/title`);
     expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+  });
+
+  it("installs the accepted base and deferred remainder when the post-acceptance asset transition fails", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    const cover = await prepareLocalCoverPatch(base, 30, "title");
+    const api = githubResponses(base);
+    (localStorage as MemoryStorage).failNextMatchingSet((key, value) => key === `${LOCAL_ASSET_METADATA_PREFIX}${cover.id}`
+      && value.includes('"state":"awaiting-verification"'));
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync selected cover" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("Storage is full"));
+    expect(publishedLibraryFromRequest(api.requests).games[GAME_ID].coverAssetId).toBe(cover.id);
+    expect(screen.getByTestId("sync-cover-id")).toHaveTextContent(cover.id);
+    expect(screen.getByTestId("sync-title")).toHaveTextContent("Deferred title");
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/title`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/coverAssetId`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/assets/${cover.id}`);
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    const storedPatch = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as { operations: Record<string, unknown> };
+    expect(Object.keys(storedPatch.operations)).toEqual([`/games/${GAME_ID}/title`]);
+    expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toBeNull();
+  });
+
+  it("keeps an edit made while the post-acceptance asset transition is awaiting", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    const cover = await prepareLocalCoverPatch(base, 31, "placement");
+    githubResponses(base);
+    let releaseAwaiting!: () => void;
+    let markAwaitingStarted!: () => void;
+    const awaitingStarted = new Promise<void>((resolve) => { markAwaitingStarted = resolve; });
+    const awaitingGate = new Promise<void>((resolve) => { releaseAwaiting = resolve; });
+    localAssetStateControl.afterUpdate = async (state) => {
+      if (state !== "awaiting-verification") return;
+      markAwaitingStarted();
+      await awaitingGate;
+    };
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sync selected cover" }));
+      await awaitingStarted;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Edit after click" }));
+    await act(async () => {
+      releaseAwaiting();
+      await awaitingGate;
+    });
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(screen.getByTestId("sync-cover-id")).toHaveTextContent(cover.id);
+    expect(screen.getByTestId("sync-tier")).toHaveTextContent("s");
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/placement`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/coverAssetId`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/assets/${cover.id}`);
+    const storedPatch = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as { operations: Record<string, { value?: unknown }> };
+    expect(storedPatch.operations[`/games/${GAME_ID}/placement`].value).toEqual({ tierId: "s", rank: 1024 });
   });
 
   it("keeps a remote conflict when a same-path post-click edit started from the deferred value", async () => {
