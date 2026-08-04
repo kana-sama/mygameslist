@@ -25,6 +25,7 @@ const ASSET_A_ID = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852
 const ASSET_B_ID = "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb";
 const REVISION = "1".repeat(64);
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
+const EARLIER_CHANGED_AT = "2026-08-04T09:00:00.000Z";
 const CHANGED_AT = "2026-08-04T10:00:00.000Z";
 
 function database(): LibraryDatabase {
@@ -299,6 +300,51 @@ describe("patch selection", () => {
       ...effective,
       notes: { [NOTE_A_ID]: { ...effective.notes[NOTE_A_ID], bodyMarkdown: "Original" } },
     });
+  });
+
+  it("includes required asset reference removals retained from earlier transactions", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "First owner");
+    base.games[GAME_B_ID] = game(GAME_B_ID, "Second owner");
+    base.assets[ASSET_A_ID] = fileAsset(ASSET_A_ID, "shared.bin", 0);
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "First note"),
+      attachments: [{ type: "file", assetId: ASSET_A_ID, label: "First reference" }],
+    };
+    base.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_B_ID, "Second note"),
+      attachments: [{ type: "file", assetId: ASSET_A_ID, label: "Second reference" }],
+    };
+
+    const afterFirstRemoval = structuredClone(base);
+    afterFirstRemoval.notes[NOTE_A_ID].attachments = [];
+    const earlierPatch = diffLibrary(base, afterFirstRemoval, {
+      changedAt: EARLIER_CHANGED_AT,
+      transactionId: "remove-first-reference",
+    });
+
+    const desired = applyPatch(base, earlierPatch);
+    desired.notes[NOTE_B_ID].attachments = [];
+    desired.notes[NOTE_B_ID].bodyMarkdown = "Unrelated text from final save";
+    delete desired.assets[ASSET_A_ID];
+    const patch = diffLibrary(base, desired, {
+      previousPatch: earlierPatch,
+      changedAt: CHANGED_AT,
+      transactionId: "remove-final-reference",
+    });
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "delete-shared-asset",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+      `/notes/${NOTE_B_ID}/attachments`,
+    ]);
+    expect(result.deferredPatch.operations).toHaveProperty(`/notes/${NOTE_B_ID}/bodyMarkdown`);
   });
 
   it("partitions every original operation exactly once and preserves envelope metadata", () => {

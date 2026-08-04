@@ -228,8 +228,7 @@ export function resolvePatchSelection(
 
       if (current.map === "assets" && current.field === undefined && current.operation.operation === "delete") {
         for (const candidate of operations) {
-          if (candidate.operation.transactionId !== current.operation.transactionId
-            || !baseReferences(candidate, base).has(current.id)
+          if (!baseReferences(candidate, base).has(current.id)
             || targetReferences(candidate, effective).has(current.id)) continue;
           changed = addDependency(candidate.path, path, `Нужно удалить ссылку на asset ${current.id}`) || changed;
         }
