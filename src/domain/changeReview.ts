@@ -134,6 +134,17 @@ function compareRussian(left: string, right: string): number {
   return left.localeCompare(right, "ru");
 }
 
+function compareChangedAt(left: string, right: string): number {
+  const leftTimestamp = Date.parse(left);
+  const rightTimestamp = Date.parse(right);
+  if (Number.isFinite(leftTimestamp) && Number.isFinite(rightTimestamp)) {
+    return leftTimestamp - rightTimestamp || left.localeCompare(right);
+  }
+  if (Number.isFinite(leftTimestamp)) return 1;
+  if (Number.isFinite(rightTimestamp)) return -1;
+  return left.localeCompare(right);
+}
+
 function entity(database: LibraryDatabase, map: EntityMapName, id: string): Game | Note | Asset | undefined {
   return database[map][id] as Game | Note | Asset | undefined;
 }
@@ -214,8 +225,8 @@ function parseOperations(patch: PatchEnvelope): ParsedOperation[] {
 function makeUnits(operations: ParsedOperation[]): SemanticUnit[] {
   const units = new Map<string, SemanticUnit>();
   for (const item of operations) {
-    const transactionId = item.operation.transactionId?.trim() ?? "";
-    const transactionKey = transactionId || "legacy";
+    const transactionId = item.operation.transactionId ?? "";
+    const transactionKey = transactionId ? `tx:${transactionId}` : "missing-transaction";
     const key = `${transactionKey}\u0000${item.map}\u0000${item.id}`;
     let unit = units.get(key);
     if (!unit) {
@@ -319,9 +330,13 @@ function attachmentChips(value: unknown, database: LibraryDatabase): string[] {
   return value.map((item) => {
     if (!item || typeof item !== "object") return String(item);
     const attachment = item as Record<string, unknown>;
-    if (attachment.type === "link") return String(attachment.label ?? attachment.url ?? "Ссылка");
+    if (attachment.type === "link") {
+      return `${String(attachment.label ?? "Ссылка")} · ${String(attachment.url ?? "—")}`;
+    }
     const assetId = String(attachment.assetId ?? "");
-    return String(attachment.label ?? attachment.alt ?? database.assets[assetId]?.originalName ?? assetId);
+    const originalName = database.assets[assetId]?.originalName;
+    const label = String(attachment.label ?? attachment.alt ?? originalName ?? "Вложение");
+    return [label, originalName, assetId ? `asset:${assetId}` : ""].filter(Boolean).join(" · ");
   });
 }
 
@@ -462,10 +477,14 @@ function allOperationPaths(unit: SemanticUnit): string[] {
 }
 
 function latestChangedAt(unit: SemanticUnit): string {
-  return [
+  const changedAt = [
     ...unit.operations.map((item) => item.operation.changedAt),
     ...unit.foldedAssets.flatMap((asset) => asset.operations.map((item) => item.operation.changedAt)),
-  ].sort().at(-1) ?? "";
+  ];
+  return changedAt.reduce(
+    (latest, candidate) => compareChangedAt(candidate, latest) > 0 ? candidate : latest,
+    changedAt[0] ?? "",
+  );
 }
 
 function makeOccurrence(
@@ -492,7 +511,7 @@ function makeOccurrence(
 }
 
 function compareRows(left: ReviewChange, right: ReviewChange): number {
-  return right.changedAt.localeCompare(left.changedAt)
+  return compareChangedAt(right.changedAt, left.changedAt)
     || MAP_ORDER[left.entity.map] - MAP_ORDER[right.entity.map]
     || compareRussian(left.title, right.title)
     || left.entity.id.localeCompare(right.entity.id)
@@ -535,7 +554,7 @@ export function buildChangeReview(
       changes,
     };
   }).sort((left, right) =>
-    right.newestChangedAt.localeCompare(left.newestChangedAt)
+    compareChangedAt(right.newestChangedAt, left.newestChangedAt)
       || compareRussian(left.title, right.title)
       || (left.gameId ?? "").localeCompare(right.gameId ?? ""),
   );

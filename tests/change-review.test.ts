@@ -221,6 +221,53 @@ describe("game-grouped change review", () => {
     });
   });
 
+  it("keeps a changed link URL visible when its label is unchanged", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Игра");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "# Ссылки"),
+      attachments: [{ type: "link", label: "Документация", url: "https://old.example/docs" }],
+    };
+    const effective = structuredClone(base);
+    effective.notes[NOTE_A_ID].attachments = [
+      { type: "link", label: "Документация", url: "https://new.example/docs" },
+    ];
+
+    const change = buildChangeReview(base, effective, patchBetween(base, effective, "change-link"))
+      .groups[0].changes[0];
+
+    expect(change.evidence).toContainEqual({
+      type: "chips",
+      added: ["Документация · https://new.example/docs"],
+      removed: ["Документация · https://old.example/docs"],
+    });
+  });
+
+  it("keeps a replaced asset identity visible when its attachment label is unchanged", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Игра");
+    base.assets[ASSET_A_ID] = fileAsset(ASSET_A_ID, "old-guide.pdf");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "# Файлы"),
+      attachments: [{ type: "file", assetId: ASSET_A_ID, label: "Гайд" }],
+    };
+    const effective = structuredClone(base);
+    delete effective.assets[ASSET_A_ID];
+    effective.assets[ASSET_B_ID] = fileAsset(ASSET_B_ID, "new-guide.pdf");
+    effective.notes[NOTE_A_ID].attachments = [
+      { type: "file", assetId: ASSET_B_ID, label: "Гайд" },
+    ];
+
+    const change = buildChangeReview(base, effective, patchBetween(base, effective, "replace-file"))
+      .groups[0].changes[0];
+
+    expect(change.evidence).toContainEqual({
+      type: "chips",
+      added: [`Гайд · new-guide.pdf · asset:${ASSET_B_ID}`],
+      removed: [`Гайд · old-guide.pdf · asset:${ASSET_A_ID}`],
+    });
+  });
+
   it("uses base asset references for deletion ownership and leaves unowned assets orphaned", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Игра");
@@ -312,6 +359,88 @@ describe("game-grouped change review", () => {
     expect(changes[0].selectionId).toBe(
       `path:/games/${GAME_A_ID}/status|/games/${GAME_A_ID}/title`,
     );
+  });
+
+  it("keeps whitespace-distinct transaction IDs as separate semantic units", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Игра");
+    const effective = structuredClone(base);
+    effective.games[GAME_A_ID].title = "Новая игра";
+    effective.games[GAME_A_ID].status = "played";
+    const titlePatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_A_ID]: { ...base.games[GAME_A_ID], title: "Новая игра" } },
+    }, "save");
+    const statusPatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_A_ID]: { ...base.games[GAME_A_ID], status: "played" } },
+    }, " save ");
+
+    const changes = buildChangeReview(base, effective, mergePatches(base, titlePatch, statusPatch))
+      .groups[0].changes;
+
+    expect(changes).toHaveLength(2);
+    expect(changes.map((change) => change.selectionId).sort()).toEqual([
+      `tx: save :games:${GAME_A_ID}`,
+      `tx:save:games:${GAME_A_ID}`,
+    ]);
+  });
+
+  it("keeps a missing transaction ID separate from the literal legacy ID", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Игра");
+    const effective = structuredClone(base);
+    effective.games[GAME_A_ID].title = "Новая игра";
+    effective.games[GAME_A_ID].status = "played";
+    const missingPatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_A_ID]: { ...base.games[GAME_A_ID], status: "played" } },
+    }, "missing-placeholder");
+    Object.values(missingPatch.operations).forEach((operation) => { operation.transactionId = ""; });
+    const legacyPatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_A_ID]: { ...base.games[GAME_A_ID], title: "Новая игра" } },
+    }, "legacy");
+
+    const changes = buildChangeReview(base, effective, mergePatches(base, missingPatch, legacyPatch))
+      .groups[0].changes;
+
+    expect(changes).toHaveLength(2);
+    expect(changes.map((change) => change.selectionId).sort()).toEqual([
+      `path:/games/${GAME_A_ID}/status`,
+      `tx:legacy:games:${GAME_A_ID}`,
+    ]);
+  });
+
+  it("orders fractional-second timestamps after the same whole second", () => {
+    const wholeSecond = "2026-08-04T10:00:00Z";
+    const fractionalSecond = "2026-08-04T10:00:00.100Z";
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Альфа");
+    base.games[GAME_B_ID] = game(GAME_B_ID, "Бета");
+    base.notes[NOTE_A_ID] = note(NOTE_A_ID, GAME_B_ID, "# Старая заметка");
+    const effective = structuredClone(base);
+    effective.games[GAME_A_ID].status = "played";
+    effective.games[GAME_B_ID].status = "played";
+    effective.notes[NOTE_A_ID].bodyMarkdown = "# Новая заметка";
+    const wholePatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_A_ID]: effective.games[GAME_A_ID] },
+      notes: { ...base.notes, [NOTE_A_ID]: effective.notes[NOTE_A_ID] },
+    }, "whole", wholeSecond);
+    const fractionalPatch = patchBetween(base, {
+      ...base,
+      games: { ...base.games, [GAME_B_ID]: effective.games[GAME_B_ID] },
+    }, "fractional", fractionalSecond);
+
+    const review = buildChangeReview(base, effective, mergePatches(base, wholePatch, fractionalPatch));
+
+    expect(review.groups.map((group) => group.gameId)).toEqual([GAME_B_ID, GAME_A_ID]);
+    expect(review.groups[0].changes.map((change) => change.entity)).toEqual([
+      { map: "games", id: GAME_B_ID },
+      { map: "notes", id: NOTE_A_ID },
+    ]);
+    expect(review.groups[0].newestChangedAt).toBe(fractionalSecond);
   });
 
   it("orders groups by newest change then Russian title and rows deterministically", () => {
