@@ -428,6 +428,13 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-rendered-side--added { border-inline-start-color: var(--diff-added-edge); background: var(--diff-added-bg); }
 .markdown-diff-rendered-side--removed { border-inline-start-color: var(--diff-removed-edge); background: var(--diff-removed-bg); }
 .markdown-diff-rendered-side--modified { border-inline-start-color: var(--diff-modified-edge); background: var(--diff-modified-bg); }
+.markdown-diff-rendered-line { min-width: 0; }
+.markdown-diff-rendered-markdown tr[data-diff-kind="added"] > * { background: var(--diff-added-bg); }
+.markdown-diff-rendered-markdown tr[data-diff-kind="removed"] > * { background: var(--diff-removed-bg); }
+.markdown-diff-rendered-markdown tr[data-diff-kind="modified"] > * { background: var(--diff-modified-bg); }
+.markdown-diff-rendered-markdown tr[data-diff-kind="added"] > :first-child { border-inline-start: 2px solid var(--diff-added-edge); }
+.markdown-diff-rendered-markdown tr[data-diff-kind="removed"] > :first-child { border-inline-start: 2px solid var(--diff-removed-edge); }
+.markdown-diff-rendered-markdown tr[data-diff-kind="modified"] > :first-child { border-inline-start: 2px solid var(--diff-modified-edge); }
 .markdown-diff-rendered-unit + .markdown-diff-rendered-unit, .markdown-diff-modified + .markdown-diff-rendered-unit, .markdown-diff-rendered-unit + .markdown-diff-modified, .markdown-diff-modified + .markdown-diff-modified { border-top: 1px solid rgba(255, 255, 255, .025); }
 .markdown-diff-modified { border-inline-start: 0; }
 .markdown-diff-inline { border-radius: 2px; }

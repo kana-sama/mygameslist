@@ -24,12 +24,14 @@ interface RenderedSide {
   kind: MarkdownChangeKind;
   label?: SideLabel;
   markdown: string;
+  visualRows: number;
 }
 
 interface RenderedUnit {
   key: string;
   modified: boolean;
   sides: RenderedSide[];
+  visualRows: number;
 }
 
 const DEFAULT_PREVIEW_ROWS = 12;
@@ -44,6 +46,38 @@ function sideLines(hunk: MarkdownDiffHunk, side: "before" | "after"): SourceDiff
 
 function sideMarkdown(lines: readonly SourceDiffLine[]): string {
   return lines.map((line) => `${line.value}${line.eol}`).join("");
+}
+
+function markdownLines(markdown: string): string[] {
+  return markdown.split(/\r\n|\r|\n/u);
+}
+
+function isTableDelimiter(line: string): boolean {
+  if (!line.includes("|")) return false;
+  const cells = line.trim().replace(/^\|/u, "").replace(/\|$/u, "").split("|");
+  return cells.length > 0 && cells.every((cell) => /^\s*:?-+:?\s*$/u.test(cell));
+}
+
+function visualRowCount(markdown: string): number {
+  return markdownLines(markdown).reduce(
+    (rows, line) => rows + (line.trim() && !isTableDelimiter(line) ? 1 : 0),
+    0,
+  );
+}
+
+function renderedSide(
+  value: Omit<RenderedSide, "visualRows">,
+): RenderedSide {
+  return { ...value, visualRows: visualRowCount(value.markdown) };
+}
+
+function renderedUnit(
+  value: Omit<RenderedUnit, "visualRows">,
+): RenderedUnit {
+  return {
+    ...value,
+    visualRows: value.sides.reduce((rows, side) => rows + side.visualRows, 0),
+  };
 }
 
 function hunkDecorations(
@@ -78,24 +112,22 @@ function tableUnit(hunk: MarkdownDiffHunk, fragments: readonly MarkdownDiffFragm
   const modified = hasRemoved && hasAdded;
   const sides: RenderedSide[] = [];
   if (beforeLines.length && (hasRemoved || !hasAdded)) {
-    sides.push({
+    sides.push(renderedSide({
       decorations: hunkDecorations(hunk, fragments, "before"),
       key: `${hunk.id}-table-before`,
-      kind: modified ? "modified" : hasRemoved ? "removed" : "context",
-      label: hasRemoved ? "Удалено" : undefined,
+      kind: "context",
       markdown: sideMarkdown(beforeLines),
-    });
+    }));
   }
   if (afterLines.length && (hasAdded || !hasRemoved)) {
-    sides.push({
+    sides.push(renderedSide({
       decorations: hunkDecorations(hunk, fragments, "after"),
       key: `${hunk.id}-table-after`,
-      kind: modified ? "modified" : hasAdded ? "added" : "context",
-      label: hasAdded ? "Добавлено" : undefined,
+      kind: "context",
       markdown: sideMarkdown(afterLines),
-    });
+    }));
   }
-  return { key: `${hunk.id}-table`, modified, sides };
+  return renderedUnit({ key: `${hunk.id}-table`, modified, sides });
 }
 
 function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
@@ -104,20 +136,20 @@ function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
     name: "before" | "after",
     kind: MarkdownChangeKind,
     label?: SideLabel,
-  ): RenderedSide | null => content ? {
+  ): RenderedSide | null => content ? renderedSide({
     decorations: content.decorations,
     key: `${fragment.id}-${name}`,
     kind,
     label,
     markdown: content.markdown,
-  } : null;
+  }) : null;
 
   if (fragment.kind === "modified") {
     const sides = [
       side(fragment.before, "before", "modified", "Удалено"),
       side(fragment.after, "after", "modified", "Добавлено"),
     ].filter((item): item is RenderedSide => item !== null);
-    return { key: fragment.id, modified: true, sides };
+    return renderedUnit({ key: fragment.id, modified: true, sides });
   }
   const content = fragment.kind === "removed" ? fragment.before : fragment.after ?? fragment.before;
   const rendered = side(
@@ -126,7 +158,7 @@ function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
     fragment.kind,
     fragment.kind === "added" ? "Добавлено" : fragment.kind === "removed" ? "Удалено" : undefined,
   );
-  return rendered ? { key: fragment.id, modified: false, sides: [rendered] } : null;
+  return rendered ? renderedUnit({ key: fragment.id, modified: false, sides: [rendered] }) : null;
 }
 
 function renderedUnits(hunk: MarkdownDiffHunk): RenderedUnit[] {
@@ -140,17 +172,99 @@ function renderedUnits(hunk: MarkdownDiffHunk): RenderedUnit[] {
   return units;
 }
 
+function truncatedMarkdown(markdown: string, limit: number): { lineCount: number; markdown: string } {
+  const lines = markdownLines(markdown);
+  const visible: string[] = [];
+  let rows = 0;
+  for (const line of lines) {
+    const cost = line.trim() && !isTableDelimiter(line) ? 1 : 0;
+    if (cost && rows >= limit) break;
+    visible.push(line);
+    rows += cost;
+  }
+  return { lineCount: visible.length, markdown: visible.join("\n") };
+}
+
+function truncateSide(side: RenderedSide, limit: number): RenderedSide {
+  if (side.visualRows <= limit) return side;
+  const truncated = truncatedMarkdown(side.markdown, limit);
+  const lastLine = markdownLines(truncated.markdown).at(-1) ?? "";
+  const decorations = side.decorations
+    .filter((decoration) => decoration.startLine < truncated.lineCount)
+    .map((decoration) => decoration.endLine < truncated.lineCount ? decoration : {
+      ...decoration,
+      endColumn: lastLine.length,
+      endLine: Math.max(0, truncated.lineCount - 1),
+    });
+  return renderedSide({ ...side, decorations, markdown: truncated.markdown });
+}
+
+function truncateUnit(unit: RenderedUnit, limit: number): RenderedUnit {
+  if (unit.visualRows <= limit) return unit;
+  let remaining = limit;
+  const sides = unit.sides.map((side, index) => {
+    const sidesLeft = unit.sides.length - index;
+    const allocation = sidesLeft === 1
+      ? remaining
+      : Math.min(side.visualRows, Math.max(1, Math.floor(remaining / sidesLeft)));
+    remaining -= allocation;
+    return truncateSide(side, allocation);
+  });
+  return renderedUnit({ ...unit, sides });
+}
+
 function takeRenderedRows(units: readonly RenderedUnit[], limit: number): RenderedUnit[] {
   const visible: RenderedUnit[] = [];
   let rows = 0;
   for (const unit of units) {
-    const unitRows = unit.sides.length;
-    if (visible.length && rows + unitRows > limit) break;
-    visible.push(unit);
-    rows += unitRows;
+    const remaining = limit - rows;
+    if (remaining <= 0) break;
+    visible.push(unit.visualRows <= remaining ? unit : truncateUnit(unit, remaining));
+    rows += Math.min(unit.visualRows, remaining);
     if (rows >= limit) break;
   }
   return visible;
+}
+
+function takeSourceRows(hunk: MarkdownDiffHunk | undefined, limit: number): SourceDiffLine[] {
+  if (!hunk || hunk.lines.length <= limit) return hunk?.lines ?? [];
+  const lineIndexes = new Map(hunk.lines.map((line, index) => [line.id, index]));
+  const fragmentByLine = new Map<string, MarkdownDiffFragment>();
+  for (const fragment of hunk.fragments) {
+    for (const id of fragment.sourceLineIds) fragmentByLine.set(id, fragment);
+  }
+
+  let start = 0;
+  let end = Math.min(limit, hunk.lines.length);
+  let previousEnd = -1;
+  while (end !== previousEnd) {
+    previousEnd = end;
+    for (const line of hunk.lines.slice(start, end)) {
+      if (line.pairId) {
+        const pairIndex = hunk.lines.findIndex((candidate) => candidate.pairId === line.pairId && candidate.id !== line.id);
+        if (pairIndex >= end) end = pairIndex + 1;
+      }
+      const fragment = fragmentByLine.get(line.id);
+      if (!fragment) continue;
+      for (const id of fragment.sourceLineIds) {
+        const fragmentIndex = lineIndexes.get(id);
+        if (fragmentIndex !== undefined && fragmentIndex >= end) end = fragmentIndex + 1;
+      }
+    }
+  }
+  while (end - start > limit && hunk.lines[start]?.kind === "context") {
+    const fragment = fragmentByLine.get(hunk.lines[start].id);
+    if (fragment?.kind === "context") {
+      const fragmentEnd = fragment.sourceLineIds.reduce((boundary, id) => {
+        const index = lineIndexes.get(id);
+        return index === undefined ? boundary : Math.max(boundary, index + 1);
+      }, start + 1);
+      start = fragmentEnd;
+    } else {
+      start += 1;
+    }
+  }
+  return hunk.lines.slice(start, end);
 }
 
 function SourceRow({ line }: { line: SourceDiffLine }) {
@@ -174,7 +288,6 @@ function RenderedRows({ units }: { units: readonly RenderedUnit[] }) {
         aria-label={side.label}
         className={`markdown-diff-rendered-side markdown-diff-rendered-side--${side.kind}`}
         data-diff-kind={side.kind}
-        data-testid="diff-visual-row"
         key={side.key}
         role="group"
       >
@@ -204,20 +317,19 @@ export function MarkdownDiffPreview({ model, previewRows = DEFAULT_PREVIEW_ROWS 
   const allRenderedUnits = useMemo(() => model.hunks.flatMap(renderedUnits), [model]);
   const firstRenderedUnits = useMemo(() => model.hunks[0] ? renderedUnits(model.hunks[0]) : [], [model]);
   const allSourceLines = useMemo(() => model.hunks.flatMap((hunk) => hunk.lines), [model]);
-  const firstSourceLines = model.hunks[0]?.lines ?? [];
 
   let content: ReactNode;
   let visibleRows: number;
   let totalRows: number;
   if (visibleMode === "source") {
-    const lines = expanded ? allSourceLines : firstSourceLines.slice(0, rowBudget);
+    const lines = expanded ? allSourceLines : takeSourceRows(model.hunks[0], rowBudget);
     visibleRows = lines.length;
     totalRows = allSourceLines.length;
     content = <pre className="markdown-diff-source"><code>{lines.map((line) => <SourceRow key={line.id} line={line} />)}</code></pre>;
   } else {
     const units = expanded ? allRenderedUnits : takeRenderedRows(firstRenderedUnits, rowBudget);
-    visibleRows = units.reduce((rows, unit) => rows + unit.sides.length, 0);
-    totalRows = allRenderedUnits.reduce((rows, unit) => rows + unit.sides.length, 0);
+    visibleRows = units.reduce((rows, unit) => rows + unit.visualRows, 0);
+    totalRows = allRenderedUnits.reduce((rows, unit) => rows + unit.visualRows, 0);
     content = <div className="markdown-diff-rendered"><RenderedRows units={units} /></div>;
   }
   const remainingRows = Math.max(0, totalRows - visibleRows);

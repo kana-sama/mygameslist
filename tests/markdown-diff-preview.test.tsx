@@ -75,6 +75,66 @@ describe("compact Markdown diff preview", () => {
     expect(screen.getAllByRole("table")).toHaveLength(2);
   });
 
+  it.each([
+    {
+      after: "| Этап | Статус |\n| --- | --- |\n| Альфа | Готово |\n| Бета | Добавлено |\n",
+      before: "| Этап | Статус |\n| --- | --- |\n| Альфа | Готово |\n",
+      changed: "Добавлено",
+      kind: "added",
+      label: "Добавлено",
+    },
+    {
+      after: "| Этап | Статус |\n| --- | --- |\n| Альфа | Готово |\n",
+      before: "| Этап | Статус |\n| --- | --- |\n| Альфа | Готово |\n| Бета | Удалено |\n",
+      changed: "Удалено",
+      kind: "removed",
+      label: "Удалено",
+    },
+  ])("keeps table headers and unchanged rows neutral for a row-only $kind", ({ after, before, changed, kind, label }) => {
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    const header = screen.getByRole("columnheader", { name: "Этап" });
+    const side = header.closest(".markdown-diff-rendered-side");
+    expect(side).toHaveAttribute("data-diff-kind", "context");
+    expect(side).not.toHaveAttribute("aria-label");
+    expect(screen.getByText("Готово").closest("tr")).toHaveAttribute("data-diff-kind", "context");
+    expect(screen.getByText(changed).closest("tr")).toHaveAttribute("data-diff-kind", kind);
+    expect(screen.getByText(changed).closest("tr")).toHaveAttribute("aria-label", label);
+  });
+
+  it.each([
+    ["paragraph", Array.from({ length: 18 }, (_, index) => `Строка ${index + 1}`).join("\n")],
+    ["list item", ["- Большой пункт", ...Array.from({ length: 17 }, (_, index) => `  продолжение ${index + 1}`)].join("\n")],
+    ["table", ["| Этап |", "| --- |", ...Array.from({ length: 17 }, (_, index) => `| Строка ${index + 1} |`)].join("\n")],
+  ])("budgets a large rendered %s by visual rows and expands structurally", async (_label, after) => {
+    const user = userEvent.setup();
+    render(<MarkdownDiffPreview model={createMarkdownDiff("", after)} />);
+
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(12);
+    expect(screen.getByRole("button", { name: /Весь diff · ещё 6/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Весь diff/ }));
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(18);
+    if (_label === "table") expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("keeps a paired multiline structural modification whole at the source boundary", async () => {
+    const user = userEvent.setup();
+    const before = "Контекст 1\nКонтекст 2\nКонтекст 3\n- Старый\n  деталь старая";
+    const after = "Контекст 1\nКонтекст 2\nКонтекст 3\n- Новый\n  деталь новая";
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} previewRows={6} />);
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+    const rows = screen.getAllByTestId("diff-visual-row");
+    expect(rows).toHaveLength(4);
+    expect(rows.map((row) => row.textContent)).not.toContain("Контекст 3");
+    expect(rows.map((row) => row.textContent)).toEqual(expect.arrayContaining([
+      "- Старый",
+      "  деталь старая",
+      "- Новый",
+      "  деталь новая",
+    ]));
+  });
+
   it("preserves source whitespace and exposes changed-line labels without marker characters", async () => {
     const user = userEvent.setup();
     const model = createMarkdownDiff("Текст\n  старая\tстрока", "Текст\n  новая\tстрока");
