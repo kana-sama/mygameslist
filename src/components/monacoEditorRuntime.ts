@@ -5,6 +5,7 @@ import "monaco-editor/languages/definitions/markdown/register";
 // Re-audit this package-exported compatibility import whenever Monaco is upgraded.
 import "monaco-editor/editor/contrib/suggest/browser/suggestController";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
+import { registerMonacoMarkdownTableFormatting } from "./monacoMarkdownTableFormatting";
 
 type MonacoWorkerEnvironment = {
   getWorker(moduleId: string, label: string): Worker;
@@ -18,6 +19,8 @@ const workerGlobal = globalThis as MonacoWorkerGlobal;
 workerGlobal.MonacoEnvironment = {
   getWorker: () => new EditorWorker(),
 };
+
+registerMonacoMarkdownTableFormatting(monaco);
 
 export type MonacoEditorApi = typeof monaco;
 export const monacoEditor: MonacoEditorApi = monaco;

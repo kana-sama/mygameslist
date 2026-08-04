@@ -2,6 +2,7 @@ import { forwardRef, Fragment, useEffect, useId, useMemo, useState, type Clipboa
 import type { MarkdownDecoration } from "../domain/markdownDiff";
 import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
+import { scanMarkdownTableLine } from "./markdownTableSyntax";
 
 interface MarkdownInlineLocation {
   decorations: readonly MarkdownDecoration[];
@@ -300,56 +301,10 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
   return { block, nextIndex: index };
 }
 
-interface ParsedTableCell {
-  sourceColumn: number;
-  value: string;
-}
-
-function isEscapedCharacter(value: string, index: number): boolean {
-  let backslashes = 0;
-  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) backslashes += 1;
-  return backslashes % 2 === 1;
-}
+type ParsedTableCell = NonNullable<ReturnType<typeof scanMarkdownTableLine>>["cells"][number];
 
 function splitTableLine(line: string): ParsedTableCell[] | null {
-  const separators: number[] = [];
-  let codeFenceLength = 0;
-
-  for (let index = 0; index < line.length; index += 1) {
-    if (line[index] === "`" && !isEscapedCharacter(line, index)) {
-      let runLength = 1;
-      while (line[index + runLength] === "`") runLength += 1;
-      if (codeFenceLength === 0) codeFenceLength = runLength;
-      else if (codeFenceLength === runLength) codeFenceLength = 0;
-      index += runLength - 1;
-      continue;
-    }
-    if (line[index] === "|" && codeFenceLength === 0 && !isEscapedCharacter(line, index)) {
-      separators.push(index);
-    }
-  }
-  if (!separators.length) return null;
-
-  const segments: Array<{ end: number; start: number }> = [];
-  let start = 0;
-  for (const separator of separators) {
-    segments.push({ start, end: separator });
-    start = separator + 1;
-  }
-  segments.push({ start, end: line.length });
-  if (line.slice(segments[0].start, segments[0].end).trim() === "") segments.shift();
-  const lastSegment = segments[segments.length - 1];
-  if (lastSegment && line.slice(lastSegment.start, lastSegment.end).trim() === "") segments.pop();
-
-  return segments.map((segment) => {
-    const raw = line.slice(segment.start, segment.end);
-    const leadingWhitespace = /^\s*/.exec(raw)?.[0].length ?? 0;
-    const trailingWhitespace = /\s*$/.exec(raw)?.[0].length ?? 0;
-    return {
-      sourceColumn: segment.start + leadingWhitespace,
-      value: raw.slice(leadingWhitespace, raw.length - trailingWhitespace).replace(/\\\|/g, "|"),
-    };
-  });
+  return scanMarkdownTableLine(line)?.cells ?? null;
 }
 
 function tableAlignment(delimiter: string): MarkdownTableAlignment {

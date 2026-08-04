@@ -28,6 +28,7 @@ describe("compact Monaco Markdown configuration", () => {
       detectIndentation: false,
       fontSize: 12,
       folding: false,
+      formatOnType: true,
       glyphMargin: false,
       lineDecorationsWidth: 6,
       lineNumbers: "off",

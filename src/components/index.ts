@@ -8,7 +8,6 @@ export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";
 export * from "./MarkdownDiffPreview";
-export * from "./MonacoMarkdownEditor";
 export * from "./monacoGameLinkCompletion";
 export * from "./monacoMarkdownListEditing";
 export * from "./ShelfGrid";

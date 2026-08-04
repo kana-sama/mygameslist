@@ -4,6 +4,9 @@ const runtimeBoundary = vi.hoisted(() => ({
   editorApi: {
     Uri: { parse: vi.fn() },
     editor: { create: vi.fn() },
+    languages: {
+      registerOnTypeFormattingEditProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    },
   },
   registrations: [] as string[],
   workerInstances: [] as object[],
@@ -70,5 +73,7 @@ describe("Monaco editor runtime boundary", () => {
     expect(workerEnvironment).toBeDefined();
     expect(workerEnvironment?.getWorker()).toBe(runtimeBoundary.workerInstances[0]);
     expect(runtimeBoundary.workerInstances).toHaveLength(1);
+    expect(runtimeBoundary.editorApi.languages.registerOnTypeFormattingEditProvider)
+      .toHaveBeenCalledWith("markdown", expect.objectContaining({ autoFormatTriggerCharacters: ["|"] }));
   });
 });

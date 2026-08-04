@@ -67,6 +67,7 @@ export function createCompactMarkdownEditorOptions({
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
     fontSize: 12,
     folding: false,
+    formatOnType: true,
     glyphMargin: false,
     guides: {
       highlightActiveIndentation: true,
