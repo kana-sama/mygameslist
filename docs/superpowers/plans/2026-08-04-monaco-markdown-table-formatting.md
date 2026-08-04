@@ -264,4 +264,76 @@ npm run build
 
 ### Step 4: Review and finalize the descendant
 
-Inspect `jj status` and `jj diff`, request an independent review against this task and the matching design section, and fix any finding before finalization. Describe the current Jujutsu change in detail as compact-delimiter preservation, then create a clean child with `jj new`. Never rewrite `uxultnurvtoywymnzsnrssxoorurllkt` or `tuutvrvmrluuxknnmoqkpwqmvyqouwtm`.
+Inspect `jj status` and `jj diff`, request an independent review against this task and the matching design section, and fix any finding before finalization. Describe the current Jujutsu change in detail as compact-delimiter preservation, then create a clean child with `jj new`. Never rewrite `uxultnurvtoywymnzsnrssxoorurllkt` or `tuutvrvmrluunxokxkxrxtwulnynsypr`.
+
+## Task 7: Contract columns after deletion
+
+**Modify:**
+
+- `docs/superpowers/specs/2026-08-04-monaco-markdown-table-formatting-design.md`
+- `docs/superpowers/plans/2026-08-04-monaco-markdown-table-formatting.md`
+- `src/components/markdownTableFormatting.ts`
+- `src/components/monacoMarkdownTableFormatting.ts`
+- `tests/markdown-table-formatting.test.ts`
+- `tests/monaco-markdown-table-formatting.test.ts`
+
+**Interfaces:**
+
+- Consumes: per-delimiter-row compact detection/gutter translation, `formatMarkdownTableAtLine`, Monaco's public `onDidChangeContent`, and existing minimal edit/history batching.
+- Produces: semantic delimiter minimum widths and one companion path for same-line insertion, replacement, and deletion changes.
+
+### Step 1: Add pure RED contraction regressions
+
+Start with formatted tables whose unique widest ordinary value is already shorter but whose old delimiter token is still long. Assert exact contraction for spaced delimiters and for compact framed/unframed delimiters with `---`, `:---`, `---:`, and `:---:`. A compact token contributes `3 + markerCount - compactGutter` to logical width; a spaced token contributes `3 + markerCount`. Minimal `|---|` and `---|---` guard fixtures must remain unchanged.
+
+Run:
+
+```sh
+npm test -- tests/markdown-table-formatting.test.ts
+```
+
+Observe RED because current delimiter `sourceText.length` still pins each column.
+
+### Step 2: Compute width from content and delimiter grammar
+
+Keep ordinary header/data contribution as trimmed source UTF-16 length. Replace every delimiter's historical token-length contribution with its semantic physical minimum of three hyphens plus its colon markers, translated back through the compact row's framed/edge/interior gutter count. Keep compact/spaced serialization, alignment lookup, grouped title expansion, and minimal edit derivation unchanged.
+
+Run the pure suite and confirm GREEN.
+
+### Step 3: Add Monaco deletion RED regressions
+
+Use real Monaco content-change shapes in the typing harness:
+
+- `text === ""` and `rangeLength > 0` for Backspace, forward Delete, and selection deletion;
+- a shorter non-empty selection replacement;
+- multiple deletions whose old offsets map into the final model;
+- deletion immediately before a structural pipe;
+- deletion after a framed closing border, inside fenced code, or across lines;
+- deletion of a structural pipe that leaves an invalid candidate;
+- empty IME cancellation.
+
+Assert exact table contraction and `open`, `edit`, `close` history calls only for eligible in-cell changes. One Undo restores the deletion plus the previous column width; one Redo reapplies both.
+
+Run:
+
+```sh
+npm test -- tests/monaco-markdown-table-formatting.test.ts
+```
+
+Observe RED because the listener currently drops every empty-text change.
+
+### Step 4: Generalize the Monaco changed-range path
+
+Rename the insertion-only final-range helper to describe any changed range. Preserve old-to-final multi-change delta mapping, same-line atomic rejection, final frame-border checks, pre-insertion border reconstruction for zero-length insertions, fence exclusion, native non-IME `|` routing, composition eligibility, and public history grouping. Ignore only a true empty no-op (`text === ""` with `rangeLength === 0`) or an empty composition cancellation; route an ordinary deletion (`text === ""` with `rangeLength > 0`) through the shared formatter at its collapsed final position. Do not add Backspace/Delete keybindings, DOM handlers, cursor restoration, or custom history.
+
+### Step 5: Verify, review, and finalize the descendant
+
+Run:
+
+```sh
+npm test -- tests/markdown-table-formatting.test.ts tests/monaco-markdown-table-formatting.test.ts
+npm test
+npm run build
+```
+
+Inspect `jj status` and `jj diff`, request an independent review against Task 7 and the corrected specification, and resolve every load-bearing finding. Describe the current Jujutsu change in detail as deletion-triggered table contraction, then create a clean child with `jj new`. Never rewrite `uxultnurvtoywymnzsnrssxoorurllkt`, `tuutvrvmrluunxokxkxrxtwulnynsypr`, or `llsutstyorzqtuomzvnpvuzvrwpkxpop`.

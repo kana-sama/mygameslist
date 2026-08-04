@@ -125,6 +125,62 @@ describe("formatMarkdownTableAtLine", () => {
     ])).toBeNull();
   });
 
+  it("does not reformat a fully aligned minimal compact unframed delimiter", () => {
+    expect(format([
+      "A  | B ",
+      "---|---",
+      "x  | y ",
+    ])).toBeNull();
+  });
+
+  it("contracts long spaced delimiter tokens to their semantic marker minima", () => {
+    expect(format([
+      "A | B | C | D",
+      "--------- | :-------- | --------: | :--------:",
+      "x | y | z | q",
+    ])).toEqual([
+      "A   | B    |    C |   D  ",
+      "--- | :--- | ---: | :---:",
+      "x   | y    |    z |   q  ",
+    ]);
+  });
+
+  it("contracts long compact unframed delimiter tokens while retaining edge and interior gutters", () => {
+    expect(format([
+      "A | B | C | D",
+      "---------|:--------|--------:|:--------:",
+      "x | y | z | q",
+    ])).toEqual([
+      "A  | B  |  C |  D  ",
+      "---|:---|---:|:---:",
+      "x  | y  |  z |  q  ",
+    ]);
+  });
+
+  it("contracts long compact framed delimiter tokens while retaining both gutters", () => {
+    expect(format([
+      "| A | B | C | D |",
+      "|---------|:--------|--------:|:--------:|",
+      "| x | y | z | q |",
+    ])).toEqual([
+      "| A | B  |  C |  D  |",
+      "|---|:---|---:|:---:|",
+      "| x | y  |  z |  q  |",
+    ]);
+  });
+
+  it("contracts oversized delimiters using UTF-16 emoji widths", () => {
+    expect(format([
+      "| 🎮ab     | q       |",
+      "| -------- | -------- |",
+      "| x        | y       |",
+    ])).toEqual([
+      "| 🎮ab | q   |",
+      "| ---- | --- |",
+      "| x    | y   |",
+    ]);
+  });
+
   it("keeps compact framed delimiter marker minima after gutter translation", () => {
     expect(format([
       "| A | B | C |",
@@ -323,6 +379,22 @@ describe("formatMarkdownTableAtLine", () => {
     ]);
   });
 
+  it("contracts mixed long delimiter rows while a group title expands only the final column", () => {
+    expect(format([
+      "| A | B |",
+      "|--------|--------|",
+      "| Long title! |",
+      "| -------- | -------- |",
+      "| x | y |",
+    ])).toEqual([
+      "| A   | B     |",
+      "|-----|-------|",
+      "| Long title! |",
+      "| --- | ----- |",
+      "| x   | y     |",
+    ]);
+  });
+
   it("finds a header-delimiter pair after preceding structural prose", () => {
     expect(format([
       "context | aside",
@@ -345,11 +417,11 @@ describe("formatMarkdownTableAtLine", () => {
       "| ---- | ---- |",
       "| z | q |",
     ])).toEqual([
-      "| A    | B    |",
-      "| ---- | ---- |",
-      "| x    | y    |",
-      "| ---- | ---- |",
-      "| z    | q    |",
+      "| A   | B   |",
+      "| --- | --- |",
+      "| x   | y   |",
+      "| --- | --- |",
+      "| z   | q   |",
     ]);
   });
 

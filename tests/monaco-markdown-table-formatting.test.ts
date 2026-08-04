@@ -163,6 +163,51 @@ function createTypingHarness(initialLines: string[]) {
       };
       const value = lines.join("\n");
       lines = `${value.slice(0, rangeOffset)}${text}${value.slice(rangeOffset + rangeLength)}`.split("\n");
+      if (rangeLength > 0 || text) {
+        undoEntries.push({ after: [...lines], before });
+        redoEntries.length = 0;
+      }
+      notify([change]);
+    },
+    delete(lineNumber: number, startColumn: number, endColumn: number) {
+      this.deleteMany([{ endColumn, lineNumber, startColumn }]);
+    },
+    deleteMany(edits: Array<{ endColumn: number; lineNumber: number; startColumn: number }>) {
+      const before = [...lines];
+      const changes = edits
+        .map(({ endColumn, lineNumber, startColumn }) => ({
+          range: new TestRange(lineNumber, startColumn, lineNumber, endColumn),
+          rangeLength: endColumn - startColumn,
+          rangeOffset: offsetAt(lineNumber, startColumn),
+          text: "",
+        }))
+        .sort((left, right) => right.rangeOffset - left.rangeOffset);
+      let value = lines.join("\n");
+      for (const change of changes) {
+        value = value.slice(0, change.rangeOffset) + value.slice(change.rangeOffset + change.rangeLength);
+      }
+      lines = value.split("\n");
+      undoEntries.push({ after: [...lines], before });
+      redoEntries.length = 0;
+      notify(changes);
+    },
+    deleteAcrossLines(
+      startLineNumber: number,
+      startColumn: number,
+      endLineNumber: number,
+      endColumn: number,
+    ) {
+      const before = [...lines];
+      const rangeOffset = offsetAt(startLineNumber, startColumn);
+      const endOffset = offsetAt(endLineNumber, endColumn);
+      const change = {
+        range: new TestRange(startLineNumber, startColumn, endLineNumber, endColumn),
+        rangeLength: endOffset - rangeOffset,
+        rangeOffset,
+        text: "",
+      };
+      const value = lines.join("\n");
+      lines = `${value.slice(0, rangeOffset)}${value.slice(endOffset)}`.split("\n");
       undoEntries.push({ after: [...lines], before });
       redoEntries.length = 0;
       notify([change]);
@@ -514,6 +559,244 @@ describe("Monaco Markdown table typing", () => {
 
     expect(harness.lines()[6]).toBe("rx  | ty ");
     expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("contracts a column after a Backspace-like in-cell deletion in one Undo/Redo step", async () => {
+    const initial = [
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ];
+    const formatted = [
+      "abc | qwe",
+      "--- | ---",
+      "abc | ty ",
+    ];
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(3, 4, 5);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(formatted);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    harness.undo();
+    expect(harness.lines()).toEqual(initial);
+    harness.redo();
+    expect(harness.lines()).toEqual(formatted);
+    formatting.dispose();
+  });
+
+  it("contracts a column after a forward-Delete-like in-cell deletion", async () => {
+    const harness = createTypingHarness([
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(3, 1, 2);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "abc | qwe",
+      "--- | ---",
+      "bcd | ty ",
+    ]);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("contracts a column after deleting a selected cell span", async () => {
+    const harness = createTypingHarness([
+      "abc   | qwe",
+      "----- | ---",
+      "abcde | ty ",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(3, 3, 6);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "abc | qwe",
+      "--- | ---",
+      "ab  | ty ",
+    ]);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("contracts a column after a shorter non-empty selection replacement", async () => {
+    const harness = createTypingHarness([
+      "abc   | qwe",
+      "----- | ---",
+      "abcde | ty ",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.replace(3, 2, 6, "x");
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "abc | qwe",
+      "--- | ---",
+      "ax  | ty ",
+    ]);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("maps multi-cursor deletions from old ranges into the final model", async () => {
+    const harness = createTypingHarness([
+      "prefixxxxxxxxxxx",
+      "| abc  | qwe |",
+      "| ---- | --- |",
+      "| abcd | ty  |",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.deleteMany([
+      { endColumn: 11, lineNumber: 1, startColumn: 1 },
+      { endColumn: 7, lineNumber: 4, startColumn: 6 },
+    ]);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "xxxxxx",
+      "| abc | qwe |",
+      "| --- | --- |",
+      "| abc | ty  |",
+    ]);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("formats a deletion immediately before a structural pipe", async () => {
+    const initial = [
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ];
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(3, 5, 6);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(initial);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    formatting.dispose();
+  });
+
+  it("does not format a deletion after a framed closing border", async () => {
+    const harness = createTypingHarness([
+      "| abcd | qwe |z",
+      "| ---- | --- |",
+      "| x | ty |",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(1, 15, 16);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "| abcd | qwe |",
+      "| ---- | --- |",
+      "| x | ty |",
+    ]);
+    expect(harness.historyCalls()).toEqual([]);
+    formatting.dispose();
+  });
+
+  it("contracts a compact delimiter in the same one-step history element as deletion", async () => {
+    const initial = [
+      "abc  | qwe",
+      "-----|----",
+      "abcd | ty ",
+    ];
+    const formatted = [
+      "abc | qwe",
+      "----|----",
+      "abc | ty ",
+    ];
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.delete(3, 4, 5);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(formatted);
+    expect(harness.historyCalls()).toEqual(["open", "edit", "close"]);
+    harness.undo();
+    expect(harness.lines()).toEqual(initial);
+    harness.redo();
+    expect(harness.lines()).toEqual(formatted);
+    formatting.dispose();
+  });
+
+  it("does not format a deletion that crosses table lines", async () => {
+    const harness = createTypingHarness([
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.deleteAcrossLines(2, 5, 3, 2);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "abc  | qwe",
+      "----bcd | ty ",
+    ]);
+    expect(harness.historyCalls()).toEqual([]);
+    formatting.dispose();
+  });
+
+  it.each([
+    [
+      "inside fenced code",
+      ["```", "abc  | qwe", "---- | ---", "abcd | ty ", "```"],
+      ["```", "abc  | qwe", "---- | ---", "abc | ty ", "```"],
+      (harness: ReturnType<typeof createTypingHarness>) => harness.delete(4, 4, 5),
+    ],
+    [
+      "when deleting a structural pipe leaves no candidate",
+      ["abc  | qwe", "---- | ---", "abcd | ty "],
+      ["abc  | qwe", "---- | ---", "abcd  ty "],
+      (harness: ReturnType<typeof createTypingHarness>) => harness.delete(3, 6, 7),
+    ],
+  ])("does not format a deletion %s", async (_name, initial, expected, deleteChange) => {
+    const harness = createTypingHarness(initial);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    deleteChange(harness);
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual(expected);
+    expect(harness.historyCalls()).toEqual([]);
+    formatting.dispose();
+  });
+
+  it("ignores an empty no-op content change", async () => {
+    const harness = createTypingHarness([
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ]);
+    const formatting = installMonacoMarkdownTableTyping(harness.context);
+
+    harness.replace(3, 4, 4, "");
+    await Promise.resolve();
+
+    expect(harness.lines()).toEqual([
+      "abc  | qwe",
+      "---- | ---",
+      "abcd | ty ",
+    ]);
+    expect(harness.historyCalls()).toEqual([]);
     formatting.dispose();
   });
 

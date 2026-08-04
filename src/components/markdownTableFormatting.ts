@@ -147,6 +147,19 @@ function compactDelimiterGutter(framed: boolean, column: number, columnCount: nu
   return framed || (column > 0 && column < columnCount - 1) ? 2 : 1;
 }
 
+function delimiterLogicalMinimum(
+  value: string,
+  compact: boolean,
+  framed: boolean,
+  column: number,
+  columnCount: number,
+): number {
+  const physicalMinimum = 3 + Number(value.startsWith(":")) + Number(value.endsWith(":"));
+  return compact
+    ? Math.max(0, physicalMinimum - compactDelimiterGutter(framed, column, columnCount))
+    : physicalMinimum;
+}
+
 function serializeDelimiterCells(
   cells: readonly string[],
   framed: boolean,
@@ -258,9 +271,14 @@ export function formatMarkdownTableAtLine(
       .filter((line): line is OrdinaryRow => line.kind !== "title")
       .map((line) => {
         const cell = line.syntax.cells[column];
-        return line.kind === "delimiter" && hasCompactDelimiterGutters(line.syntax)
-          ? cell.sourceText.length - compactDelimiterGutter(framed, column, columnCount)
-          : cell.sourceText.length;
+        if (line.kind !== "delimiter") return cell.sourceText.length;
+        return delimiterLogicalMinimum(
+          cell.sourceText,
+          hasCompactDelimiterGutters(line.syntax),
+          framed,
+          column,
+          columnCount,
+        );
       }),
   ));
   const titleCapacity = () => widths.reduce((total, width) => total + width, 0)

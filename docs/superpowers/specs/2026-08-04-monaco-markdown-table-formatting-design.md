@@ -8,7 +8,7 @@ This feature adds JetBrains-style automatic source alignment. The original imple
 
 ## Goal
 
-After the user types any character inside a valid Markdown table cell, Monaco reformats that table so its source columns and outer borders remain aligned. Consuming existing cell padding does not move a column boundary. When content exceeds the current width, every row in that column expands together.
+After the user types or deletes content inside a valid Markdown table cell, Monaco reformats that table so its source columns and outer borders remain aligned. Consuming existing cell padding does not move a column boundary. When content exceeds the current width, every row in that column expands together; when the unique widest content becomes shorter, every row contracts together.
 
 ## Native Monaco Plumbing
 
@@ -22,7 +22,7 @@ The compact editor enables `formatOnType: true`. The provider is installed once 
 
 The provider returns ordinary Monaco `TextEdit[]`. It does not call `setValue`, `executeEdits`, restore the caret itself, create an undo group, or register a keybinding. Monaco's formatting controller applies the edits and preserves its native typing/undo transaction.
 
-Monaco 0.56 requires an explicit finite list of on-type trigger characters; it has no wildcard for arbitrary Unicode input. Each note editor therefore installs a companion listener through Monaco's public model-content and composition events. A single-line insertion whose final range lies inside a table cell schedules formatting after Monaco finishes the current input operation. The listener maps Monaco's old event ranges into the final model for multi-cursor changes and, for insertions, also checks the line with the inserted span removed so text beyond a pre-existing closing border cannot be reclassified as a new cell. During IME it retains that initial inside/outside decision for every later replacement on the same line. It reuses the same pure formatter and minimal per-line edits, applies all affected rows through one public `editor.executeEdits` call, and uses Monaco's public `popStackElement`/`pushStackElement` history APIs to keep that batch in the same undo element as the insertion. It never calls `setValue`, maintains its own history, or restores cursor coordinates manually. The listener is disposed with the note editor.
+Monaco 0.56 requires an explicit finite list of on-type trigger characters; it has no wildcard for arbitrary Unicode input. Each note editor therefore installs a companion listener through Monaco's public model-content and composition events. A single-line insertion, replacement, or deletion whose final range lies inside a table cell schedules formatting after Monaco finishes the current input operation. The listener maps Monaco's old event ranges into the final model for multi-cursor changes and, for insertions, also checks the line with the inserted span removed so text beyond a pre-existing closing border cannot be reclassified as a new cell. During IME it retains that initial inside/outside decision for every later replacement on the same line and treats an empty composition update as cancellation rather than a user deletion. It reuses the same pure formatter and minimal per-line edits, applies all affected rows through one public `editor.executeEdits` call, and uses Monaco's public `popStackElement`/`pushStackElement` history APIs to keep that batch in the same undo element as the input change. It never calls `setValue`, maintains its own history, or restores cursor coordinates manually. The listener is disposed with the note editor.
 
 ## Shared Structural Pipe Scanner
 
@@ -39,14 +39,14 @@ For framed rows the scanner also preserves the whitespace prefix before the lead
 
 ## Trigger Eligibility
 
-The native provider acts only when the just-typed character is a structural `|` on the current line. The companion listener covers every other non-empty single-line insertion whose final inserted range is inside a cell belonging to a structurally valid table. A pipe observed while IME composition is active remains pending for the companion path because Monaco's native typed-character event is not emitted for composition updates. Together the paths return no edits for:
+The native provider acts only when the just-typed character is a structural `|` on the current line. The companion listener covers every other single-line insertion, replacement, or non-empty-range deletion whose final changed range is inside a cell belonging to a structurally valid table. Backspace, forward Delete, Cut, and selection deletion therefore share one public model-content path instead of custom keybindings. A pipe observed while IME composition is active remains pending for the companion path because Monaco's native typed-character event is not emitted for composition updates. Together the paths return no edits for:
 
 - `\|` escaped by an odd backslash run;
 - a pipe inside a matching inline-code span;
 - a pipe inside a backtick or tilde fenced code block;
 - cancellation;
 - a position that is not the just-typed pipe;
-- deletion, undo, redo, model replacement, or a line-breaking insertion;
+- an empty no-op, undo, redo, model replacement, or a line-breaking insertion/deletion;
 - an insertion before a framed opening border or after a framed/group-title closing border;
 - an event containing any multi-line replacement or inserted line break, even when another change in that event is single-line;
 - a document region without a valid table header and delimiter.
@@ -109,7 +109,7 @@ Every delimiter row preserves its own leading/trailing colon markers and its own
 - a spaced delimiter keeps the established `| --- | --- |` or `--- | ---` spelling;
 - a compact delimiter keeps `|---|---|` or `---|---`, with no whitespace between delimiter tokens and structural pipes.
 
-Ordinary-row spacing is independent from delimiter-row spacing. A table such as `abc | qwe` followed by `----|----` therefore remains mixed in exactly that way. Compact delimiter tokens absorb the gutter width as additional hyphens so their structural pipes still coincide with ordinary rows; framed tokens add two gutter positions, unframed edge tokens add one, and unframed interior tokens add two. Existing delimiter spans remain a width constraint during insertion, preventing an unrelated first edit from changing the table's established width. Hyphens grow inside the token, never by adding separator spaces, and colon markers remain at their original token edges.
+Ordinary-row spacing is independent from delimiter-row spacing. A table such as `abc | qwe` followed by `----|----` therefore remains mixed in exactly that way. Compact delimiter tokens absorb the gutter width as additional hyphens so their structural pipes still coincide with ordinary rows; framed tokens add two gutter positions, unframed edge tokens add one, and unframed interior tokens add two. Delimiter contribution to logical column width is semantic rather than historical: three required hyphens plus the leading/trailing colon markers, with the compact gutter positions subtracted before comparison with ordinary content. Old extra hyphens therefore cannot pin a column after content shrinks. Serialization adds compact gutters back only as hyphens, never as spaces, and keeps colon markers at their original token edges.
 
 Ordinary output uses one source space around cell content and internal separators. Framed ordinary output follows `indent + | cell | cell |`, preserving the table's consistent indentation prefix; unframed ordinary output follows `cell | cell`. Delimiter output follows the delimiter row's own spaced or compact gutter style. All structural column separators consequently land on the same source columns without normalizing compact delimiters into spaced ones.
 
@@ -137,7 +137,7 @@ Example:
 
 The pure formatter produces target text per changed source line. The Monaco adapter trims each line's unchanged prefix and suffix and returns the smallest non-overlapping `TextEdit` for that line.
 
-For the common closing-border trigger, formatting is normally a zero-width insertion immediately before the typed final `|`. Monaco therefore keeps the caret logically after that pipe. For other characters, minimal edits use moving markers. The listener reopens the history element for the just-finished insertion, applies the multi-line alignment as one edit batch, and closes the combined element through Monaco's public history boundaries. Monaco consequently moves the caret with the edited text, while one Undo reverses both typing and alignment without exposing a malformed intermediate table.
+For the common closing-border trigger, formatting is normally a zero-width insertion immediately before the typed final `|`. Monaco therefore keeps the caret logically after that pipe. For other changes, minimal edits use moving markers. The listener reopens the history element for the just-finished insertion, replacement, or deletion, applies the multi-line alignment as one edit batch, and closes the combined element through Monaco's public history boundaries. Monaco consequently moves the caret with the edited text, while one Undo reverses both the user's change and alignment without exposing a malformed intermediate table.
 
 The adapter never emits edits for unchanged lines, EOL characters, or text outside the detected table.
 
@@ -151,7 +151,7 @@ Return no edits for:
 - dangling group delimiter/title sequences;
 - mixed framing;
 - escaped, inline-code, or fenced trigger pipes;
-- fenced non-pipe insertions;
+- fenced non-pipe changes;
 - a normal blank or Markdown block boundary;
 - cancellation.
 
@@ -161,10 +161,10 @@ Ordinary Markdown text outside the candidate remains untouched. The provider exp
 
 Pure tests cover shared pipe scanning, renderer compatibility, framed and unframed tables, spaced and compact delimiters, mixed ordinary/delimiter spacing, compact colon markers, alignment markers, grouped-table triples, long titles, escaped pipes, backticks, strict malformed no-ops, framing preservation, and minimal line edits.
 
-Provider/runtime tests cover one Markdown registration, the native `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility. Editor-local tests additionally cover compact-delimiter padding consumption and overflow without a gutter-style change, sequential spare-padding consumption and overflow, framed and unframed group-title border eligibility, ordinary versus IME pipe routing, multi-update and canceled IME composition, final-coordinate mapping for multi-cursor changes, atomic rejection of line-breaking events, Monaco history grouping with Undo/Redo state, fenced-code exclusion, disposal with queued composition work, installation order, and cleanup.
+Provider/runtime tests cover one Markdown registration, the native `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility. Editor-local tests additionally cover compact-delimiter padding consumption and overflow without a gutter-style change, Backspace/forward Delete/selection deletion contraction, shorter replacements, deletion Undo/Redo grouping, deletion multi-cursor coordinate mapping, structural and outside-border deletion no-ops, sequential spare-padding consumption and overflow, framed and unframed group-title border eligibility, ordinary versus IME pipe routing, multi-update and canceled IME composition, final-coordinate mapping for multi-cursor changes, atomic rejection of line-breaking events, Monaco history grouping with Undo/Redo state, fenced-code exclusion, disposal with queued composition work, installation order, and cleanup.
 
-A real-application browser smoke verifies sequential non-pipe typing through spare padding into overflow, caret continuity, exact one-step Undo/Redo without a malformed intermediate table, and console/worker cleanliness when a browser binding is available. The native final-pipe, grouped-table, marker, and exclusion paths remain covered by provider and pure-formatter suites. If the environment exposes no browser, the exact failure is recorded and the scenario remains in the final cross-stack gate.
+A real-application browser smoke verifies sequential non-pipe typing through spare padding into overflow, Backspace and forward Delete contraction for compact delimiters, caret continuity, exact one-step Undo/Redo without a malformed intermediate table, and console/worker cleanliness when a browser binding is available. The native final-pipe, grouped-table, marker, and exclusion paths remain covered by provider and pure-formatter suites. If the environment exposes no browser, the exact failure is recorded and the scenario remains in the final cross-stack gate.
 
 ## Stacked-Change Boundary
 
-The original specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, and tests belong to Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. That commit is immutable. JetBrains per-character parity belongs to immutable descendant `tuutvrvmrluuxknnmoqkpwqmvyqouwtm`. Compact-delimiter preservation, its specification correction, tests, and formatter change belong to a new descendant commit rather than rewriting either finalized change.
+The original specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, and tests belong to immutable Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. JetBrains per-character parity belongs to immutable descendant `tuutvrvmrluunxokxkxrxtwulnynsypr`. Compact-delimiter preservation belongs to immutable descendant `llsutstyorzqtuomzvnpvuzvrwpkxpop`. Deletion-triggered contraction, its specification correction, tests, and Monaco companion change belong to a new descendant rather than rewriting any finalized change.

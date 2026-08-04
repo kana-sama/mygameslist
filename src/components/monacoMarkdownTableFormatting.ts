@@ -9,7 +9,7 @@ import { scanMarkdownTableLine } from "./markdownTableSyntax";
 
 const TABLE_TYPING_EDIT_SOURCE = "mygameslist.markdownTableTyping";
 
-function finalInsertedCellRange(
+function finalChangedCellRange(
   model: Monaco.editor.ITextModel,
   changes: readonly Monaco.editor.IModelContentChange[],
   target: Monaco.editor.IModelContentChange,
@@ -188,25 +188,25 @@ export function installMonacoMarkdownTableTyping(
     }
     for (const change of event.changes) {
       const eventLineIndex = change.range.startLineNumber - 1;
-      if (!change.text) {
+      if (change.text === "" && (compositionInput || change.rangeLength === 0)) {
         pendingLines.delete(eventLineIndex);
         continue;
       }
       if (change.text === "|" && !compositionInput) continue;
-      const inserted = finalInsertedCellRange(model, event.changes, change);
+      const changed = finalChangedCellRange(model, event.changes, change);
       if (compositionInput) {
         const initialEligibility = compositionLineEligibility.get(eventLineIndex);
         if (initialEligibility === false) continue;
         if (initialEligibility === undefined) {
-          const eligible = inserted !== null;
+          const eligible = changed !== null;
           compositionLineEligibility.set(eventLineIndex, eligible);
           if (!eligible) continue;
         }
       }
-      if (!inserted) continue;
-      const insertedOffset = Math.max(inserted.startOffset, inserted.endOffset - 1);
-      if (isInsideFencedMarkdownCode(value, insertedOffset)) continue;
-      candidateLines.add(inserted.lineIndex);
+      if (!changed) continue;
+      const changedOffset = Math.max(changed.startOffset, changed.endOffset - 1);
+      if (isInsideFencedMarkdownCode(value, changedOffset)) continue;
+      candidateLines.add(changed.lineIndex);
     }
     for (const lineIndex of candidateLines) pendingLines.add(lineIndex);
     scheduleFormatting();
