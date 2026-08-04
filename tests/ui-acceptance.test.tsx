@@ -1529,6 +1529,7 @@ describe("DiffDialog", () => {
     selectedSelectionIds: new Set<string>(),
     dependencySelectionIds: new Set<string>(),
     dependencyLabels: {},
+    selectedPaths: undefined,
   };
 
   function renderDialog(model: ChangeReviewModel = review, overrides: Partial<Parameters<typeof DiffDialog>[0]> = {}) {
@@ -1613,6 +1614,11 @@ describe("DiffDialog", () => {
           selectedSelectionIds,
           dependencySelectionIds,
           dependencyLabels: dependencies ? { "guide-asset": "связано с «Посылки»" } : {},
+          selectedPaths: explicitSelectionIds.size
+            ? [...new Set([...selectedSelectionIds].flatMap((selectionId) =>
+              (model.changesBySelectionId[selectionId] ?? []).flatMap((change) => change.operationPaths),
+            ))].sort()
+            : undefined,
         }}
         sync={{
           busy: false,

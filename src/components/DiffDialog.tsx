@@ -34,7 +34,7 @@ export interface DiffSelectionState {
   selectedSelectionIds: ReadonlySet<string>;
   dependencySelectionIds: ReadonlySet<string>;
   dependencyLabels: Readonly<Record<string, string>>;
-  selectedPaths?: readonly string[];
+  selectedPaths: readonly string[] | undefined;
 }
 
 export interface DiffDialogProps {
@@ -158,20 +158,24 @@ export function DiffDialog({
   const [manualValue, setManualValue] = useState("");
   const [syncOpen, setSyncOpen] = useState(false);
   const [syncSubmitting, setSyncSubmitting] = useState(false);
-  const [syncScope, setSyncScope] = useState<{ actionLabel: string; selectedPaths?: readonly string[] } | null>(null);
+  const [syncScope, setSyncScope] = useState<{
+    actionLabel: string;
+    partialScopeUnavailable: boolean;
+    selectedPaths?: readonly string[];
+  } | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<ReadonlySet<string>>(new Set());
   const syncToggleRef = useRef<HTMLButtonElement>(null);
-  const selectedPaths = useMemo(() => {
-    if (!selection.explicitSelectionIds.size) return undefined;
-    if (selection.selectedPaths) return [...selection.selectedPaths];
-    return [...new Set([...selection.selectedSelectionIds].flatMap((selectionId) =>
-      (review.changesBySelectionId[selectionId] ?? []).flatMap((change) => change.operationPaths),
-    ))].sort();
-  }, [review.changesBySelectionId, selection.explicitSelectionIds, selection.selectedPaths, selection.selectedSelectionIds]);
+  const partialScopeUnavailable = selection.explicitSelectionIds.size > 0
+    && (!selection.selectedPaths || selection.selectedPaths.length === 0);
+  const selectedPaths = selection.explicitSelectionIds.size
+    ? selection.selectedPaths
+    : undefined;
   const actionLabel = selection.explicitSelectionIds.size
     ? `Синхронизировать выбранное · ${selection.selectedSelectionIds.size}`
     : "Синхронизировать всё";
-  const activeSyncScope = syncOpen && syncScope ? syncScope : { actionLabel, selectedPaths };
+  const activeSyncScope = syncOpen && syncScope
+    ? syncScope
+    : { actionLabel, partialScopeUnavailable, selectedPaths };
   const scopedSync = useMemo<DiffSyncController | undefined>(() => sync ? {
     ...sync,
     actionLabel: activeSyncScope.actionLabel,
@@ -224,7 +228,9 @@ export function DiffDialog({
     ? "Нет локальных изменений для синхронизации."
     : conflicts.length
       ? "Сначала разрешите все конфликты."
-      : undefined;
+      : activeSyncScope.partialScopeUnavailable
+        ? "Не удалось определить состав выбранных изменений."
+        : undefined;
   const syncBusy = syncSubmitting || Boolean(scopedSync?.busy) || isDiffSyncBusy(scopedSync?.stage);
   const oldestLocalAssetAgeDays = localAssets?.oldestCreatedAt
     ? Math.floor((Date.now() - localAssets.oldestCreatedAt) / (24 * 60 * 60 * 1000))
@@ -288,7 +294,7 @@ export function DiffDialog({
             {scopedSync ? <DiffSyncButton actionLabel={syncOpen ? activeSyncScope.actionLabel : actionLabel} busy={syncBusy} expanded={syncOpen} onClick={() => {
               if (syncOpen) closeSyncPanel();
               else {
-                setSyncScope({ actionLabel, selectedPaths });
+                setSyncScope({ actionLabel, partialScopeUnavailable, selectedPaths });
                 setSyncOpen(true);
               }
             }} ref={syncToggleRef} /> : null}

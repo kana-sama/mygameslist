@@ -33,6 +33,7 @@ const emptySelection: DiffSelectionState = {
   selectedSelectionIds: new Set(),
   dependencySelectionIds: new Set(),
   dependencyLabels: {},
+  selectedPaths: undefined,
 };
 const partialSelection: DiffSelectionState = {
   enabled: true,
@@ -286,6 +287,47 @@ describe("DiffDialog GitHub sync shell", () => {
     await user.click(screen.getByRole("button", { name: "Подключить и синхронизировать" }));
 
     await waitFor(() => expect(onConnect).toHaveBeenCalledWith("github_pat_secret", false, [operationPath]));
+  });
+
+  it("blocks a malformed partial scope instead of reconstructing publication paths", async () => {
+    const user = userEvent.setup();
+    const onSync = vi.fn().mockResolvedValue(undefined);
+    const sync: DiffSyncController = { busy: false, connected: true, error: null, onConnect: vi.fn(), onDisconnect: vi.fn(), onSync, pagesPending: false, persistence: "session", stage: "idle" };
+    const malformedSelection = {
+      enabled: true,
+      explicitSelectionIds: new Set([change.selectionId]),
+      selectedSelectionIds: new Set([change.selectionId]),
+      dependencySelectionIds: new Set<string>(),
+      dependencyLabels: {},
+    } as DiffSelectionState;
+    const { rerender } = renderDialog(sync, review, [], malformedSelection);
+
+    await user.click(screen.getByRole("button", { name: "Синхронизировать выбранное · 1" }));
+    const panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
+
+    expect(within(panel).getByRole("button", { name: "Синхронизировать выбранное · 1" })).toBeDisabled();
+    expect(within(panel).getByText("Не удалось определить состав выбранных изменений.")).toBeInTheDocument();
+    expect(onSync).not.toHaveBeenCalled();
+
+    rerender(
+      <DiffDialog
+        conflicts={[]}
+        onClose={vi.fn()}
+        onEnterSelection={vi.fn()}
+        onExport={vi.fn()}
+        onImport={vi.fn()}
+        onToggleChange={vi.fn()}
+        onToggleGame={vi.fn()}
+        open
+        patchBytes={1024}
+        review={review}
+        selection={emptySelection}
+        sync={sync}
+      />,
+    );
+
+    expect(within(panel).getByRole("button", { name: "Синхронизировать выбранное · 1" })).toBeDisabled();
+    expect(onSync).not.toHaveBeenCalled();
   });
 
   it("drops a completed frozen scope before another saved-PAT sync", async () => {

@@ -12,6 +12,7 @@ const emptySelection = {
   selectedSelectionIds: new Set<string>(),
   dependencySelectionIds: new Set<string>(),
   dependencyLabels: {},
+  selectedPaths: undefined,
 };
 
 afterEach(cleanup);
