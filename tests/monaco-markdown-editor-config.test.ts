@@ -25,6 +25,7 @@ describe("compact Monaco Markdown configuration", () => {
       accessibilitySupport: "auto",
       automaticLayout: true,
       contextmenu: true,
+      detectIndentation: false,
       fontSize: 12,
       folding: false,
       glyphMargin: false,
@@ -50,6 +51,8 @@ describe("compact Monaco Markdown configuration", () => {
       },
       stickyScroll: { enabled: false },
       suggestOnTriggerCharacters: true,
+      tabSize: 2,
+      insertSpaces: true,
       wordBasedSuggestions: "currentDocument",
       wordWrap: "on",
     });
