@@ -28,6 +28,7 @@ import { GITHUB_PAT_STORAGE_KEY } from "../src/state/githubPat";
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
+const SECOND_GAME_ID = "33333333-3333-4333-8333-333333333333";
 const NOW = "2026-07-16T10:00:00.000Z";
 const GITHUB_TOKEN = "github_pat_test-only";
 const HEAD_SHA = "1".repeat(40);
@@ -40,13 +41,18 @@ const CREATED_COMMIT_SHA = "6".repeat(40);
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
   private setFailures = 0;
+  private failingSetKeys = new Set<string>();
   get length() { return this.values.size; }
   clear() { this.values.clear(); }
   failNextSet() { this.setFailures += 1; }
+  failNextSetFor(key: string) { this.failingSetKeys.add(key); }
   getItem(key: string) { return this.values.get(key) ?? null; }
   key(index: number) { return [...this.values.keys()][index] ?? null; }
   removeItem(key: string) { this.values.delete(key); }
   setItem(key: string, value: string) {
+    if (this.failingSetKeys.delete(key)) {
+      throw new DOMException("Storage is full", "QuotaExceededError");
+    }
     if (this.setFailures > 0) {
       this.setFailures -= 1;
       throw new DOMException("Storage is full", "QuotaExceededError");
@@ -264,7 +270,34 @@ function GitHubSyncProbe() {
     <span data-testid="sync-local-states">{library.localAssets.map((asset) => `${asset.id}:${asset.state}`).sort().join(",")}</span>
     <button onClick={() => { void library.verifyGitHubAccess(GITHUB_TOKEN).then(() => setResult("connected")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Connect GitHub</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync GitHub</button>
+    <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync empty selection</button>
+    <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/title`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected title</button>
+    <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected game</button>
+    <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/missing`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync invalid selection</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
+    <button onClick={() => {
+      const current = library.effective.games[GAME_ID];
+      const currentNote = library.effective.notes[NOTE_ID];
+      if (!current || !currentNote) return;
+      void library.saveGame({
+        id: current.id,
+        title: current.title,
+        coverAssetId: current.coverAssetId,
+        pendingCover: null,
+        platforms: current.platforms,
+        tags: current.tags,
+        status: current.status,
+        tierId: current.placement.tierId,
+        reviewMarkdown: current.reviewMarkdown,
+        notes: [{
+          id: currentNote.id,
+          clientId: currentNote.id,
+          bodyMarkdown: "Post-click note",
+          attachments: [...currentNote.attachments],
+          rank: currentNote.rank,
+        }],
+      });
+    }} type="button">Edit note after click</button>
   </div>;
 }
 
@@ -309,6 +342,16 @@ function githubResponses(database: LibraryDatabase, remoteDatabase = database) {
   });
   vi.stubGlobal("fetch", fetchMock);
   return { requests };
+}
+
+function publishedLibraryFromRequest(
+  requests: Array<{ url: URL; method: string; body: Record<string, unknown> | null }>,
+): LibraryDatabase {
+  const request = requests.find(({ method, url, body }) => method === "POST"
+    && url.pathname.endsWith("/git/blobs")
+    && body?.encoding === "utf-8");
+  if (typeof request?.body?.content !== "string") throw new Error("Published library request was not found");
+  return JSON.parse(request.body.content) as LibraryDatabase;
 }
 
 beforeEach(() => {
@@ -556,6 +599,13 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     return diffLibrary(base, local, { changedAt: "2026-07-17T10:00:00.000Z", transactionId: "sync-title" });
   }
 
+  function localTitleAndPlacementPatch(base: LibraryDatabase) {
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local title";
+    local.games[GAME_ID].placement = { tierId: "b", rank: 1024 };
+    return diffLibrary(base, local, { changedAt: "2026-07-17T10:00:00.000Z", transactionId: "sync-title-placement" });
+  }
+
   function committedTitleDatabase(base: LibraryDatabase) {
     const committed = structuredClone(base);
     committed.games[GAME_ID].title = "Committed title";
@@ -747,6 +797,161 @@ describe("LibraryProvider direct GitHub synchronization", () => {
       base_tree: TREE_SHA,
       tree: [{ path: "public/data/library.json", mode: "100644", type: "blob", sha: CREATED_LIBRARY_BLOB_SHA }],
     });
+  });
+
+  it("publishes only selected paths and keeps deferred plus post-click edits", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    draft.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Static note",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const base = withComputedRevision(draft);
+    expect(savePatch(localStorage, localTitleAndPlacementPatch(base)).ok).toBe(true);
+    const api = githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync selected title" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit after click" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit note after click" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    const published = publishedLibraryFromRequest(api.requests);
+    expect(published.games[GAME_ID].title).toBe("Local title");
+    expect(published.games[GAME_ID].placement.tierId).toBe("a");
+    expect(published.notes[NOTE_ID].bodyMarkdown).toBe("Static note");
+    expect(screen.getByTestId("sync-tier")).toHaveTextContent("s");
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/placement`);
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/notes/${NOTE_ID}/bodyMarkdown`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/title`);
+  });
+
+  it("treats an empty selected path list as a full sync", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    expect(savePatch(localStorage, localTitleAndPlacementPatch(base)).ok).toBe(true);
+    const api = githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync empty selection" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(publishedLibraryFromRequest(api.requests).games[GAME_ID]).toMatchObject({
+      title: "Local title",
+      placement: { tierId: "b", rank: 1024 },
+    });
+    expect(screen.getByTestId("sync-operations")).toBeEmptyDOMElement();
+  });
+
+  it("rejects an invalid selection before asset state changes or GitHub requests", async () => {
+    const base = empty();
+    const bytes = new Uint8Array([82, 73, 70, 70, 20, 0, 0, 0, 87, 69, 66, 80]);
+    const cover = makeExternalWebPAsset(bytes, 1, 1, "Cover", "cover.webp").asset;
+    const local = structuredClone(base);
+    local.assets[cover.id] = cover;
+    local.games[GAME_ID] = game("New game", cover.id);
+    const patch = diffLibrary(base, local, { changedAt: NOW, transactionId: "new-game" });
+    expect(savePatch(localStorage, patch).ok).toBe(true);
+    await writeLocalAssetsAtomic([makeLocalAsset(cover.id, new Blob([bytes], { type: "image/webp" }), "image/webp")]);
+    const api = githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync invalid selection" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("не найдена"));
+    expect(screen.getByTestId("sync-operations").textContent?.split(",").sort()).toEqual(Object.keys(patch.operations).sort());
+    expect(await readLocalAsset(cover.id)).toMatchObject({ state: "local" });
+    expect(api.requests.filter(({ url }) => url.origin === "https://api.github.com")).toEqual([]);
+  });
+
+  it("moves only assets required by the selected patch to awaiting verification", async () => {
+    const base = empty();
+    const firstBytes = new Uint8Array([82, 73, 70, 70, 21, 0, 0, 0, 87, 69, 66, 80]);
+    const secondBytes = new Uint8Array([82, 73, 70, 70, 22, 0, 0, 0, 87, 69, 66, 80]);
+    const firstCover = makeExternalWebPAsset(firstBytes, 1, 1, "First", "first.webp").asset;
+    const secondCover = makeExternalWebPAsset(secondBytes, 1, 1, "Second", "second.webp").asset;
+    const local = structuredClone(base);
+    local.assets[firstCover.id] = firstCover;
+    local.assets[secondCover.id] = secondCover;
+    local.games[GAME_ID] = game("First game", firstCover.id);
+    local.games[SECOND_GAME_ID] = { ...game("Second game", secondCover.id), id: SECOND_GAME_ID };
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "two-games" })).ok).toBe(true);
+    await writeLocalAssetsAtomic([
+      makeLocalAsset(firstCover.id, new Blob([firstBytes], { type: "image/webp" }), "image/webp"),
+      makeLocalAsset(secondCover.id, new Blob([secondBytes], { type: "image/webp" }), "image/webp"),
+    ]);
+    const api = githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync selected game" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(publishedLibraryFromRequest(api.requests).games).toEqual({ [GAME_ID]: expect.objectContaining({ title: "First game" }) });
+    expect(await readLocalAsset(firstCover.id)).toMatchObject({ state: "awaiting-verification" });
+    expect(await readLocalAsset(secondCover.id)).toMatchObject({ state: "local" });
+  });
+
+  it("keeps the accepted base and merged remainder in memory when receipt persistence fails", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    draft.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Static note",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const base = withComputedRevision(draft);
+    expect(savePatch(localStorage, localTitleAndPlacementPatch(base)).ok).toBe(true);
+    githubResponses(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    (localStorage as MemoryStorage).failNextSetFor(PENDING_PUBLICATION_STORAGE_KEY);
+    fireEvent.click(screen.getByRole("button", { name: "Sync selected title" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit note after click" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(screen.getByTestId("sync-persistence-error")).toHaveTextContent("Коммит уже создан");
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/placement`);
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/notes/${NOTE_ID}/bodyMarkdown`);
+    expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/title`);
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+  });
+
+  it("keeps a remote conflict when a same-path post-click edit started from the deferred value", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    expect(savePatch(localStorage, localTitleAndPlacementPatch(base)).ok).toBe(true);
+    const remoteDraft = structuredClone(base);
+    remoteDraft.games[GAME_ID].placement = { tierId: "c", rank: 1024 };
+    remoteDraft.publicationId = "77777777-7777-4777-8777-777777777777";
+    const remote = withComputedRevision(remoteDraft);
+    githubResponses(base, remote);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync selected title" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit after click" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(screen.getByTestId("sync-tier")).toHaveTextContent("c");
+    expect(screen.getByTestId("sync-conflicts")).toHaveTextContent("1");
+    expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/placement`);
   });
 
   it("keeps new cover and note image Blob URLs until Pages deploys the commit", async () => {

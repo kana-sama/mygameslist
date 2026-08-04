@@ -12,6 +12,7 @@ import type { GameSaveInput, EditableAttachment } from "../pages/GamePage";
 import {
   PATCH_STORAGE_KEY,
   SAFARI_SAFE_BUDGET_BYTES,
+  applyPatch,
   assertValidLibrary,
   base64ToBytes,
   classifyStorageUsage,
@@ -29,6 +30,7 @@ import {
   localAssetWritePreflight,
   loadPatch,
   makeLocalAsset,
+  mergePatchEnvelopes,
   moveGameToTier,
   normalizePatchEnvelope,
   parsePatchPath,
@@ -39,6 +41,7 @@ import {
   referencedAssetIds,
   requestPersistentOriginStorage,
   resolveConflict,
+  resolvePatchSelection,
   savePatch,
   sha256Bytes,
   storageIsPersisted,
@@ -83,6 +86,24 @@ import {
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
   return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
+}
+
+function rebasePostClickOverlaps(deferred: PatchEnvelope, postClick: PatchEnvelope): PatchEnvelope {
+  return {
+    ...structuredClone(postClick),
+    operations: Object.fromEntries(Object.entries(postClick.operations).map(([path, operation]) => {
+      const deferredOperation = deferred.operations[path];
+      // The later target wins, but conflicts are still measured from the
+      // published value that the deferred operation originally observed.
+      return [path, deferredOperation
+        ? {
+          ...structuredClone(operation),
+          baseExists: deferredOperation.baseExists,
+          baseHash: deferredOperation.baseHash,
+        }
+        : structuredClone(operation)];
+    })),
+  };
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -231,6 +252,11 @@ export interface LibraryGitHubSyncResult {
   pagesPending: boolean;
 }
 
+export interface LibraryGitHubSyncOptions {
+  onStage?: (stage: GitHubSyncStage) => void;
+  selectedPaths?: readonly string[];
+}
+
 export interface LibraryContextValue extends LibraryState {
   loading: boolean;
   fatalError: string | null;
@@ -259,7 +285,7 @@ export interface LibraryContextValue extends LibraryState {
   exportRecoveryArchive: () => Promise<void>;
   deleteAllLocalAssets: () => Promise<void>;
   verifyGitHubAccess: (token: string) => Promise<void>;
-  syncToGitHub: (token: string, onStage?: (stage: GitHubSyncStage) => void) => Promise<LibraryGitHubSyncResult>;
+  syncToGitHub: (token: string, options?: LibraryGitHubSyncOptions) => Promise<LibraryGitHubSyncResult>;
 }
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
@@ -864,7 +890,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const syncToGitHub = useCallback(async (
     token: string,
-    onStage?: (stage: GitHubSyncStage) => void,
+    options?: LibraryGitHubSyncOptions,
   ): Promise<LibraryGitHubSyncResult> => {
     if (syncInFlightRef.current) throw new Error("Синхронизация уже выполняется");
     const snapshot = stateRef.current;
@@ -873,18 +899,31 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (snapshot.conflicts.length) throw new Error("Сначала разрешите конфликты локального патча");
     if (!Object.keys(snapshot.patch.operations).length) throw new Error("Нет локальных правок для синхронизации");
 
-    syncInFlightRef.current = true;
+    const snapshotBase = structuredClone(snapshot.base);
     const snapshotEffective = structuredClone(snapshot.effective);
     const snapshotPatch = structuredClone(snapshot.patch);
-    const snapshotLocalAssetIds = requiredLocalAssetIds(snapshotPatch, snapshotEffective);
+    const partition = options?.selectedPaths?.length
+      ? resolvePatchSelection(snapshotBase, snapshotEffective, snapshotPatch, [{
+        changeId: "github-sync-selection",
+        operationPaths: options.selectedPaths,
+      }])
+      : {
+        publishPatch: snapshotPatch,
+        deferredPatch: emptyPatch(snapshotPatch.baseRevision),
+      };
+    const snapshotPublishPatch = partition.publishPatch;
+    const snapshotDeferredPatch = partition.deferredPatch;
+    const snapshotPublishEffective = applyPatch(snapshotBase, snapshotPublishPatch);
+    const snapshotLocalAssetIds = requiredLocalAssetIds(snapshotPublishPatch, snapshotPublishEffective);
+    syncInFlightRef.current = true;
     let mediaRecords: LocalAsset[] = [];
     let publicationAccepted = false;
     try {
       mediaRecords = await readLocalAssets(snapshotLocalAssetIds);
       const availableMediaIds = new Set(mediaRecords.map((record) => record.id));
       const missingMedia = snapshotLocalAssetIds.filter((id) => !availableMediaIds.has(id));
-      if (missingMedia.length) throw new Error(`В localStorage отсутствуют локальные файлы: ${missingMedia.map((id) => describeAssetForRecovery(snapshotEffective, id)).join("; ")}. Удалите указанные обложки или вложения и загрузите исходные файлы заново.`);
-      for (const record of mediaRecords) if (record.byteLength !== record.blob.size) throw new Error(`Локальный файл ${describeAssetForRecovery(snapshotEffective, record.id)} повреждён: сохранённый размер не совпадает с Blob. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
+      if (missingMedia.length) throw new Error(`В localStorage отсутствуют локальные файлы: ${missingMedia.map((id) => describeAssetForRecovery(snapshotPublishEffective, id)).join("; ")}. Удалите указанные обложки или вложения и загрузите исходные файлы заново.`);
+      for (const record of mediaRecords) if (record.byteLength !== record.blob.size) throw new Error(`Локальный файл ${describeAssetForRecovery(snapshotPublishEffective, record.id)} повреждён: сохранённый размер не совпадает с Blob. Удалите указанную обложку или вложение и загрузите исходный файл заново.`);
       await updateLocalAssetState(snapshotLocalAssetIds, "publishing");
       await refreshLocalAssets();
       const client = new GitHubGitDatabaseSyncClient({
@@ -892,13 +931,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         repo: GITHUB_REPOSITORY_NAME,
         branch: "main",
         token,
-        onStage,
+        onStage: options?.onStage,
       });
 
       let result;
       for (let attempt = 0; ; attempt += 1) {
         try {
-          result = await client.publishPatch(snapshotPatch, Object.fromEntries(mediaRecords.map((asset) => [asset.id, asset.blob])));
+          result = await client.publishPatch(snapshotPublishPatch, Object.fromEntries(mediaRecords.map((asset) => [asset.id, asset.blob])));
           break;
         } catch (reason) {
           if (reason instanceof GitHubSyncError && reason.code === "concurrent_update" && attempt === 0) continue;
@@ -952,9 +991,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const postClickPatch = diffLibrary(snapshotEffective, current.effective, {
         previousPatch: current.patch,
       });
-      const remaining = reconcilePatch(result.database, postClickPatch);
+      const rebasedPostClickPatch = rebasePostClickOverlaps(snapshotDeferredPatch, postClickPatch);
+      const remainderPatch = mergePatchEnvelopes(snapshotDeferredPatch, rebasedPostClickPatch);
+      const remaining = reconcilePatch(result.database, remainderPatch);
       const pagesPending = result.status === "committed"
-        || result.database.revision !== snapshot.base.revision
+        || result.database.revision !== snapshotBase.revision
         || snapshot.pendingPublication !== null;
 
       if (pagesPending) {
@@ -980,8 +1021,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           setPersistenceError(null);
           setLibraryState({ base: result.database, effective: remaining.effective, patch: remaining.patch, conflicts: remaining.conflicts, pendingPublication: receipt });
         } else {
-          setPersistenceError(`${installed.error.message}. Коммит уже создан; локальный патч очистится после обновления Pages.`);
-          setLibraryState({ ...current, pendingPublication: receipt });
+          setPersistenceError(`${installed.error.message}. Коммит уже создан; оставшиеся локальные правки сохранены только в памяти до перезагрузки.`);
+          setLibraryState({ base: result.database, effective: remaining.effective, patch: remaining.patch, conflicts: remaining.conflicts, pendingPublication: receipt });
         }
       } else {
         await verifyAndDeletePublishedLocalAssets(snapshotLocalAssetIds, result.database);

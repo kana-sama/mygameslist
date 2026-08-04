@@ -1,7 +1,9 @@
 import {
+  applyPatch,
   bytesToBase64,
   diffLibrary,
   makeFileAsset,
+  resolvePatchSelection,
   withComputedRevision,
   type Game,
   type LibraryDatabase,
@@ -19,6 +21,7 @@ import {
 const TOKEN = "github_pat_do-not-leak";
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
+const SECOND_GAME_ID = "44444444-4444-4444-8444-444444444444";
 const PUBLICATION_ID = "33333333-3333-4333-8333-333333333333";
 const CHANGED_AT = "2026-07-17T08:00:00.000Z";
 const HEAD_SHA = "1".repeat(40);
@@ -280,6 +283,34 @@ describe("GitHub Git Database publication", () => {
     });
     const refWrite = api.requests.find((request) => request.method === "PATCH");
     expect(refWrite?.body).toEqual({ sha: CREATED_COMMIT_SHA, force: false });
+  });
+
+  it("publishes and describes only a selected subpatch from a two-game patch", async () => {
+    const base = databaseWithGame();
+    base.games[SECOND_GAME_ID] = game({ id: SECOND_GAME_ID, title: "Contra" });
+    const publishedBase = withComputedRevision(base);
+    const local = structuredClone(publishedBase);
+    local.games[GAME_ID].title = "DuckTales Remastered";
+    local.games[SECOND_GAME_ID].title = "Contra Hard Corps";
+    const fullPatch = diffLibrary(publishedBase, local, { changedAt: CHANGED_AT, transactionId: "rename-two-games" });
+    const effective = applyPatch(publishedBase, fullPatch);
+    const selected = resolvePatchSelection(publishedBase, effective, fullPatch, [{
+      changeId: "selected-game",
+      operationPaths: [`/games/${GAME_ID}/title`],
+    }]);
+    const api = apiMock(publishedBase);
+
+    const result = await client(api.fetch).publishPatch(selected.publishPatch);
+
+    expect(result.database.games[GAME_ID].title).toBe("DuckTales Remastered");
+    expect(result.database.games[SECOND_GAME_ID].title).toBe("Contra");
+    const commitWrite = api.requests.find((request) => request.url.pathname.endsWith("/git/commits") && request.method === "POST");
+    expect(commitWrite?.body?.message).toContain("DuckTales Remastered");
+    expect(commitWrite?.body?.message).not.toContain("Contra");
+    const libraryWrite = api.requests.find((request) => request.method === "POST"
+      && request.url.pathname.endsWith("/git/blobs")
+      && request.body?.encoding === "utf-8");
+    expect(JSON.parse(String(libraryWrite?.body?.content)).games[SECOND_GAME_ID].title).toBe("Contra");
   });
 
   it("rebases clean fields onto a remotely changed library", async () => {

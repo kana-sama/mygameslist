@@ -67,6 +67,20 @@ function asset(id: string, originalName: string, overrides = {}) {
 }
 
 describe("semantic publication commit messages", () => {
+  it("describes only the selected result when another game remains deferred", () => {
+    const before = emptyDatabase();
+    before.games[GAME_ID] = game({ title: "DuckTales" });
+    before.games[CONTRA_ID] = game({ id: CONTRA_ID, title: "Contra" });
+    const selectedResult = structuredClone(before);
+    selectedResult.games[GAME_ID].title = "DuckTales Remastered";
+
+    const result = buildCommitMessage(before, selectedResult);
+
+    expect(result.subject).toBe("Update DuckTales Remastered");
+    expect(result.body).toContain('Update "DuckTales" -> "DuckTales Remastered": title');
+    expect(result.message).not.toContain("Contra");
+  });
+
   it("builds a dynamic subject and a semantic body without embedding image data", () => {
     const celesteAssetId = "a".repeat(64);
     const contraAssetId = "b".repeat(64);

@@ -201,8 +201,10 @@ function LibraryRoutes() {
   const syncWithGitHub = async (token: string) => {
     setGitHubSyncState((current) => ({ ...current, busy: true, stage: "connecting", error: null }));
     try {
-      const result = await library.syncToGitHub(token, (stage) => {
-        setGitHubSyncState((current) => ({ ...current, busy: true, stage }));
+      const result = await library.syncToGitHub(token, {
+        onStage: (stage) => {
+          setGitHubSyncState((current) => ({ ...current, busy: true, stage }));
+        },
       });
       setGitHubSyncState({ busy: false, stage: "complete", error: null, commitUrl: result.commitUrl });
     } catch (reason) {
