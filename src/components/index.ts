@@ -7,6 +7,7 @@ export * from "./GlobalGameSearch";
 export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";
+export * from "./MarkdownDiffPreview";
 export * from "./ShelfGrid";
 export * from "./TagInput";
 export * from "./libraryUi";

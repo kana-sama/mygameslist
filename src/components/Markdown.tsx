@@ -1,19 +1,75 @@
 import { forwardRef, Fragment, useEffect, useId, useMemo, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
+import type { MarkdownDecoration } from "../domain/markdownDiff";
 import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
 
-function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
+interface MarkdownInlineLocation {
+  decorations: readonly MarkdownDecoration[];
+  sourceColumn: number;
+  sourceLine: number;
+}
+
+function decorationAt(
+  location: MarkdownInlineLocation,
+  startColumn: number,
+  endColumn: number,
+): MarkdownDecoration | undefined {
+  return location.decorations.find((decoration) => {
+    if (location.sourceLine < decoration.startLine || location.sourceLine > decoration.endLine) return false;
+    const decorationStart = location.sourceLine === decoration.startLine ? decoration.startColumn : 0;
+    const decorationEnd = location.sourceLine === decoration.endLine ? decoration.endColumn : Number.POSITIVE_INFINITY;
+    return decorationStart < endColumn && decorationEnd > startColumn;
+  });
+}
+
+function renderDecoratedText(
+  text: string,
+  keyPrefix: string,
+  rawStart: number,
+  location?: MarkdownInlineLocation,
+): ReactNode[] {
+  if (!location || !text) return text ? [text] : [];
+  const sourceStart = location.sourceColumn + rawStart;
+  const sourceEnd = sourceStart + text.length;
+  const boundaries = new Set([sourceStart, sourceEnd]);
+  for (const decoration of location.decorations) {
+    if (location.sourceLine < decoration.startLine || location.sourceLine > decoration.endLine) continue;
+    const start = location.sourceLine === decoration.startLine ? decoration.startColumn : 0;
+    const end = location.sourceLine === decoration.endLine ? decoration.endColumn : Number.POSITIVE_INFINITY;
+    if (start > sourceStart && start < sourceEnd) boundaries.add(start);
+    if (end > sourceStart && end < sourceEnd) boundaries.add(end);
+  }
+  const points = [...boundaries].sort((left, right) => left - right);
+  return points.slice(0, -1).map((start, index) => {
+    const end = points[index + 1];
+    const value = text.slice(start - sourceStart, end - sourceStart);
+    const decoration = decorationAt(location, start, end);
+    if (!decoration) return value;
+    return (
+      <span
+        aria-label={decoration.label}
+        className={`markdown-diff-inline markdown-diff-inline--${decoration.kind}`}
+        data-diff-kind={decoration.kind}
+        key={`${keyPrefix}-decoration-${start}`}
+      >
+        {value}
+      </span>
+    );
+  });
+}
+
+function renderInline(source: string, keyPrefix = "inline", location?: MarkdownInlineLocation): ReactNode[] {
   const nodes: ReactNode[] = [];
   const token = /(`[^`\n]+`|\[[^\]\n]+\]\([^\s)]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
   while ((match = token.exec(source))) {
-    if (match.index > cursor) nodes.push(source.slice(cursor, match.index));
+    if (match.index > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, match.index), keyPrefix, cursor, location));
     const raw = match[0];
     const key = `${keyPrefix}-${match.index}`;
     if (raw.startsWith("`")) {
-      nodes.push(<code key={key}>{raw.slice(1, -1)}</code>);
+      nodes.push(<code key={key}>{renderDecoratedText(raw.slice(1, -1), key, match.index + 1, location)}</code>);
     } else if (raw.startsWith("[")) {
       const linkMatch = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);
       const href = linkMatch ? safeUrl(linkMatch[2]) : null;
@@ -27,20 +83,20 @@ function renderInline(source: string, keyPrefix = "inline"): ReactNode[] {
             target={isExternal ? "_blank" : undefined}
             title={linkMatch[3] || undefined}
           >
-            {renderInline(linkMatch[1], `${key}-label`)}
+            {renderInline(linkMatch[1], `${key}-label`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined)}
           </a>,
         );
       } else {
-        nodes.push(raw);
+        nodes.push(...renderDecoratedText(raw, key, match.index, location));
       }
     } else if (raw.startsWith("**") || raw.startsWith("__")) {
-      nodes.push(<strong key={key}>{renderInline(raw.slice(2, -2), `${key}-strong`)}</strong>);
+      nodes.push(<strong key={key}>{renderInline(raw.slice(2, -2), `${key}-strong`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined)}</strong>);
     } else {
-      nodes.push(<em key={key}>{renderInline(raw.slice(1, -1), `${key}-em`)}</em>);
+      nodes.push(<em key={key}>{renderInline(raw.slice(1, -1), `${key}-em`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined)}</em>);
     }
     cursor = match.index + raw.length;
   }
-  if (cursor < source.length) nodes.push(source.slice(cursor));
+  if (cursor < source.length) nodes.push(...renderDecoratedText(source.slice(cursor), keyPrefix, cursor, location));
   return nodes;
 }
 
@@ -52,6 +108,12 @@ interface MarkdownBlock {
   table?: MarkdownTable;
   checklistProgress?: ChecklistProgress;
   collapseId?: string;
+  sourceLocations?: MarkdownTextLocation[];
+}
+
+interface MarkdownTextLocation {
+  sourceColumn: number;
+  sourceLine: number;
 }
 
 interface ChecklistProgress {
@@ -72,12 +134,15 @@ interface MarkdownListItem {
   children: MarkdownBlock[];
   checklistProgress?: ChecklistProgress;
   collapseId?: string;
+  sourceLocations: MarkdownTextLocation[];
 }
 
 type MarkdownTableAlignment = "center" | "left" | "right" | undefined;
 
 interface MarkdownTableCell {
   value: string;
+  sourceColumn?: number;
+  sourceLine?: number;
   taskChecked?: boolean;
   taskSourceColumn?: number;
 }
@@ -188,6 +253,7 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
       sourceTextStart,
       taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
       children: [],
+      sourceLocations: [{ sourceColumn: sourceTextStart - sourceLines[index].start, sourceLine }],
     };
     index += 1;
 
@@ -216,7 +282,12 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
 
       const leadingWhitespace = /^[ \t]*/.exec(lines[index])?.[0] ?? "";
       if (indentationWidth(leadingWhitespace) < line.contentIndent) break;
-      item.value += `\n${lines[index].trim()}`;
+      const continuation = lines[index].trim();
+      item.value += `\n${continuation}`;
+      item.sourceLocations.push({
+        sourceColumn: lines[index].indexOf(continuation),
+        sourceLine: index,
+      });
       index += 1;
     }
 
@@ -314,7 +385,11 @@ function parseTableGroupHeader(
   return {
     nextIndex: titleIndex + 2,
     sourceLine: titleIndex,
-    title: { value: titleCells[0].value },
+    title: {
+      sourceColumn: titleCells[0].sourceColumn,
+      sourceLine: titleIndex,
+      value: titleCells[0].value,
+    },
   };
 }
 
@@ -326,7 +401,11 @@ function parseTableStart(lines: string[], startIndex: number): { alignments: Mar
   if (!delimiterCells) return null;
   return {
     alignments: delimiterCells.map((cell) => tableAlignment(cell.value)),
-    headers: headerCells.map((cell) => ({ value: cell.value })),
+    headers: headerCells.map((cell) => ({
+      sourceColumn: cell.sourceColumn,
+      sourceLine: startIndex,
+      value: cell.value,
+    })),
   };
 }
 
@@ -334,6 +413,8 @@ function parseTableRow(parsedCells: readonly ParsedTableCell[], columnCount: num
   const cells = parsedCells.slice(0, columnCount).map<MarkdownTableCell>((cell) => {
     const task = TASK_MARKER.exec(cell.value);
     return {
+      sourceColumn: cell.sourceColumn + (task?.[0].length ?? 0),
+      sourceLine,
       value: task ? cell.value.slice(task[0].length) : cell.value,
       taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
       taskSourceColumn: task ? cell.sourceColumn : undefined,
@@ -621,7 +702,12 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     const heading = /^(#{1,4})\s+(.+)$/.exec(line);
     if (heading) {
-      blocks.push({ type: "heading", depth: heading[1].length, value: heading[2] });
+      blocks.push({
+        type: "heading",
+        depth: heading[1].length,
+        sourceLocations: [{ sourceColumn: heading[1].length + 1, sourceLine: index }],
+        value: heading[2],
+      });
       index += 1;
       continue;
     }
@@ -638,11 +724,14 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
     }
     if (/^\s*>\s?/.test(line)) {
       const quote: string[] = [];
+      const sourceLocations: MarkdownTextLocation[] = [];
       while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
-        quote.push(lines[index].replace(/^\s*>\s?/, ""));
+        const prefix = /^\s*>\s?/.exec(lines[index])?.[0] ?? "";
+        quote.push(lines[index].slice(prefix.length));
+        sourceLocations.push({ sourceColumn: prefix.length, sourceLine: index });
         index += 1;
       }
-      blocks.push({ type: "quote", value: quote.join("\n") });
+      blocks.push({ type: "quote", sourceLocations, value: quote.join("\n") });
       continue;
     }
     const table = parseTable(lines, index);
@@ -652,7 +741,12 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
       continue;
     }
 
-    const paragraph = [line.trim()];
+    const firstParagraphLine = line.trim();
+    const paragraph = [firstParagraphLine];
+    const sourceLocations: MarkdownTextLocation[] = [{
+      sourceColumn: line.indexOf(firstParagraphLine),
+      sourceLine: index,
+    }];
     index += 1;
     while (
       index < lines.length &&
@@ -662,10 +756,15 @@ function parseBlocks(markdown: string): MarkdownBlock[] {
       !parseTableStart(lines, index) &&
       !/^\s*(?:[-*+]\s+|\d+[.)]\s+|>\s?)/.test(lines[index])
     ) {
-      paragraph.push(lines[index].trim());
+      const paragraphLine = lines[index].trim();
+      paragraph.push(paragraphLine);
+      sourceLocations.push({
+        sourceColumn: lines[index].indexOf(paragraphLine),
+        sourceLine: index,
+      });
       index += 1;
     }
-    blocks.push({ type: "paragraph", value: paragraph.join("\n") });
+    blocks.push({ type: "paragraph", sourceLocations, value: paragraph.join("\n") });
   }
   const activeHeadings: Array<{ block: MarkdownBlock; path: string }> = [];
   const collapsePathOccurrences = new Map<string, number>();
@@ -731,6 +830,7 @@ export interface MarkdownViewProps {
   markdown: string;
   className?: string;
   collapsedChecklistSections?: readonly string[];
+  decorations?: readonly MarkdownDecoration[];
   emptyText?: string;
   onCollapsedChecklistSectionsChange?: (sections: string[]) => void;
   onTaskChange?: (markdown: string) => void;
@@ -801,11 +901,23 @@ function ChecklistProgressView({ progress }: { progress: ChecklistProgress }) {
   );
 }
 
-export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
+export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], decorations, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
   const taskTextEditingEnabled = Boolean(onTaskChange) && !taskChangesDisabled;
+  const locatedInline = (value: string, key: string, location?: MarkdownTextLocation): ReactNode[] =>
+    renderInline(value, key, decorations && location ? { decorations, ...location } : undefined);
+  const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = []): ReactNode => {
+    if (!decorations) return renderInline(value, key);
+    const lines = value.split("\n");
+    return lines.map((line, index) => (
+      <Fragment key={`${key}-line-${index}`}>
+        {locatedInline(line, `${key}-line-${index}`, locations[index])}
+        {index < lines.length - 1 ? <br /> : null}
+      </Fragment>
+    ));
+  };
   useEffect(() => {
     if (activeTaskEditor && (!taskTextEditingEnabled || activeTaskEditor.baseMarkdown !== markdown)) {
       setActiveTaskEditor(null);
@@ -883,13 +995,13 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
           }
           if (item.taskChecked === undefined) {
             const progress = item.checklistProgress;
-            if (!progress) return <li key={itemKey}>{renderInline(item.value, itemKey)}{children}</li>;
+            if (!progress) return <li key={itemKey}>{locatedLines(item.value, itemKey, item.sourceLocations)}{children}</li>;
             const complete = !progress.open && progress.checked === progress.total;
             const collapseId = item.collapseId;
             const collapsed = Boolean(collapseId && collapsedSections.has(collapseId));
             const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
             const headerChildren = <>
-              <span className="markdown-checklist-group__title">{renderInline(item.value, itemKey)}</span>{" "}
+              <span className="markdown-checklist-group__title">{locatedLines(item.value, itemKey, item.sourceLocations)}</span>{" "}
               <ChecklistProgressView progress={progress} />
             </>;
             return (
@@ -942,7 +1054,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
                         if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
                       }}
                     />
-                  ) : renderInline(item.value, itemKey)}
+                  ) : locatedLines(item.value, itemKey, item.sourceLocations)}
                 </span>
                 {taskTextEditingEnabled && !editing ? (
                   <button
@@ -980,7 +1092,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
           {row.cells.map((cell, cellIndex) => {
             const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
             if (cell.taskChecked === undefined) {
-              return <td className={alignmentClass(cellIndex)} key={cellKey}>{renderInline(cell.value, cellKey)}</td>;
+              return <td className={alignmentClass(cellIndex)} key={cellKey}>{locatedInline(cell.value, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
             }
             const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
             const cellLabel = markdownLabel(cell.value);
@@ -1003,7 +1115,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
                       type="checkbox"
                     />
                   </label>
-                  {cell.value ? <span>{renderInline(cell.value, `${cellKey}-content`)}</span> : null}
+                  {cell.value ? <span>{locatedInline(cell.value, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</span> : null}
                 </div>
               </td>
             );
@@ -1019,7 +1131,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
             <tr>
               {table.headers.map((cell, cellIndex) => (
                 <th key={`${key}-header-${cellIndex}`} scope="col">
-                  {renderInline(cell.value, `${key}-header-${cellIndex}`)}
+                  {locatedInline(cell.value, `${key}-header-${cellIndex}`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}
                 </th>
               ))}
             </tr>
@@ -1040,7 +1152,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
             const groupKey = `${key}-group-${section.titleSourceLine}`;
             const headerChildren = <>
               <span className="markdown-table-group__title">
-                {renderInline(section.title.value, `${groupKey}-title`)}
+                {locatedInline(section.title.value, `${groupKey}-title`, section.title.sourceLine === undefined || section.title.sourceColumn === undefined ? undefined : { sourceColumn: section.title.sourceColumn, sourceLine: section.title.sourceLine })}
               </span>{" "}
               {progress ? <ChecklistProgressView progress={progress} /> : null}
             </>;
@@ -1094,14 +1206,14 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
     if (block.type === "code") return <pre key={key}><code>{block.value}</code></pre>;
     if (block.type === "rule") return <hr key={key} />;
     if (block.type === "quote") {
-      return <blockquote key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</blockquote>;
+      return <blockquote key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{locatedInline(line, `${key}-${lineIndex}`, block.sourceLocations?.[lineIndex])}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</blockquote>;
     }
     if (block.type === "list" || block.type === "ordered-list") {
       return renderList(block, key);
     }
     if (block.type === "table") return renderTable(block, key);
     if (block.type === "heading") {
-      const children = renderInline(block.value ?? "", key);
+      const children = locatedInline(block.value ?? "", key, block.sourceLocations?.[0]);
       const progress = block.checklistProgress;
       const collapseId = block.collapseId;
       const collapsed = Boolean(progress && collapseId && collapsedSections.has(collapseId));
@@ -1115,7 +1227,7 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
       if (block.depth === 2) return <h3 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h3>;
       return <h4 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h4>;
     }
-    return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{renderInline(line, `${key}-${lineIndex}`)}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
+    return <p key={key}>{block.value?.split("\n").map((line, lineIndex) => <Fragment key={lineIndex}>{locatedInline(line, `${key}-${lineIndex}`, block.sourceLocations?.[lineIndex])}{lineIndex < (block.value?.split("\n").length ?? 0) - 1 ? <br /> : null}</Fragment>)}</p>;
   };
 
   const content: ReactNode[] = [];
