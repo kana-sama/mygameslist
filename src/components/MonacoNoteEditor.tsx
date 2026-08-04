@@ -7,6 +7,7 @@ import {
 } from "./MonacoMarkdownEditor";
 import { installMonacoGameLinkCompletion } from "./monacoGameLinkCompletion";
 import { installMonacoMarkdownListEditing } from "./monacoMarkdownListEditing";
+import { installMonacoMarkdownTableTyping } from "./monacoMarkdownTableFormatting";
 import { installMonacoNoteActions } from "./monacoNoteActions";
 import { useNoteFileTransferCapture } from "./useNoteFileTransferCapture";
 
@@ -90,6 +91,7 @@ export function MonacoNoteEditor({
   const onReady: MonacoMarkdownEditorExtension = (context) => {
     const extensions: Monaco.IDisposable[] = [];
     try {
+      extensions.push(installMonacoMarkdownTableTyping(context));
       extensions.push(installMonacoMarkdownListEditing(context));
       extensions.push(installMonacoGameLinkCompletion(context, {
         excludeGameId: live.current.excludeGameId,

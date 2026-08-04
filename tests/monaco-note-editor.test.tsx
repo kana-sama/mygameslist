@@ -7,6 +7,7 @@ const boundary = vi.hoisted(() => ({
   actionOptions: undefined as unknown,
   completionOptions: undefined as unknown,
   disposals: [] as string[],
+  table: vi.fn(),
   list: vi.fn(),
   actions: vi.fn(),
   completion: vi.fn(),
@@ -22,6 +23,10 @@ vi.mock("../src/components/MonacoMarkdownEditor", () => ({
 
 vi.mock("../src/components/monacoMarkdownListEditing", () => ({
   installMonacoMarkdownListEditing: (...args: unknown[]) => boundary.list(...args),
+}));
+
+vi.mock("../src/components/monacoMarkdownTableFormatting", () => ({
+  installMonacoMarkdownTableTyping: (...args: unknown[]) => boundary.table(...args),
 }));
 
 vi.mock("../src/components/monacoGameLinkCompletion", () => ({
@@ -67,6 +72,7 @@ describe("MonacoNoteEditor", () => {
     boundary.completionOptions = undefined;
     boundary.disposals = [];
     boundary.props = undefined;
+    boundary.table.mockReset().mockImplementation(() => disposable("table"));
     boundary.list.mockReset().mockImplementation(() => disposable("list"));
     boundary.completion.mockReset().mockImplementation((_context: unknown, options: unknown) => {
       boundary.completionOptions = options;
@@ -101,11 +107,13 @@ describe("MonacoNoteEditor", () => {
     expect(input.onFileFiles).toHaveBeenCalledWith([attachment]);
   });
 
-  it("installs list, completion, and note actions in order with live values", () => {
+  it("installs table typing, list, completion, and note actions in order with live values", () => {
     const first = props();
     const view = render(<MonacoNoteEditor {...first} />);
     const extension = boundary.props?.onReady?.(context);
 
+    expect(boundary.table.mock.invocationCallOrder[0])
+      .toBeLessThan(boundary.list.mock.invocationCallOrder[0]);
     expect(boundary.list.mock.invocationCallOrder[0])
       .toBeLessThan(boundary.completion.mock.invocationCallOrder[0]);
     expect(boundary.completion.mock.invocationCallOrder[0])
@@ -124,14 +132,14 @@ describe("MonacoNoteEditor", () => {
     expect(secondSubmit).toHaveBeenCalledOnce();
 
     extension?.dispose();
-    expect(boundary.disposals).toEqual(["actions", "completion", "list"]);
+    expect(boundary.disposals).toEqual(["actions", "completion", "list", "table"]);
   });
 
   it("cleans up partial extension installation and skips note actions for new-game props", () => {
     boundary.completion.mockImplementationOnce(() => { throw new Error("completion failed"); });
     render(<MonacoNoteEditor {...props()} />);
     expect(() => boundary.props?.onReady?.(context)).toThrow("completion failed");
-    expect(boundary.disposals).toEqual(["list"]);
+    expect(boundary.disposals).toEqual(["list", "table"]);
 
     const noActions = props({ onCancel: undefined, onSubmit: undefined });
     render(<MonacoNoteEditor {...noActions} />);
@@ -159,6 +167,6 @@ describe("MonacoNoteEditor", () => {
     const extension = boundary.props?.onReady?.(context);
 
     extension?.dispose();
-    expect(boundary.disposals).toEqual(["actions", "completion", "list"]);
+    expect(boundary.disposals).toEqual(["actions", "completion", "list", "table"]);
   });
 });

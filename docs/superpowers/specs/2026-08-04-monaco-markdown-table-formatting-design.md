@@ -4,11 +4,11 @@
 
 The note-editor stack now has a compact Monaco foundation, list-aware Enter, and native game-link completion. The Markdown renderer already understands ordinary GFM-style tables plus an application-specific grouped-table grammar, but authoring those tables still requires manually aligning every structural `|`.
 
-This feature adds JetBrains-style automatic source alignment through Monaco's built-in on-type formatting pipeline. It does not add a custom keybinding or edit the model directly.
+This feature adds JetBrains-style automatic source alignment. The original implementation used only Monaco's built-in on-type formatting pipeline, whose trigger list was limited to `|`. JetBrains instead reformats after every character typed inside a table cell, so a later immutable descendant adds an editor-local typing hook for characters that Monaco's trigger list cannot express while preserving the native `|` path.
 
 ## Goal
 
-After the user types a structural `|` that completes a valid Markdown table shape, Monaco reformats that table so its source columns and outer borders align. The typed character, formatting edits, caret tracking, and undo/redo remain owned by Monaco.
+After the user types any character inside a valid Markdown table cell, Monaco reformats that table so its source columns and outer borders remain aligned. Consuming existing cell padding does not move a column boundary. When content exceeds the current width, every row in that column expands together.
 
 ## Native Monaco Plumbing
 
@@ -18,9 +18,11 @@ Register one application-lifetime `OnTypeFormattingEditProvider` for Markdown wi
 autoFormatTriggerCharacters: ["|"]
 ```
 
-The compact editor enables `formatOnType: true`. The provider is installed once from the modular Monaco runtime, not once per note editor. It uses public model, position, range, cancellation, language-registration, and text-edit APIs only.
+The compact editor enables `formatOnType: true`. The provider is installed once from the modular Monaco runtime and remains the native path for a typed structural `|`. It uses public model, position, range, cancellation, language-registration, and text-edit APIs only.
 
 The provider returns ordinary Monaco `TextEdit[]`. It does not call `setValue`, `executeEdits`, restore the caret itself, create an undo group, or register a keybinding. Monaco's formatting controller applies the edits and preserves its native typing/undo transaction.
+
+Monaco 0.56 requires an explicit finite list of on-type trigger characters; it has no wildcard for arbitrary Unicode input. Each note editor therefore installs a companion listener through Monaco's public model-content and composition events. A single-line insertion whose final range lies inside a table cell schedules formatting after Monaco finishes the current input operation. The listener maps Monaco's old event ranges into the final model for multi-cursor changes and, for insertions, also checks the line with the inserted span removed so text beyond a pre-existing closing border cannot be reclassified as a new cell. During IME it retains that initial inside/outside decision for every later replacement on the same line. It reuses the same pure formatter and minimal per-line edits, applies all affected rows through one public `editor.executeEdits` call, and uses Monaco's public `popStackElement`/`pushStackElement` history APIs to keep that batch in the same undo element as the insertion. It never calls `setValue`, maintains its own history, or restores cursor coordinates manually. The listener is disposed with the note editor.
 
 ## Shared Structural Pipe Scanner
 
@@ -37,16 +39,19 @@ For framed rows the scanner also preserves the whitespace prefix before the lead
 
 ## Trigger Eligibility
 
-The provider acts only when the just-typed character is a structural `|` on the current line. It returns no edits for:
+The native provider acts only when the just-typed character is a structural `|` on the current line. The companion listener covers every other non-empty single-line insertion whose final inserted range is inside a cell belonging to a structurally valid table. A pipe observed while IME composition is active remains pending for the companion path because Monaco's native typed-character event is not emitted for composition updates. Together the paths return no edits for:
 
 - `\|` escaped by an odd backslash run;
 - a pipe inside a matching inline-code span;
 - a pipe inside a backtick or tilde fenced code block;
 - cancellation;
 - a position that is not the just-typed pipe;
+- deletion, undo, redo, model replacement, or a line-breaking insertion;
+- an insertion before a framed opening border or after a framed/group-title closing border;
+- an event containing any multi-line replacement or inserted line break, even when another change in that event is single-line;
 - a document region without a valid table header and delimiter.
 
-Typing incomplete table syntax remains untouched. Formatting begins only once the containing candidate block is structurally valid.
+Typing incomplete table syntax remains untouched. Formatting begins only once the containing candidate block is structurally valid. IME composition is allowed to finish before the pending table is formatted; each interim update replaces that line's pending candidacy, the first update's cell eligibility survives later replacements, and an empty cancellation removes the candidate so a net-empty composition cannot reformat the table.
 
 ## Supported Table Grammar
 
@@ -127,7 +132,7 @@ Example:
 
 The pure formatter produces target text per changed source line. The Monaco adapter trims each line's unchanged prefix and suffix and returns the smallest non-overlapping `TextEdit` for that line.
 
-For the common closing-border trigger, formatting is normally a zero-width insertion immediately before the typed final `|`. Monaco therefore keeps the caret logically after that pipe. Multi-line width changes remain one provider response and one native formatting action.
+For the common closing-border trigger, formatting is normally a zero-width insertion immediately before the typed final `|`. Monaco therefore keeps the caret logically after that pipe. For other characters, minimal edits use moving markers. The listener reopens the history element for the just-finished insertion, applies the multi-line alignment as one edit batch, and closes the combined element through Monaco's public history boundaries. Monaco consequently moves the caret with the edited text, while one Undo reverses both typing and alignment without exposing a malformed intermediate table.
 
 The adapter never emits edits for unchanged lines, EOL characters, or text outside the detected table.
 
@@ -141,6 +146,7 @@ Return no edits for:
 - dangling group delimiter/title sequences;
 - mixed framing;
 - escaped, inline-code, or fenced trigger pipes;
+- fenced non-pipe insertions;
 - a normal blank or Markdown block boundary;
 - cancellation.
 
@@ -150,10 +156,10 @@ Ordinary Markdown text outside the candidate remains untouched. The provider exp
 
 Pure tests cover shared pipe scanning, renderer compatibility, framed and unframed tables, alignment markers, grouped-table triples, long titles, escaped pipes, backticks, strict malformed no-ops, framing preservation, and minimal line edits.
 
-Provider/runtime tests cover one Markdown registration, the `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility.
+Provider/runtime tests cover one Markdown registration, the native `|` trigger, `formatOnType`, cancellation and code exclusions, exact Monaco ranges, current-line table selection, no-op contexts, and modular runtime compatibility. Editor-local tests additionally cover sequential spare-padding consumption and overflow, framed and unframed group-title border eligibility, ordinary versus IME pipe routing, multi-update and canceled IME composition, final-coordinate mapping for multi-cursor changes, atomic rejection of line-breaking events, Monaco history grouping with Undo/Redo state, fenced-code exclusion, disposal with queued composition work, installation order, and cleanup.
 
-A disposable browser harness verifies formatting after the final pipe, caret position, one-step undo/redo, grouped tables, and console/worker cleanliness when a browser binding is available. If the environment exposes no browser, the exact failure is recorded and the scenario remains in the final cross-stack gate.
+A real-application browser smoke verifies sequential non-pipe typing through spare padding into overflow, caret continuity, exact one-step Undo/Redo without a malformed intermediate table, and console/worker cleanliness when a browser binding is available. The native final-pipe, grouped-table, marker, and exclusion paths remain covered by provider and pure-formatter suites. If the environment exposes no browser, the exact failure is recorded and the scenario remains in the final cross-stack gate.
 
 ## Stacked-Change Boundary
 
-The specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, tests, review fixes, and verification evidence belong to Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. Note cutover remains a separate descendant.
+The original specification, plan, shared scanner extraction, pure formatter, Monaco provider/runtime wiring, and tests belong to Jujutsu change `uxultnurvtoywymnzsnrssxoorurllkt`. That commit is immutable. JetBrains per-character parity, its documentation correction, regression tests, and editor-local wiring belong to a new descendant commit rather than rewriting the original change.

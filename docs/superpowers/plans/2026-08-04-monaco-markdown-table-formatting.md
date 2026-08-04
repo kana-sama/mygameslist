@@ -1,10 +1,10 @@
 # Monaco Markdown Table Formatting Implementation Plan
 
-> **Execution:** use subagent-driven development, test-driven development, Jujutsu only, and fold all fixes into change `uxultnurvtoywymnzsnrssxoorurllkt`.
+> **Execution:** use test-driven development and Jujutsu only. Change `uxultnurvtoywymnzsnrssxoorurllkt` is immutable; the JetBrains parity correction and all of its documentation, tests, and implementation ship together in a new descendant commit.
 
-**Goal:** Automatically align ordinary and grouped Markdown table source through Monaco's native format-on-type provider whenever a structural `|` completes a valid table.
+**Goal:** Automatically align ordinary and grouped Markdown table source after every character typed inside a valid table cell, matching JetBrains Markdown table editing.
 
-**Architecture:** Extract the renderer's structural-pipe scanner into a shared pure module, build a strict pure table formatter on that representation, and adapt its smallest per-line changes into one globally registered Monaco on-type provider. Monaco owns typing, applying edits, cursor tracking, and undo/redo.
+**Architecture:** Keep the shared scanner, strict pure formatter, and globally registered Monaco provider for structural `|`. Add an editor-local listener for all other single-line insertions because Monaco 0.56 has no wildcard on-type trigger; both paths reuse the same smallest per-line edits and public Monaco APIs.
 
 **Tech stack:** React 19, TypeScript 7, Monaco Editor 0.56, Vitest 4, Testing Library, Vite 8, Jujutsu.
 
@@ -12,13 +12,13 @@
 
 - Treat the matching design spec as the product contract.
 - Reuse one shared structural pipe scanner; do not duplicate the renderer parser.
-- Use Monaco's public on-type formatting API and `formatOnType: true`.
-- Do not add keybindings, editor actions, direct model edits, manual cursor restoration, or undo code.
+- Use Monaco's public on-type provider for `|`, public model-content/composition events for other characters, and `formatOnType: true`.
+- Do not add keybindings, custom typing commands, direct model edits, manual cursor restoration, or a custom undo implementation. Use only Monaco's public history boundaries when grouping alignment with the insertion that caused it.
 - Preserve escaped pipes, inline code, fences, colon markers, framing style, grouped-table grammar, and renderer source locations.
 - Format strictly; never invent cells or normalize malformed/incomplete tables.
 - Do not modify `GamePage`, note composition, completion, list editing, attachments, save/cancel, or note CSS.
 - Follow RED/GREEN TDD and record exact evidence.
-- Use `jj` exclusively. Review and verify the complete feature before `jj describe` and `jj new`.
+- Use `jj` exclusively. Never rewrite an existing or finalized commit; every correction is a new descendant.
 
 ## Task 1: Extract the shared structural table-line scanner
 
@@ -107,7 +107,7 @@ Export a pure result containing changed line indices and target text. Keep parsi
 
 Export a pure helper that trims common prefix/suffix for one original/target line and returns zero-based start/end source columns plus replacement text, or `null` when unchanged. Cover insertion before a closing `|`, replacement, deletion, identical lines, and conversion to Monaco's one-based range columns.
 
-## Task 3: Register the Monaco on-type provider once
+## Task 3: Register the native provider and editor-local typing hook
 
 **Create:**
 
@@ -118,8 +118,10 @@ Export a pure helper that trims common prefix/suffix for one original/target lin
 
 - `src/components/monacoEditorRuntime.ts`
 - `src/components/monacoMarkdownEditorConfig.ts`
+- `src/components/MonacoNoteEditor.tsx`
 - `tests/monaco-editor-runtime.test.ts`
 - `tests/monaco-markdown-editor-config.test.ts`
+- `tests/monaco-note-editor.test.tsx`
 
 ### Step 1: Write failing provider/config/runtime tests
 
@@ -128,6 +130,15 @@ Assert:
 - one `registerOnTypeFormattingEditProvider("markdown", ...)` call at runtime initialization;
 - `autoFormatTriggerCharacters: ["|"]`;
 - compact options include `formatOnType: true`;
+- every other single-line character insertion inside a valid table schedules editor-local formatting;
+- spare padding is consumed without moving separators, while overflow widens every row in the column;
+- one Monaco history element contains both the inserted character and its alignment edits;
+- framed border-adjacent text remains untouched when the insertion is outside a cell;
+- non-whitespace after an unframed group-title closing pipe remains outside the table;
+- IME-composed structural pipes use the companion path while ordinary pipes stay native;
+- later IME replacements retain the first update's inside/outside-cell eligibility;
+- canceled IME composition clears its pending table candidate;
+- multi-change old ranges map to final model positions, while any line-breaking event is rejected atomically;
 - cancelled, escaped, inline-code, fenced, non-pipe, and non-table triggers return no edits;
 - valid tables return exact smallest `TextEdit` ranges for every changed line;
 - the final-pipe case is a zero-width insertion before that pipe;
@@ -135,61 +146,67 @@ Assert:
 
 Observe RED before the provider/runtime registration and option exist.
 
-### Step 2: Implement the adapter and runtime wiring
+### Step 2: Implement the adapter and runtime/editor wiring
 
 At the just-typed position, prove the previous source character is a structural pipe using the shared scanner. Reject fenced code through the established pure fence helper. Pass model line contents to the formatter and convert changed line results through the minimal-edit helper into Monaco ranges.
 
-Register the provider once from `monacoEditorRuntime.ts`. Keep the application-lifetime registration; do not install it through each editor's `onReady` callback.
+Register the provider once from `monacoEditorRuntime.ts`. Install a companion disposable through each note editor's `onReady` callback. It maps old multi-change ranges into the final model, checks both final and pre-insertion borders to prove each inserted range is inside a table cell, retains the first IME update's eligibility across replacements, ignores undo/redo/model replacement/line-breaking events and fenced code, waits for IME composition to finish, clears canceled composition candidates, and applies one deduplicated minimal edit batch. Reopen and close the just-finished insertion's history element through Monaco's public `popStackElement`/`pushStackElement` APIs so Undo/Redo never exposes alignment without its typed character. Keep ordinary `|` input on Monaco's native provider path and route a pipe observed during IME through the companion.
 
 ### Step 3: Reach focused and full GREEN
 
 Run:
 
 ```sh
-npm test -- tests/markdown-table-syntax.test.ts tests/markdown-table-formatting.test.ts tests/monaco-markdown-table-formatting.test.ts tests/monaco-editor-runtime.test.ts tests/monaco-markdown-editor-config.test.ts
+npm test -- tests/markdown-table-syntax.test.ts tests/markdown-table-formatting.test.ts tests/monaco-markdown-table-formatting.test.ts tests/monaco-editor-runtime.test.ts tests/monaco-markdown-editor-config.test.ts tests/monaco-note-editor.test.tsx
 npm test
 npm run build
 ```
 
-## Task 4: Disposable browser smoke when available
+## Task 4: Real-application browser smoke when available
 
-**Temporary only:**
-
-- `monaco-smoke.html`
-- `src/monacoSmoke.tsx`
-
-Mount the real compact Monaco editor with ordinary and grouped table examples. Start Vite on `127.0.0.1:4173` and use the Browser skill.
+Start Vite on `127.0.0.1:4173`, use the Browser skill, and open an existing note in the real compact Monaco editor. Replace only the unsaved editor buffer with an ordinary table fixture, then cancel editing without saving any user data.
 
 Verify:
 
-1. Typing the final framed `|` aligns all column and outer pipes.
-2. The caret remains after the typed pipe.
-3. One undo returns to the unformatted text with the typed `|` still present; redo reapplies formatting.
-4. Right/center markers remain unchanged and affect source padding.
-5. A grouped table aligns title spans and only widens the final column for a long title.
-6. Escaped, inline-code, fenced, malformed, and mixed-frame cases remain unchanged.
-7. No console, worker, duplicate-provider, or cursor errors occur.
+1. Typing a non-pipe character into spare cell width keeps every separator in place.
+2. Typing beyond the current cell width moves the column boundary in every table row.
+3. Typing the final framed `|` still uses the native provider and aligns all outer pipes.
+4. The caret remains after the typed character, and undo/redo introduces no cursor jump or malformed intermediate table.
+5. Right/center markers remain unchanged and affect source padding.
+6. A grouped table aligns title spans and only widens the final column for a long title.
+7. Escaped, inline-code, fenced, malformed, and mixed-frame cases remain unchanged.
+8. No console, worker, duplicate-provider, or cursor errors occur.
 
-If no browser binding is available, record the exact environment failure and keep these cases in the final cross-stack gate. Always stop Vite and delete the harness through `apply_patch`.
+If no browser binding is available, record the exact environment failure and keep these cases in the final cross-stack gate. Always cancel the unsaved edit and stop Vite.
 
 ## Task 5: Review and finalize the stacked feature
 
-Inspect `jj status` and the complete `jj diff`. Request an independent review against the spec and plan. Fix Critical/Important findings, fold them into `uxultnurvtoywymnzsnrssxoorurllkt`, and request scoped re-review.
+Inspect `jj status` and the complete `jj diff`. Request an independent review against the spec and plan. Put any later review correction in another descendant commit; never edit, squash into, rebase, or otherwise rewrite a finalized change.
 
 Run fresh full tests and production build. Describe the feature in detail:
 
 ```text
-Add native Monaco Markdown table formatting
+Match JetBrains table formatting on every typed character
 
-Align ordinary and grouped Markdown tables through Monaco format-on-type:
+Keep ordinary and grouped Markdown tables aligned throughout typing:
 - share structural pipe parsing with the renderer
+- preserve Monaco's native format-on-type provider for structural pipes
+- reformat valid table cells after every other single-line insertion
+- consume spare padding without moving a column boundary
+- widen every affected row only after content exceeds the current width
+- preserve text inserted outside framed borders
+- preserve text beyond unframed group-title closing borders
+- route IME-composed pipes through the editor-local path and ordinary pipes through Monaco's native provider
+- retain initial cell eligibility across later IME replacement updates
+- discard pending formatting when IME composition is canceled
+- map multi-cursor changes into final model coordinates and reject line-breaking batches atomically
 - preserve escaped pipes, inline code, framing, alignment markers, and grouped-table syntax
 - format only structurally valid complete candidates
 - align full-row group titles and widen only the final column when necessary
-- return minimal per-line Monaco text edits while leaving caret and undo behavior native
-- register one Markdown provider for the application lifetime
+- return minimal per-line Monaco text edits and group them with typing through Monaco's public history boundaries
+- clean up the editor-local typing listener with each note editor
 
-Cover source scanning, renderer compatibility, ordinary/grouped framing and alignment, strict no-op boundaries, minimal edits, provider exclusions, runtime registration, and production build compatibility.
+Cover source scanning, renderer compatibility, ordinary/grouped framing and alignment, strict no-op boundaries, minimal edits, provider exclusions, sequential non-pipe input, width growth, framed/group-title cell borders, IME commit/cancel, multi-change mapping, history grouping, fenced code, cleanup, runtime registration, real-browser Undo/Redo, and production build compatibility.
 ```
 
 Use `jj describe` on the feature change and then `jj new`. The final working copy must be a clean empty child.
