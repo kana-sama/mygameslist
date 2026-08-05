@@ -935,6 +935,78 @@ function buildHunks(
     .map(({ index }) => index);
   if (changed.length === 0) return [];
 
+  const linesById = new Map(lines.map((line) => [line.id, line]));
+  const fragmentByLineId = new Map<string, MarkdownDiffFragment>();
+  for (const fragment of fragments) {
+    for (const lineId of fragment.sourceLineIds) fragmentByLineId.set(lineId, fragment);
+  }
+  const isTableFragment = (fragment: MarkdownDiffFragment | undefined): boolean =>
+    fragment?.blockType === "table" || fragment?.blockType === "tableRow" || fragment?.blockType === "tableCell";
+  const isTableDelimiter = (value: string): boolean => {
+    const cells = tableCells(value);
+    return cells.length > 0 && cells.every((cell) => /^:?-+:?$/u.test(cell.value));
+  };
+  const structuralRanges: Array<{ start: number; end: number }> = [];
+  let tableColumnCount: number | null = null;
+  for (let index = 0; index < lines.length; index += 1) {
+    const delimiter = lines[index];
+    const delimiterFragment = fragmentByLineId.get(delimiter.id);
+    if (!isTableFragment(delimiterFragment)) {
+      tableColumnCount = null;
+      continue;
+    }
+    if (delimiter.kind !== "context" || !isTableDelimiter(delimiter.value)) continue;
+    const delimiterCells = tableCells(delimiter.value);
+
+    const header = lines[index - 1];
+    if (
+      delimiterFragment?.blockType === "table"
+      && header?.kind === "context"
+      && fragmentByLineId.get(header.id)?.blockType === "tableRow"
+      && tableCells(header.value).length === delimiterCells.length
+    ) {
+      tableColumnCount = delimiterCells.length;
+      structuralRanges.push({ start: index - 1, end: index + 1 });
+    }
+
+    const title = lines[index + 1];
+    const closingDelimiter = lines[index + 2];
+    const titleCells = title ? tableCells(title.value) : [];
+    if (
+      isTableFragment(delimiterFragment)
+      && title?.kind === "context"
+      && closingDelimiter?.kind === "context"
+      && isTableFragment(fragmentByLineId.get(title.id))
+      && isTableFragment(fragmentByLineId.get(closingDelimiter.id))
+      && titleCells.length === 1
+      && titleCells[0].value.length > 0
+      && isTableDelimiter(closingDelimiter.value)
+      && delimiterCells.length === tableColumnCount
+      && tableCells(closingDelimiter.value).length === tableColumnCount
+    ) {
+      structuralRanges.push({ start: index, end: index + 3 });
+    }
+  }
+  const expandToStructuralClosure = (
+    window: { start: number; end: number },
+  ): { start: number; end: number } => {
+    const expanded = { ...window };
+    let changedRange = true;
+    while (changedRange) {
+      changedRange = false;
+      for (const range of structuralRanges) {
+        if (range.start >= expanded.end || range.end <= expanded.start) continue;
+        const start = Math.min(expanded.start, range.start);
+        const end = Math.max(expanded.end, range.end);
+        if (start === expanded.start && end === expanded.end) continue;
+        expanded.start = start;
+        expanded.end = end;
+        changedRange = true;
+      }
+    }
+    return expanded;
+  };
+
   const windows: Array<{ start: number; end: number }> = [];
   let changeCursor = 0;
   while (changeCursor < changed.length) {
@@ -954,24 +1026,13 @@ function buildHunks(
       if (lines[end].kind === "context") context += 1;
       end += 1;
     }
+    ({ start, end } = expandToStructuralClosure({ start, end }));
     const previous = windows.at(-1);
     if (previous && start <= previous.end) previous.end = Math.max(previous.end, end);
     else windows.push({ start, end });
     changeCursor = runEnd + 1;
   }
 
-  const linesById = new Map(lines.map((line) => [line.id, line]));
-  const fragmentByLineId = new Map<string, MarkdownDiffFragment>();
-  for (const fragment of fragments) {
-    for (const lineId of fragment.sourceLineIds) fragmentByLineId.set(lineId, fragment);
-  }
-  const isTableFragment = (fragment: MarkdownDiffFragment | undefined): boolean =>
-    fragment?.blockType === "table" || fragment?.blockType === "tableRow" || fragment?.blockType === "tableCell";
-  const isTableDelimiter = (value: string): boolean => {
-    if (!value.includes("|")) return false;
-    const cells = value.trim().replace(/^\|/u, "").replace(/\|$/u, "").split("|");
-    return cells.length > 0 && cells.every((cell) => /^\s*:?-+:?\s*$/u.test(cell));
-  };
   const sliceDecorations = (
     decorations: readonly MarkdownDecoration[],
     startLine: number,

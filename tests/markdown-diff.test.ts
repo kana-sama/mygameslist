@@ -306,6 +306,69 @@ describe("exact Markdown source diff", () => {
     expect(model.hunks[1].lines[0]?.value).toBe("Строка 9");
   });
 
+  it("expands a table group scaffold without changing the exact source diff", () => {
+    const before = [
+      "| Уровень | ✓ | TW | SiP | HC |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous group |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous row | [x] | [x] | [x] | [x] |",
+      "| --- | --- | --- | --- | --- |",
+      "| Goblet of Fire |",
+      "| --- | --- | --- | --- | --- |",
+      "| The Quidditch World Cup | [x] | [x] | [ ] | [ ] |",
+      "| Dragons | [x] | [x] | [ ] | [ ] |",
+      "| The First Task | [ ] | [ ] | [ ] | [ ] |",
+    ].join("\n");
+    const after = before.replace(
+      "| The First Task | [ ] | [ ] | [ ] | [ ] |",
+      "| The First Task | [x] | [ ] | [ ] | [ ] |",
+    );
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.hunks[0]?.lines.slice(0, 3).map((line) => line.value)).toEqual([
+      "| --- | --- | --- | --- | --- |",
+      "| Goblet of Fire |",
+      "| --- | --- | --- | --- | --- |",
+    ]);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
+  it.each([
+    {
+      name: "a multi-cell title",
+      frame: "| --- | --- | --- | --- | --- |",
+      title: "| Not a group | |",
+      closing: "| --- | --- | --- | --- | --- |",
+    },
+    {
+      name: "delimiters with the wrong column count",
+      frame: "| --- | --- |",
+      title: "| Not a group |",
+      closing: "| --- | --- |",
+    },
+  ])("does not expand a false group scaffold with $name", ({ frame, title, closing }) => {
+    const before = [
+      "| A | B | C | D | E |",
+      "| --- | --- | --- | --- | --- |",
+      "| Ordinary row | 1 | 2 | 3 | 4 |",
+      frame,
+      title,
+      closing,
+      "| Row A | 1 | 2 | 3 | 4 |",
+      "| Row B | 1 | 2 | 3 | 4 |",
+      "| Target | old | 2 | 3 | 4 |",
+    ].join("\n");
+    const after = before.replace("| Target | old |", "| Target | new |");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.hunks[0]?.lines[0]?.value).toBe(closing);
+    expect(model.hunks[0]?.lines.map((line) => line.value)).not.toContain(title);
+    expect(reconstructBefore(model.lines)).toBe(before);
+    expect(reconstructAfter(model.lines)).toBe(after);
+  });
+
   it("slices a shared paragraph fragment to each distant hunk window", () => {
     const before = Array.from({ length: 20 }, (_, index) => `Строка ${index + 1}`).join("\n");
     const afterLines = before.split("\n");

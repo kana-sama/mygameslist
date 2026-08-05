@@ -512,6 +512,57 @@ describe("compact Markdown diff preview", () => {
     );
   });
 
+  it("keeps a complete group header when only its trailing delimiter enters hunk context", () => {
+    const before = [
+      "| Уровень | ✓ | TW | SiP | HC |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous group |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous row | [x] | [x] | [x] | [x] |",
+      "| --- | --- | --- | --- | --- |",
+      "| Goblet of Fire |",
+      "| --- | --- | --- | --- | --- |",
+      "| The Quidditch World Cup | [x] | [x] | [ ] | [ ] |",
+      "| Dragons | [x] | [x] | [ ] | [ ] |",
+      "| The First Task | [ ] | [ ] | [ ] | [ ] |",
+      "| Secret of the Egg | [ ] | [ ] | [ ] | [ ] |",
+    ].join("\n");
+    const after = before.replace(
+      "| The First Task | [ ] | [ ] | [ ] | [ ] |",
+      "| The First Task | [x] | [ ] | [ ] | [ ] |",
+    );
+
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getByText("Goblet of Fire").closest("th")).toHaveAttribute("colspan", "5");
+    expect(screen.getByText("The First Task").closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+    expect(screen.queryByText(/^[-:]+$/u)).not.toBeInTheDocument();
+  });
+
+  it("keeps the table header when its delimiter is the first hunk context line", () => {
+    const before = [
+      "| Уровень | ✓ | TW | SiP | HC |",
+      "| --- | --- | --- | --- | --- |",
+      "| Philosopher's Stone |",
+      "| --- | --- | --- | --- | --- |",
+      "| The Magic Begins | [x] | [x] | [x] | [ ] |",
+      "| Out of the Dungeon | [x] | [x] | [x] | [ ] |",
+      "| A Jinxed Broom | [x] | [x] | [ ] | [ ] |",
+      "| The Restricted Section | [x] | [x] | [ ] | [ ] |",
+    ].join("\n");
+    const after = before.replace(
+      "| The Magic Begins | [x] | [x] | [x] | [ ] |",
+      "| The Magic Begins | [x] | [x] | [x] | [x] |",
+    );
+
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getByRole("columnheader", { name: "Уровень" })).toBeInTheDocument();
+    expect(screen.getByText("Philosopher's Stone").closest("th")).toHaveAttribute("colspan", "5");
+    expect(screen.getByText("The Magic Begins").closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+  });
+
   it("preserves an internal table group in a red-green fallback", () => {
     const before = [
       "| Уровень | Ссылка | TW | SiP | HC |",
