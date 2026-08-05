@@ -2,10 +2,18 @@ import { Fragment, useEffect, useId, useMemo, useState, type ClipboardEvent, typ
 import type { MarkdownDecoration } from "../domain/markdownDiff";
 import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
+import type {
+  RenderedInlineChange,
+  RenderedRowChange,
+  RenderedTaskChange,
+} from "./markdownDiffRenderModel";
+import { markdownInlineTokenPattern } from "./markdownInlineSyntax";
 import { scanMarkdownTableLine } from "./markdownTableSyntax";
 
 interface MarkdownInlineLocation {
   decorations: readonly MarkdownDecoration[];
+  inlineChanges: readonly RenderedInlineChange[];
+  renderedInlineChangeIds: Set<string>;
   sourceColumn: number;
   sourceLine: number;
 }
@@ -23,7 +31,7 @@ function decorationAt(
   });
 }
 
-function renderDecoratedText(
+function renderDecorationOnly(
   text: string,
   keyPrefix: string,
   rawStart: number,
@@ -59,9 +67,75 @@ function renderDecoratedText(
   });
 }
 
+function renderInlineChange(change: RenderedInlineChange, key: string): ReactNode {
+  return (
+    <Fragment key={key}>
+      {change.removed ? (
+        <del
+          aria-label={`Удалено: ${change.removed}`}
+          className="markdown-diff-inline markdown-diff-inline--removed"
+          data-diff-kind="removed"
+        >
+          {change.removed}
+        </del>
+      ) : null}
+      {change.removed && change.added ? (
+        <span aria-hidden="true" className="markdown-diff-inline-arrow">→</span>
+      ) : null}
+      {change.added ? (
+        <ins
+          aria-label={`Добавлено: ${change.added}`}
+          className="markdown-diff-inline markdown-diff-inline--added"
+          data-diff-kind="added"
+        >
+          {change.added}
+        </ins>
+      ) : null}
+    </Fragment>
+  );
+}
+
+function renderDecoratedText(
+  text: string,
+  keyPrefix: string,
+  rawStart: number,
+  location?: MarkdownInlineLocation,
+): ReactNode[] {
+  if (!location || !text) return text ? [text] : [];
+  const sourceStart = location.sourceColumn + rawStart;
+  const sourceEnd = sourceStart + text.length;
+  const changes = location.inlineChanges
+    .filter((change) =>
+      change.sourceLine === location.sourceLine
+      && !location.renderedInlineChangeIds.has(change.id)
+      && change.startColumn >= sourceStart
+      && change.endColumn <= sourceEnd,
+    )
+    .sort((left, right) => left.startColumn - right.startColumn || left.endColumn - right.endColumn);
+  if (!changes.length) return renderDecorationOnly(text, keyPrefix, rawStart, location);
+
+  const nodes: ReactNode[] = [];
+  let cursor = sourceStart;
+  for (const change of changes) {
+    if (change.startColumn > cursor) {
+      const start = cursor - sourceStart;
+      const end = change.startColumn - sourceStart;
+      nodes.push(...renderDecorationOnly(text.slice(start, end), `${keyPrefix}-before-${change.id}`, rawStart + start, location));
+    }
+    nodes.push(renderInlineChange(change, `${keyPrefix}-inline-${change.id}`));
+    location.renderedInlineChangeIds.add(change.id);
+    cursor = Math.max(cursor, change.endColumn);
+  }
+  if (cursor < sourceEnd) {
+    const start = cursor - sourceStart;
+    nodes.push(...renderDecorationOnly(text.slice(start), `${keyPrefix}-after`, rawStart + start, location));
+  }
+  return nodes;
+}
+
 function renderInline(source: string, keyPrefix = "inline", location?: MarkdownInlineLocation): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const token = /(`[^`\n]+`|\[[^\]\n]+\]\([^\s)]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
+  const token = markdownInlineTokenPattern();
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -132,6 +206,7 @@ interface MarkdownListItem {
   sourceTextEnd: number;
   sourceTextStart: number;
   taskChecked?: boolean;
+  taskSourceColumn?: number;
   children: MarkdownBlock[];
   checklistProgress?: ChecklistProgress;
   collapseId?: string;
@@ -253,6 +328,7 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
       sourceTextEnd: sourceLines[index].start + sourceLines[index].content.length,
       sourceTextStart,
       taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+      taskSourceColumn: task ? line.valueColumn : undefined,
       children: [],
       sourceLocations: [{ sourceColumn: sourceTextStart - sourceLines[index].start, sourceLine }],
     };
@@ -786,9 +862,12 @@ export interface MarkdownViewProps {
   className?: string;
   collapsedChecklistSections?: readonly string[];
   decorations?: readonly MarkdownDecoration[];
+  inlineChanges?: readonly RenderedInlineChange[];
   emptyText?: string;
   onCollapsedChecklistSectionsChange?: (sections: string[]) => void;
   onTaskChange?: (markdown: string) => void;
+  rowChanges?: readonly RenderedRowChange[];
+  taskChanges?: readonly RenderedTaskChange[];
   taskChangesDisabled?: boolean;
 }
 
@@ -856,27 +935,68 @@ function ChecklistProgressView({ progress }: { progress: ChecklistProgress }) {
   );
 }
 
-export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], decorations, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, taskChangesDisabled = false }: MarkdownViewProps) {
+function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
+  return (
+    <span className="markdown-diff-task-change">
+      <input
+        aria-label={change.beforeChecked ? "Было отмечено" : "Было не отмечено"}
+        checked={change.beforeChecked}
+        className="markdown-task-checkbox"
+        disabled
+        readOnly
+        type="checkbox"
+      />
+      <span aria-hidden="true" className="markdown-diff-inline-arrow">→</span>
+      <input
+        aria-label={change.afterChecked ? "Стало отмечено" : "Стало не отмечено"}
+        checked={change.afterChecked}
+        className="markdown-task-checkbox"
+        disabled
+        readOnly
+        type="checkbox"
+      />
+    </span>
+  );
+}
+
+export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], decorations, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseBlocks(markdown), [markdown]);
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
   const taskTextEditingEnabled = Boolean(onTaskChange) && !taskChangesDisabled;
+  const taskChangeAt = (sourceLine: number, sourceColumn?: number): RenderedTaskChange | undefined =>
+    taskChanges.find((change) =>
+      change.sourceLine === sourceLine
+      && (change.sourceColumn === undefined || sourceColumn === undefined || change.sourceColumn === sourceColumn),
+    );
   const visualDecoration = (sourceLine: number): MarkdownDecoration | undefined => decorations?.find(
     (decoration) => sourceLine >= decoration.startLine && sourceLine <= decoration.endLine,
   );
   const diffVisualAttributes = (sourceLine?: number, evidence?: string) => {
-    if (!decorations || sourceLine === undefined) return {};
+    if ((!decorations && !rowChanges.length) || sourceLine === undefined) return {};
+    const rowChange = rowChanges.find((change) => change.sourceLine === sourceLine);
     const decoration = visualDecoration(sourceLine);
+    const label = rowChange?.label ?? decoration?.label;
+    const kind = rowChange?.kind ?? decoration?.kind ?? "context";
     return {
-      "aria-label": decoration && evidence ? `${decoration.label}: ${evidence}` : decoration?.label,
-      "data-diff-kind": decoration?.kind ?? "context",
+      "aria-label": label && evidence && kind !== "modified" ? `${label}: ${evidence}` : label,
+      "data-diff-kind": kind,
       "data-testid": "diff-visual-row",
     };
   };
   const locatedInline = (value: string, key: string, location?: MarkdownTextLocation): ReactNode[] =>
-    renderInline(value, key, decorations && location ? { decorations, ...location } : undefined);
+    renderInline(
+      value,
+      key,
+      location && (decorations || inlineChanges.length) ? {
+        decorations: decorations ?? [],
+        inlineChanges,
+        renderedInlineChangeIds: new Set(),
+        ...location,
+      } : undefined,
+    );
   const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = []): ReactNode => {
-    if (!decorations) return renderInline(value, key);
+    if (!decorations && !inlineChanges.length) return renderInline(value, key);
     const lines = value.split("\n");
     return lines.map((line, index) => (
       <Fragment key={`${key}-line-${index}`}>
@@ -992,23 +1112,26 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
           }
           const editing = activeTaskEditor?.kind === "edit" && activeTaskEditor.sourceLine === item.sourceLine;
           const taskLabel = markdownLabel(item.firstLineValue) || "пункт";
+          const taskChange = taskChangeAt(item.sourceLine, item.taskSourceColumn);
           return (
             <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemKey}>
               <div className="markdown-task-row">
-                <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
-                  <input
-                    aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`}
-                    checked={item.taskChecked}
-                    className="markdown-task-checkbox"
-                    disabled={!onTaskChange || taskChangesDisabled}
-                    onChange={(event) => {
-                      const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
-                      if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                    type="checkbox"
-                  />
-                </label>
+                {taskChange ? <TaskDiffControl change={taskChange} /> : (
+                  <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`}
+                      checked={item.taskChecked}
+                      className="markdown-task-checkbox"
+                      disabled={!onTaskChange || taskChangesDisabled}
+                      onChange={(event) => {
+                        const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
+                        if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      type="checkbox"
+                    />
+                  </label>
+                )}
                 <span className="markdown-task-content">
                   {editing ? (
                     <MarkdownSingleLineEditor
@@ -1069,24 +1192,27 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
             const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
             const cellLabel = markdownLabel(cell.value);
             const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
+            const taskChange = taskChangeAt(row.sourceLine, cell.taskSourceColumn);
             return (
               <td className={alignmentClass(cellIndex)} key={cellKey}>
                 <div className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}`}>
-                  <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
-                    <input
-                      aria-label={`${cell.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
-                      checked={cell.taskChecked}
-                      className="markdown-task-checkbox"
-                      disabled={!onTaskChange || taskChangesDisabled}
-                      onChange={(event) => {
-                        if (cell.taskSourceColumn === undefined) return;
-                        const nextMarkdown = setMarkdownTableTaskChecked(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked);
-                        if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                      type="checkbox"
-                    />
-                  </label>
+                  {taskChange ? <TaskDiffControl change={taskChange} /> : (
+                    <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        aria-label={`${cell.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
+                        checked={cell.taskChecked}
+                        className="markdown-task-checkbox"
+                        disabled={!onTaskChange || taskChangesDisabled}
+                        onChange={(event) => {
+                          if (cell.taskSourceColumn === undefined) return;
+                          const nextMarkdown = setMarkdownTableTaskChecked(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked);
+                          if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                        }}
+                        onClick={(event) => event.stopPropagation()}
+                        type="checkbox"
+                      />
+                    </label>
+                  )}
                   {cell.value ? <span>{locatedInline(cell.value, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</span> : null}
                 </div>
               </td>

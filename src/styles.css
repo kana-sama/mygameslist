@@ -437,10 +437,13 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-rendered-markdown tr[data-diff-kind="modified"] > :first-child { border-inline-start: 2px solid var(--diff-modified-edge); }
 .markdown-diff-rendered-unit + .markdown-diff-rendered-unit, .markdown-diff-modified + .markdown-diff-rendered-unit, .markdown-diff-rendered-unit + .markdown-diff-modified, .markdown-diff-modified + .markdown-diff-modified { border-top: 1px solid rgba(255, 255, 255, .025); }
 .markdown-diff-modified { border-inline-start: 0; }
-.markdown-diff-inline { border-radius: 2px; }
-.markdown-diff-inline--added { background: rgba(83, 174, 116, .3); box-shadow: 0 0 0 1px rgba(83, 174, 116, .16); }
-.markdown-diff-inline--removed { background: rgba(207, 83, 94, .3); box-shadow: 0 0 0 1px rgba(207, 83, 94, .16); }
+.markdown-diff-inline { border-radius: 2px; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.markdown-diff-inline--added { color: #8acb9e; background: rgba(83, 174, 116, .3); box-shadow: 0 0 0 1px rgba(83, 174, 116, .16); text-decoration-line: underline; }
+.markdown-diff-inline--removed { color: #df8a92; background: rgba(207, 83, 94, .3); box-shadow: 0 0 0 1px rgba(207, 83, 94, .16); text-decoration-line: line-through; }
 .markdown-diff-inline--modified { background: rgba(213, 164, 72, .3); box-shadow: 0 0 0 1px rgba(213, 164, 72, .16); }
+.markdown-diff-inline-arrow { margin: 0 4px; color: var(--diff-modified-edge); font-weight: 600; }
+.markdown-diff-task-change { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 18px; }
+.markdown-diff-task-change .markdown-diff-inline-arrow { margin-inline: 3px; }
 .markdown-diff-rendered-markdown { font-size: 11px; line-height: 1.35; }
 .markdown-diff-rendered-markdown p, .markdown-diff-rendered-markdown ul, .markdown-diff-rendered-markdown ol { margin-top: .25em; margin-bottom: .25em; }
 .markdown-diff-rendered-markdown h2, .markdown-diff-rendered-markdown h3, .markdown-diff-rendered-markdown h4 { margin: .35em 0 .2em; }

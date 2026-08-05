@@ -1,14 +1,18 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type {
-  MarkdownChangeKind,
-  MarkdownDecoration,
   MarkdownDiffFragment,
   MarkdownDiffHunk,
   MarkdownDiffModel,
-  MarkdownDiffSide,
   SourceDiffLine,
 } from "../domain/markdownDiff";
 import { MarkdownView } from "./Markdown";
+import {
+  renderedDiffSide,
+  renderedDiffUnit,
+  renderedDiffUnits,
+  type RenderedDiffSide,
+  type RenderedDiffUnit,
+} from "./markdownDiffRenderModel";
 
 export interface MarkdownDiffPreviewProps {
   model: MarkdownDiffModel;
@@ -16,38 +20,8 @@ export interface MarkdownDiffPreviewProps {
 }
 
 type PreviewMode = "rendered" | "source";
-type SideLabel = "Добавлено" | "Удалено";
-
-interface RenderedSide {
-  decorations: readonly MarkdownDecoration[];
-  key: string;
-  kind: MarkdownChangeKind;
-  label?: SideLabel;
-  markdown: string;
-  visualRows: number;
-}
-
-interface RenderedUnit {
-  changed: boolean;
-  key: string;
-  modified: boolean;
-  sides: RenderedSide[];
-  visualRows: number;
-}
 
 const DEFAULT_PREVIEW_ROWS = 12;
-
-function isTableFragment(fragment: MarkdownDiffFragment): boolean {
-  return fragment.blockType === "table" || fragment.blockType === "tableRow" || fragment.blockType === "tableCell";
-}
-
-function sideLines(hunk: MarkdownDiffHunk, side: "before" | "after"): SourceDiffLine[] {
-  return hunk.lines.filter((line) => side === "before" ? line.kind !== "added" : line.kind !== "removed");
-}
-
-function sideMarkdown(lines: readonly SourceDiffLine[]): string {
-  return lines.map((line) => `${line.value}${line.eol}`).join("");
-}
 
 function markdownLines(markdown: string): string[] {
   return markdown.split(/\r\n|\r|\n/u);
@@ -59,134 +33,6 @@ function isTableDelimiter(line: string): boolean {
   return cells.length > 0 && cells.every((cell) => /^\s*:?-+:?\s*$/u.test(cell));
 }
 
-function visualRowCount(markdown: string): number {
-  return markdownLines(markdown).reduce(
-    (rows, line) => rows + (line.trim() && !isTableDelimiter(line) ? 1 : 0),
-    0,
-  );
-}
-
-function renderedSide(
-  value: Omit<RenderedSide, "visualRows">,
-): RenderedSide {
-  return { ...value, visualRows: visualRowCount(value.markdown) };
-}
-
-function renderedUnit(
-  value: Omit<RenderedUnit, "visualRows">,
-): RenderedUnit {
-  return {
-    ...value,
-    visualRows: value.sides.reduce((rows, side) => rows + side.visualRows, 0),
-  };
-}
-
-function hunkDecorations(
-  hunk: MarkdownDiffHunk,
-  fragments: readonly MarkdownDiffFragment[],
-  side: "before" | "after",
-  lineOffset = 0,
-): MarkdownDecoration[] {
-  const lines = sideLines(hunk, side);
-  const lineIndexes = new Map(lines.map((line, index) => [line.id, index]));
-  const decorations: MarkdownDecoration[] = [];
-  for (const fragment of fragments) {
-    const content = fragment[side];
-    if (!content?.decorations.length) continue;
-    const firstLine = fragment.sourceLineIds
-      .map((id) => lineIndexes.get(id))
-      .find((line): line is number => line !== undefined);
-    if (firstLine === undefined) continue;
-    decorations.push(...content.decorations.map((decoration) => ({
-      ...decoration,
-      endLine: decoration.endLine + firstLine + lineOffset,
-      startLine: decoration.startLine + firstLine + lineOffset,
-    })));
-  }
-  return decorations;
-}
-
-function tableUnit(hunk: MarkdownDiffHunk, fragments: readonly MarkdownDiffFragment[]): RenderedUnit {
-  const beforeLines = sideLines(hunk, "before");
-  const afterLines = sideLines(hunk, "after");
-  const hasRemoved = hunk.lines.some((line) => line.kind === "removed");
-  const hasAdded = hunk.lines.some((line) => line.kind === "added");
-  const modified = hasRemoved && hasAdded;
-  const sides: RenderedSide[] = [];
-  const withPrologue = (side: "before" | "after", markdown: string): { lineOffset: number; markdown: string } => {
-    const prologue = hunk.structuralPrologue?.[side].markdown ?? "";
-    return {
-      lineOffset: prologue.match(/\r\n|\r|\n/gu)?.length ?? 0,
-      markdown: `${prologue}${markdown}`,
-    };
-  };
-  if (beforeLines.length && (hasRemoved || !hasAdded)) {
-    const content = withPrologue("before", sideMarkdown(beforeLines));
-    sides.push(renderedSide({
-      decorations: hunkDecorations(hunk, fragments, "before", content.lineOffset),
-      key: `${hunk.id}-table-before`,
-      kind: "context",
-      markdown: content.markdown,
-    }));
-  }
-  if (afterLines.length && (hasAdded || !hasRemoved)) {
-    const content = withPrologue("after", sideMarkdown(afterLines));
-    sides.push(renderedSide({
-      decorations: hunkDecorations(hunk, fragments, "after", content.lineOffset),
-      key: `${hunk.id}-table-after`,
-      kind: "context",
-      markdown: content.markdown,
-    }));
-  }
-  return renderedUnit({ changed: hasRemoved || hasAdded, key: `${hunk.id}-table`, modified, sides });
-}
-
-function fragmentUnit(fragment: MarkdownDiffFragment): RenderedUnit | null {
-  const side = (
-    content: MarkdownDiffSide | undefined,
-    name: "before" | "after",
-    kind: MarkdownChangeKind,
-    label?: SideLabel,
-  ): RenderedSide | null => content ? renderedSide({
-    decorations: content.decorations,
-    key: `${fragment.id}-${name}`,
-    kind,
-    label,
-    markdown: content.markdown,
-  }) : null;
-
-  if (fragment.kind === "modified") {
-    const sides = [
-      side(fragment.before, "before", "modified", "Удалено"),
-      side(fragment.after, "after", "modified", "Добавлено"),
-    ].filter((item): item is RenderedSide => item !== null);
-    return renderedUnit({ changed: true, key: fragment.id, modified: true, sides });
-  }
-  const content = fragment.kind === "removed" ? fragment.before : fragment.after ?? fragment.before;
-  const rendered = side(
-    content,
-    fragment.kind === "removed" ? "before" : "after",
-    fragment.kind,
-    fragment.kind === "added" ? "Добавлено" : fragment.kind === "removed" ? "Удалено" : undefined,
-  );
-  return rendered ? renderedUnit({
-    changed: fragment.kind !== "context",
-    key: fragment.id,
-    modified: false,
-    sides: [rendered],
-  }) : null;
-}
-
-function renderedUnits(hunk: MarkdownDiffHunk): RenderedUnit[] {
-  if (hunk.fragments.some(isTableFragment)) return [tableUnit(hunk, hunk.fragments)];
-  const units: RenderedUnit[] = [];
-  for (let index = 0; index < hunk.fragments.length;) {
-    const unit = fragmentUnit(hunk.fragments[index]);
-    if (unit) units.push(unit);
-    index += 1;
-  }
-  return units;
-}
 
 function truncatedMarkdown(markdown: string, limit: number): { lineCount: number; markdown: string } {
   const lines = markdownLines(markdown);
@@ -201,8 +47,77 @@ function truncatedMarkdown(markdown: string, limit: number): { lineCount: number
   return { lineCount: visible.length, markdown: visible.join("\n") };
 }
 
-function truncateSide(side: RenderedSide, limit: number): RenderedSide {
+function truncateTableSide(side: RenderedDiffSide, limit: number): RenderedDiffSide | null {
+  const lines = markdownLines(side.markdown);
+  const delimiterIndexes = lines.flatMap((line, index) => isTableDelimiter(line) ? [index] : []);
+  if (delimiterIndexes.length !== 1 || !side.rowChanges.length) return null;
+  const delimiterIndex = delimiterIndexes[0];
+  if (delimiterIndex <= 0) return null;
+  const focus = side.rowChanges.find((change) => change.kind === "modified") ?? side.rowChanges[0];
+  if (!focus || focus.sourceLine < 0 || focus.sourceLine >= lines.length) return null;
+
+  const selected = new Set([delimiterIndex - 1, delimiterIndex, focus.sourceLine]);
+  const rowCost = (index: number): number => {
+    const line = lines[index] ?? "";
+    return line.trim() && !isTableDelimiter(line) ? 1 : 0;
+  };
+  let rows = [...selected].reduce((total, index) => total + rowCost(index), 0);
+  const changedCandidates = side.rowChanges
+    .filter((change) => change.sourceLine !== focus.sourceLine)
+    .sort((left, right) => left.sourceLine - right.sourceLine)
+    .map((change) => change.sourceLine);
+  const contextCandidates = lines
+    .map((line, index) => ({ index, line }))
+    .filter(({ index, line }) =>
+      index > delimiterIndex
+      && line.includes("|")
+      && !isTableDelimiter(line)
+      && !selected.has(index)
+      && !changedCandidates.includes(index),
+    )
+    .sort((left, right) =>
+      Math.abs(left.index - focus.sourceLine) - Math.abs(right.index - focus.sourceLine)
+      || left.index - right.index,
+    )
+    .map(({ index }) => index);
+  for (const index of [...changedCandidates, ...contextCandidates]) {
+    if (rows >= limit || selected.has(index)) continue;
+    const cost = rowCost(index);
+    if (rows + cost > limit) continue;
+    selected.add(index);
+    rows += cost;
+  }
+
+  const selectedIndexes = [...selected].sort((left, right) => left - right);
+  const lineMap = new Map(selectedIndexes.map((sourceLine, index) => [sourceLine, index]));
+  const remapSourceLines = <T extends { sourceLine: number },>(items: readonly T[]): T[] =>
+    items.flatMap((item) => {
+      const sourceLine = lineMap.get(item.sourceLine);
+      return sourceLine === undefined ? [] : [{ ...item, sourceLine }];
+    });
+  const decorations = side.decorations.flatMap((decoration) => {
+    const startLine = lineMap.get(decoration.startLine);
+    const endLine = lineMap.get(decoration.endLine);
+    return startLine === undefined || endLine === undefined ? [] : [{
+      ...decoration,
+      endLine,
+      startLine,
+    }];
+  });
+  return renderedDiffSide({
+    ...side,
+    decorations,
+    inlineChanges: remapSourceLines(side.inlineChanges),
+    markdown: selectedIndexes.map((index) => lines[index]).join("\n"),
+    rowChanges: remapSourceLines(side.rowChanges),
+    taskChanges: remapSourceLines(side.taskChanges),
+  });
+}
+
+function truncateSide(side: RenderedDiffSide, limit: number): RenderedDiffSide {
   if (side.visualRows <= limit) return side;
+  const tableSide = truncateTableSide(side, limit);
+  if (tableSide) return tableSide;
   const truncated = truncatedMarkdown(side.markdown, limit);
   const lastLine = markdownLines(truncated.markdown).at(-1) ?? "";
   const decorations = side.decorations
@@ -212,26 +127,40 @@ function truncateSide(side: RenderedSide, limit: number): RenderedSide {
       endColumn: lastLine.length,
       endLine: Math.max(0, truncated.lineCount - 1),
     });
-  return renderedSide({ ...side, decorations, markdown: truncated.markdown });
+  const visibleSourceLine = (item: { sourceLine: number }): boolean =>
+    item.sourceLine < truncated.lineCount;
+  return renderedDiffSide({
+    ...side,
+    decorations,
+    inlineChanges: side.inlineChanges.filter(visibleSourceLine),
+    markdown: truncated.markdown,
+    rowChanges: side.rowChanges.filter(visibleSourceLine),
+    taskChanges: side.taskChanges.filter(visibleSourceLine),
+  });
 }
 
-function minimumUnitRows(unit: RenderedUnit): number {
-  if (!unit.modified) return Math.min(1, unit.visualRows);
-  return unit.sides.reduce(
-    (rows, side) => rows + (side.visualRows > 0 ? 1 : 0),
-    0,
-  );
+function minimumSideRows(unit: RenderedDiffUnit, side: RenderedDiffSide): number {
+  if (side.visualRows <= 0) return 0;
+  const tableLines = markdownLines(side.markdown);
+  const delimiterCount = tableLines.filter(isTableDelimiter).length;
+  if (delimiterCount > 1 && side.rowChanges.length) return side.visualRows;
+  if (delimiterCount === 1 && side.rowChanges.length) return Math.min(2, side.visualRows);
+  return unit.modified ? side.visualRows : 1;
 }
 
-function truncateUnit(unit: RenderedUnit, limit: number): RenderedUnit {
+function minimumUnitRows(unit: RenderedDiffUnit): number {
+  return unit.sides.reduce((rows, side) => rows + minimumSideRows(unit, side), 0);
+}
+
+function truncateUnit(unit: RenderedDiffUnit, limit: number): RenderedDiffUnit {
   if (unit.visualRows <= limit) return unit;
   let remaining = Math.max(limit, minimumUnitRows(unit));
   const sides = unit.sides.map((side, index) => {
     const sidesLeft = unit.sides.slice(index).filter((candidate) => candidate.visualRows > 0).length;
     const minimumLaterRows = unit.sides
       .slice(index + 1)
-      .reduce((rows, candidate) => rows + (candidate.visualRows > 0 ? 1 : 0), 0);
-    const sideMinimum = side.visualRows > 0 ? 1 : 0;
+      .reduce((rows, candidate) => rows + minimumSideRows(unit, candidate), 0);
+    const sideMinimum = minimumSideRows(unit, side);
     const fairShare = sidesLeft > 0 ? Math.floor(remaining / sidesLeft) : 0;
     const allocation = Math.min(
       side.visualRows,
@@ -240,11 +169,11 @@ function truncateUnit(unit: RenderedUnit, limit: number): RenderedUnit {
     remaining -= allocation;
     return truncateSide(side, allocation);
   });
-  return renderedUnit({ ...unit, sides });
+  return renderedDiffUnit({ ...unit, sides });
 }
 
-function takeRenderedRows(units: readonly RenderedUnit[], limit: number): RenderedUnit[] {
-  const visible: RenderedUnit[] = [];
+function takeRenderedRows(units: readonly RenderedDiffUnit[], limit: number): RenderedDiffUnit[] {
+  const visible: RenderedDiffUnit[] = [];
   let rows = 0;
   for (const unit of units) {
     let remaining = limit - rows;
@@ -323,7 +252,7 @@ function SourceRow({ line }: { line: SourceDiffLine }) {
   );
 }
 
-function RenderedRows({ units }: { units: readonly RenderedUnit[] }) {
+function RenderedRows({ units }: { units: readonly RenderedDiffUnit[] }) {
   return units.map((unit) => {
     const sides = unit.sides.map((side) => (
       <div
@@ -337,7 +266,10 @@ function RenderedRows({ units }: { units: readonly RenderedUnit[] }) {
         <MarkdownView
           className="markdown-diff-rendered-markdown"
           decorations={side.decorations}
+          inlineChanges={side.inlineChanges}
           markdown={side.markdown}
+          rowChanges={side.rowChanges}
+          taskChanges={side.taskChanges}
           taskChangesDisabled
         />
       </div>
@@ -356,8 +288,8 @@ export function MarkdownDiffPreview({ model, previewRows = DEFAULT_PREVIEW_ROWS 
   const sourceOnly = !model.renderable;
   const visibleMode: PreviewMode = sourceOnly ? "source" : mode;
   const rowBudget = Math.max(1, Math.floor(previewRows));
-  const allRenderedUnits = useMemo(() => model.hunks.flatMap(renderedUnits), [model]);
-  const firstRenderedUnits = useMemo(() => model.hunks[0] ? renderedUnits(model.hunks[0]) : [], [model]);
+  const allRenderedUnits = useMemo(() => model.hunks.flatMap(renderedDiffUnits), [model]);
+  const firstRenderedUnits = useMemo(() => model.hunks[0] ? renderedDiffUnits(model.hunks[0]) : [], [model]);
   const allSourceLines = useMemo(() => model.hunks.flatMap((hunk) => hunk.lines), [model]);
 
   let content: ReactNode;

@@ -59,11 +59,14 @@ describe("compact Markdown diff preview", () => {
     );
     render(<MarkdownDiffPreview model={model} />);
 
-    expect(screen.getAllByRole("table")).toHaveLength(2);
-    const opened = screen.getByText((_content, element) => element?.tagName === "STRONG" && element.textContent === "Открыто");
-    expect(opened.closest("td")).not.toBeNull();
-    expect(within(opened).getByLabelText("Добавлено: От")).toHaveTextContent("От");
-    expect(screen.getByLabelText("Изменено")).toContainElement(opened);
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    const opened = screen.getByLabelText("Добавлено: Открыто");
+    const strong = opened.closest("strong");
+    expect(strong?.closest("td")).not.toBeNull();
+    expect(within(strong as HTMLElement).getByLabelText("Удалено: Закрыто")).toHaveTextContent("Закрыто");
+    expect(strong).toHaveTextContent("Открыто");
+    expect(opened.closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+    expect(screen.getByRole("group", { name: "Изменено" })).toContainElement(opened);
   });
 
   it("does not duplicate context fragments surrounding a changed table", () => {
@@ -71,8 +74,8 @@ describe("compact Markdown diff preview", () => {
     const after = "Контекст\n| Этап | Статус |\n| --- | --- |\n| Башня | Открыто |";
     render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
 
-    expect(screen.getAllByText("Контекст")).toHaveLength(2);
-    expect(screen.getAllByRole("table")).toHaveLength(2);
+    expect(screen.getAllByText("Контекст")).toHaveLength(1);
+    expect(screen.getAllByRole("table")).toHaveLength(1);
   });
 
   it("renders a deep changed table row with a neutral structural prologue", () => {
@@ -84,17 +87,84 @@ describe("compact Markdown diff preview", () => {
     const after = before.replace("| Строка 9 | Закрыто |", "| Строка 9 | Открыто |");
     render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
 
-    expect(screen.getAllByRole("table")).toHaveLength(2);
-    expect(screen.getAllByRole("columnheader", { name: "Этап" })).toHaveLength(2);
-    expect(screen.getAllByRole("columnheader", { name: "Статус" })).toHaveLength(2);
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getAllByRole("columnheader", { name: "Этап" })).toHaveLength(1);
+    expect(screen.getAllByRole("columnheader", { name: "Статус" })).toHaveLength(1);
     for (const header of screen.getAllByRole("columnheader", { name: "Этап" })) {
       expect(header.closest("tr")).toHaveAttribute("data-diff-kind", "context");
       expect(header.closest("tr")).not.toHaveAttribute("aria-label");
     }
-    const opened = screen.getByText((_content, element) => element?.tagName === "TD" && element.textContent === "Открыто");
-    expect(opened.closest("tr")).toHaveAttribute("data-diff-kind", "added");
-    expect(screen.getAllByText("Строка 6")).toHaveLength(2);
-    expect(screen.getAllByText("Строка 10")).toHaveLength(2);
+    const opened = screen.getByLabelText("Добавлено: Открыто");
+    expect(opened.closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+    expect(screen.getAllByText("Строка 6")).toHaveLength(1);
+    expect(screen.getAllByText("Строка 10")).toHaveLength(1);
+  });
+
+  it("renders a changed table checkbox once with both states", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "| Зона | Проверено |\n| --- | --- |\n| Коридор | [ ] Освещение |",
+          "| Зона | Проверено |\n| --- | --- |\n| Коридор | [x] Освещение |",
+        )}
+      />,
+    );
+
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByText("Освещение")).toHaveLength(1);
+    expect(within(table).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(table).getByRole("checkbox", { name: "Было не отмечено" })).not.toBeChecked();
+    expect(within(table).getByRole("checkbox", { name: "Стало отмечено" })).toBeChecked();
+  });
+
+  it("keeps unrelated removed and added table rows in one table", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "| Зона | Деталь |\n| --- | --- |\n| Холл | Картина |\n| Удаляемый коридор | Факел |\n| Башня | Ключ |",
+          "| Зона | Деталь |\n| --- | --- |\n| Холл | Картина |\n| Новый балкон | Стражник |\n| Башня | Ключ |",
+        )}
+      />,
+    );
+
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getByText("Удаляемый коридор").closest("tr")).toHaveAttribute("data-diff-kind", "removed");
+    expect(screen.getByText("Новый балкон").closest("tr")).toHaveAttribute("data-diff-kind", "added");
+    expect(screen.getAllByText("Холл")).toHaveLength(1);
+    expect(screen.getAllByText("Башня")).toHaveLength(1);
+  });
+
+  it("falls back to separate red and green tables for an incompatible schema", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "| Зона | Статус |\n| --- | --- |\n| Коридор | Закрыт |",
+          "| Зона | Статус | Деталь |\n| --- | --- | --- |\n| Коридор | Открыт | Картина |",
+        )}
+      />,
+    );
+
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row").some((row) => row.dataset.diffKind === "removed")).toBe(true);
+    expect(screen.getAllByTestId("diff-visual-row").some((row) => row.dataset.diffKind === "added")).toBe(true);
+  });
+
+  it("keeps red and green evidence when only a table delimiter changes", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "| Зона | Статус |\n| --- | --- |\n| Коридор | Открыт |",
+          "| Зона | Статус |\n| :--- | ---: |\n| Коридор | Открыт |",
+        )}
+      />,
+    );
+
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    const rows = screen.getAllByTestId("diff-visual-row");
+    expect(rows.some((row) => row.dataset.diffKind === "removed")).toBe(true);
+    expect(rows.some((row) => row.dataset.diffKind === "added")).toBe(true);
   });
 
   it.each([
@@ -192,15 +262,296 @@ describe("compact Markdown diff preview", () => {
     expect(row).toHaveAccessibleName("Добавлено: Новая исходная строка");
   });
 
-  it("labels both rendered sides of a modified fragment", () => {
-    render(<MarkdownDiffPreview model={createMarkdownDiff("Старое значение", "Новое значение")} />);
+  it("renders a safe local text replacement once as an inline modification", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Коридор освещают три факела вдоль стены.",
+          "Коридор освещают четыре факела вдоль стены.",
+        )}
+      />,
+    );
 
-    expect(screen.getByLabelText("Удалено", { selector: ".markdown-diff-rendered-side" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Добавлено", { selector: ".markdown-diff-rendered-side" })).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Изменено").length).toBeGreaterThan(0);
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByText("три").closest("del")).not.toBeNull();
+    expect(within(modified).getByText("четыре").closest("ins")).not.toBeNull();
+    expect(within(modified).getByLabelText("Удалено: три")).toBeInTheDocument();
+    expect(within(modified).getByLabelText("Добавлено: четыре")).toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(1);
+    expect(screen.queryByRole("group", { name: "Удалено" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Добавлено" })).not.toBeInTheDocument();
   });
 
-  it("keeps both real sides of a modification when the preview budget is one row", () => {
+  it.each([
+    {
+      after: "Коридор освещают яркие факелы.",
+      before: "Коридор освещают факелы.",
+      label: /^Добавлено: яркие/u,
+      missingElement: "del",
+    },
+    {
+      after: "Коридор освещают факелы.",
+      before: "Коридор освещают яркие факелы.",
+      label: /^Удалено: яркие/u,
+      missingElement: "ins",
+    },
+  ])("renders a local insertion or removal without an arrow", ({ after, before, label, missingElement }) => {
+    const { container } = render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByLabelText(label)).toBeInTheDocument();
+    expect(within(modified).queryByText("→")).not.toBeInTheDocument();
+    expect(container.querySelector(missingElement)).toBeNull();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(1);
+  });
+
+  it("keeps link structure while changing its visible label inline", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Открыть [старую карту](https://example.com/map) коридора.",
+          "Открыть [новую карту](https://example.com/map) коридора.",
+        )}
+      />,
+    );
+
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "https://example.com/map");
+    expect(within(link).getByLabelText("Удалено: старую")).toBeInTheDocument();
+    expect(within(link).getByLabelText("Добавлено: новую")).toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("renders every fully paired physical line as one yellow row", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Первый зал освещают три факела.\nВторой зал освещают три свечи.",
+          "Первый зал освещают четыре факела.\nВторой зал освещают четыре свечи.",
+        )}
+      />,
+    );
+
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(2);
+    expect(screen.getAllByTestId("diff-visual-row").every((row) => row.dataset.diffKind === "modified")).toBe(true);
+    expect(screen.getAllByLabelText("Удалено: три")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Добавлено: четыре")).toHaveLength(2);
+  });
+
+  it("keeps a multiline yellow fragment whole when its row budget is one", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Первый зал освещают три факела.\nВторой зал освещают три свечи.",
+          "Первый зал освещают четыре факела.\nВторой зал освещают четыре свечи.",
+        )}
+        previewRows={1}
+      />,
+    );
+
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(2);
+    expect(screen.getAllByLabelText("Добавлено: четыре")).toHaveLength(2);
+  });
+
+  it("does not let a table header hide the modified row at a one-row budget", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "| Этап | Статус |\n| --- | --- |\n| Башня | Закрыто |",
+          "| Этап | Статус |\n| --- | --- |\n| Башня | Открыто |",
+        )}
+        previewRows={1}
+      />,
+    );
+
+    expect(screen.getByLabelText("Удалено: Закрыто")).toBeInTheDocument();
+    expect(screen.getByLabelText("Добавлено: Открыто")).toBeInTheDocument();
+    expect(screen.getByText("Башня").closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+  });
+
+  it("keeps a mixed modified table compact without hiding its yellow row", () => {
+    const addedRows = Array.from({ length: 8 }, (_, index) => `| Новая ${index + 1} | Добавлено |`).join("\n");
+    const contextRows = "| Контекст 1 | Да |\n| Контекст 2 | Да |\n| Контекст 3 | Да |";
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          `| Этап | Статус |\n| --- | --- |\n| Целевая башня в дальнем коридоре | Статус закрыт до вечера |\n${contextRows}\n| Финал | Да |`,
+          `| Этап | Статус |\n| --- | --- |\n| Целевая башня в дальнем коридоре | Статус открыт до вечера |\n${contextRows}\n${addedRows}\n| Финал | Да |`,
+        )}
+        previewRows={3}
+      />,
+    );
+
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(3);
+    expect(screen.getByLabelText("Добавлено: открыт")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Весь diff/u })).toBeInTheDocument();
+  });
+
+  it("keeps a modified grouped table atomic when its budget is too small", () => {
+    const before = "| Этап | Статус |\n| --- | --- |\n| Секция коридора |\n| --- | --- |\n| Дальний проход | [ ] Проверено |";
+    const after = "| Этап | Статус |\n| --- | --- |\n| Секция коридора |\n| --- | --- |\n| Дальний проход | [x] Проверено |";
+    const lines: MarkdownDiffModel["lines"] = [
+      { id: "header", kind: "context", value: "| Этап | Статус |", eol: "\n", beforeLine: 1, afterLine: 1 },
+      { id: "delimiter", kind: "context", value: "| --- | --- |", eol: "\n", beforeLine: 2, afterLine: 2 },
+      { id: "group", kind: "context", value: "| Секция коридора |", eol: "\n", beforeLine: 3, afterLine: 3 },
+      { id: "group-delimiter", kind: "context", value: "| --- | --- |", eol: "\n", beforeLine: 4, afterLine: 4 },
+      { id: "old-row", kind: "removed", value: "| Дальний проход | [ ] Проверено |", eol: "", beforeLine: 5, afterLine: null, pairId: "pair:row" },
+      { id: "new-row", kind: "added", value: "| Дальний проход | [x] Проверено |", eol: "", beforeLine: null, afterLine: 5, pairId: "pair:row" },
+    ];
+    const fragments: MarkdownDiffModel["fragments"] = [
+      ...lines.slice(0, 4).map((line, index) => ({
+        id: `context:${index}`,
+        blockType: index % 2 === 0 ? "tableRow" as const : "table" as const,
+        kind: "context" as const,
+        before: { markdown: line.value, decorations: [] },
+        after: { markdown: line.value, decorations: [] },
+        sourceLineIds: [line.id],
+      })),
+      {
+        id: "modified-row",
+        blockType: "tableRow",
+        kind: "modified",
+        before: { markdown: lines[4].value, decorations: [] },
+        after: { markdown: lines[5].value, decorations: [] },
+        sourceLineIds: ["old-row", "new-row"],
+      },
+    ];
+    const model: MarkdownDiffModel = {
+      before,
+      after,
+      fallbacks: [],
+      fragments,
+      hunks: [{ id: "grouped-table", fragments, lines }],
+      lines,
+      renderable: true,
+    };
+
+    render(
+      <MarkdownDiffPreview
+        model={model}
+        previewRows={1}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: "Было не отмечено" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Стало отмечено" })).toBeChecked();
+    expect(screen.getByText("Дальний проход").closest("tr")).toHaveAttribute("data-diff-kind", "modified");
+  });
+
+  it("falls back the whole multiline paragraph when one physical line is unpaired", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Первая строка содержит старое слово и длинный общий контекст.\nВторая старая часть совсем другая.",
+          "Первая строка содержит новое слово и длинный общий контекст.\nБананы, башни, ключи и факелы.",
+        )}
+      />,
+    );
+
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    const removed = screen.getByRole("group", { name: "Удалено" });
+    const added = screen.getByRole("group", { name: "Добавлено" });
+    expect(removed).toHaveTextContent("Первая строка содержит старое слово");
+    expect(removed).toHaveTextContent("Вторая старая часть совсем другая");
+    expect(added).toHaveTextContent("Первая строка содержит новое слово");
+    expect(added).toHaveTextContent("Бананы, башни, ключи и факелы");
+  });
+
+  it("keeps source mode exact red and green after a rendered inline change", async () => {
+    const user = userEvent.setup();
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Коридор освещают три факела.",
+          "Коридор освещают четыре факела.",
+        )}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+    const rows = screen.getAllByTestId("diff-visual-row");
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.dataset.diffKind)).toEqual(["removed", "added"]);
+    expect(rows.some((row) => row.dataset.diffKind === "modified")).toBe(false);
+  });
+
+  it("renders a checklist toggle as two disabled checkboxes and one label", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "- [ ] Внешний коридор (картина слева)",
+          "- [x] Внешний коридор (картина слева)",
+        )}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(modified).getAllByText("Внешний коридор (картина слева)")).toHaveLength(1);
+    expect(within(modified).getByRole("checkbox", { name: "Было не отмечено" })).not.toBeChecked();
+    expect(within(modified).getByRole("checkbox", { name: "Стало отмечено" })).toBeChecked();
+    expect(
+      within(modified).getAllByRole("checkbox").every((checkbox) => checkbox.hasAttribute("disabled")),
+    ).toBe(true);
+  });
+
+  it("keeps a checklist state and text change in one yellow row", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "- [ ] Внешний коридор (картина слева)",
+          "- [x] Внешний коридор (факел слева)",
+        )}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(modified).getByLabelText("Удалено: картина")).toBeInTheDocument();
+    expect(within(modified).getByLabelText("Добавлено: факел")).toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(1);
+  });
+
+  it("falls back to red and green rendered sides when only a link target changes", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "Открыть [карту](https://example.com/old) коридора.",
+          "Открыть [карту](https://example.com/new) коридора.",
+        )}
+      />,
+    );
+
+    expect(screen.getByRole("group", { name: "Удалено" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Добавлено" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+  });
+
+  it("falls back when a paragraph changes only trimmed layout whitespace", () => {
+    render(<MarkdownDiffPreview model={createMarkdownDiff("  Text", " Text")} />);
+
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Удалено" })).toHaveTextContent("Text");
+    expect(screen.getByRole("group", { name: "Добавлено" })).toHaveTextContent("Text");
+  });
+
+  it("falls back when a paragraph changes only trimmed Unicode whitespace", () => {
+    render(<MarkdownDiffPreview model={createMarkdownDiff("\u00a0\u00a0Text", "\u00a0Text")} />);
+
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Удалено" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Добавлено" })).toBeInTheDocument();
+  });
+
+  it("falls back when a heading marker changes", () => {
+    render(<MarkdownDiffPreview model={createMarkdownDiff("## Коридор", "### Коридор")} />);
+
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Удалено" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Добавлено" })).toBeInTheDocument();
+  });
+
+  it("keeps both inline values of a modification when the preview budget is one row", () => {
     render(
       <MarkdownDiffPreview
         model={createMarkdownDiff("Старое значение", "Новое значение")}
@@ -209,13 +560,13 @@ describe("compact Markdown diff preview", () => {
     );
 
     const modified = screen.getByRole("group", { name: "Изменено" });
-    expect(within(modified).getByRole("group", { name: "Удалено" })).toHaveTextContent("Старое значение");
-    expect(within(modified).getByRole("group", { name: "Добавлено" })).toHaveTextContent("Новое значение");
+    expect(within(modified).getByLabelText("Удалено: Старое")).toHaveTextContent("Старое");
+    expect(within(modified).getByLabelText("Добавлено: Новое")).toHaveTextContent("Новое");
     expect(screen.queryByText("Текста пока нет")).not.toBeInTheDocument();
-    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(2);
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(1);
   });
 
-  it("displaces earlier complete context before starving a modified side at the default budget", () => {
+  it("displaces earlier complete context before starving an inline modification at the default budget", () => {
     const added = Array.from({ length: 10 }, (_, index) => `- Добавлено ${index + 1}`).join("\n");
     const model = createMarkdownDiff(
       "## Детали\nСтарое значение",
@@ -224,8 +575,8 @@ describe("compact Markdown diff preview", () => {
     render(<MarkdownDiffPreview model={model} />);
 
     const modified = screen.getByRole("group", { name: "Изменено" });
-    expect(within(modified).getByRole("group", { name: "Удалено" })).toHaveTextContent("Старое значение");
-    expect(within(modified).getByRole("group", { name: "Добавлено" })).toHaveTextContent("Новое значение");
+    expect(within(modified).getByLabelText("Удалено: Старое")).toHaveTextContent("Старое");
+    expect(within(modified).getByLabelText("Добавлено: Новое")).toHaveTextContent("Новое");
     expect(screen.queryByText("Текста пока нет")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(12);
   });
