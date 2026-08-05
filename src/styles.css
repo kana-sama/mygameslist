@@ -422,6 +422,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-source-row { min-height: 20px; display: block; padding: 2px 8px; border-inline-start: 2px solid transparent; color: #d1d2d5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .markdown-diff-source-row--added { border-inline-start-color: var(--diff-added-edge); background: var(--diff-added-bg); }
 .markdown-diff-source-row--removed { border-inline-start-color: var(--diff-removed-edge); background: var(--diff-removed-bg); }
+.markdown-diff-hunks { display: flex; flex-direction: column; }
+.markdown-diff-hunk-separator { min-height: 28px; display: flex; align-items: center; padding: 0 10px; border-block: 1px solid var(--line-soft); color: var(--muted); background: var(--surface); font-size: 10px; line-height: 1; }
 .markdown-diff-rendered { display: flex; flex-direction: column; }
 .markdown-diff-rendered-side { min-width: 0; padding: 4px 7px; border-inline-start: 2px solid transparent; }
 .markdown-diff-rendered-side--context { color: var(--muted); }

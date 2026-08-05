@@ -38,6 +38,52 @@ describe("compact Markdown diff preview", () => {
     expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(18);
   });
 
+  it("marks omitted content between expanded hunks in rendered and source modes", async () => {
+    const user = userEvent.setup();
+    const context = Array.from({ length: 12 }, (_, index) => `Контекст ${index + 1}`);
+    const before = ["## Начало", "Старое начало", ...context, "## Конец", "Старый конец"].join("\n");
+    const after = before
+      .replace("Старое начало", "Новое начало")
+      .replace("Старый конец", "Новый конец");
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.queryByRole("separator", { name: "Пропущено 7 строк" })).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(6);
+    await user.click(screen.getByRole("button", { name: "Весь diff · ещё 5" }));
+    const renderedSeparator = screen.getByRole("separator", { name: "Пропущено 7 строк" });
+    expect(renderedSeparator.closest(".markdown-diff-rendered")).toBeNull();
+    expect(renderedSeparator.previousElementSibling).toHaveClass("markdown-diff-rendered");
+    expect(renderedSeparator.nextElementSibling).toHaveClass("markdown-diff-rendered");
+    expect(renderedSeparator).toHaveTextContent(/^Пропущено 7 строк$/u);
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(11);
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+    const sourceSeparator = screen.getByRole("separator", { name: "Пропущено 7 строк" });
+    expect(sourceSeparator.closest("pre")).toBeNull();
+    expect(sourceSeparator.previousElementSibling?.tagName).toBe("PRE");
+    expect(sourceSeparator.nextElementSibling?.tagName).toBe("PRE");
+    expect(screen.getAllByTestId("diff-visual-row")).toHaveLength(11);
+  });
+
+  it.each([
+    [7, "Пропущена 1 строка"],
+    [8, "Пропущены 2 строки"],
+    [11, "Пропущено 5 строк"],
+    [17, "Пропущено 11 строк"],
+    [27, "Пропущена 21 строка"],
+  ])("labels a %i-line context gap with the omitted line count", async (contextLength, label) => {
+    const user = userEvent.setup();
+    const context = Array.from({ length: contextLength }, (_, index) => `Контекст ${index + 1}`);
+    const before = ["Старое начало", ...context, "Старый конец"].join("\n");
+    const after = before
+      .replace("Старое начало", "Новое начало")
+      .replace("Старый конец", "Новый конец");
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    await user.click(screen.getByRole("button", { name: /Весь diff/u }));
+    expect(screen.getByRole("separator", { name: label })).toHaveTextContent(label);
+  });
+
   it("renders created and deleted note content instead of an empty side", () => {
     render(
       <>

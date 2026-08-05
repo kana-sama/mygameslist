@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import type {
   MarkdownDiffFragment,
   MarkdownDiffHunk,
@@ -252,6 +252,49 @@ function SourceRow({ line }: { line: SourceDiffLine }) {
   );
 }
 
+function omittedLineCount(
+  previous: MarkdownDiffHunk,
+  next: MarkdownDiffHunk,
+): number {
+  const previousLine = [...previous.lines].reverse().find((line) => line.afterLine !== null)?.afterLine;
+  const nextLine = next.lines.find((line) => line.afterLine !== null)?.afterLine;
+  return previousLine === null || previousLine === undefined || nextLine === null || nextLine === undefined
+    ? 0
+    : Math.max(0, nextLine - previousLine - 1);
+}
+
+function omittedLineLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return `Пропущена ${count} строка`;
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return `Пропущены ${count} строки`;
+  return `Пропущено ${count} строк`;
+}
+
+function HunkSeparator({ lineCount }: { lineCount: number }) {
+  const label = omittedLineLabel(lineCount);
+  return (
+    <span
+      aria-label={label}
+      className="markdown-diff-hunk-separator"
+      role="separator"
+    >
+      {label}
+    </span>
+  );
+}
+
+function SourceHunks({ hunks }: { hunks: readonly MarkdownDiffHunk[] }) {
+  return hunks.map((hunk, index) => (
+    <Fragment key={hunk.id}>
+      {index > 0 ? <HunkSeparator lineCount={omittedLineCount(hunks[index - 1], hunk)} /> : null}
+      <pre className="markdown-diff-source">
+        <code>{hunk.lines.map((line) => <SourceRow key={line.id} line={line} />)}</code>
+      </pre>
+    </Fragment>
+  ));
+}
+
 function RenderedRows({ units }: { units: readonly RenderedDiffUnit[] }) {
   return units.map((unit) => {
     const sides = unit.sides.map((side) => (
@@ -282,13 +325,29 @@ function RenderedRows({ units }: { units: readonly RenderedDiffUnit[] }) {
   });
 }
 
+function RenderedHunks({ hunks }: {
+  hunks: readonly { id: string; omittedLinesBefore: number; units: readonly RenderedDiffUnit[] }[];
+}) {
+  return hunks.map((hunk, index) => (
+    <Fragment key={hunk.id}>
+      {index > 0 ? <HunkSeparator lineCount={hunk.omittedLinesBefore} /> : null}
+      <div className="markdown-diff-rendered"><RenderedRows units={hunk.units} /></div>
+    </Fragment>
+  ));
+}
+
 export function MarkdownDiffPreview({ model, previewRows = DEFAULT_PREVIEW_ROWS }: MarkdownDiffPreviewProps) {
   const [mode, setMode] = useState<PreviewMode>("rendered");
   const [expanded, setExpanded] = useState(false);
   const sourceOnly = !model.renderable;
   const visibleMode: PreviewMode = sourceOnly ? "source" : mode;
   const rowBudget = Math.max(1, Math.floor(previewRows));
-  const allRenderedUnits = useMemo(() => model.hunks.flatMap(renderedDiffUnits), [model]);
+  const renderedHunks = useMemo(() => model.hunks.map((hunk, index) => ({
+    id: hunk.id,
+    omittedLinesBefore: index > 0 ? omittedLineCount(model.hunks[index - 1], hunk) : 0,
+    units: renderedDiffUnits(hunk),
+  })), [model]);
+  const allRenderedUnits = useMemo(() => renderedHunks.flatMap((hunk) => hunk.units), [renderedHunks]);
   const firstRenderedUnits = useMemo(() => model.hunks[0] ? renderedDiffUnits(model.hunks[0]) : [], [model]);
   const allSourceLines = useMemo(() => model.hunks.flatMap((hunk) => hunk.lines), [model]);
 
@@ -299,12 +358,22 @@ export function MarkdownDiffPreview({ model, previewRows = DEFAULT_PREVIEW_ROWS 
     const lines = expanded ? allSourceLines : takeSourceRows(model.hunks[0], rowBudget);
     visibleRows = lines.length;
     totalRows = allSourceLines.length;
-    content = <pre className="markdown-diff-source"><code>{lines.map((line) => <SourceRow key={line.id} line={line} />)}</code></pre>;
+    content = expanded ? (
+      <div className="markdown-diff-hunks"><SourceHunks hunks={model.hunks} /></div>
+    ) : (
+      <pre className="markdown-diff-source">
+        <code>{lines.map((line) => <SourceRow key={line.id} line={line} />)}</code>
+      </pre>
+    );
   } else {
     const units = expanded ? allRenderedUnits : takeRenderedRows(firstRenderedUnits, rowBudget);
     visibleRows = units.reduce((rows, unit) => rows + unit.visualRows, 0);
     totalRows = allRenderedUnits.reduce((rows, unit) => rows + unit.visualRows, 0);
-    content = <div className="markdown-diff-rendered"><RenderedRows units={units} /></div>;
+    content = expanded ? (
+      <div className="markdown-diff-hunks"><RenderedHunks hunks={renderedHunks} /></div>
+    ) : (
+      <div className="markdown-diff-rendered"><RenderedRows units={units} /></div>
+    );
   }
   const remainingRows = Math.max(0, totalRows - visibleRows);
 
