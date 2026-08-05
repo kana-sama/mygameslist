@@ -1,4 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarkdownView } from "../src/components/Markdown";
@@ -11,6 +13,37 @@ vi.mock("../src/components/MonacoMarkdownEditor", async () => (
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-07-17T10:00:00.000Z";
+const productionStyles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
+
+function rect({ top = 0, right = 0, bottom = 0, left = 0, width = right - left, height = bottom - top }: Partial<DOMRect> = {}): DOMRect {
+  return { x: left, y: top, top, right, bottom, left, width, height, toJSON: () => ({}) };
+}
+
+function installProductionStyles(): HTMLStyleElement {
+  const style = document.createElement("style");
+  style.textContent = productionStyles;
+  document.head.append(style);
+  return style;
+}
+
+function controlAnimationFrames(): () => void {
+  let nextId = 1;
+  const callbacks = new Map<number, FrameRequestCallback>();
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    const id = nextId++;
+    callbacks.set(id, callback);
+    return id;
+  });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+    callbacks.delete(id);
+  });
+  return () => {
+    const pending = [...callbacks.values()];
+    callbacks.clear();
+    act(() => pending.forEach((callback) => callback(performance.now())));
+  };
+}
+
 function makeNote(id: string, bodyMarkdown: string, rank: number): Note {
   return { id, gameId: GAME_ID, bodyMarkdown, attachments: [], rank, createdAt: NOW, updatedAt: NOW };
 }
@@ -161,6 +194,179 @@ describe("scrollable long note cards", () => {
     toggle.focus();
     expect(toggle).toHaveFocus();
 
+  });
+
+  it("keeps a page-sticky checklist heading fully visible through the card's last pixel", () => {
+    const style = installProductionStyles();
+    const header = document.createElement("header");
+    header.className = "app-header";
+    document.body.append(header);
+    const flushAnimationFrames = controlAnimationFrames();
+    let cardTop = 60;
+    let cardBottom = 360;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this === header) return rect({ top: 0, right: 800, bottom: 48, left: 0 });
+      if (this.matches(`article[data-note-id="22222222-2222-4222-8222-222222222222"]`)) {
+        return rect({ top: cardTop, right: 342, bottom: cardBottom, left: 10 });
+      }
+      if (this.matches(".markdown-section")) return rect({ top: cardTop + 6, right: 336, bottom: cardBottom, left: 16 });
+      if (this.matches("h2.markdown-checklist-heading")) return rect({ top: cardTop + 6, right: 336, bottom: cardTop + 30, left: 16 });
+      return rect();
+    });
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# First checklist\n- [ ] Pending task",
+      1024,
+    );
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+
+      const source = screen.getByRole("heading", { name: /^First checklist / });
+      const card = source.closest<HTMLElement>("article")!;
+      const originalGridRows = card.style.gridRowEnd;
+      expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
+
+      cardTop = 47;
+      cardBottom = 49;
+      fireEvent.scroll(window);
+      flushAnimationFrames();
+
+      const mirror = screen.getByTestId("note-page-sticky-heading");
+      expect(mirror).toHaveStyle({ left: "16px", top: "48px", width: "320px" });
+      expect(getComputedStyle(mirror).position).toBe("fixed");
+      expect(screen.getAllByRole("heading", { name: /^First checklist / })).toHaveLength(1);
+      expect(source).toHaveClass("note-card__page-heading-source");
+      expect(source).not.toBeVisible();
+      expect(card.style.gridRowEnd).toBe(originalGridRows);
+
+      cardBottom = 48;
+      fireEvent.scroll(window);
+      flushAnimationFrames();
+
+      expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
+      expect(source).not.toHaveClass("note-card__page-heading-source");
+      expect(source).toBeVisible();
+      expect(card.style.gridRowEnd).toBe(originalGridRows);
+    } finally {
+      style.remove();
+      header.remove();
+    }
+  });
+
+  it("updates a page-sticky checklist heading when masonry repositions the card", async () => {
+    const style = installProductionStyles();
+    const header = document.createElement("header");
+    header.className = "app-header";
+    document.body.append(header);
+    const flushAnimationFrames = controlAnimationFrames();
+    let cardTop = 60;
+    let cardBottom = 360;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this === header) return rect({ top: 0, right: 800, bottom: 48, left: 0 });
+      if (this.matches(`article[data-note-id="22222222-2222-4222-8222-222222222222"]`)) {
+        return rect({ top: cardTop, right: 342, bottom: cardBottom, left: 10 });
+      }
+      if (this.matches(".markdown-section")) return rect({ top: cardTop + 6, right: 336, bottom: cardBottom, left: 16 });
+      if (this.matches("h2.markdown-checklist-heading")) return rect({ top: cardTop + 6, right: 336, bottom: cardTop + 30, left: 16 });
+      return rect();
+    });
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Repositioned checklist\n- [ ] Pending task",
+      1024,
+    );
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+      const card = screen.getByRole("heading", { name: /^Repositioned checklist / }).closest<HTMLElement>("article")!;
+      expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
+
+      cardTop = 47;
+      cardBottom = 200;
+      card.style.gridRowStart = "2";
+
+      await waitFor(() => {
+        flushAnimationFrames();
+        expect(screen.getByTestId("note-page-sticky-heading")).toBeInTheDocument();
+      });
+    } finally {
+      style.remove();
+      header.remove();
+    }
+  });
+
+  it("keeps page-sticky checklist headings independent, current, accessible, and interactive", async () => {
+    const style = installProductionStyles();
+    const header = document.createElement("header");
+    header.className = "app-header";
+    document.body.append(header);
+    const flushAnimationFrames = controlAnimationFrames();
+    const firstNoteId = "22222222-2222-4222-8222-222222222222";
+    const otherNoteId = "33333333-3333-4333-8333-333333333333";
+    let secondChecklistSectionTop = 180;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this === header) return rect({ top: 0, right: 900, bottom: 48, left: 0 });
+      const card = this.matches("article[data-note-id]") ? this : this.closest<HTMLElement>("article[data-note-id]");
+      const noteId = card?.dataset.noteId;
+      if (this === card && noteId === firstNoteId) return rect({ top: 40, right: 342, bottom: 520, left: 10 });
+      if (this === card && noteId === otherNoteId) return rect({ top: 32, right: 770, bottom: 480, left: 338 });
+      const left = noteId === otherNoteId ? 344 : 16;
+      const right = noteId === otherNoteId ? 764 : 336;
+      if (this.matches(".markdown-section")) {
+        if (this.textContent?.includes("Second checklist")) return rect({ top: secondChecklistSectionTop, right, bottom: 500, left });
+        if (this.textContent?.includes("Plain section")) return rect({ top: 40, right, bottom: secondChecklistSectionTop, left });
+        return rect({ top: 20, right, bottom: 40, left });
+      }
+      if (this.matches("h2.markdown-checklist-heading")) return rect({ top: 20, right, bottom: 44, left });
+      return rect();
+    });
+    const onSave = vi.fn();
+    const notes = [
+      makeNote(firstNoteId, [
+        "# First checklist",
+        "- [ ] First task",
+        "# Plain section",
+        "Plain content.",
+        "# Second checklist",
+        "- [ ] Second task",
+      ].join("\n"), 1024),
+      makeNote(otherNoteId, "# Other checklist\n- [ ] Other task", 2048),
+    ];
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={notes} onSave={onSave} />);
+
+      const mirrors = screen.getAllByTestId("note-page-sticky-heading");
+      expect(mirrors).toHaveLength(2);
+      expect(mirrors[0]).toHaveStyle({ left: "16px", top: "48px", width: "320px" });
+      expect(mirrors[1]).toHaveStyle({ left: "344px", top: "48px", width: "420px" });
+      expect(within(mirrors[0]).getByRole("heading", { name: /^First checklist / })).toBeVisible();
+      expect(within(mirrors[1]).getByRole("heading", { name: /^Other checklist / })).toBeVisible();
+      expect(screen.getAllByRole("button", { name: /^First checklist / })).toHaveLength(1);
+
+      const firstMirrorButton = within(mirrors[0]).getByRole("button", { name: /^First checklist / });
+      const firstSource = document.querySelector<HTMLElement>(`article[data-note-id="${firstNoteId}"] h2.markdown-checklist-heading`)!;
+      firstMirrorButton.focus();
+      expect(firstMirrorButton).toHaveFocus();
+      expect(firstSource).not.toBeVisible();
+      fireEvent.click(firstMirrorButton);
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      const savedFirstNote = onSave.mock.calls[0][0].notes.find((saved: Note) => saved.id === firstNoteId);
+      expect(savedFirstNote?.collapsedChecklistSections).toEqual([firstSource.dataset.checklistSectionId]);
+
+      const firstViewport = firstSource.closest<HTMLElement>(".note-card__viewport")!;
+      secondChecklistSectionTop = 47;
+      fireEvent.scroll(firstViewport);
+      flushAnimationFrames();
+
+      const updatedFirstMirror = screen.getAllByTestId("note-page-sticky-heading")[0];
+      expect(within(updatedFirstMirror).getByRole("heading", { name: /^Second checklist / })).toBeVisible();
+      expect(within(screen.getAllByTestId("note-page-sticky-heading")[1]).getByRole("heading", { name: /^Other checklist / })).toBeVisible();
+    } finally {
+      style.remove();
+      header.remove();
+    }
   });
 
   it("renders top-level checklist headings outside note viewports", () => {
