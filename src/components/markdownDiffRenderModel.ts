@@ -100,6 +100,38 @@ function sideLines(hunk: MarkdownDiffHunk, side: "before" | "after"): SourceDiff
   return hunk.lines.filter((line) => side === "before" ? line.kind !== "added" : line.kind !== "removed");
 }
 
+function leadingTableGroupFrame(
+  hunk: MarkdownDiffHunk,
+  side: "before" | "after",
+): SourceDiffLine | null {
+  const prologue = hunk.structuralPrologue?.[side].markdown;
+  if (!prologue) return null;
+  const lines = sideLines(hunk, side);
+  const [frame, title, delimiter] = lines;
+  if (
+    frame?.kind !== "context"
+    || delimiter?.kind !== "context"
+    || !isTableDelimiter(frame.value)
+    || !isTableDelimiter(delimiter.value)
+  ) return null;
+  const headerColumnCount = scanMarkdownTableLine(markdownLines(prologue)[0] ?? "")?.cells.length;
+  const frameColumnCount = scanMarkdownTableLine(frame.value)?.cells.length;
+  const titleColumnCount = scanMarkdownTableLine(title?.value ?? "")?.cells.length;
+  const delimiterColumnCount = scanMarkdownTableLine(delimiter.value)?.cells.length;
+  return headerColumnCount
+    && frameColumnCount === headerColumnCount
+    && titleColumnCount === 1
+    && delimiterColumnCount === headerColumnCount
+    ? frame
+    : null;
+}
+
+function tableSideLines(hunk: MarkdownDiffHunk, side: "before" | "after"): SourceDiffLine[] {
+  const lines = sideLines(hunk, side);
+  const frame = leadingTableGroupFrame(hunk, side);
+  return frame ? lines.filter((line) => line.id !== frame.id) : lines;
+}
+
 function sideMarkdown(lines: readonly SourceDiffLine[]): string {
   return lines.map((line) => `${line.value}${line.eol}`).join("");
 }
@@ -109,8 +141,8 @@ function hunkDecorations(
   fragments: readonly MarkdownDiffFragment[],
   side: "before" | "after",
   lineOffset = 0,
+  lines = sideLines(hunk, side),
 ): MarkdownDecoration[] {
-  const lines = sideLines(hunk, side);
   const lineIndexes = new Map(lines.map((line, index) => [line.id, index]));
   const decorations: MarkdownDecoration[] = [];
   for (const fragment of fragments) {
@@ -130,11 +162,10 @@ function hunkDecorations(
 }
 
 function fallbackTableRowChanges(
-  hunk: MarkdownDiffHunk,
   side: "before" | "after",
   lineOffset: number,
+  lines: readonly SourceDiffLine[],
 ): RenderedRowChange[] {
-  const lines = sideLines(hunk, side);
   const changedKind = side === "before" ? "removed" : "added";
   const rows = new Map<number, RenderedRowChange>();
   lines.forEach((line, index) => {
@@ -153,8 +184,8 @@ function splitTableUnit(
   hunk: MarkdownDiffHunk,
   fragments: readonly MarkdownDiffFragment[],
 ): RenderedDiffUnit {
-  const beforeLines = sideLines(hunk, "before");
-  const afterLines = sideLines(hunk, "after");
+  const beforeLines = tableSideLines(hunk, "before");
+  const afterLines = tableSideLines(hunk, "after");
   const hasRemoved = hunk.lines.some((line) => line.kind === "removed");
   const hasAdded = hunk.lines.some((line) => line.kind === "added");
   const sides: RenderedDiffSide[] = [];
@@ -171,24 +202,24 @@ function splitTableUnit(
   if (beforeLines.length && (hasRemoved || !hasAdded)) {
     const content = withPrologue("before", sideMarkdown(beforeLines));
     sides.push(renderedDiffSide({
-      decorations: hunkDecorations(hunk, fragments, "before", content.lineOffset),
+      decorations: hunkDecorations(hunk, fragments, "before", content.lineOffset, beforeLines),
       inlineChanges: [],
       key: `${hunk.id}-table-before`,
       kind: "context",
       markdown: content.markdown,
-      rowChanges: fallbackTableRowChanges(hunk, "before", content.lineOffset),
+      rowChanges: fallbackTableRowChanges("before", content.lineOffset, beforeLines),
       taskChanges: [],
     }));
   }
   if (afterLines.length && (hasAdded || !hasRemoved)) {
     const content = withPrologue("after", sideMarkdown(afterLines));
     sides.push(renderedDiffSide({
-      decorations: hunkDecorations(hunk, fragments, "after", content.lineOffset),
+      decorations: hunkDecorations(hunk, fragments, "after", content.lineOffset, afterLines),
       inlineChanges: [],
       key: `${hunk.id}-table-after`,
       kind: "context",
       markdown: content.markdown,
-      rowChanges: fallbackTableRowChanges(hunk, "after", content.lineOffset),
+      rowChanges: fallbackTableRowChanges("after", content.lineOffset, afterLines),
       taskChanges: [],
     }));
   }
@@ -486,8 +517,10 @@ function mergedTableUnit(
   const rowChanges: RenderedRowChange[] = [];
   const taskChanges: RenderedTaskChange[] = [];
   let hasModified = false;
+  const leadingGroupFrame = leadingTableGroupFrame(hunk, "after");
 
   for (const line of hunk.lines) {
+    if (line.id === leadingGroupFrame?.id) continue;
     if (line.kind === "removed" && line.pairId && pairedRemovedByPairId.has(line.pairId)) continue;
     const sourceLine = lineOffset + renderedLines.length;
     if (line.kind === "added" && line.pairId) {

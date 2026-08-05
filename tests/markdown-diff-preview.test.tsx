@@ -438,6 +438,58 @@ describe("compact Markdown diff preview", () => {
     expect(screen.getByText("Дальний проход").closest("tr")).toHaveAttribute("data-diff-kind", "modified");
   });
 
+  it("preserves an internal table group when its diff hunk starts at the framing delimiter", () => {
+    const before = [
+      "| Уровень | ✓ | TW | SiP | HC |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous group |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous row | [x] | [x] | [x] | [x] |",
+      "| --- | --- | --- | --- | --- |",
+      "| Goblet of Fire |",
+      "| --- | --- | --- | --- | --- |",
+      "| The Quidditch World Cup | [x] | [x] | [ ] | [ ] |",
+      "| Dragons | [x] | [x] | [ ] | [ ] |",
+    ].join("\n");
+    const after = before.replace(
+      "| The Quidditch World Cup | [x] | [x] | [ ] | [ ] |",
+      "| The Quidditch World Cup | [x] | [x] | [x] | [ ] |",
+    );
+
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getByText("Goblet of Fire").closest("th")).toHaveAttribute("colspan", "5");
+    expect(screen.queryByText(/^[-:]+$/u)).not.toBeInTheDocument();
+    expect(screen.getByText("The Quidditch World Cup").closest("tr")).toHaveAttribute(
+      "data-diff-kind",
+      "modified",
+    );
+  });
+
+  it("preserves an internal table group in a red-green fallback", () => {
+    const before = [
+      "| Уровень | Ссылка | TW | SiP | HC |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous group |",
+      "| --- | --- | --- | --- | --- |",
+      "| Previous row | [карта](https://example.com/previous) | [x] | [x] | [x] |",
+      "| --- | --- | --- | --- | --- |",
+      "| Goblet of Fire |",
+      "| --- | --- | --- | --- | --- |",
+      "| The Quidditch World Cup | [карта](https://example.com/old) | [x] | [ ] | [ ] |",
+      "| Dragons | [карта](https://example.com/dragons) | [x] | [ ] | [ ] |",
+    ].join("\n");
+    const after = before.replace("https://example.com/old", "https://example.com/new");
+
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getAllByRole("table")).toHaveLength(2);
+    const groupTitles = screen.getAllByText("Goblet of Fire");
+    expect(groupTitles).toHaveLength(2);
+    expect(groupTitles.every((title) => title.closest("th")?.colSpan === 5)).toBe(true);
+    expect(screen.queryByText(/^[-:]+$/u)).not.toBeInTheDocument();
+  });
+
   it("falls back the whole multiline paragraph when one physical line is unpaired", () => {
     render(
       <MarkdownDiffPreview
