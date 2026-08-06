@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "f42276743dfaad1cd56529e141e1100c1a318810bafaad888e71cbeeb2392995",
-  "publicationId": "73cc0779-fdba-49fe-a965-8a16490899cf",
+  "revision": "75768e087257428caa155d5a645fc17e482dbd799a990ac72635c075a4fbb7ab",
+  "publicationId": "78ecacaf-2775-499f-b1bb-b86eed85e1bd",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4921,18 +4921,37 @@
     },
     "41a1ab64-e29e-4c3e-801f-7ebce6532da2": {
       "id": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
-      "title": "Lego Harry Potter: Years 1–4",
+      "title": "LEGO Harry Potter: Years 1–4",
       "coverAssetId": "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684",
       "platforms": [],
-      "tags": [],
+      "tags": [
+        "LEGO"
+      ],
       "status": "platinum",
       "placement": {
-        "tierId": "s",
-        "rank": 33792
+        "tierId": "a",
+        "rank": 61440
       },
       "reviewMarkdown": "",
       "createdAt": "2026-08-03T00:59:42.616Z",
-      "updatedAt": "2026-08-06T05:48:46.765Z"
+      "updatedAt": "2026-08-06T05:54:49.800Z"
+    },
+    "ef7ef992-4633-409a-aa55-1092aebfc783": {
+      "id": "ef7ef992-4633-409a-aa55-1092aebfc783",
+      "title": "LEGO Harry Potter: Years 5-7",
+      "coverAssetId": "4282410e56f182980ad6647a62fdfd1848fdd36999734271d2c9ba59d32f1b29",
+      "platforms": [],
+      "tags": [
+        "LEGO"
+      ],
+      "status": "playing",
+      "placement": {
+        "tierId": "unranked",
+        "rank": 112640
+      },
+      "reviewMarkdown": "",
+      "createdAt": "2026-08-06T05:51:00.381Z",
+      "updatedAt": "2026-08-06T05:51:15.332Z"
     }
   },
   "notes": {
@@ -7424,7 +7443,8 @@
       "attachments": [],
       "rank": 4096,
       "createdAt": "2026-08-03T02:52:48.435Z",
-      "updatedAt": "2026-08-06T00:27:49.591Z"
+      "updatedAt": "2026-08-06T05:54:30.534Z",
+      "doubleHeight": true
     },
     "bb0b0dcc-c504-4f6b-ab27-bc4daaf4d064": {
       "id": "bb0b0dcc-c504-4f6b-ab27-bc4daaf4d064",
@@ -7447,14 +7467,14 @@
           "alt": "image"
         }
       ],
-      "rank": 5120,
+      "rank": 768,
       "createdAt": "2026-08-04T03:54:34.650Z",
-      "updatedAt": "2026-08-04T21:07:34.988Z"
+      "updatedAt": "2026-08-06T05:54:49.800Z"
     },
     "f96555e7-24a2-4593-84af-fb82281c8fe2": {
       "id": "f96555e7-24a2-4593-84af-fb82281c8fe2",
       "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
-      "bodyMarkdown": "",
+      "bodyMarkdown": "Игра веселая, много забавных анимаций, паззлов, интерактивностей. Много коллектаблов, а вот геймплея не хватило.",
       "attachments": [
         {
           "type": "image",
@@ -7462,9 +7482,9 @@
           "alt": "telegram-cloud-photo-size-2-5451767268204288577-y"
         }
       ],
-      "rank": 6144,
+      "rank": 512,
       "createdAt": "2026-08-06T05:48:46.760Z",
-      "updatedAt": "2026-08-06T05:48:46.765Z"
+      "updatedAt": "2026-08-06T05:54:41.283Z"
     }
   },
   "assets": {
@@ -11159,6 +11179,16 @@
       "byteLength": 956324,
       "alt": "telegram-cloud-photo-size-2-5451767268204288577-y",
       "originalName": "telegram-cloud-photo-size-2-5451767268204288577-y.jpg"
+    },
+    "4282410e56f182980ad6647a62fdfd1848fdd36999734271d2c9ba59d32f1b29": {
+      "id": "4282410e56f182980ad6647a62fdfd1848fdd36999734271d2c9ba59d32f1b29",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 512,
+      "height": 512,
+      "byteLength": 60646,
+      "alt": "Обложка LEGO Harry Potter: Years 5-7",
+      "originalName": "clipboard-image.png"
     }
   }
 }
