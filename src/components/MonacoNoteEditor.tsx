@@ -8,6 +8,7 @@ import {
 import { installMonacoGameLinkCompletion } from "./monacoGameLinkCompletion";
 import { installMonacoMarkdownListEditing } from "./monacoMarkdownListEditing";
 import { installMonacoMarkdownTableTyping } from "./monacoMarkdownTableFormatting";
+import { installMonacoMarkdownTableWidth } from "./monacoMarkdownTableWidth";
 import { installMonacoNoteActions } from "./monacoNoteActions";
 import { useNoteFileTransferCapture } from "./useNoteFileTransferCapture";
 
@@ -24,6 +25,7 @@ export interface MonacoNoteEditorProps {
   onCancel?(): void;
   onImageFiles(files: File[]): void;
   onFileFiles(files: File[]): void;
+  onRequiredTableWidthChange?(width: number): void;
 }
 
 type LiveValues = Pick<
@@ -33,6 +35,7 @@ type LiveValues = Pick<
   | "onCancel"
   | "onFileFiles"
   | "onImageFiles"
+  | "onRequiredTableWidthChange"
   | "onSubmit"
   | "submitDisabled"
 >;
@@ -57,6 +60,7 @@ export function MonacoNoteEditor({
   onChange,
   onFileFiles,
   onImageFiles,
+  onRequiredTableWidthChange,
   onSubmit,
   submitDisabled,
   value,
@@ -67,6 +71,7 @@ export function MonacoNoteEditor({
     onCancel,
     onFileFiles,
     onImageFiles,
+    onRequiredTableWidthChange,
     onSubmit,
     submitDisabled,
   });
@@ -76,6 +81,7 @@ export function MonacoNoteEditor({
     onCancel,
     onFileFiles,
     onImageFiles,
+    onRequiredTableWidthChange,
     onSubmit,
     submitDisabled,
   };
@@ -92,6 +98,11 @@ export function MonacoNoteEditor({
     const extensions: Monaco.IDisposable[] = [];
     try {
       extensions.push(installMonacoMarkdownTableTyping(context));
+      extensions.push(installMonacoMarkdownTableWidth(context, {
+        onRequiredWidthChange: (width) => {
+          live.current.onRequiredTableWidthChange?.(width);
+        },
+      }));
       extensions.push(installMonacoMarkdownListEditing(context));
       extensions.push(installMonacoGameLinkCompletion(context, {
         excludeGameId: live.current.excludeGameId,

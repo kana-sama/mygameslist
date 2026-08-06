@@ -29,12 +29,23 @@ export interface ShelfLayoutOptions {
   columnSpans?: readonly number[];
 }
 
+export interface ShelfExpansion {
+  index: number;
+  requestedSpan: number;
+}
+
 interface ShelfSlot {
   column: number;
   columnSpan: number;
   indexes: number[];
+  topOffset?: number;
 }
 type ShelfComposition = ShelfSlot[][];
+
+interface ShelfTailItem {
+  index: number;
+  columnSpan: number;
+}
 
 function safePixels(value: number, fallback: number, minimum = 0): number {
   if (!Number.isFinite(value)) return fallback;
@@ -46,8 +57,48 @@ function cssPixels(value: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
-function placementComposition(placements: readonly ShelfPlacement[]): ShelfComposition {
+function normalizeColumnSpan(value: number | undefined, columns: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(columns, Math.max(1, Math.floor(value!)));
+}
+
+export function shelfColumnSpanForWidth(
+  requiredWidth: number,
+  gridWidth: number,
+  columnCount: number,
+  columnGap: number,
+): number {
+  const columns = Math.max(1, Math.floor(Number.isFinite(columnCount) ? columnCount : 1));
+  const gap = safePixels(columnGap, DEFAULT_COLUMN_GAP);
+  const width = Math.max(0, Number.isFinite(gridWidth) ? gridWidth : 0);
+  const columnWidth = Math.max(1, (width - gap * (columns - 1)) / columns);
+  const demand = requiredWidth === Number.POSITIVE_INFINITY
+    ? Number.POSITIVE_INFINITY
+    : Number.isFinite(requiredWidth) ? Math.max(0, requiredWidth) : 0;
+  for (let span = 1; span <= columns; span += 1) {
+    if (columnWidth * span + gap * (span - 1) >= demand) return span;
+  }
+  return columns;
+}
+
+function placementShelfTops(placements: readonly ShelfPlacement[], rowGap: number): Map<number, number> {
+  const shelfTops = new Map<number, number>();
+  const highestShelf = Math.max(-1, ...placements.map((placement) => placement.shelf));
+  let shelfTop = 0;
+  for (let shelf = 0; shelf <= highestShelf; shelf += 1) {
+    shelfTops.set(shelf, shelfTop);
+    const shelfHeight = placements.find((placement) => placement.shelf === shelf)?.shelfHeight ?? 0;
+    shelfTop += shelfHeight + rowGap;
+  }
+  return shelfTops;
+}
+
+function placementComposition(
+  placements: readonly ShelfPlacement[],
+  rowGap = DEFAULT_ROW_GAP,
+): ShelfComposition {
   const composition: ShelfComposition = [];
+  const shelfTops = placementShelfTops(placements, rowGap);
   for (const placement of placements) {
     const shelf = composition[placement.shelf] ?? [];
     let slot = shelf.find((candidate) => candidate.column === placement.column);
@@ -59,6 +110,14 @@ function placementComposition(placements: readonly ShelfPlacement[]): ShelfCompo
     slot.indexes.push(placement.index);
     composition[placement.shelf] = shelf;
   }
+  composition.forEach((shelf, shelfIndex) => {
+    for (const slot of shelf) {
+      if (slot.indexes.length !== 1) continue;
+      const placement = placements.find((candidate) => candidate.index === slot.indexes[0]);
+      const topOffset = placement ? placement.top - (shelfTops.get(shelfIndex) ?? placement.top) : 0;
+      if (topOffset > 0) slot.topOffset = topOffset;
+    }
+  });
   return composition;
 }
 
@@ -76,10 +135,18 @@ function layoutComposition(
   let shelfTop = 0;
 
   composition.forEach((slots, shelf) => {
-    const shelfHeight = Math.max(1, ...slots.map((slot) => slot.indexes.reduce((total, index) => total + heights[index], 0) + stackGap * Math.max(0, slot.indexes.length - 1)));
+    const slotNaturalHeight = (slot: ShelfSlot) => (
+      slot.indexes.reduce((total, index) => total + heights[index], 0)
+      + stackGap * Math.max(0, slot.indexes.length - 1)
+    );
+    const shelfHeight = Math.max(
+      1,
+      ...slots.map((slot) => (slot.topOffset ?? 0) + slotNaturalHeight(slot)),
+    );
     slots.forEach((slot) => {
       if (slot.indexes.length === 1) {
-        placements.push({ index: slot.indexes[0], shelf, column: slot.column, columnSpan: slot.columnSpan, top: shelfTop, height: shelfHeight, shelfHeight, stackPosition: "single" });
+        const topOffset = slot.topOffset ?? 0;
+        placements.push({ index: slot.indexes[0], shelf, column: slot.column, columnSpan: slot.columnSpan, top: shelfTop + topOffset, height: shelfHeight - topOffset, shelfHeight, stackPosition: "single" });
         return;
       }
 
@@ -99,6 +166,93 @@ function layoutComposition(
   return { placements: placements.sort((left, right) => left.index - right.index), height: Math.max(0, shelfTop - (composition.length ? rowGap : 0)) };
 }
 
+function packShelfItems(
+  items: readonly ShelfTailItem[],
+  heights: readonly number[],
+  capacity: number,
+  stackGap: number,
+  columnOffset = 0,
+  minimumShelfHeight = 0,
+  totalColumns = capacity,
+): { slots: ShelfSlot[]; consumed: number } {
+  if (items.length === 0 || capacity < 1) return { slots: [], consumed: 0 };
+
+  let baselineEnd = 0;
+  let baselineColumns = 0;
+  while (baselineEnd < items.length && baselineColumns + items[baselineEnd].columnSpan <= capacity) {
+    baselineColumns += items[baselineEnd].columnSpan;
+    baselineEnd += 1;
+  }
+  if (baselineEnd === 0) return { slots: [], consumed: 0 };
+
+  let shelfHeight = Math.max(minimumShelfHeight, ...items.slice(0, baselineEnd).map((item) => heights[item.index]));
+  let slots: ShelfSlot[] = [];
+  let consumed = 0;
+  while (true) {
+    slots = [];
+    let itemOffset = 0;
+    let column = 0;
+    while (column < capacity && itemOffset < items.length) {
+      const item = items[itemOffset];
+      if (column + item.columnSpan > capacity) break;
+      const nextItem = items[itemOffset + 1];
+      const canStack = item.columnSpan === 1
+        && totalColumns > 1
+        && nextItem !== undefined
+        && nextItem.columnSpan === 1
+        && heights[item.index] + stackGap + heights[nextItem.index] <= shelfHeight;
+      if (canStack) {
+        slots.push({ column: columnOffset + column, columnSpan: 1, indexes: [item.index, nextItem.index] });
+        itemOffset += 2;
+      } else {
+        slots.push({ column: columnOffset + column, columnSpan: item.columnSpan, indexes: [item.index] });
+        itemOffset += 1;
+      }
+      column += item.columnSpan;
+    }
+
+    consumed = itemOffset;
+    const nextShelfHeight = Math.max(
+      minimumShelfHeight,
+      ...slots.map((slot) => slot.indexes.reduce((total, index) => total + heights[index], 0) + stackGap * Math.max(0, slot.indexes.length - 1)),
+    );
+    if (nextShelfHeight <= shelfHeight) break;
+    shelfHeight = nextShelfHeight;
+  }
+  return { slots, consumed };
+}
+
+function appendTailToComposition(
+  composition: ShelfComposition,
+  tail: readonly ShelfTailItem[],
+  heights: readonly number[],
+  columns: number,
+  stackGap: number,
+): void {
+  const remaining = [...tail].sort((left, right) => left.index - right.index);
+  const lastShelf = composition.at(-1);
+  if (lastShelf && remaining.length > 0) {
+    const occupiedUntil = Math.max(0, ...lastShelf.map((slot) => slot.column + slot.columnSpan));
+    const freeColumns = columns - occupiedUntil;
+    const minimumShelfHeight = Math.max(
+      1,
+      ...lastShelf.map((slot) => (slot.topOffset ?? 0)
+        + slot.indexes.reduce((total, index) => total + heights[index], 0)
+        + stackGap * Math.max(0, slot.indexes.length - 1)),
+    );
+    const packed = packShelfItems(remaining, heights, freeColumns, stackGap, occupiedUntil, minimumShelfHeight, columns);
+    lastShelf.push(...packed.slots);
+    remaining.splice(0, packed.consumed);
+  }
+
+  while (remaining.length > 0) {
+    const packed = packShelfItems(remaining, heights, columns, stackGap);
+    if (packed.consumed === 0) break;
+    composition.push(packed.slots);
+    remaining.splice(0, packed.consumed);
+  }
+}
+
 export function buildShelfLayout(
   naturalHeights: readonly number[],
   columnCount: number,
@@ -108,52 +262,75 @@ export function buildShelfLayout(
   const columns = Math.max(1, Math.floor(Number.isFinite(columnCount) ? columnCount : 1));
   const rowGap = safePixels(options.rowGap ?? DEFAULT_ROW_GAP, DEFAULT_ROW_GAP);
   const stackGap = safePixels(options.stackGap ?? DEFAULT_STACK_GAP, DEFAULT_STACK_GAP);
-  const columnSpans = heights.map((_, index) => Math.min(columns, options.columnSpans?.[index] === 2 ? 2 : 1));
+  const columnSpans = heights.map((_, index) => normalizeColumnSpan(options.columnSpans?.[index], columns));
   const composition: ShelfComposition = [];
   let start = 0;
 
   while (start < heights.length) {
-    let baselineEnd = start;
-    let baselineColumns = 0;
-    while (baselineEnd < heights.length && baselineColumns + columnSpans[baselineEnd] <= columns) {
-      baselineColumns += columnSpans[baselineEnd];
-      baselineEnd += 1;
-    }
-    let shelfHeight = Math.max(...heights.slice(start, baselineEnd));
-    let slots: ShelfSlot[] = [];
-
-    while (true) {
-      slots = [];
-      let index = start;
-      let column = 0;
-      while (column < columns && index < heights.length) {
-        const columnSpan = columnSpans[index];
-        if (column + columnSpan > columns) break;
-        const canStack = columnSpan === 1
-          && columns > 1
-          && index + 1 < heights.length
-          && columnSpans[index + 1] === 1
-          && heights[index] + stackGap + heights[index + 1] <= shelfHeight;
-        if (canStack) {
-          slots.push({ column, columnSpan, indexes: [index, index + 1] });
-          index += 2;
-        } else {
-          slots.push({ column, columnSpan, indexes: [index] });
-          index += 1;
-        }
-        column += columnSpan;
-      }
-
-      const nextShelfHeight = Math.max(...slots.map((slot) => slot.indexes.reduce((total, itemIndex) => total + heights[itemIndex], 0) + stackGap * Math.max(0, slot.indexes.length - 1)));
-      if (nextShelfHeight <= shelfHeight) break;
-      shelfHeight = nextShelfHeight;
-    }
-
-    composition.push(slots);
-    start = slots.at(-1)!.indexes.at(-1)! + 1;
+    const items = heights.slice(start).map((_, offset) => ({ index: start + offset, columnSpan: columnSpans[start + offset] }));
+    const packed = packShelfItems(items, heights, columns, stackGap);
+    composition.push(packed.slots);
+    start += packed.consumed;
   }
 
   return layoutComposition(heights, composition, rowGap, stackGap);
+}
+
+export function expandShelfLayout(
+  naturalHeights: readonly number[],
+  columnCount: number,
+  previousLayout: ShelfLayout,
+  options: ShelfLayoutOptions & { expansion: ShelfExpansion },
+): ShelfLayout {
+  const columns = Math.max(1, Math.floor(Number.isFinite(columnCount) ? columnCount : 1));
+  const anchor = previousLayout.placements[options.expansion.index];
+  if (!anchor) return buildShelfLayout(naturalHeights, columns, options);
+
+  const requestedSpan = normalizeColumnSpan(options.expansion.requestedSpan, columns);
+  const anchoredSpan = Math.max(
+    anchor.columnSpan,
+    Math.min(requestedSpan, columns - anchor.column),
+  );
+  if (anchoredSpan === anchor.columnSpan) return previousLayout;
+
+  const rowGap = safePixels(options.rowGap ?? DEFAULT_ROW_GAP, DEFAULT_ROW_GAP);
+  const previousComposition = placementComposition(previousLayout.placements, rowGap);
+  const anchorShelfTop = placementShelfTops(previousLayout.placements, rowGap).get(anchor.shelf) ?? anchor.top;
+  const fixedComposition = previousComposition
+    .slice(0, anchor.shelf)
+    .map((shelf) => shelf.map((slot) => ({ ...slot, indexes: [...slot.indexes] })));
+  const anchorShelf = previousComposition[anchor.shelf] ?? [];
+  const fixedAnchorShelf = anchorShelf
+    .filter((slot) => slot.column + slot.columnSpan <= anchor.column)
+    .map((slot) => ({ ...slot, indexes: [...slot.indexes] }));
+  fixedAnchorShelf.push({
+    column: anchor.column,
+    columnSpan: anchoredSpan,
+    indexes: [anchor.index],
+    topOffset: anchor.top - anchorShelfTop,
+  });
+  fixedAnchorShelf.sort((left, right) => left.column - right.column);
+  fixedComposition.push(fixedAnchorShelf);
+
+  const fixedIndexes = new Set(
+    fixedComposition.flatMap((shelf) => shelf.flatMap((slot) => slot.indexes)),
+  );
+  const normalizedSpans = naturalHeights.map((_, index) => (
+    normalizeColumnSpan(options.columnSpans?.[index], columns)
+  ));
+  const tail = naturalHeights
+    .map((_, index) => ({ index, columnSpan: normalizedSpans[index] }))
+    .filter(({ index }) => !fixedIndexes.has(index));
+  const heights = naturalHeights.map((height) => safePixels(height, 1, 1));
+  const stackGap = safePixels(options.stackGap ?? DEFAULT_STACK_GAP, DEFAULT_STACK_GAP);
+  appendTailToComposition(fixedComposition, tail, heights, columns, stackGap);
+
+  return layoutComposition(
+    heights,
+    fixedComposition,
+    rowGap,
+    stackGap,
+  );
 }
 
 function resetCardLayout(card: HTMLElement): void {
@@ -196,8 +373,9 @@ function measureNaturalHeights(grid: HTMLElement, cards: readonly HTMLElement[])
   }
 }
 
-function cardOrder(cards: readonly HTMLElement[]): string {
-  return cards.map((card, index) => card.dataset.noteId ?? `index:${index}`).join("\u0000");
+function cardBaseColumnSpan(card: HTMLElement): number {
+  const value = Number(card.dataset.shelfColumnSpan);
+  return Number.isInteger(value) && value > 0 ? value : 1;
 }
 
 export function ShelfGrid({
@@ -214,8 +392,9 @@ export function ShelfGrid({
   const gridRef = useRef<HTMLDivElement>(null);
   const compositionRef = useRef<ShelfComposition | null>(null);
   const columnCountRef = useRef(0);
-  const orderRef = useRef("");
+  const cardsRef = useRef<HTMLElement[]>([]);
   const columnSpanSignatureRef = useRef("");
+  const automaticSpansRef = useRef(new WeakMap<HTMLElement, { editor: HTMLElement; span: number }>());
   const pendingRepackRef = useRef(true);
   const frozenRef = useRef(packingFrozen);
   const layoutDependency = layoutKey ?? children;
@@ -232,10 +411,9 @@ export function ShelfGrid({
       if (layingOut) return;
       layingOut = true;
       const cards = Array.from(grid.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
-      const nextOrder = cardOrder(cards);
-      const previousOrder = orderRef.current;
-      const columnSpans = cards.map((card) => card.dataset.shelfColumnSpan === "2" ? 2 : 1);
-      const columnSpanSignature = columnSpans.join("");
+      const previousCards = cardsRef.current;
+      const columnSpans = cards.map(cardBaseColumnSpan);
+      const columnSpanSignature = columnSpans.join(",");
       const spanChanged = columnSpanSignatureRef.current !== columnSpanSignature;
 
       grid.setAttribute("data-shelf-measuring", "true");
@@ -250,23 +428,67 @@ export function ShelfGrid({
       const columnCount = Math.max(1, Math.floor((gridWidth + columnGap) / (minimumColumnWidth + columnGap)));
       const heights = measureNaturalHeights(grid, cards);
       const packedCardCount = compositionSize(compositionRef.current);
-      const structureChanged = previousOrder !== nextOrder || packedCardCount !== cards.length;
-      const shouldRepack = requestRepack || pendingRepackRef.current || !compositionRef.current || columnCountRef.current !== columnCount || structureChanged;
+      const childOrderChanged = previousCards.length !== cards.length
+        || cards.some((card, index) => card !== previousCards[index]);
+      const structureChanged = childOrderChanged || packedCardCount !== cards.length;
+      const columnCountChanged = columnCountRef.current !== columnCount;
+      const shouldRepack = requestRepack || pendingRepackRef.current || !compositionRef.current || columnCountChanged || structureChanged;
       const compositionUsable = Boolean(compositionRef.current && packedCardCount === cards.length);
-      const repackNow = !compositionUsable || spanChanged || shouldRepack && !frozenRef.current;
-      let shelfLayout: ShelfLayout;
+      const repackNow = !compositionUsable
+        || spanChanged
+        || structureChanged
+        || columnCountChanged
+        || shouldRepack && !frozenRef.current;
+      let baseLayout: ShelfLayout;
 
       if (repackNow) {
-        shelfLayout = buildShelfLayout(heights, columnCount, { columnSpans });
-        compositionRef.current = placementComposition(shelfLayout.placements);
+        baseLayout = buildShelfLayout(heights, columnCount, { columnSpans });
+        compositionRef.current = placementComposition(baseLayout.placements);
         pendingRepackRef.current = false;
         columnCountRef.current = columnCount;
       } else {
         if (shouldRepack) pendingRepackRef.current = true;
-        shelfLayout = layoutComposition(heights, compositionRef.current!, DEFAULT_ROW_GAP, DEFAULT_STACK_GAP);
+        baseLayout = layoutComposition(heights, compositionRef.current!, DEFAULT_ROW_GAP, DEFAULT_STACK_GAP);
       }
 
-      orderRef.current = nextOrder;
+      const activeExpansions: ShelfExpansion[] = [];
+      cards.forEach((card, index) => {
+        const editingCard = card.matches(".note-card--editing")
+          ? card
+          : card.querySelector<HTMLElement>(".note-card--editing");
+        if (!editingCard) {
+          automaticSpansRef.current.delete(card);
+          return;
+        }
+
+        let automaticSession = automaticSpansRef.current.get(card);
+        if (automaticSession?.editor !== editingCard) {
+          automaticSession = { editor: editingCard, span: 1 };
+          automaticSpansRef.current.set(card, automaticSession);
+        }
+
+        const requiredWidthValue = card.dataset.shelfRequiredWidth
+          ?? editingCard.dataset.shelfRequiredWidth;
+        const requiredWidth = requiredWidthValue === undefined ? Number.NaN : Number(requiredWidthValue);
+        if (requiredWidth > 0) {
+          const demandedSpan = shelfColumnSpanForWidth(requiredWidth, gridWidth, columnCount, columnGap);
+          automaticSession = {
+            editor: editingCard,
+            span: Math.max(automaticSession.span, demandedSpan),
+          };
+          automaticSpansRef.current.set(card, automaticSession);
+        }
+        if (automaticSession.span > normalizeColumnSpan(columnSpans[index], columnCount)) {
+          activeExpansions.push({ index, requestedSpan: automaticSession.span });
+        }
+      });
+
+      let shelfLayout = baseLayout;
+      for (const expansion of activeExpansions) {
+        shelfLayout = expandShelfLayout(heights, columnCount, shelfLayout, { columnSpans, expansion });
+      }
+
+      cardsRef.current = cards;
       columnSpanSignatureRef.current = columnSpanSignature;
       grid.style.gridAutoRows = "1px";
       grid.style.rowGap = "0px";
@@ -293,7 +515,7 @@ export function ShelfGrid({
     observer?.observe(grid);
     for (const card of grid.children) observer?.observe(card);
     const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => scheduleLayout(false));
-    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span"], attributes: true, characterData: true, childList: true, subtree: true });
+    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-required-width"], attributes: true, characterData: true, childList: true, subtree: true });
     const handleResize = () => scheduleLayout(true);
     window.addEventListener("resize", handleResize);
     layout(true);
