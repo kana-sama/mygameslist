@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "revision": "802bc69ef318e0ff18bf8e16baff4cb71cfced56e534e77775735cfea7930317",
-  "publicationId": "f0c8d376-7642-4a3c-8b46-13fd7bc26210",
+  "revision": "f42276743dfaad1cd56529e141e1100c1a318810bafaad888e71cbeeb2392995",
+  "publicationId": "73cc0779-fdba-49fe-a965-8a16490899cf",
   "games": {
     "01333afa-b788-4417-afda-8e160af83719": {
       "id": "01333afa-b788-4417-afda-8e160af83719",
@@ -4925,14 +4925,14 @@
       "coverAssetId": "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684",
       "platforms": [],
       "tags": [],
-      "status": "playing",
+      "status": "platinum",
       "placement": {
         "tierId": "s",
         "rank": 33792
       },
       "reviewMarkdown": "",
       "createdAt": "2026-08-03T00:59:42.616Z",
-      "updatedAt": "2026-08-06T05:15:33.015Z"
+      "updatedAt": "2026-08-06T05:48:46.765Z"
     }
   },
   "notes": {
@@ -7450,6 +7450,21 @@
       "rank": 5120,
       "createdAt": "2026-08-04T03:54:34.650Z",
       "updatedAt": "2026-08-04T21:07:34.988Z"
+    },
+    "f96555e7-24a2-4593-84af-fb82281c8fe2": {
+      "id": "f96555e7-24a2-4593-84af-fb82281c8fe2",
+      "gameId": "41a1ab64-e29e-4c3e-801f-7ebce6532da2",
+      "bodyMarkdown": "",
+      "attachments": [
+        {
+          "type": "image",
+          "assetId": "e6fe4b241575f6e66f4cdfc829bbb33fa889669526c2bf911a179113105b269b",
+          "alt": "telegram-cloud-photo-size-2-5451767268204288577-y"
+        }
+      ],
+      "rank": 6144,
+      "createdAt": "2026-08-06T05:48:46.760Z",
+      "updatedAt": "2026-08-06T05:48:46.765Z"
     }
   },
   "assets": {
@@ -11134,6 +11149,16 @@
       "byteLength": 45874,
       "alt": "image",
       "originalName": "image.png"
+    },
+    "e6fe4b241575f6e66f4cdfc829bbb33fa889669526c2bf911a179113105b269b": {
+      "id": "e6fe4b241575f6e66f4cdfc829bbb33fa889669526c2bf911a179113105b269b",
+      "kind": "image",
+      "mime": "image/webp",
+      "width": 1280,
+      "height": 720,
+      "byteLength": 956324,
+      "alt": "telegram-cloud-photo-size-2-5451767268204288577-y",
+      "originalName": "telegram-cloud-photo-size-2-5451767268204288577-y.jpg"
     }
   }
 }
