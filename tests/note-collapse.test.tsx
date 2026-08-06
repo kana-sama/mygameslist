@@ -67,6 +67,25 @@ afterEach(() => {
 });
 
 describe("scrollable long note cards", () => {
+  it("keeps Markdown table overflow horizontal only", () => {
+    const style = installProductionStyles();
+
+    try {
+      const { container } = render(<MarkdownView markdown={[
+        "| Level | Done |",
+        "| --- | --- |",
+        "| Long level name | [ ] |",
+      ].join("\n")} />);
+      const tableScroll = container.querySelector<HTMLElement>(".markdown-table-scroll");
+
+      expect(tableScroll).not.toBeNull();
+      expect(getComputedStyle(tableScroll!).overflowX).toBe("auto");
+      expect(getComputedStyle(tableScroll!).overflowY).toBe("hidden");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("renders long and short text through the same stable scroll viewport", async () => {
     const user = userEvent.setup();
     vi.spyOn(Element.prototype, "scrollHeight", "get").mockImplementation(function (this: Element) {

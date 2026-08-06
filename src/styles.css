@@ -355,7 +355,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-heading--complete .markdown-checklist-progress { color: inherit; }
 .markdown .markdown-checklist-group--complete > .markdown-checklist-group__header { color: var(--success); }
 .markdown-checklist-group--complete > .markdown-checklist-group__header .markdown-checklist-progress { color: inherit; }
-.markdown-table-scroll { max-width: 100%; margin: .65em 0; overflow-x: auto; }
+.markdown-table-scroll { max-width: 100%; margin: .65em 0; overflow-x: auto; overflow-y: hidden; }
 .markdown-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: .95em; }
 .markdown-table th, .markdown-table td { padding: 4px 6px; border: 1px solid var(--line-soft); vertical-align: middle; text-align: left; }
 .markdown-table th { color: var(--text); background: var(--surface-2); font-weight: 650; white-space: nowrap; }
