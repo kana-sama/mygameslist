@@ -2,9 +2,10 @@
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "Segoe UI", sans-serif;
   color: #e7e7e9;
-  background: #111214;
+  background: var(--canvas-background);
   font-synthesis: none;
   --bg: #111214;
+  --canvas-background: var(--bg);
   --surface: #17181b;
   --surface-2: #1c1d21;
   --surface-3: #24262a;
@@ -25,9 +26,13 @@
   --note-text-height: 300px;
 }
 
+:root[data-runtime-environment="development"] {
+  --canvas-background: repeating-linear-gradient(-45deg, rgba(180, 100, 142, .08) 0 9px, transparent 9px 22px), #171319;
+}
+
 * { box-sizing: border-box; }
-html { min-width: 320px; background: var(--bg); scroll-behavior: smooth; }
-body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--text); background: var(--bg); font-size: 13px; line-height: 1.4; }
+html { min-width: 320px; background: var(--canvas-background); scroll-behavior: smooth; }
+body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--text); background: var(--canvas-background); font-size: 13px; line-height: 1.4; }
 html:has(.app-shell[data-route="tiers"]), body:has(.app-shell[data-route="tiers"]), #root:has(.app-shell[data-route="tiers"]) { height: 100dvh; min-height: 0; overflow: hidden; }
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -177,7 +182,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .tier-page--empty { display: grid; padding: 8px; place-items: center; }
 .tier-page--empty .empty-state { width: min(460px, 100%); min-height: 0; border: 0; background: transparent; }
 .tier-board { height: 100%; display: flex; overflow-x: hidden; overflow-y: auto; flex-direction: column; gap: 1px; background: var(--line-soft); scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
-.tier-row { min-height: var(--tier-card-size); display: grid; flex: 1 0 auto; grid-template-columns: 34px minmax(0, 1fr); overflow: hidden; border: 0; background: var(--bg); }
+.tier-row { min-height: var(--tier-card-size); display: grid; flex: 1 0 auto; grid-template-columns: 34px minmax(0, 1fr); overflow: hidden; border: 0; background: var(--canvas-background); }
 .tier-row.is-over { background: #1b2024; box-shadow: inset 0 0 0 1px var(--accent); }
 .tier-row__label { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #161719; text-align: center; }
 .tier-row__label::after { content: ""; position: absolute; z-index: 0; inset: 0; background: var(--tier-color); }
