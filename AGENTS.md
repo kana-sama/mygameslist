@@ -9,3 +9,10 @@
 - Finalize a completed change with `jj describe` and then create a fresh working-copy change with `jj new`. Do not use `git commit`, because importing direct Git commits can leave anonymous side heads in `jj log`.
 - Treat every existing or finalized commit as immutable. Never amend, edit, squash into, rebase, abandon, or otherwise rewrite it.
 - Keep corrections to an unfinalized feature in that feature's working-copy commit. Put a follow-up fix, review correction, specification update, or plan update in a new descendant commit only when the original feature commit is already immutable, such as after it has been pushed to `main`.
+
+# Reference-based work
+
+- Treat any artifact the user cites as normative for both content and observable structure. Before planning, inspect it and the relevant repository specifications, tests, and implementation; preserve its hierarchy, container count, grouping syntax, order, and interaction model unless the approved specification explicitly requires a deviation.
+- In every subagent brief for reference-based work, provide the exact reference paths and required structural invariants. Research may supply factual content, but it must not redefine presentation or structure.
+- Map every approved requirement to an explicit validation step, and validate structural constraints structurally. For example, "one table" requires verifying that exactly one table block exists; matching the expected row count is insufficient.
+- Before committing, require both the implementer and reviewer to compare the final artifact directly with the cited reference and relevant repository specification. Stop if any observable structural constraint differs.
