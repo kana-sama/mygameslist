@@ -8,6 +8,7 @@ import {
 import type {
   Asset,
   Game,
+  GameProgressItem,
   LibraryDatabase,
   Note,
   PatchEnvelope,
@@ -24,7 +25,22 @@ export type ChangeEvidence =
   | { type: "chips"; added: string[]; removed: string[] }
   | { type: "move"; before: string; after: string }
   | { type: "markdown"; before: string; after: string; diff: MarkdownDiffModel }
+  | ProgressChangeEvidence
   | { type: "asset"; assetId: string; originalName: string; mime: string; byteLength: number; width?: number; height?: number };
+
+export interface ProgressEvidenceItem {
+  itemId: string;
+  iconAssetId: string;
+  noteTitle: string;
+}
+
+export interface ProgressChangeEvidence {
+  type: "progress";
+  added: ProgressEvidenceItem[];
+  removed: ProgressEvidenceItem[];
+  after: ProgressEvidenceItem[];
+  reordered: boolean;
+}
 
 export interface ReviewChange {
   id: string;
@@ -178,6 +194,11 @@ function referencedAssets(value: Game | Note | Asset | undefined): Set<string> {
   return result;
 }
 
+function progressIconAssetIds(value: Game | Note | Asset | undefined): Set<string> {
+  if (!value || !("progressItems" in value)) return new Set<string>();
+  return new Set(progressItems(value.progressItems).map((item) => item.iconAssetId));
+}
+
 function buildAssetGameIndex(database: LibraryDatabase): Map<string, Set<string>> {
   const index = new Map<string, Set<string>>();
   const referenced = referencedAssetIds(database);
@@ -256,8 +277,14 @@ function makeUnits(operations: ParsedOperation[]): SemanticUnit[] {
 
 function foldAssets(units: SemanticUnit[], base: LibraryDatabase, effective: LibraryDatabase): SemanticUnit[] {
   const folded = new Set<string>();
+  const progressUnits = units.filter((unit) => unit.map === "games" && operationFields(unit).includes("progressItems"));
   for (const assetUnit of units.filter((unit) => unit.map === "assets")) {
-    const owners = units.filter((candidate) => {
+    const progressOwners = progressUnits.filter((candidate) => {
+      const before = entity(base, candidate.map, candidate.entityId);
+      const after = intendedEntityForUnit(candidate, before, entity(effective, candidate.map, candidate.entityId));
+      return progressIconAssetIds(before).has(assetUnit.entityId) || progressIconAssetIds(after).has(assetUnit.entityId);
+    });
+    const owners = progressOwners.length === 1 ? progressOwners : units.filter((candidate) => {
       if (candidate.map === "assets" || candidate.transactionId !== assetUnit.transactionId) return false;
       const before = entity(base, candidate.map, candidate.entityId);
       const after = entity(effective, candidate.map, candidate.entityId);
@@ -373,6 +400,43 @@ function markdownEvidence(before: unknown, after: unknown): ChangeEvidence {
   return { type: "markdown", before: beforeText, after: afterText, diff: createMarkdownDiff(beforeText, afterText) };
 }
 
+function progressItems(value: unknown): GameProgressItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Record<string, unknown>;
+    if (typeof candidate.id !== "string" || typeof candidate.iconAssetId !== "string" || typeof candidate.noteId !== "string") return [];
+    return [{ id: candidate.id, iconAssetId: candidate.iconAssetId, noteId: candidate.noteId }];
+  });
+}
+
+function progressEvidenceItem(item: GameProgressItem, database: LibraryDatabase): ProgressEvidenceItem {
+  const note = database.notes[item.noteId];
+  return {
+    itemId: item.id,
+    iconAssetId: item.iconAssetId,
+    noteTitle: note ? deriveMarkdownTitle(note.bodyMarkdown) : "Заметка недоступна",
+  };
+}
+
+function progressEvidence(before: unknown, after: unknown, base: LibraryDatabase, effective: LibraryDatabase): ProgressChangeEvidence {
+  const beforeItems = progressItems(before);
+  const afterItems = progressItems(after);
+  const beforeById = new Map(beforeItems.map((item) => [item.id, item]));
+  const afterById = new Map(afterItems.map((item) => [item.id, item]));
+  const unchanged = (left: GameProgressItem, right: GameProgressItem | undefined): boolean =>
+    Boolean(right && left.iconAssetId === right.iconAssetId && left.noteId === right.noteId);
+  const retainedBefore = beforeItems.filter((item) => unchanged(item, afterById.get(item.id))).map((item) => item.id);
+  const retainedAfter = afterItems.filter((item) => unchanged(item, beforeById.get(item.id))).map((item) => item.id);
+  return {
+    type: "progress",
+    added: afterItems.filter((item) => !unchanged(item, beforeById.get(item.id))).map((item) => progressEvidenceItem(item, effective)),
+    removed: beforeItems.filter((item) => !unchanged(item, afterById.get(item.id))).map((item) => progressEvidenceItem(item, base)),
+    after: afterItems.map((item) => progressEvidenceItem(item, effective)),
+    reordered: retainedBefore.some((item, index) => item !== retainedAfter[index]),
+  };
+}
+
 function intendedEntityForUnit(
   unit: SemanticUnit,
   baseEntity: Game | Note | Asset | undefined,
@@ -401,12 +465,18 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
   }
   const beforeEntity = entity(base, unit.map, unit.entityId);
   const afterEntity = intendedEntityForUnit(unit, beforeEntity, entity(effective, unit.map, unit.entityId));
+  const progressIconIds = new Set([
+    ...progressItems(beforeEntity && "progressItems" in beforeEntity ? beforeEntity.progressItems : undefined),
+    ...progressItems(afterEntity && "progressItems" in afterEntity ? afterEntity.progressItems : undefined),
+  ].map((item) => item.iconAssetId));
   const result: ChangeEvidence[] = [];
   for (const field of operationFields(unit)) {
     const before = beforeEntity ? (beforeEntity as unknown as Record<string, unknown>)[field] : undefined;
     const after = afterEntity ? (afterEntity as unknown as Record<string, unknown>)[field] : undefined;
     if (field === "bodyMarkdown" || field === "reviewMarkdown") {
       result.push(markdownEvidence(before, after));
+    } else if (field === "progressItems" && unit.map === "games") {
+      result.push(progressEvidence(before, after, base, effective));
     } else if (field === "platforms" || field === "tags" || field === "collapsedChecklistSections") {
       result.push(chipEvidence(stringChips(before), stringChips(after)));
     } else if (field === "attachments") {
@@ -424,6 +494,7 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
     }
   }
   for (const foldedAsset of unit.foldedAssets.sort((left, right) => left.entityId.localeCompare(right.entityId))) {
+    if (progressIconIds.has(foldedAsset.entityId)) continue;
     const evidence = assetEvidence(foldedAsset.entityId, base, effective);
     if (evidence) result.push(evidence);
   }
@@ -449,7 +520,10 @@ function unitKind(unit: SemanticUnit, base: LibraryDatabase, effective: LibraryD
 }
 
 function unitTitle(unit: SemanticUnit, base: LibraryDatabase, effective: LibraryDatabase): string {
-  if (unit.map === "games") return effective.games[unit.entityId]?.title ?? base.games[unit.entityId]?.title ?? "Игра без названия";
+  if (unit.map === "games") {
+    if (operationFields(unit).length === 1 && operationFields(unit)[0] === "progressItems") return "Прогресс";
+    return effective.games[unit.entityId]?.title ?? base.games[unit.entityId]?.title ?? "Игра без названия";
+  }
   if (unit.map === "notes") {
     const markdown = effective.notes[unit.entityId]?.bodyMarkdown ?? base.notes[unit.entityId]?.bodyMarkdown ?? "";
     return deriveMarkdownTitle(markdown);
@@ -466,6 +540,13 @@ function compactSecondary(evidence: ChangeEvidence): string | null {
     return parts.join("; ") || null;
   }
   if (evidence.type === "scalar") return `${evidence.before} → ${evidence.after}`;
+  if (evidence.type === "progress") {
+    return [
+      evidence.added.length ? `Добавлено: ${evidence.added.length}` : "",
+      evidence.removed.length ? `Удалено: ${evidence.removed.length}` : "",
+      evidence.reordered ? "Порядок изменён" : "",
+    ].filter(Boolean).join("; ") || "Прогресс изменён";
+  }
   if (evidence.type === "asset") return evidence.originalName;
   return null;
 }
@@ -491,6 +572,8 @@ function unitSummary(
   if (move) return `Перемещено: ${move.before} → ${move.after}`;
   const markdown = evidence.find((item): item is Extract<ChangeEvidence, { type: "markdown" }> => item.type === "markdown");
   if (markdown) return summarizeMarkdownDiff(markdown.diff);
+  const progress = evidence.find((item): item is ProgressChangeEvidence => item.type === "progress");
+  if (progress) return compactSecondary(progress) ?? "Прогресс изменён";
   const first = evidence[0];
   if (!first) return `Изменено «${title}»`;
   const detail = compactSecondary(first);

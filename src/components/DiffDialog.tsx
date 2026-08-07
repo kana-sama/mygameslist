@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react";
-import type { ChangeEvidence, ChangeReviewModel, GameChangeGroup, ReviewChange } from "../domain";
+import type { ChangeEvidence, ChangeReviewModel, GameChangeGroup, ProgressEvidenceItem, ReviewChange } from "../domain";
 import { Icon } from "./Icon";
 import { MarkdownDiffPreview } from "./MarkdownDiffPreview";
 import {
@@ -80,6 +80,37 @@ function TriStateCheckbox({ checked, indeterminate, ...props }: {
   return <input {...props} aria-checked={indeterminate ? "mixed" : checked} checked={checked} ref={ref} type="checkbox" />;
 }
 
+function ProgressEvidenceSection({
+  items,
+  label,
+  removed = false,
+  resolveAssetUrl,
+}: {
+  items: ProgressEvidenceItem[];
+  label: string;
+  removed?: boolean;
+  resolveAssetUrl?: (assetId: string) => string | null;
+}) {
+  return (
+    <section className="game-diff-progress__section">
+      <span className="game-diff-progress__label">{label}</span>
+      <div className="game-diff-progress__items">
+        {items.map((item) => {
+          const iconUrl = resolveAssetUrl?.(item.iconAssetId) ?? null;
+          return (
+            <div className={`game-diff-progress__item${removed ? " game-diff-progress__item--removed" : ""}`} key={item.itemId}>
+              <span className="game-diff-progress__icon">
+                {iconUrl ? <img alt={item.noteTitle} src={iconUrl} /> : <Icon aria-hidden="true" name="image" size={18} />}
+              </span>
+              <span className="game-diff-progress__title">{item.noteTitle}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ChangeEvidenceView({ evidence, resolveAssetUrl }: { evidence: ChangeEvidence; resolveAssetUrl?: (assetId: string) => string | null }) {
   if (evidence.type === "scalar" || evidence.type === "move") {
     return <p className={`game-diff-evidence game-diff-evidence--${evidence.type}`}>{evidence.before} → {evidence.after}</p>;
@@ -101,6 +132,16 @@ function ChangeEvidenceView({ evidence, resolveAssetUrl }: { evidence: ChangeEvi
           {thumbnailUrl ? <img alt={`Превью: ${evidence.originalName}`} src={thumbnailUrl} /> : <Icon aria-hidden="true" name={evidence.mime.startsWith("image/") ? "image" : "note"} size={18} />}
         </span>
         <div><strong>{evidence.originalName}</strong><small>{[dimensions, evidence.mime, formatBytes(evidence.byteLength)].filter(Boolean).join(" · ")}</small></div>
+      </div>
+    );
+  }
+  if (evidence.type === "progress") {
+    return (
+      <div className="game-diff-evidence game-diff-evidence--progress">
+        {evidence.added.length ? <ProgressEvidenceSection items={evidence.added} label="Добавлено" resolveAssetUrl={resolveAssetUrl} /> : null}
+        {evidence.removed.length ? <ProgressEvidenceSection items={evidence.removed} label="Удалено" removed resolveAssetUrl={resolveAssetUrl} /> : null}
+        {evidence.reordered ? <ProgressEvidenceSection items={evidence.after} label="Порядок изменён" resolveAssetUrl={resolveAssetUrl} /> : null}
+        {!evidence.added.length && !evidence.removed.length && !evidence.reordered ? <ProgressEvidenceSection items={evidence.after} label="Изменено" resolveAssetUrl={resolveAssetUrl} /> : null}
       </div>
     );
   }

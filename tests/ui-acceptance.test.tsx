@@ -2082,6 +2082,15 @@ describe("DiffDialog", () => {
     );
   }
 
+  function reviewForChange(change: ReviewChange): ChangeReviewModel {
+    return {
+      groups: [{ ...review.groups[0], changes: [change] }],
+      changesById: { [change.id]: change },
+      changesBySelectionId: { [change.selectionId]: [change] },
+      uniqueSelectionIds: [change.selectionId],
+    };
+  }
+
   function ControlledDialog({ dependencies = false }: { dependencies?: boolean }) {
     const [open, setOpen] = useState(true);
     const [selectionMode, setSelectionMode] = useState(false);
@@ -2232,6 +2241,164 @@ describe("DiffDialog", () => {
     expect(screen.getByRole("img", { name: "Превью: cover.webp" })).toHaveAttribute("src", "blob:image-evidence");
     expect(screen.getByText("800×600 · image/webp · 24 КБ")).toBeInTheDocument();
     expect(resolveAssetUrl).toHaveBeenCalledWith(assetId);
+  });
+
+  it("renders semantic progress evidence without technical data", () => {
+    const progressNotes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "# Золото", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "# Красные кирпичи", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+    ];
+    const progressIconAssets: Asset[] = [
+      { id: PROGRESS_ICON_ID, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 128, alt: "Золото", originalName: "gold-progress-icon.webp" },
+      { id: PROGRESS_ICON_TWO_ID, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 128, alt: "Красные кирпичи", originalName: "bricks-progress-icon.webp" },
+    ];
+    const progressChange: ReviewChange = {
+      ...titleChange,
+      id: "game-progress-row",
+      selectionId: "game-progress",
+      title: "Прогресс",
+      summary: "Добавлено: 2",
+      operationPaths: [`/games/${DUCK_ID}/progressItems`, `/assets/${PROGRESS_ICON_ID}`, `/assets/${PROGRESS_ICON_TWO_ID}`],
+      evidence: [{
+        type: "progress",
+        added: progressNotes.map((note, index) => ({
+          itemId: [PROGRESS_ITEM_ID, PROGRESS_ITEM_TWO_ID][index],
+          iconAssetId: progressIconAssets[index].id,
+          noteTitle: note.bodyMarkdown.replace(/^# /u, ""),
+        })),
+        removed: [],
+        after: progressNotes.map((note, index) => ({
+          itemId: [PROGRESS_ITEM_ID, PROGRESS_ITEM_TWO_ID][index],
+          iconAssetId: progressIconAssets[index].id,
+          noteTitle: note.bodyMarkdown.replace(/^# /u, ""),
+        })),
+        reordered: false,
+      }],
+    };
+    const iconUrls = new Map(progressIconAssets.map((asset) => [asset.id, asset.originalName === "gold-progress-icon.webp" ? "blob:gold" : "blob:bricks"]));
+    const resolveAssetUrl = vi.fn((assetId: string) => iconUrls.get(assetId) ?? null);
+    renderDialog({
+      groups: [{ ...review.groups[0], changes: [progressChange] }],
+      changesById: { [progressChange.id]: progressChange },
+      changesBySelectionId: { [progressChange.selectionId]: [progressChange] },
+      uniqueSelectionIds: [progressChange.selectionId],
+    }, { patchBytes: 0, resolveAssetUrl });
+
+    expect(screen.getByText("Добавлено", { selector: ".game-diff-progress__label" })).toBeInTheDocument();
+    expect(screen.getByText("Золото")).toBeInTheDocument();
+    expect(screen.getByText("Красные кирпичи")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Золото" })).toHaveAttribute("src", "blob:gold");
+    expect(screen.getByRole("img", { name: "Красные кирпичи" })).toHaveAttribute("src", "blob:bricks");
+    expect(screen.queryByText(/image\/webp|64×64|КБ|\.webp|\[\{|iconAssetId|noteId/u)).not.toBeInTheDocument();
+    for (const itemId of [PROGRESS_ITEM_ID, PROGRESS_ITEM_TWO_ID]) expect(document.body.textContent).not.toContain(itemId);
+    for (const note of progressNotes) expect(document.body.textContent).not.toContain(note.id);
+    for (const asset of progressIconAssets) {
+      expect(document.body.textContent).not.toContain(asset.id);
+      expect(document.body.textContent).not.toContain(asset.originalName);
+    }
+  });
+
+  it("renders removed progress cards quietly without a strike-through", () => {
+    const progressChange: ReviewChange = {
+      ...titleChange,
+      id: "removed-progress-row",
+      selectionId: "removed-progress",
+      title: "Прогресс",
+      summary: "Удалено: 1",
+      evidence: [{
+        type: "progress",
+        added: [],
+        removed: [{ itemId: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteTitle: "Золото" }],
+        after: [],
+        reordered: false,
+      }],
+    };
+    renderDialog(reviewForChange(progressChange), { patchBytes: 0 });
+
+    const removedCard = screen.getByText("Золото").closest(".game-diff-progress__item")!;
+    expect(screen.getByText("Удалено", { selector: ".game-diff-progress__label" })).toBeInTheDocument();
+    expect(removedCard).toHaveClass("game-diff-progress__item--removed");
+    expect(getComputedStyle(removedCard).textDecorationLine).not.toBe("line-through");
+  });
+
+  it("renders reorder-only progress evidence in the resulting order", () => {
+    const progressChange: ReviewChange = {
+      ...titleChange,
+      id: "reordered-progress-row",
+      selectionId: "reordered-progress",
+      title: "Прогресс",
+      summary: "Порядок изменён",
+      evidence: [{
+        type: "progress",
+        added: [],
+        removed: [],
+        after: [
+          { itemId: PROGRESS_ITEM_TWO_ID, iconAssetId: PROGRESS_ICON_TWO_ID, noteTitle: "Красные кирпичи" },
+          { itemId: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteTitle: "Золото" },
+        ],
+        reordered: true,
+      }],
+    };
+    renderDialog(reviewForChange(progressChange), { patchBytes: 0 });
+
+    expect(screen.getByText("Порядок изменён", { selector: ".game-diff-progress__label" })).toBeInTheDocument();
+    expect(Array.from(document.querySelectorAll(".game-diff-progress__title")).map((item) => item.textContent)).toEqual(["Красные кирпичи", "Золото"]);
+    expect(screen.queryByText("Добавлено", { selector: ".game-diff-progress__label" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Удалено", { selector: ".game-diff-progress__label" })).not.toBeInTheDocument();
+  });
+
+  it("keeps unresolved progress notes visible with the image placeholder", () => {
+    const progressChange: ReviewChange = {
+      ...titleChange,
+      id: "unresolved-progress-row",
+      selectionId: "unresolved-progress",
+      title: "Прогресс",
+      summary: "Добавлено: 1",
+      evidence: [{
+        type: "progress",
+        added: [{ itemId: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteTitle: "Заметка недоступна" }],
+        removed: [],
+        after: [],
+        reordered: false,
+      }],
+    };
+    renderDialog(reviewForChange(progressChange), { patchBytes: 0, resolveAssetUrl: () => null });
+
+    const icon = screen.getByText("Заметка недоступна").closest(".game-diff-progress__item")!.querySelector(".game-diff-progress__icon")!;
+    expect(icon.querySelector("img")).toBeNull();
+    expect(icon.querySelector("svg")).not.toBeNull();
+  });
+
+  it("keeps progress selection and undo atomic", async () => {
+    const user = userEvent.setup();
+    const onUndoChange = vi.fn();
+    const progressChange: ReviewChange = {
+      ...titleChange,
+      id: "atomic-progress-row",
+      selectionId: "atomic-progress",
+      title: "Прогресс",
+      summary: "Добавлено: 2",
+      evidence: [{
+        type: "progress",
+        added: [
+          { itemId: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteTitle: "Золото" },
+          { itemId: PROGRESS_ITEM_TWO_ID, iconAssetId: PROGRESS_ICON_TWO_ID, noteTitle: "Красные кирпичи" },
+        ],
+        removed: [],
+        after: [],
+        reordered: false,
+      }],
+    };
+    renderDialog(reviewForChange(progressChange), {
+      onUndoChange,
+      patchBytes: 0,
+      selection: { ...emptySelection, enabled: true },
+    });
+
+    expect(screen.getAllByRole("checkbox", { name: "Выбрать изменение: Прогресс" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Отменить: Прогресс" }));
+    expect(onUndoChange).toHaveBeenCalledTimes(1);
+    expect(onUndoChange).toHaveBeenCalledWith(progressChange.selectionId);
   });
 
   it("selects a game, exposes indeterminate state, and counts unique cross-game changes once", async () => {

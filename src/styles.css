@@ -745,6 +745,15 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .game-diff-evidence--asset strong, .game-diff-evidence--asset small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-diff-evidence--asset strong { color: var(--text); font-size: 10px; }
 .game-diff-evidence--asset small { color: var(--muted-2); font-size: 8px; }
+.game-diff-evidence--progress { display: grid; gap: 5px; }
+.game-diff-progress__section { display: grid; gap: 3px; }
+.game-diff-progress__label { color: var(--muted-2); font-size: 8px; }
+.game-diff-progress__items { display: flex; flex-wrap: wrap; gap: 4px; }
+.game-diff-progress__item { min-width: 0; max-width: 190px; display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 3px; color: var(--text); background: var(--field); font-size: 10px; }
+.game-diff-progress__item--removed { color: var(--muted); }
+.game-diff-progress__icon { width: 32px; height: 32px; display: grid; flex: 0 0 32px; place-items: center; overflow: hidden; border-radius: 3px; color: var(--muted); background: var(--surface-3); }
+.game-diff-progress__icon img { width: 32px; height: 32px; display: block; object-fit: contain; }
+.game-diff-progress__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-diff-row__undo { width: 26px; height: 26px; flex: 0 0 auto; }
 .game-diff-row .markdown-diff-preview { margin-top: 1px; }
 .diff-dialog__footer { padding: 7px 14px; border-top: 1px solid var(--line-soft); }
