@@ -13,6 +13,7 @@
 # Reference-based work
 
 - Treat any artifact the user cites as normative for both content and observable structure. Before planning, inspect it and the relevant repository specifications, tests, and implementation; preserve its hierarchy, container count, grouping syntax, order, and interaction model unless the approved specification explicitly requires a deviation.
+- Treat an approved visual design or mockup as a binding contract for every observable visual property and interaction state. Do not invent persistent backgrounds, borders, labels, decoration, sizing, or behavior that the approved design does not show. If a technical constraint would require a deviation, stop and obtain explicit user approval before implementing it.
 - In every subagent brief for reference-based work, provide the exact reference paths and required structural invariants. Research may supply factual content, but it must not redefine presentation or structure.
 - Map every approved requirement to an explicit validation step, and validate structural constraints structurally. For example, "one table" requires verifying that exactly one table block exists; matching the expected row count is insufficient.
-- Before committing, require both the implementer and reviewer to compare the final artifact directly with the cited reference and relevant repository specification. Stop if any observable structural constraint differs.
+- Before committing, require both the implementer and reviewer to compare the final artifact directly with the cited reference and relevant repository specification at the approved viewport sizes and in every specified idle, hover, focus, active, and error state. Stop if any observable structural constraint differs.

@@ -52,7 +52,11 @@ const NOTE_TWO_ID = "44444444-4444-4444-8444-444444444444";
 const NOTE_THREE_ID = "55555555-5555-4555-8555-555555555555";
 const ZELDA_ID = "66666666-6666-4666-8666-666666666666";
 const PROGRESS_ITEM_ID = "77777777-7777-4777-8777-777777777777";
+const PROGRESS_ITEM_TWO_ID = "88888888-8888-4888-8888-888888888888";
+const PROGRESS_ITEM_THREE_ID = "99999999-9999-4999-8999-999999999999";
 const PROGRESS_ICON_ID = "a".repeat(64);
+const PROGRESS_ICON_TWO_ID = "b".repeat(64);
+const PROGRESS_ICON_THREE_ID = "c".repeat(64);
 const NOW = "2026-07-16T10:00:00.000Z";
 
 class ResizeObserverMock {
@@ -617,6 +621,185 @@ describe("GamePage", () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].progressItems).toEqual([{ ...progressItems[0], pendingIcon: null }]);
+  });
+
+  it("persists whole-cell pointer reordering without losing progress item data or opening edit after drop", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const progressNotes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "# A\n- [x] A\n- [ ] B", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "# B\n- [x] A\n- [x] B\n- [ ] C", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "# C\n- [ ] A\n- [ ] B\n- [ ] C\n- [ ] D", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const progressItems = [
+      { id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID },
+      { id: PROGRESS_ITEM_TWO_ID, iconAssetId: PROGRESS_ICON_TWO_ID, noteId: NOTE_TWO_ID },
+      { id: PROGRESS_ITEM_THREE_ID, iconAssetId: PROGRESS_ICON_THREE_ID, noteId: NOTE_THREE_ID },
+    ];
+    const icon: Asset = { id: PROGRESS_ICON_ID, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 128, alt: "Прогресс", originalName: "progress.webp" };
+    const rects = new Map([
+      [PROGRESS_ITEM_ID, domRect(0, 0, 88, 88)],
+      [PROGRESS_ITEM_TWO_ID, domRect(92, 0, 88, 88)],
+      [PROGRESS_ITEM_THREE_ID, domRect(92, 93, 88, 88)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".game-progress__grid")) return domRect(0, 0, 272, 181);
+      if (this.matches(".game-progress__drag-overlay")) return domRect(0, 0, 88, 88);
+      if (this.dataset.progressItemId) return rects.get(this.dataset.progressItemId) ?? domRect(0, 0, 88, 88);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    function Harness() {
+      const [game, setGame] = useState(makeGame({ progressItems }));
+      return <GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={game} mode="game" notes={progressNotes} onSave={(input) => {
+        onSave(input);
+        setGame((current) => ({
+          ...current,
+          title: input.title,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId, noteId: item.noteId })),
+        }));
+      }} resolveAssetUrl={() => "/progress.webp"} />;
+    }
+
+    render(<Harness />);
+    const first = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_ID}"]`)!;
+    const third = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_THREE_ID}"]`)!;
+    const grid = document.querySelector(".game-progress__grid")!;
+
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: first, coords: { clientX: 20, clientY: 40 } },
+      { target: first, coords: { clientX: 32, clientY: 40 } },
+    ]);
+    await waitFor(() => expect(first).toHaveClass("is-dragging"));
+    await user.pointer([
+      { target: third, coords: { clientX: 160, clientY: 130 } },
+    ]);
+    await waitFor(() => expect(third).toHaveClass("is-drop-target"));
+    await user.pointer([
+      { keys: "[/MouseLeft]", target: third, coords: { clientX: 160, clientY: 130 } },
+    ]);
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].progressItems).toEqual([
+      { ...progressItems[1], pendingIcon: null },
+      { ...progressItems[2], pendingIcon: null },
+      { ...progressItems[0], pendingIcon: null },
+    ]);
+    expect(screen.queryByRole("dialog", { name: "Элемент прогресса" })).not.toBeInTheDocument();
+    expect(grid.lastElementChild).toHaveAccessibleName("Добавить элемент прогресса");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toBeEnabled());
+
+    const movedAfterDrop = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_ID}"]`)!;
+    await waitFor(() => {
+      movedAfterDrop.click();
+      expect(screen.getByRole("dialog", { name: "Элемент прогресса" })).toBeVisible();
+    });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(movedAfterDrop).toHaveFocus());
+
+    onSave.mockClear();
+    const moved = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_ID}"]`)!;
+    moved.focus();
+    await user.keyboard("[Space][Escape]");
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "DuckTales" }));
+    const title = screen.getByRole("textbox", { name: "Название" });
+    await user.clear(title);
+    await user.type(title, "DuckTales Remastered");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].progressItems.map((item) => item.id)).toEqual([
+      PROGRESS_ITEM_TWO_ID,
+      PROGRESS_ITEM_THREE_ID,
+      PROGRESS_ITEM_ID,
+    ]);
+  });
+
+  it("persists keyboard grid movement and restores focus to the moved progress item", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const progressNotes: Note[] = [
+      { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] A\n- [ ] B", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_TWO_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] A\n- [x] B\n- [ ] C", attachments: [], rank: 2048, createdAt: NOW, updatedAt: NOW },
+      { id: NOTE_THREE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] A\n- [ ] B\n- [ ] C\n- [ ] D", attachments: [], rank: 3072, createdAt: NOW, updatedAt: NOW },
+    ];
+    const progressItems = [
+      { id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID },
+      { id: PROGRESS_ITEM_TWO_ID, iconAssetId: PROGRESS_ICON_TWO_ID, noteId: NOTE_TWO_ID },
+      { id: PROGRESS_ITEM_THREE_ID, iconAssetId: PROGRESS_ICON_THREE_ID, noteId: NOTE_THREE_ID },
+    ];
+    const rects = new Map([
+      [PROGRESS_ITEM_ID, domRect(0, 100, 88, 88)],
+      [PROGRESS_ITEM_TWO_ID, domRect(92, 100, 88, 88)],
+      [PROGRESS_ITEM_THREE_ID, domRect(184, 100, 88, 88)],
+    ]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.matches(".game-progress__grid")) return domRect(0, 100, 272, 88);
+      if (this.matches(".game-progress__drag-overlay")) return domRect(0, 0, 88, 88);
+      if (this.dataset.progressItemId) return rects.get(this.dataset.progressItemId) ?? domRect(0, 0, 88, 88);
+      return domRect(0, 0, 1024, 768);
+    });
+
+    function Harness() {
+      const [game, setGame] = useState(makeGame({ progressItems }));
+      return <GamePage assets={{}} game={game} mode="game" notes={progressNotes} onSave={(input) => {
+        onSave(input);
+        setGame((current) => ({
+          ...current,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId, noteId: item.noteId })),
+        }));
+      }} storageLocked />;
+    }
+
+    render(<Harness />);
+    expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toBeDisabled();
+    const first = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_ID}"]`)!;
+    const second = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_TWO_ID}"]`)!;
+    first.focus();
+    await user.keyboard("[Space]");
+    await waitFor(() => expect(first).toHaveClass("is-dragging"));
+    await user.keyboard("[ArrowRight]");
+    await waitFor(() => expect(second).toHaveClass("is-drop-target"));
+    await user.keyboard("[Enter]");
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].progressItems.map((item) => item.id)).toEqual([
+      PROGRESS_ITEM_TWO_ID,
+      PROGRESS_ITEM_ID,
+      PROGRESS_ITEM_THREE_ID,
+    ]);
+    expect(document.activeElement).toHaveAttribute("data-progress-item-id", PROGRESS_ITEM_ID);
+  });
+
+  it("disables progress sorting while a save is pending and restores it after settlement", async () => {
+    const user = userEvent.setup();
+    let resolveSave!: () => void;
+    const onSave = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
+    const progressNote: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] A\n- [ ] B", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    render(<GamePage assets={{}} game={makeGame({ progressItems: [
+      { id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID },
+      { id: PROGRESS_ITEM_TWO_ID, iconAssetId: PROGRESS_ICON_TWO_ID, noteId: NOTE_ID },
+    ] })} mode="game" notes={[progressNote]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "DuckTales" }));
+    const title = screen.getByRole("textbox", { name: "Название" });
+    await user.clear(title);
+    await user.type(title, "DuckTales pending");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+
+    const first = document.querySelector<HTMLButtonElement>(`[data-progress-item-id="${PROGRESS_ITEM_ID}"]`)!;
+    expect(first).toHaveAttribute("aria-disabled", "true");
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: first, coords: { clientX: 20, clientY: 40 } },
+      { target: first, coords: { clientX: 40, clientY: 40 } },
+      { keys: "[/MouseLeft]", target: first, coords: { clientX: 40, clientY: 40 } },
+    ]);
+    expect(first).not.toHaveClass("is-dragging");
+
+    resolveSave();
+    await waitFor(() => expect(first).toHaveAttribute("aria-disabled", "false"));
   });
 
   it("shows the platinum ribbon only on a platinum game cover", () => {

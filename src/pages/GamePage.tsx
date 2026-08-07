@@ -27,6 +27,7 @@ import { DEFAULT_NOTE_GROUP_RANK, STATUS_IDS, TIER_IDS, type Asset, type Game, t
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { GameProgressGrid } from "../components/GameProgressGrid";
+import { reorderProgressItems } from "../domain/progressItems";
 import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
 import { ImageLightbox } from "../components/ImageLightbox";
@@ -1221,6 +1222,12 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     if (progressPageMounted.current) setRestoreProgressDeleteFocus(true);
     else requestAnimationFrame(focusProgressAfterDelete);
   };
+  const moveProgressItem = async (activeItemId: string, overItemId: string) => {
+    if (saving) return;
+    const reordered = reorderProgressItems(editableProgressItems, activeItemId, overItemId);
+    if (!reordered) return;
+    await persist({ progressItems: reordered });
+  };
 
   const saveNote = async (draft: EditableNote) => {
     const exists = editableNotes.some((note) => note.clientId === draft.clientId);
@@ -1312,7 +1319,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" onBegin={() => !saving && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
-          <GameProgressGrid assets={assets} disabled={storageLocked || saving} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} resolveAssetUrl={resolveAssetUrl} />
+          <GameProgressGrid assets={assets} disabled={storageLocked || saving} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={saving} />
           {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={saving} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
