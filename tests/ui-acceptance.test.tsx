@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { KeyboardCode, KeyboardSensor, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { rectSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { StrictMode, useState } from "react";
+import { flushSync } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DiffDialog } from "../src/components/DiffDialog";
 import { AppShell } from "../src/components/AppShell";
@@ -50,6 +51,8 @@ const NOTE_ID = "33333333-3333-4333-8333-333333333333";
 const NOTE_TWO_ID = "44444444-4444-4444-8444-444444444444";
 const NOTE_THREE_ID = "55555555-5555-4555-8555-555555555555";
 const ZELDA_ID = "66666666-6666-4666-8666-666666666666";
+const PROGRESS_ITEM_ID = "77777777-7777-4777-8777-777777777777";
+const PROGRESS_ICON_ID = "a".repeat(64);
 const NOW = "2026-07-16T10:00:00.000Z";
 
 class ResizeObserverMock {
@@ -299,6 +302,323 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
+  it("places the three-column progress grid after metadata and before delete tools", () => {
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon: Asset = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    };
+    render(<GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={makeGame({
+      progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }],
+      reviewMarkdown: "",
+    })} mode="game" notes={[progressNote]} onDelete={vi.fn()} onSave={vi.fn()} resolveAssetUrl={() => "/campaign.webp"} />);
+
+    const sidebar = screen.getByRole("complementary", { name: "DuckTales" });
+    const children = Array.from(sidebar.children);
+    const cover = sidebar.querySelector(".game-sidebar__cover")!;
+    const title = within(sidebar).getByRole("heading", { level: 1, name: "DuckTales" });
+    const metadata = sidebar.querySelector(".game-sidebar__meta")!;
+    const progress = sidebar.querySelector(".game-progress")!;
+    const tools = sidebar.querySelector(".game-sidebar__tools")!;
+    expect(children.indexOf(cover)).toBeLessThan(children.indexOf(title));
+    expect(children.indexOf(title)).toBeLessThan(children.indexOf(metadata));
+    expect(children.indexOf(metadata)).toBeLessThan(children.indexOf(progress));
+    expect(children.indexOf(progress)).toBeLessThan(children.indexOf(tools));
+    expect(progress.querySelector(".game-progress__grid")).toHaveClass("game-progress__grid");
+    expect(screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" })).toHaveTextContent("1/2");
+  });
+
+  it("keeps an empty progress heading and add cell visible", () => {
+    render(<GamePage assets={{}} game={makeGame({ progressItems: [] })} mode="game" notes={[]} onSave={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "Прогресс" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toBeVisible();
+  });
+
+  it("restores the add cell even when a Safari-style click does not focus it implicitly", async () => {
+    render(<GamePage assets={{}} game={makeGame({ progressItems: [] })} mode="game" notes={[]} onSave={vi.fn()} />);
+    const add = screen.getByRole("button", { name: "Добавить элемент прогресса" });
+
+    fireEvent.click(add);
+    expect(screen.getByRole("dialog", { name: "Элемент прогресса" })).toBeVisible();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(add).toHaveFocus());
+  });
+
+  it("keeps existing progress viewable under storage lock while disabling image growth", async () => {
+    const user = userEvent.setup();
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon: Asset = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    };
+    render(<GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={makeGame({
+      progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }],
+    })} mode="game" notes={[progressNote]} onSave={vi.fn()} resolveAssetUrl={() => "/campaign.webp"} storageLocked />);
+
+    expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toBeDisabled();
+    const item = screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" });
+    expect(item).toBeEnabled();
+    await user.click(item);
+    expect(screen.getByRole("dialog", { name: "Элемент прогресса" })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Заметка" })).toHaveValue(NOTE_ID);
+    expect(screen.getByLabelText("Выбрать файл")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Вставить" })).toBeDisabled();
+  });
+
+  it("restores the real grid trigger after Escape and Cancel", async () => {
+    const user = userEvent.setup();
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    } as Asset;
+    render(<GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={makeGame({ progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }] })} mode="game" notes={[progressNote]} onSave={vi.fn()} resolveAssetUrl={() => "/campaign.webp"} />);
+
+    const trigger = screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" });
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveFocus());
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Отмена" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("restores focus to the add cell after deleting the active item", async () => {
+    const user = userEvent.setup();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    } as Asset;
+
+    function Harness() {
+      const [game, setGame] = useState(makeGame({ progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }] }));
+      return <GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={game} mode="game" notes={[progressNote]} onSave={(input) => {
+        setGame((current) => ({
+          ...current,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId!, noteId: item.noteId })),
+        }));
+      }} resolveAssetUrl={() => "/campaign.webp"} />;
+    }
+
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" }));
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    expect(confirm).toHaveBeenCalledWith("Удалить элемент прогресса?");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toHaveFocus());
+  });
+
+  it("restores focus to the remounted add cell after deleting the final progress item", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    } as Asset;
+
+    function Harness() {
+      const [revision, setRevision] = useState(0);
+      const [game, setGame] = useState(makeGame({ progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }] }));
+      return <GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={game} key={revision} mode="game" notes={[progressNote]} onSave={(input) => {
+        setGame((current) => ({
+          ...current,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId!, noteId: item.noteId })),
+        }));
+        setRevision((current) => current + 1);
+      }} resolveAssetUrl={() => "/campaign.webp"} />;
+    }
+
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" }));
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toHaveFocus());
+  });
+
+  it("waits for the add cell to become enabled before restoring final-deletion focus", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    let inspectDeleteFrame = false;
+    const deleteFrameAddStates: boolean[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      if (inspectDeleteFrame) {
+        const add = document.querySelector<HTMLButtonElement>(".game-progress__add");
+        if (add) deleteFrameAddStates.push(add.disabled);
+      }
+      callback(performance.now());
+      return 1;
+    });
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    } as Asset;
+
+    function Harness() {
+      const [game, setGame] = useState(makeGame({ progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }] }));
+      return <GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={game} mode="game" notes={[progressNote]} onSave={(input) => {
+        flushSync(() => setGame((current) => ({
+          ...current,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId!, noteId: item.noteId })),
+        })));
+      }} resolveAssetUrl={() => "/campaign.webp"} />;
+    }
+
+    render(<StrictMode><Harness /></StrictMode>);
+    await user.click(screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" }));
+    inspectDeleteFrame = true;
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    const add = screen.getByRole("button", { name: "Добавить элемент прогресса" });
+    expect(deleteFrameAddStates).toContain(true);
+    expect(add).toBeEnabled();
+    expect(add).toHaveFocus();
+  });
+
+  it("restores focus to the progress section after deleting the last item under storage lock", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const progressNote: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "# Кампания\n- [x] Глава 1\n- [ ] Глава 2",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const icon = {
+      id: PROGRESS_ICON_ID,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: 128,
+      alt: "Кампания",
+      originalName: "campaign.webp",
+    } as Asset;
+
+    function Harness() {
+      const [game, setGame] = useState(makeGame({ progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }] }));
+      return <GamePage assets={{ [PROGRESS_ICON_ID]: icon }} game={game} mode="game" notes={[progressNote]} onSave={(input) => {
+        setGame((current) => ({
+          ...current,
+          progressItems: input.progressItems.map((item) => ({ id: item.id, iconAssetId: item.iconAssetId!, noteId: item.noteId })),
+        }));
+      }} resolveAssetUrl={() => "/campaign.webp"} storageLocked />;
+    }
+
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Редактировать элемент прогресса: 1 из 2" }));
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+
+    await waitFor(() => expect(screen.getByRole("region", { name: "Прогресс" })).toHaveFocus());
+  });
+
+  it("preserves progress items when an unrelated title save runs", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }];
+    render(<GamePage assets={{}} game={makeGame({ progressItems })} mode="game" notes={[]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "DuckTales" }));
+    const title = screen.getByRole("textbox", { name: "Название" });
+    await user.clear(title);
+    await user.type(title, "DuckTales Remastered");
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].progressItems).toEqual([{ ...progressItems[0], pendingIcon: null }]);
+  });
+
   it("shows the platinum ribbon only on a platinum game cover", () => {
     const view = render(<GamePage assets={{}} game={makeGame({ status: "platinum" })} mode="game" notes={[]} onSave={vi.fn()} />);
 

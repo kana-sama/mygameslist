@@ -1,4 +1,4 @@
-const GAME_FIELDS = ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"];
+const GAME_FIELDS = ["title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown"];
 const NOTE_FIELDS = ["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"];
 const ASSET_FIELDS = ["kind", "mime", "width", "height", "byteLength", "alt", "originalName"];
 const COMMIT_SECTION_LIMIT = 20;
@@ -6,6 +6,7 @@ const COMMIT_SUBJECT_LIMIT = 72;
 const FIELD_LABELS = {
   title: "title",
   coverAssetId: "cover",
+  progressItems: "progress",
   platforms: "platforms",
   tags: "tags",
   status: "status",
@@ -184,7 +185,10 @@ function assetGameIndex(database) {
     if (!index.has(assetId)) index.set(assetId, new Set());
     index.get(assetId).add(gameId);
   };
-  for (const game of Object.values(database.games)) add(game.coverAssetId, game.id);
+  for (const game of Object.values(database.games)) {
+    add(game.coverAssetId, game.id);
+    for (const item of game.progressItems ?? []) add(item.iconAssetId, game.id);
+  }
   for (const note of Object.values(database.notes)) {
     for (const attachment of note.attachments) if (attachment.type === "image" || attachment.type === "file") add(attachment.assetId, note.gameId);
   }

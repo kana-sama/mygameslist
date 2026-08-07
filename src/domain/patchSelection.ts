@@ -39,7 +39,7 @@ interface LocatedOperation {
 }
 
 const ORDERING_FIELDS = new Set(["placement", "rank", "groupRank"]);
-const REFERENCE_FIELDS = new Set(["coverAssetId", "attachments"]);
+const REFERENCE_FIELDS = new Set(["coverAssetId", "progressItems", "attachments"]);
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -53,6 +53,11 @@ function referencedAssets(value: unknown): Set<string> {
   const result = new Set<string>();
   if (!value || typeof value !== "object" || Array.isArray(value)) return result;
   if ("coverAssetId" in value && typeof value.coverAssetId === "string") result.add(value.coverAssetId);
+  if ("progressItems" in value && Array.isArray(value.progressItems)) {
+    for (const item of value.progressItems) {
+      if (item && typeof item === "object" && "iconAssetId" in item && typeof item.iconAssetId === "string") result.add(item.iconAssetId);
+    }
+  }
   if ("attachments" in value && Array.isArray(value.attachments)) {
     for (const attachment of value.attachments) {
       if (!attachment || typeof attachment !== "object" || !("assetId" in attachment)) continue;
@@ -80,14 +85,21 @@ function operationChangesReferences(operation: LocatedOperation): boolean {
     || operation.field !== undefined && REFERENCE_FIELDS.has(operation.field);
 }
 
+function operationReferencedAssets(operation: LocatedOperation, database: LibraryDatabase): Set<string> {
+  const value = entityAt(database, operation.map, operation.id);
+  if (operation.field === undefined) return referencedAssets(value);
+  if (!value || typeof value !== "object") return new Set();
+  return referencedAssets({ [operation.field]: (value as unknown as Record<string, unknown>)[operation.field] });
+}
+
 function targetReferences(operation: LocatedOperation, effective: LibraryDatabase): Set<string> {
   if (!operationChangesReferences(operation) || operation.operation.operation === "delete") return new Set();
-  return referencedAssets(entityAt(effective, operation.map, operation.id));
+  return operationReferencedAssets(operation, effective);
 }
 
 function baseReferences(operation: LocatedOperation, base: LibraryDatabase): Set<string> {
   if (!operationChangesReferences(operation)) return new Set();
-  return referencedAssets(entityAt(base, operation.map, operation.id));
+  return operationReferencedAssets(operation, base);
 }
 
 function difference(left: Set<string>, right: Set<string>): string[] {
@@ -223,7 +235,9 @@ export function resolvePatchSelection(
         const note = current.map === "notes" ? effective.notes[current.id] : undefined;
         const message = note
           ? `Нужно для вложения заметки «${noteTitle(note)}»`
-          : `Нужно для обложки игры «${effective.games[current.id]?.title ?? current.id}»`;
+          : current.field === "progressItems"
+            ? `Нужно для иконки прогресса игры «${effective.games[current.id]?.title ?? current.id}»`
+            : `Нужно для изображения игры «${effective.games[current.id]?.title ?? current.id}»`;
         changed = addDependency(`/assets/${assetId}`, path, message) || changed;
       }
 

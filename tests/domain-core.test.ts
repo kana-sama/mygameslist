@@ -21,6 +21,8 @@ import {
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
+const PROGRESS_ITEM_ID = "33333333-3333-4333-8333-333333333333";
+const PROGRESS_ICON_ID = "a".repeat(64);
 const NOW = "2026-07-16T10:00:00.000Z";
 
 function empty(): LibraryDatabase {
@@ -90,6 +92,22 @@ describe("library validation", () => {
 });
 
 describe("patch lifecycle", () => {
+  it("publishes optional progress items as a sparse game field", () => {
+    const base = empty(); base.games[GAME_ID] = game();
+    const current = structuredClone(base);
+    current.assets[PROGRESS_ICON_ID] = { id: PROGRESS_ICON_ID, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 12, alt: "", originalName: "progress.webp" };
+    current.games[GAME_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }];
+
+    const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "progress" });
+
+    expect(Object.keys(patch.operations).sort()).toEqual([
+      `/assets/${PROGRESS_ICON_ID}`,
+      `/games/${GAME_ID}/progressItems`,
+    ]);
+    expect(validatePatch(patch).ok).toBe(true);
+    expect(applyPatch(base, patch).games[GAME_ID].progressItems).toEqual(current.games[GAME_ID].progressItems);
+  });
+
   it("creates a sparse patch, applies it, and derives updatedAt", () => {
     const base = empty(); base.games[GAME_ID] = game();
     const current = structuredClone(base); current.games[GAME_ID].title = "DuckTales Remastered";

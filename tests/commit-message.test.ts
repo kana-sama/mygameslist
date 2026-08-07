@@ -10,6 +10,8 @@ const CONTRA_ID = "00000000-0000-4000-8000-000000000004";
 const CELESTE_NOTE_ID = "00000000-0000-4000-8000-000000000005";
 const CONTRA_NOTE_ID = "00000000-0000-4000-8000-000000000006";
 const DUCKTALES_NOTE_ID = "00000000-0000-4000-8000-000000000007";
+const PROGRESS_ITEM_ID = "00000000-0000-4000-8000-000000000008";
+const PROGRESS_NOTE_ID = "00000000-0000-4000-8000-000000000009";
 const NOW = "2026-07-16T06:00:00.000Z";
 
 function emptyDatabase() {
@@ -67,6 +69,21 @@ function asset(id: string, originalName: string, overrides = {}) {
 }
 
 describe("semantic publication commit messages", () => {
+  it("associates a progress-only change and its new icon with the game", () => {
+    const iconId = "d".repeat(64);
+    const before = emptyDatabase();
+    before.games[GAME_ID] = game();
+    const after = structuredClone(before);
+    after.games[GAME_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: iconId, noteId: PROGRESS_NOTE_ID }];
+    after.assets[iconId] = asset(iconId, "progress.webp", { width: 64, height: 64 });
+
+    const result = buildCommitMessage(before, after);
+
+    expect(result.subject).toBe("Update DuckTales");
+    expect(result.body).toContain('- Update "DuckTales": progress');
+    expect(result.body).toContain('- Add "progress.webp" (64×64, 12 B)');
+  });
+
   it("describes only the selected result when another game remains deferred", () => {
     const before = emptyDatabase();
     before.games[GAME_ID] = game({ title: "DuckTales" });

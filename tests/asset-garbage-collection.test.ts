@@ -14,6 +14,8 @@ const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const COVER_ID = "a".repeat(64);
 const FILE_ID = "b".repeat(64);
 const ORPHAN_ID = "c".repeat(64);
+const PROGRESS_ICON_ID = "d".repeat(64);
+const PROGRESS_ITEM_ID = "33333333-3333-4333-8333-333333333333";
 const NOW = "2026-07-18T08:00:00.000Z";
 
 function image(id: string): Asset {
@@ -34,6 +36,7 @@ function database(): LibraryDatabase {
         id: GAME_ID,
         title: "Game",
         coverAssetId: COVER_ID,
+        progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }],
         platforms: [],
         tags: [],
         status: "playing",
@@ -61,6 +64,7 @@ function database(): LibraryDatabase {
       [COVER_ID]: image(COVER_ID),
       [FILE_ID]: file(FILE_ID),
       [ORPHAN_ID]: image(ORPHAN_ID),
+      [PROGRESS_ICON_ID]: { ...image(PROGRESS_ICON_ID), width: 64, height: 64 },
     },
   };
 }
@@ -69,10 +73,13 @@ describe("asset reachability invariant", () => {
   it("collects only assets unreachable from game covers and note attachments", () => {
     const current = database();
 
-    expect([...referencedAssetIds(current)].sort()).toEqual([COVER_ID, FILE_ID]);
+    expect([...referencedAssetIds(current)].sort()).toEqual([COVER_ID, FILE_ID, PROGRESS_ICON_ID].sort());
     expect(garbageCollectUnreferencedAssets(current)).toEqual([ORPHAN_ID]);
-    expect(Object.keys(current.assets).sort()).toEqual([COVER_ID, FILE_ID]);
+    expect(Object.keys(current.assets).sort()).toEqual([COVER_ID, FILE_ID, PROGRESS_ICON_ID].sort());
     expect(validateLibrary(current).ok).toBe(true);
+
+    delete current.games[GAME_ID].progressItems;
+    expect(garbageCollectUnreferencedAssets(current)).toEqual([PROGRESS_ICON_ID]);
   });
 
   it("rejects asset metadata without an owning game or note", () => {

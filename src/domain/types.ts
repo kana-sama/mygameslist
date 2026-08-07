@@ -12,10 +12,17 @@ export interface Placement {
   rank: number;
 }
 
+export interface GameProgressItem {
+  id: string;
+  iconAssetId: string;
+  noteId: string;
+}
+
 export interface Game {
   id: string;
   title: string;
   coverAssetId: string | null;
+  progressItems?: GameProgressItem[];
   platforms: string[];
   tags: string[];
   status: StatusId;

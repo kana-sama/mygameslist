@@ -97,6 +97,7 @@ const TIER_LABELS: Record<TierId, string> = {
 const FIELD_LABELS: Record<string, string> = {
   title: "Название",
   coverAssetId: "Обложка",
+  progressItems: "Прогресс",
   platforms: "Платформы",
   tags: "Теги",
   status: "Статус",
@@ -122,6 +123,7 @@ const FIELD_ORDER = [
   "tags",
   "status",
   "coverAssetId",
+  "progressItems",
   "attachments",
   "collapsedChecklistSections",
   "doubleHeight",
@@ -151,7 +153,7 @@ function entity(database: LibraryDatabase, map: EntityMapName, id: string): Game
 
 function operationFields(unit: SemanticUnit): string[] {
   if (unit.operations.some((item) => item.field === undefined)) {
-    if (unit.map === "games") return ["title", "platforms", "tags", "status", "placement", "reviewMarkdown", "coverAssetId"];
+    if (unit.map === "games") return ["title", "platforms", "tags", "status", "placement", "reviewMarkdown", "coverAssetId", "progressItems"];
     if (unit.map === "notes") return ["bodyMarkdown", "attachments", "groupRank", "rank", "collapsedChecklistSections", "doubleHeight", "doubleWidth"];
     return [];
   }
@@ -167,6 +169,7 @@ function referencedAssets(value: Game | Note | Asset | undefined): Set<string> {
   const result = new Set<string>();
   if (!value) return result;
   if ("coverAssetId" in value && value.coverAssetId) result.add(value.coverAssetId);
+  if ("progressItems" in value) for (const item of value.progressItems ?? []) result.add(item.iconAssetId);
   if ("attachments" in value) {
     for (const attachment of value.attachments) {
       if (attachment.type !== "link") result.add(attachment.assetId);
@@ -186,6 +189,7 @@ function buildAssetGameIndex(database: LibraryDatabase): Map<string, Set<string>
   };
   for (const game of Object.values(database.games)) {
     if (game.coverAssetId) add(game.coverAssetId, game.id);
+    for (const item of game.progressItems ?? []) add(item.iconAssetId, game.id);
   }
   for (const note of Object.values(database.notes)) {
     for (const attachment of note.attachments) {

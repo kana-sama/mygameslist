@@ -24,6 +24,7 @@ export function assetGameTitles(database: Pick<LibraryDatabase, "games" | "notes
   const gameIds = new Set<string>();
   for (const game of Object.values(database.games)) {
     if (game.coverAssetId === assetId) gameIds.add(game.id);
+    if (game.progressItems?.some((item) => item.iconAssetId === assetId)) gameIds.add(game.id);
   }
   for (const note of Object.values(database.notes)) {
     if (note.attachments.some((attachment) => attachment.type !== "link" && attachment.assetId === assetId)) gameIds.add(note.gameId);
@@ -44,6 +45,7 @@ export function describeAssetForRecovery(database: LibraryDatabase, assetId: str
   const references: string[] = [];
   for (const game of Object.values(database.games)) {
     if (game.coverAssetId === assetId) references.push(`обложка игры ${quotedDiagnosticLabel(game.title, "игра без названия", 64)}`);
+    if (game.progressItems?.some((item) => item.iconAssetId === assetId)) references.push(`иконка прогресса игры ${quotedDiagnosticLabel(game.title, "игра без названия", 64)}`);
   }
   for (const note of Object.values(database.notes)) {
     const game = database.games[note.gameId];
@@ -61,6 +63,7 @@ export function referencedAssetIds(database: Pick<LibraryDatabase, "games" | "no
   const referenced = new Set<string>();
   for (const game of Object.values(database.games)) {
     if (game.coverAssetId) referenced.add(game.coverAssetId);
+    for (const item of game.progressItems ?? []) referenced.add(item.iconAssetId);
   }
   for (const note of Object.values(database.notes)) {
     for (const attachment of note.attachments) {

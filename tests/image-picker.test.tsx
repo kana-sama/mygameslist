@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clipboardImageFile } from "../src/components/clipboardImage";
 import { ImagePicker } from "../src/components/ImagePicker";
 
 const assetMocks = vi.hoisted(() => ({
@@ -155,5 +156,30 @@ describe("ImagePicker", () => {
     expect(canAddBlob).toHaveBeenCalledWith(optimized.byteLength);
     expect(onPrepare).not.toHaveBeenCalled();
     expect(onDraftChange.mock.calls).toEqual([[true], [false]]);
+  });
+});
+
+describe("clipboardImageFile", () => {
+  it("takes the first image from clipboard items", () => {
+    const image = new File(["image"], "paste.png", { type: "image/png" });
+    const data = {
+      items: [
+        { kind: "string", type: "text/plain", getAsFile: vi.fn(() => null) },
+        { kind: "file", type: "image/png", getAsFile: vi.fn(() => image) },
+      ],
+      files: [],
+    } as unknown as DataTransfer;
+
+    expect(clipboardImageFile(data)).toBe(image);
+  });
+
+  it("falls back to clipboard files when items do not yield an image", () => {
+    const image = new File(["image"], "paste.png", { type: "image/png" });
+    const data = {
+      items: [{ kind: "file", type: "image/png", getAsFile: vi.fn(() => null) }],
+      files: [new File(["text"], "paste.txt", { type: "text/plain" }), image],
+    } as unknown as DataTransfer;
+
+    expect(clipboardImageFile(data)).toBe(image);
   });
 });

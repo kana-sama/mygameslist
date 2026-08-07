@@ -17,6 +17,8 @@ import { computeRevision, validateLibrary } from "../scripts/validate-data.mjs";
 
 const GAME_ID = "00000000-0000-4000-8000-000000000001";
 const DUCKTALES_NOTE_ID = "00000000-0000-4000-8000-000000000007";
+const PROGRESS_ITEM_ID = "00000000-0000-4000-8000-000000000008";
+const PROGRESS_NOTE_ID = "00000000-0000-4000-8000-000000000009";
 const NOW = "2026-07-16T06:00:00.000Z";
 const temporaryPaths = [];
 
@@ -91,6 +93,44 @@ function populatedDatabase(noteOverrides = {}) {
 }
 
 describe("published data validation", () => {
+  it("validates published progress icon metadata and media availability", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "mylib-progress-icon-test-"));
+    temporaryPaths.push(root);
+    const mediaRoot = path.join(root, "public", "media");
+    mkdirSync(mediaRoot, { recursive: true });
+    // Lossless WebP containing one solid 64×64 frame.
+    const bytes = Buffer.from("UklGRiIAAABXRUJQVlA4TBYAAAAvP8APAAdQwOh//wNAQvj/Xovof+oH", "base64");
+    const iconId = createHash("sha256").update(bytes).digest("hex");
+    const filePath = path.join(mediaRoot, `${iconId}.webp`);
+    writeFileSync(filePath, bytes);
+    const database = emptyDatabase();
+    database.assets[iconId] = {
+      id: iconId,
+      kind: "image",
+      mime: "image/webp",
+      width: 64,
+      height: 64,
+      byteLength: bytes.byteLength,
+      alt: "",
+      originalName: "progress.webp",
+    };
+    database.games[GAME_ID] = game({
+      progressItems: [{ id: PROGRESS_ITEM_ID, iconAssetId: iconId, noteId: PROGRESS_NOTE_ID }],
+    });
+    database.revision = computeRevision(database);
+
+    expect(() => validateLibrary(database, { mediaRoot })).not.toThrow();
+
+    database.assets[iconId].width = 63;
+    database.revision = computeRevision(database);
+    expect(() => validateLibrary(database, { mediaRoot })).toThrow(/progressItems\[0\]\.iconAssetId.*64x64/);
+
+    database.assets[iconId].width = 64;
+    database.revision = computeRevision(database);
+    rmSync(filePath);
+    expect(() => validateLibrary(database, { mediaRoot })).toThrow(/media file is missing/);
+  });
+
   it("accepts optional boolean note size fields", () => {
     const database = populatedDatabase({ doubleHeight: false, doubleWidth: true });
     database.revision = computeRevision(database);

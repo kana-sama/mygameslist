@@ -127,6 +127,9 @@ function preparedLocalAssets(input: GameSaveInput, base: LibraryDatabase): Local
     result.set(id, makeLocalAsset(id, blob, mimeType));
   };
   if (input.pendingCover) add(input.pendingCover.assetId, input.pendingCover.blob, input.pendingCover.mime, input.pendingCover.byteLength);
+  for (const item of input.progressItems) {
+    if (item.pendingIcon) add(item.pendingIcon.assetId, item.pendingIcon.blob, item.pendingIcon.mime, item.pendingIcon.byteLength);
+  }
   for (const note of input.notes) for (const attachment of note.attachments) {
     if (attachment.type === "pending-image") add(attachment.image.assetId, attachment.image.blob, attachment.image.mime, attachment.image.byteLength);
     if (attachment.type === "pending-file") add(attachment.file.assetId, attachment.file.blob, attachment.file.mime, attachment.file.byteLength);
@@ -706,6 +709,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (input.pendingCover) {
         coverAssetId = retainLocalAsset(database, assetFromPrepared(input.pendingCover), "image");
       }
+      const progressItems = input.progressItems.map((item) => {
+        const iconAssetId = item.pendingIcon
+          ? retainLocalAsset(database, assetFromPrepared(item.pendingIcon), "image")
+          : item.iconAssetId;
+        if (!iconAssetId) throw new Error("Выберите иконку прогресса");
+        return { id: item.id, iconAssetId, noteId: item.noteId };
+      });
       const tierChanged = previous && previous.placement.tierId !== input.tierId;
       const placementRank = previous && !tierChanged
         ? previous.placement.rank
@@ -714,6 +724,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         id,
         title: input.title.trim(),
         coverAssetId,
+        ...(progressItems.length ? { progressItems } : {}),
         platforms: uniqueStrings(input.platforms),
         tags: uniqueStrings(input.tags),
         status: input.status,
@@ -1089,7 +1100,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const records = await listLocalAssets();
     const unpublished = new Set(records.filter((asset) => !Object.prototype.hasOwnProperty.call(current.base.assets, asset.id)).map((asset) => asset.id));
     if (unpublished.size) mutate((database) => {
-      Object.values(database.games).forEach((game) => { if (game.coverAssetId && unpublished.has(game.coverAssetId)) game.coverAssetId = null; });
+      Object.values(database.games).forEach((game) => {
+        if (game.coverAssetId && unpublished.has(game.coverAssetId)) game.coverAssetId = null;
+        if (game.progressItems) {
+          game.progressItems = game.progressItems.filter((item) => !unpublished.has(item.iconAssetId));
+          if (!game.progressItems.length) delete game.progressItems;
+        }
+      });
       Object.values(database.notes).forEach((note) => { note.attachments = note.attachments.filter((attachment) => attachment.type === "link" || !unpublished.has(attachment.assetId)); });
       unpublished.forEach((id) => delete database.assets[id]);
     });

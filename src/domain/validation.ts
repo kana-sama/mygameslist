@@ -17,13 +17,13 @@ const ENTITY_MAPS = ["games", "notes", "assets"] as const;
 export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
-  games: ["id", "title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
+  games: ["id", "title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
   notes: ["id", "gameId", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
-  games: ["title", "coverAssetId", "platforms", "tags", "status", "placement", "reviewMarkdown"],
+  games: ["title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown"],
   notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
   assets: [],
 };
@@ -125,10 +125,28 @@ function record(value: unknown, path: string, issues: ValidationIssue[]): value 
 
 function validateGame(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект игры"); return; }
-  exactKeys(value, ENTITY_FIELDS.games, path, issues);
+  const optionalFields = ["progressItems"];
+  exactKeys(value, ENTITY_FIELDS.games.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues);
   string(value.title, `${path}/title`, issues, false, 500);
   if (value.coverAssetId !== null && !(typeof value.coverAssetId === "string" && SHA256.test(value.coverAssetId))) issue(issues, `${path}/coverAssetId`, "Ожидался SHA-256 asset id или null");
+  if (value.progressItems !== undefined) {
+    if (!Array.isArray(value.progressItems)) issue(issues, `${path}/progressItems`, "Ожидался массив элементов прогресса");
+    else {
+      const seen = new Set<string>();
+      value.progressItems.forEach((item, index) => {
+        const itemPath = `${path}/progressItems/${index}`;
+        if (!isObject(item)) { issue(issues, itemPath, "Ожидался элемент прогресса"); return; }
+        exactKeys(item, ["id", "iconAssetId", "noteId"], itemPath, issues);
+        if (uuid(item.id, `${itemPath}/id`, issues)) {
+          if (seen.has(item.id)) issue(issues, `${itemPath}/id`, "Повторяющийся id элемента прогресса");
+          seen.add(item.id);
+        }
+        if (typeof item.iconAssetId !== "string" || !SHA256.test(item.iconAssetId)) issue(issues, `${itemPath}/iconAssetId`, "Ожидался SHA-256 asset id");
+        uuid(item.noteId, `${itemPath}/noteId`, issues);
+      });
+    }
+  }
   stringList(value.platforms, `${path}/platforms`, issues);
   stringList(value.tags, `${path}/tags`, issues);
   if (!STATUS_IDS.includes(value.status as never)) issue(issues, `${path}/status`, "Неизвестный статус");
@@ -225,6 +243,18 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
         if (!asset) issue(issues, `/games/${id}/coverAssetId`, "Изображение не найдено");
         else if (asset.kind === "file") issue(issues, `/games/${id}/coverAssetId`, "Обложка должна ссылаться на изображение");
       }
+      if (isObject(game) && Array.isArray(game.progressItems)) game.progressItems.forEach((item, index) => {
+        if (!isObject(item) || typeof item.iconAssetId !== "string") return;
+        const itemPath = `/games/${id}/progressItems/${index}`;
+        const asset = assets[item.iconAssetId];
+        if (!asset) issue(issues, `${itemPath}/iconAssetId`, "Иконка прогресса не найдена");
+        else if (asset.kind !== "image") issue(issues, `${itemPath}/iconAssetId`, "Иконка прогресса должна ссылаться на изображение");
+        else if (asset.width !== 64 || asset.height !== 64) issue(issues, `${itemPath}/iconAssetId`, "Иконка прогресса должна быть 64×64 px");
+        if (typeof item.noteId === "string" && isObject(value.notes)) {
+          const note = value.notes[item.noteId];
+          if (isObject(note) && note.gameId !== id) issue(issues, `${itemPath}/noteId`, "Заметка прогресса должна принадлежать этой игре");
+        }
+      });
     }
   }
   if (isObject(value.notes) && isObject(value.games) && isObject(value.assets)) {
@@ -245,6 +275,9 @@ export function validateLibrary(value: unknown): ValidationResult<LibraryDatabas
     const referenced = new Set<string>();
     for (const game of Object.values(value.games)) {
       if (isObject(game) && typeof game.coverAssetId === "string") referenced.add(game.coverAssetId);
+      if (isObject(game) && Array.isArray(game.progressItems)) for (const item of game.progressItems) {
+        if (isObject(item) && typeof item.iconAssetId === "string") referenced.add(item.iconAssetId);
+      }
     }
     for (const note of Object.values(value.notes)) {
       if (!isObject(note) || !Array.isArray(note.attachments)) continue;

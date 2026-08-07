@@ -26,6 +26,8 @@ import { moveRanked } from "../domain/ranks";
 import { DEFAULT_NOTE_GROUP_RANK, STATUS_IDS, TIER_IDS, type Asset, type Game, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain/types";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
+import { GameProgressGrid } from "../components/GameProgressGrid";
+import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
 import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
@@ -49,6 +51,12 @@ export type EditableAttachment = NoteAttachment
   | { type: "pending-image"; image: PreparedImage; alt: string }
   | { type: "pending-file"; file: PreparedFile; label: string };
 export interface EditableNote { id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; collapsedChecklistSections?: string[]; doubleHeight?: boolean; doubleWidth?: boolean; groupRank?: number; rank: number }
+export interface EditableGameProgressItem {
+  id: string;
+  iconAssetId: string | null;
+  noteId: string;
+  pendingIcon: PreparedImage | null;
+}
 export interface GameSaveInput {
   id?: string;
   title: string;
@@ -59,6 +67,7 @@ export interface GameSaveInput {
   status: StatusId;
   tierId: TierId;
   reviewMarkdown: string;
+  progressItems: EditableGameProgressItem[];
   notes: EditableNote[];
 }
 
@@ -1103,6 +1112,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
 
 function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
+  const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<EditableNote | null>(null);
   const [editingDraftAutoFocus, setEditingDraftAutoFocus] = useState(false);
@@ -1113,6 +1123,10 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [noteDropIndicator, setNoteDropIndicator] = useState<{ clientId: string; edge: NoteDropEdge } | null>(null);
+  const [progressDraft, setProgressDraft] = useState<EditableGameProgressItem | null>(null);
+  const [restoreProgressDeleteFocus, setRestoreProgressDeleteFocus] = useState(false);
+  const progressTrigger = useRef<HTMLElement | null>(null);
+  const progressPageMounted = useRef(true);
   const taskSaveInFlight = useRef(false);
   const initialNoteFiles = useRef(new Map<string, File[]>());
   const noteFileDrag = useNoteFileDragReveal();
@@ -1138,6 +1152,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
         status: overrides.status ?? game.status,
         tierId: overrides.tierId ?? game.placement.tierId,
         reviewMarkdown: "",
+        progressItems: overrides.progressItems ?? (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })),
         notes: overrides.notes ?? editableNotes,
       });
       return true;
@@ -1154,6 +1169,57 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     try { await onDelete(game.id); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось удалить игру"); }
     finally { setSaving(false); }
+  };
+  const closeProgressEditor = useCallback(() => {
+    setProgressDraft(null);
+    requestAnimationFrame(() => progressTrigger.current?.focus());
+  }, []);
+  const focusProgressAfterDelete = useCallback(() => {
+    const progressSection = document.querySelector<HTMLElement>(`.game-progress[data-game-id="${game.id}"]`);
+    const survivingTrigger = progressSection?.querySelector<HTMLButtonElement>(".game-progress__item") ?? null;
+    const addTrigger = progressSection?.querySelector<HTMLButtonElement>(".game-progress__add:not(:disabled)") ?? null;
+    (survivingTrigger ?? addTrigger ?? progressSection)?.focus();
+  }, [game.id]);
+  useEffect(() => {
+    progressPageMounted.current = true;
+    return () => {
+      progressPageMounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!restoreProgressDeleteFocus || saving || progressDraft !== null) return;
+    setRestoreProgressDeleteFocus(false);
+    requestAnimationFrame(focusProgressAfterDelete);
+  }, [focusProgressAfterDelete, progressDraft, restoreProgressDeleteFocus, saving]);
+  const beginProgressEdit = (itemId: string, trigger: HTMLButtonElement) => {
+    if (saving) return;
+    const item = editableProgressItems.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+    progressTrigger.current = trigger;
+    setProgressDraft({ ...item });
+  };
+  const beginProgressAdd = () => {
+    if (saving || storageLocked) return;
+    progressTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+    setProgressDraft({ id: crypto.randomUUID(), iconAssetId: null, noteId: "", pendingIcon: null });
+  };
+  const saveProgressItem = async (draft: EditableGameProgressItem) => {
+    const exists = editableProgressItems.some((item) => item.id === draft.id);
+    const next = exists
+      ? editableProgressItems.map((item) => item.id === draft.id ? draft : item)
+      : [...editableProgressItems, draft];
+    if (!await persist({ progressItems: next })) throw new Error("Не удалось сохранить элемент прогресса");
+    closeProgressEditor();
+  };
+  const deleteProgressItem = async () => {
+    if (!progressDraft) return;
+    if (!await persist({ progressItems: editableProgressItems.filter((item) => item.id !== progressDraft.id) })) {
+      throw new Error("Не удалось удалить элемент прогресса");
+    }
+    progressTrigger.current = null;
+    setProgressDraft(null);
+    if (progressPageMounted.current) setRestoreProgressDeleteFocus(true);
+    else requestAnimationFrame(focusProgressAfterDelete);
   };
 
   const saveNote = async (draft: EditableNote) => {
@@ -1246,6 +1312,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" onBegin={() => !saving && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
+          <GameProgressGrid assets={assets} disabled={storageLocked || saving} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} resolveAssetUrl={resolveAssetUrl} />
           {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={saving} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
@@ -1253,6 +1320,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCard assets={assets} canAddBlob={canAddBlob} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} key={note.clientId} note={note} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
         </section>
       </div>
+      {progressDraft ? <GameProgressItemDialog assets={assets} canAddBlob={canAddBlob} gameId={game.id} item={progressDraft} notes={notes} onCancel={closeProgressEditor} onDelete={editableProgressItems.some((item) => item.id === progressDraft.id) ? deleteProgressItem : undefined} onSave={saveProgressItem} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} /> : null}
     </div>
   );
 }
@@ -1329,7 +1397,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
     if (processingNoteIds.size || coverDraftDirty) return;
     if (!title.trim()) { setError("Укажите название игры."); return; }
     setSaving(true); setError(null);
-    try { await onSave({ title: title.trim(), coverAssetId: null, pendingCover, platforms, tags, status, tierId, reviewMarkdown: "", notes: draftNotes }); setDirty(false); }
+    try { await onSave({ title: title.trim(), coverAssetId: null, pendingCover, platforms, tags, status, tierId, reviewMarkdown: "", progressItems: [], notes: draftNotes }); setDirty(false); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось сохранить игру"); }
     finally { setSaving(false); }
   };

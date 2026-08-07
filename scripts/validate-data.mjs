@@ -96,11 +96,14 @@ export function validateLibrary(database, options = {}) {
   validateRecordKeys(assets, "$.assets", error);
 
   for (const [id, asset] of Object.entries(assets)) validateAsset(id, asset, `$.assets.${id}`, error);
-  for (const [id, game] of Object.entries(games)) validateGame(id, game, assets, `$.games.${id}`, error);
+  for (const [id, game] of Object.entries(games)) validateGame(id, game, assets, notes, `$.games.${id}`, error);
   for (const [id, note] of Object.entries(notes)) validateNote(id, note, games, assets, `$.notes.${id}`, error);
   const referencedAssets = new Set();
   for (const game of Object.values(games)) {
     if (isPlainObject(game) && typeof game.coverAssetId === "string") referencedAssets.add(game.coverAssetId);
+    if (isPlainObject(game) && Array.isArray(game.progressItems)) {
+      for (const item of game.progressItems) if (isPlainObject(item) && typeof item.iconAssetId === "string") referencedAssets.add(item.iconAssetId);
+    }
   }
   for (const note of Object.values(notes)) {
     if (!isPlainObject(note) || !Array.isArray(note.attachments)) continue;
@@ -171,11 +174,12 @@ export function validateLibrary(database, options = {}) {
   return database;
 }
 
-function validateGame(key, game, assets, at, error) {
+function validateGame(key, game, assets, notes, at, error) {
   const keys = [
     "id",
     "title",
     "coverAssetId",
+    "progressItems",
     "platforms",
     "tags",
     "status",
@@ -185,7 +189,7 @@ function validateGame(key, game, assets, at, error) {
     "updatedAt",
   ];
   if (!isPlainObject(game)) return error(at, "must be an object");
-  exactKeys(game, keys, at, error);
+  exactKeys(game, keys.filter((field) => field !== "progressItems"), at, error, ["progressItems"]);
   validateEntityId(key, game.id, `${at}.id`, error);
   nonEmptyString(game.title, `${at}.title`, error, 500);
   if (game.coverAssetId !== null && typeof game.coverAssetId !== "string") {
@@ -194,6 +198,33 @@ function validateGame(key, game, assets, at, error) {
     error(`${at}.coverAssetId`, "references a missing asset");
   } else if (typeof game.coverAssetId === "string" && assetStorageKind(assets[game.coverAssetId]) !== "image") {
     error(`${at}.coverAssetId`, "must reference an image asset");
+  }
+  if (game.progressItems !== undefined) {
+    if (!Array.isArray(game.progressItems)) error(`${at}.progressItems`, "must be an array");
+    else {
+      const seen = new Set();
+      game.progressItems.forEach((item, index) => {
+        const itemAt = `${at}.progressItems[${index}]`;
+        if (!isPlainObject(item)) return error(itemAt, "must be an object");
+        exactKeys(item, ["id", "iconAssetId", "noteId"], itemAt, error);
+        if (!isUuid(item.id)) error(`${itemAt}.id`, "must be a UUID");
+        else if (seen.has(item.id)) error(`${itemAt}.id`, "must not be duplicated");
+        seen.add(item.id);
+        if (typeof item.iconAssetId !== "string" || !SHA256_RE.test(item.iconAssetId)) {
+          error(`${itemAt}.iconAssetId`, "must be a lowercase SHA-256 asset id");
+        } else if (!Object.hasOwn(assets, item.iconAssetId)) {
+          error(`${itemAt}.iconAssetId`, "references a missing asset");
+        } else if (assetStorageKind(assets[item.iconAssetId]) !== "image") {
+          error(`${itemAt}.iconAssetId`, "must reference an image asset");
+        } else if (assets[item.iconAssetId].width !== 64 || assets[item.iconAssetId].height !== 64) {
+          error(`${itemAt}.iconAssetId`, "must reference 64x64 image metadata");
+        }
+        if (!isUuid(item.noteId)) error(`${itemAt}.noteId`, "must be a UUID");
+        else if (Object.hasOwn(notes, item.noteId) && notes[item.noteId]?.gameId !== key) {
+          error(`${itemAt}.noteId`, "must reference a note owned by this game");
+        }
+      });
+    }
   }
   stringSet(game.platforms, `${at}.platforms`, error);
   stringSet(game.tags, `${at}.tags`, error);

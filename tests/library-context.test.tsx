@@ -49,6 +49,8 @@ vi.mock("../src/domain", async (importOriginal) => {
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const SECOND_GAME_ID = "33333333-3333-4333-8333-333333333333";
+const PROGRESS_ITEM_ID = "44444444-4444-4444-8444-444444444444";
+const PROGRESS_NOTE_ID = "55555555-5555-4555-8555-555555555555";
 const NOW = "2026-07-16T10:00:00.000Z";
 const GITHUB_TOKEN = "github_pat_test-only";
 const HEAD_SHA = "1".repeat(40);
@@ -155,6 +157,7 @@ function AssetProbe({ localCover }: { localCover: Exclude<GameSaveInput["pending
       status: current.status,
       tierId: current.placement.tierId,
       reviewMarkdown: current.reviewMarkdown,
+      progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
       notes: [],
     });
   };
@@ -167,6 +170,38 @@ function AssetProbe({ localCover }: { localCover: Exclude<GameSaveInput["pending
     <button onClick={() => library.deleteGame(GAME_ID)} type="button">Удалить seeded game</button>
     <button onClick={() => saveCover(localCover)} type="button">Поставить локальную обложку</button>
     <button onClick={() => saveCover(null)} type="button">Убрать обложку</button>
+  </div>;
+}
+
+function ProgressAssetProbe({ icons }: { icons: [Exclude<GameSaveInput["progressItems"][number]["pendingIcon"], null>, Exclude<GameSaveInput["progressItems"][number]["pendingIcon"], null>] }) {
+  const library = useLibrary();
+  const current = library.effective.games[GAME_ID];
+  const saveProgress = (pendingIcon: GameSaveInput["progressItems"][number]["pendingIcon"] | null) => {
+    if (!current) return;
+    void library.saveGame({
+      id: current.id,
+      title: current.title,
+      coverAssetId: current.coverAssetId,
+      pendingCover: null,
+      platforms: current.platforms,
+      tags: current.tags,
+      status: current.status,
+      tierId: current.placement.tierId,
+      reviewMarkdown: current.reviewMarkdown,
+      progressItems: pendingIcon ? [{ id: PROGRESS_ITEM_ID, iconAssetId: null, noteId: PROGRESS_NOTE_ID, pendingIcon }] : [],
+      notes: [],
+    });
+  };
+  return <div>
+    <span data-testid="progress-loading">{String(library.loading)}</span>
+    <span data-testid="progress-icon-id">{current?.progressItems?.[0]?.iconAssetId ?? "none"}</span>
+    <span data-testid="progress-item-id">{current?.progressItems?.[0]?.id ?? "none"}</span>
+    <span data-testid="progress-canonical">{String(current ? Object.hasOwn(current, "progressItems") : false)}</span>
+    <span data-testid="progress-asset-ids">{Object.keys(library.effective.assets).sort().join(",")}</span>
+    <span data-testid="progress-local-assets">{library.localAssets.length}</span>
+    <button onClick={() => saveProgress(icons[0])} type="button">Поставить первую иконку прогресса</button>
+    <button onClick={() => saveProgress(icons[1])} type="button">Заменить иконку прогресса</button>
+    <button onClick={() => saveProgress(null)} type="button">Удалить элемент прогресса</button>
   </div>;
 }
 
@@ -186,6 +221,7 @@ function FileProbe({ preparedFile }: { preparedFile: PreparedFile }) {
       status: current.status,
       tierId: current.placement.tierId,
       reviewMarkdown: current.reviewMarkdown,
+      progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
       notes: withFile ? [{
         clientId: "draft-file",
         bodyMarkdown: "Save file",
@@ -226,6 +262,7 @@ function NoteGroupProbe() {
         status: current.status,
         tierId: current.placement.tierId,
         reviewMarkdown: current.reviewMarkdown,
+        progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
         notes: [{ id: currentNote.id, clientId: currentNote.id, bodyMarkdown: currentNote.bodyMarkdown, attachments: [...currentNote.attachments], groupRank: 2048, rank: currentNote.rank }],
       });
     }} type="button">Переместить заметку в группу</button>
@@ -241,6 +278,7 @@ function NoteGroupProbe() {
         status: current.status,
         tierId: current.placement.tierId,
         reviewMarkdown: current.reviewMarkdown,
+        progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
         notes: [{
           id: currentNote.id,
           clientId: currentNote.id,
@@ -264,6 +302,7 @@ function NoteGroupProbe() {
         status: current.status,
         tierId: current.placement.tierId,
         reviewMarkdown: current.reviewMarkdown,
+        progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
         notes: [{
           id: currentNote.id,
           clientId: currentNote.id,
@@ -317,6 +356,7 @@ function GitHubSyncProbe() {
         status: current.status,
         tierId: current.placement.tierId,
         reviewMarkdown: current.reviewMarkdown,
+        progressItems: current.progressItems?.map((item) => ({ ...item, pendingIcon: null })) ?? [],
         notes: [{
           id: currentNote.id,
           clientId: currentNote.id,
@@ -530,6 +570,45 @@ describe("LibraryProvider patch reload and reconciliation", () => {
 });
 
 describe("LibraryProvider asset garbage collection", () => {
+  it("persists, replaces, and deletes a pending progress icon canonically", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Progress game");
+    mockStaticDatabase(withComputedRevision(draft));
+    const firstBytes = new Uint8Array([82, 73, 70, 70, 1, 0, 0, 0, 87, 69, 66, 80]);
+    const secondBytes = new Uint8Array([82, 73, 70, 70, 2, 0, 0, 0, 87, 69, 66, 80]);
+    const prepared = (bytes: Uint8Array, name: string) => ({
+      clientId: name,
+      assetId: sha256Bytes(bytes),
+      blob: new Blob([bytes], { type: "image/webp" }),
+      mime: "image/webp" as const,
+      width: 64,
+      height: 64,
+      alt: "",
+      originalName: `${name}.webp`,
+      byteLength: bytes.byteLength,
+    });
+    const first = prepared(firstBytes, "first-progress");
+    const second = prepared(secondBytes, "second-progress");
+    render(<LibraryProvider><ProgressAssetProbe icons={[first, second]} /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("progress-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Поставить первую иконку прогресса" }));
+    await waitFor(() => expect(screen.getByTestId("progress-icon-id")).toHaveTextContent(first.assetId));
+    expect(screen.getByTestId("progress-item-id")).toHaveTextContent(PROGRESS_ITEM_ID);
+    expect(screen.getByTestId("progress-asset-ids")).toHaveTextContent(first.assetId);
+    expect((await readLocalAsset(first.assetId))?.byteLength).toBe(first.byteLength);
+
+    fireEvent.click(screen.getByRole("button", { name: "Заменить иконку прогресса" }));
+    await waitFor(() => expect(screen.getByTestId("progress-icon-id")).toHaveTextContent(second.assetId));
+    expect(screen.getByTestId("progress-asset-ids")).not.toHaveTextContent(first.assetId);
+    await waitFor(async () => expect(await readLocalAsset(first.assetId)).toBeNull());
+
+    fireEvent.click(screen.getByRole("button", { name: "Удалить элемент прогресса" }));
+    await waitFor(() => expect(screen.getByTestId("progress-icon-id")).toHaveTextContent("none"));
+    expect(screen.getByTestId("progress-canonical")).toHaveTextContent("false");
+    await waitFor(async () => expect(await readLocalAsset(second.assetId)).toBeNull());
+  });
+
   it("does not require a Blob after its final note reference is removed", () => {
     const base = empty();
     base.games[GAME_ID] = game("Static game");

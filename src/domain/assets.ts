@@ -115,7 +115,7 @@ export type WebPEncoder = (image: ImageData, quality: number) => Promise<Uint8Ar
 export const LOSSLESS_WEBP_OPTIONS = { lossless: 1, exact: 1, near_lossless: 100 } as const;
 export type LosslessWebPEncoder = (image: ImageData, options: typeof LOSSLESS_WEBP_OPTIONS) => Promise<Uint8Array>;
 
-async function loadImage(file: Blob): Promise<HTMLImageElement> {
+export async function loadImageElement(file: Blob): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
     const image = new Image(); image.decoding = "async";
@@ -179,13 +179,13 @@ async function render(file: File, image: HTMLImageElement, outputWidth: number, 
 }
 
 export async function optimizeCover(file: File, alt = ""): Promise<OptimizedImage> {
-  const image = await loadImage(file); const size = Math.min(image.naturalWidth, image.naturalHeight);
+  const image = await loadImageElement(file); const size = Math.min(image.naturalWidth, image.naturalHeight);
   const source = { x: (image.naturalWidth - size) / 2, y: (image.naturalHeight - size) / 2, width: size, height: size };
   return render(file, image, 512, 512, source, alt);
 }
 
 export async function optimizeNoteImage(file: File, alt = "", encoder: LosslessWebPEncoder = wasmLosslessWebPBytes): Promise<OptimizedImage> {
-  const image = await loadImage(file);
+  const image = await loadImageElement(file);
   const width = image.naturalWidth;
   const height = image.naturalHeight;
   if (width < 1 || height < 1 || width > MAX_WEBP_DIMENSION || height > MAX_WEBP_DIMENSION) {

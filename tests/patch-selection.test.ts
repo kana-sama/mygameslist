@@ -22,9 +22,11 @@ const GAME_A_ID = "00000000-0000-4000-8000-000000000001";
 const GAME_B_ID = "00000000-0000-4000-8000-000000000002";
 const NOTE_A_ID = "00000000-0000-4000-8000-000000000011";
 const NOTE_B_ID = "00000000-0000-4000-8000-000000000012";
+const PROGRESS_ITEM_ID = "00000000-0000-4000-8000-000000000021";
 const MISSING_GAME_ID = "00000000-0000-4000-8000-000000000099";
 const ASSET_A_ID = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const ASSET_B_ID = "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb";
+const PROGRESS_ASSET_ID = "3fe79651a92ea3850c3fc3dd9519a67c7f70b598fa238a3fd92042f6446e6452";
 const REVISION = "1".repeat(64);
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
 const EARLIER_CHANGED_AT = "2026-08-04T09:00:00.000Z";
@@ -72,6 +74,10 @@ function fileAsset(id: string, originalName: string, byteLength: number): Asset 
   return { id, kind: "file", mime: "application/octet-stream", byteLength, originalName };
 }
 
+function progressIcon(id: string): Asset {
+  return { id, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 12, alt: "", originalName: "progress.webp" };
+}
+
 function patchBetween(
   base: LibraryDatabase,
   effective: LibraryDatabase,
@@ -86,6 +92,63 @@ function operationPaths(patch: PatchEnvelope): string[] {
 }
 
 describe("patch selection", () => {
+  it("includes a new progress icon asset with the selected game progress field", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Progress game");
+    const desired = structuredClone(base);
+    desired.assets[PROGRESS_ASSET_ID] = progressIcon(PROGRESS_ASSET_ID);
+    desired.games[GAME_A_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ASSET_ID, noteId: NOTE_A_ID }];
+    const iconBlob = "UklGRgQAAABXRUJQ";
+    const patch = patchBetween(base, desired, "add-progress", { [PROGRESS_ASSET_ID]: iconBlob });
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "progress-items",
+      operationPaths: [`/games/${GAME_A_ID}/progressItems`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${PROGRESS_ASSET_ID}`,
+      `/games/${GAME_A_ID}/progressItems`,
+    ]);
+    expect(result.publishPatch.blobs).toEqual({ [PROGRESS_ASSET_ID]: iconBlob });
+  });
+
+  it("does not pull an independently changed cover into a selected progress field", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Independent assets");
+    const afterCover = structuredClone(base);
+    afterCover.assets[ASSET_A_ID] = progressIcon(ASSET_A_ID);
+    afterCover.games[GAME_A_ID].coverAssetId = ASSET_A_ID;
+    const coverPatch = diffLibrary(base, afterCover, {
+      changedAt: EARLIER_CHANGED_AT,
+      transactionId: "cover-only",
+    });
+    const desired = applyPatch(base, coverPatch);
+    desired.assets[PROGRESS_ASSET_ID] = progressIcon(PROGRESS_ASSET_ID);
+    desired.games[GAME_A_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ASSET_ID, noteId: NOTE_A_ID }];
+    const patch = diffLibrary(base, desired, {
+      previousPatch: coverPatch,
+      changedAt: CHANGED_AT,
+      transactionId: "progress-only",
+    });
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "progress-only",
+      operationPaths: [`/games/${GAME_A_ID}/progressItems`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${PROGRESS_ASSET_ID}`,
+      `/games/${GAME_A_ID}/progressItems`,
+    ]);
+    expect(operationPaths(result.deferredPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/games/${GAME_A_ID}/coverAssetId`,
+    ]);
+  });
+
   it("includes a new note, its parent game, attachment metadata, and blob", () => {
     const base = database();
     const desired = structuredClone(base);

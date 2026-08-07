@@ -19,6 +19,7 @@ const GAME_C_ID = "00000000-0000-4000-8000-000000000003";
 const NOTE_A_ID = "00000000-0000-4000-8000-000000000011";
 const NOTE_B_ID = "00000000-0000-4000-8000-000000000012";
 const NOTE_C_ID = "00000000-0000-4000-8000-000000000013";
+const PROGRESS_ITEM_ID = "00000000-0000-4000-8000-000000000021";
 const ASSET_A_ID = "a".repeat(64);
 const ASSET_B_ID = "b".repeat(64);
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
@@ -67,6 +68,10 @@ function fileAsset(id: string, originalName = "guide.pdf"): Asset {
   return { id, kind: "file", mime: "application/pdf", byteLength: 4096, originalName };
 }
 
+function progressIcon(id: string): Asset {
+  return { id, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 12, alt: "", originalName: "progress.webp" };
+}
+
 function patchBetween(
   base: LibraryDatabase,
   effective: LibraryDatabase,
@@ -111,6 +116,30 @@ function assetDeleteOperation(asset: Asset, transactionId: string, changedAt: st
 }
 
 describe("game-grouped change review", () => {
+  it("folds a new progress icon asset into its game change", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Progress game");
+    const effective = structuredClone(base);
+    effective.assets[ASSET_A_ID] = progressIcon(ASSET_A_ID);
+    effective.games[GAME_A_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: ASSET_A_ID, noteId: NOTE_A_ID }];
+
+    const review = buildChangeReview(base, effective, patchBetween(base, effective, "add-progress"));
+    const change = review.groups[0].changes[0];
+
+    expect(review.groups).toHaveLength(1);
+    expect(change.entity).toEqual({ map: "games", id: GAME_A_ID });
+    expect(change.operationPaths).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/games/${GAME_A_ID}/progressItems`,
+    ]);
+    expect(change.evidence).toContainEqual(expect.objectContaining({
+      type: "asset",
+      assetId: ASSET_A_ID,
+      width: 64,
+      height: 64,
+    }));
+  });
+
   it("uses a conflicting operation's local target as the after evidence", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Static title");
