@@ -1,0 +1,17 @@
+id: "9f9a6f99-f053-4fc6-8604-d2925b47d695"
+title: New Super Mario Bros. U Deluxe
+cover:
+  assetId: "2eac62bf6c4b39d965c7581b5790de524f390eec5e875fb15eeb0481f24325e2"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo Switch
+tags:
+  - Super Mario
+status: playing
+placement:
+  tierId: unranked
+  rank: 102400
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:39:10.036Z"
+updatedAt: "2026-07-21T05:39:10.044Z"

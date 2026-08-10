@@ -1,0 +1,17 @@
+id: "abb6c87b-8f3c-45fa-adb6-822c55b24c05"
+title: Super Mario 64
+cover:
+  assetId: "46364276516c0a48305cc0397c307673d1f8f74dd10d4c0e0b118609837c9eb3"
+  alt: Обложка Super Mario 64
+  originalName: "IMAGE 2026-07-16 14:53:43.jpg"
+platforms:
+  - Nintendo 64
+tags:
+  - Super Mario
+status: platinum
+placement:
+  tierId: s
+  rank: 1024
+reviewMarkdown: |2-
+createdAt: "2026-07-16T11:33:58.259Z"
+updatedAt: "2026-07-18T07:50:31.778Z"

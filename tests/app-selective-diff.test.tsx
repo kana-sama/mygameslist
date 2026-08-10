@@ -38,12 +38,14 @@ const REVISION = "1".repeat(64);
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
 const CHANGED_AT = "2026-08-04T10:00:00.000Z";
 const PAT = "github_pat_1234567890";
+const SOURCE_COMMIT_SHA = "f".repeat(40);
+const PUBLICATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 function database(): LibraryDatabase {
   return {
     schemaVersion: 2,
     revision: REVISION,
-    publicationId: null,
+    publicationId: PUBLICATION_ID,
     games: {},
     notes: {},
     assets: {},
@@ -94,11 +96,13 @@ function libraryValue(base: LibraryDatabase, effective: LibraryDatabase): Librar
   });
   const patchedEffective = applyPatch(base, patch);
   return {
+    sourceCommitSha: SOURCE_COMMIT_SHA,
     base,
     effective: patchedEffective,
     patch,
     conflicts: [],
-    pendingPublication: null,
+    publicationState: { status: "none", exportCompleted: false },
+    retainedLocalAssetIds: [],
     loading: false,
     fatalError: null,
     persistenceError: null,
@@ -113,17 +117,22 @@ function libraryValue(base: LibraryDatabase, effective: LibraryDatabase): Librar
     games: patchedEffective.games,
     canAddBlob: vi.fn().mockResolvedValue(null),
     resolveAssetUrl: vi.fn().mockReturnValue(null),
-    saveGame: vi.fn(),
-    deleteGame: vi.fn(),
-    moveGame: vi.fn(),
-    discardPath: vi.fn(),
-    discardPaths: vi.fn(),
-    clearPatch: vi.fn(),
-    resolvePatchConflict: vi.fn(),
+    saveGame: vi.fn().mockResolvedValue(GAME_A_ID),
+    deleteGame: vi.fn().mockResolvedValue(undefined),
+    moveGame: vi.fn().mockResolvedValue(undefined),
+    discardPath: vi.fn().mockResolvedValue(undefined),
+    discardPaths: vi.fn().mockResolvedValue(undefined),
+    clearPatch: vi.fn().mockResolvedValue(undefined),
+    resolvePatchConflict: vi.fn().mockResolvedValue(undefined),
     importPatch: vi.fn().mockResolvedValue(undefined),
-    undoLast: vi.fn().mockReturnValue(false),
+    undoLast: vi.fn().mockResolvedValue(false),
     downloadCorruptedPatch: vi.fn(),
     exportRecoveryArchive: vi.fn().mockResolvedValue(undefined),
+    retryPublicationPersistence: vi.fn().mockResolvedValue(undefined),
+    retryPublicationCheck: vi.fn().mockResolvedValue(undefined),
+    exportPublicationRecovery: vi.fn().mockResolvedValue(undefined),
+    discardPublicationAfterExport: vi.fn().mockResolvedValue(undefined),
+    reloadPage: vi.fn(),
     deleteAllLocalAssets: vi.fn().mockResolvedValue(undefined),
     verifyGitHubAccess: vi.fn().mockResolvedValue(undefined),
     syncToGitHub: vi.fn().mockResolvedValue({
@@ -210,6 +219,49 @@ afterEach(() => {
 });
 
 describe("App selective diff integration", () => {
+  it("maps v3 waiting state to a blocked target link and forwards recovery actions", async () => {
+    const user = userEvent.setup();
+    const fixture = dependencyFixture();
+    const targetCommitSha = "2".repeat(40);
+    fixture.context.publicationState = {
+      status: "valid",
+      durability: "durable",
+      journal: {
+        version: 3,
+        sourceCommitSha: SOURCE_COMMIT_SHA,
+        targetCommitSha,
+        targetRevision: fixture.context.base.revision,
+        targetDatabase: fixture.context.base,
+        remainderPatch: fixture.context.patch,
+        localAssetIdsAwaitingVerification: [],
+        owner: "kana-sama",
+        repo: "mygameslist",
+        branch: "main",
+        createdAt: CHANGED_AT,
+        phase: "awaiting-deployment",
+      },
+      raw: "journal-r1",
+      expectedRaw: "journal-r1",
+      recoveryBase: null,
+      check: "waiting-source",
+      exportCompleted: false,
+    };
+    libraryHarness.current = fixture.context;
+    render(<App />);
+    const dialog = await openDiff(user);
+    await user.click(within(dialog).getByRole("button", { name: "Синхронизировать всё" }));
+    const panel = within(dialog).getByRole("region", { name: "Синхронизация с GitHub" });
+
+    expect(within(panel).getByRole("link", { name: "Коммит" })).toHaveAttribute("href", `https://github.com/kana-sama/mygameslist/commit/${targetCommitSha}`);
+    await user.type(within(panel).getByLabelText("Fine-grained PAT"), PAT);
+    expect(within(panel).getByRole("button", { name: "Подключить и проверить" })).toBeEnabled();
+    await user.click(within(panel).getByRole("button", { name: "Повторить проверку" }));
+    await user.click(within(panel).getByRole("button", { name: "Экспортировать локальную копию" }));
+    expect(fixture.context.retryPublicationCheck).toHaveBeenCalledTimes(1);
+    expect(fixture.context.exportPublicationRecovery).toHaveBeenCalledTimes(1);
+    expect(fixture.context.syncToGitHub).not.toHaveBeenCalled();
+  });
+
   it("passes the resolver's exact dependency closure to connect sync and row undo, then resets to full sync", async () => {
     const user = userEvent.setup();
     const fixture = dependencyFixture();

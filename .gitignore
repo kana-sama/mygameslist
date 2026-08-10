@@ -1,5 +1,13 @@
 node_modules/
 dist/
+.*.mygameslist-artifact-staging-*/
+.*.mygameslist-artifact-backup-*/
+.*.mygameslist-artifact-recovery-*/
+.*.mygameslist-artifact-promotion.json
+.*.mygameslist-artifact-promotion.tmp
+.*.mygameslist-migration-staging/
+.*.mygameslist-migration-journal.json
+.*.mygameslist-migration-journal.tmp
 .DS_Store
 coverage/
 *.log

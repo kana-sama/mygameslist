@@ -1,0 +1,16 @@
+id: "21a23c79-1fa4-4d6e-a10f-08e7895c5d0f"
+title: Spider-Man 2
+cover:
+  assetId: "9dae0cb61e51a3d98c9e91402054744d8090fc066ceeee655824aa8c494eceaa"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - PC
+tags: []
+status: completed
+placement:
+  tierId: d
+  rank: 16384
+reviewMarkdown: |2-
+createdAt: "2026-07-21T04:31:40.906Z"
+updatedAt: "2026-07-21T04:32:06.757Z"

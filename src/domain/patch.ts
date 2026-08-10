@@ -1,6 +1,8 @@
 import { canonicalHash, canonicalStringify, MISSING_VALUE_HASH, withComputedRevision } from "./canonical";
 import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch } from "./types";
-import { assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, type EntityMapName } from "./validation";
+import { DomainValidationError, assertSourceRepresentable, assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, patchOperationSourceIssues, type EntityMapName } from "./validation";
+import { deriveImageAssetAlt } from "./assetOwnership";
+import { normalizeLibraryDatabase } from "./libraryNormalization";
 
 type Entity = LibraryDatabase[EntityMapName][string];
 
@@ -120,13 +122,15 @@ export function prunePatchBlobs(patch: PatchEnvelope): PatchEnvelope {
 /** Produces a sparse, stable-ID patch and drops derived updatedAt noise. */
 export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, options: DiffOptions = {}): PatchEnvelope {
   assertValidLibrary(base); assertValidLibrary(current);
+  const normalizedBase = normalizeLibraryDatabase(base);
+  const normalizedCurrent = normalizeLibraryDatabase(current);
   const changedAt = options.changedAt ?? new Date().toISOString();
   const transactionId = options.transactionId ?? globalThis.crypto?.randomUUID?.() ?? `tx-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const operations: Record<string, PatchOperation> = {};
   const maps: EntityMapName[] = ["games", "notes", "assets"];
   for (const mapName of maps) {
-    const baseMap = base[mapName] as Record<string, Entity>;
-    const currentMap = current[mapName] as Record<string, Entity>;
+    const baseMap = normalizedBase[mapName] as Record<string, Entity>;
+    const currentMap = normalizedCurrent[mapName] as Record<string, Entity>;
     for (const id of new Set([...Object.keys(baseMap), ...Object.keys(currentMap)])) {
       const rootPath = entityPath(mapName, id);
       if (!(id in currentMap)) {
@@ -204,17 +208,53 @@ function applyUpdatedAt(database: LibraryDatabase, original: LibraryDatabase, op
   for (const [id, changedAt] of Object.entries(notes)) if (database.notes[id]) database.notes[id].updatedAt = changedAt;
 }
 
+function assertDirectImageAssetAltsAreDerived(base: LibraryDatabase, database: LibraryDatabase, operations: Record<string, PatchOperation>): void {
+  for (const [path, operation] of Object.entries(operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "assets" || parsed.field !== undefined || operation.operation !== "set") continue;
+    const asset = operation.value;
+    if (!asset || typeof asset !== "object" || !("kind" in asset) || asset.kind !== "image" || !("alt" in asset) || typeof asset.alt !== "string") continue;
+    if (operation.baseExists) {
+      const previous = base.assets[parsed.id];
+      if (previous?.kind !== "image" || !same({ ...previous, alt: asset.alt }, asset)) throw new Error(`Существующий image asset допускает только owner-derived alt: ${path}`);
+    }
+    if (asset.alt !== deriveImageAssetAlt(database, parsed.id)) throw new Error(`Global image alt не совпадает с owner-derived значением: ${path}`);
+  }
+}
+
+function assertOperationPayloadsSourceRepresentable(operations: Record<string, PatchOperation>, message: string): void {
+  const issues = Object.entries(operations).flatMap(([path, operation]) => patchOperationSourceIssues(path, operation));
+  if (issues.length) throw new DomainValidationError(issues, message);
+}
+
+function removeUncoupledDerivedAssetOperations(database: LibraryDatabase, operations: Record<string, PatchOperation>): void {
+  const candidate = applyBestEffort(database, operations);
+  for (const [path, operation] of Object.entries(operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "assets" || parsed.field !== undefined || operation.operation !== "set") continue;
+    const asset = operation.value;
+    if (!asset || typeof asset !== "object" || !("kind" in asset) || asset.kind !== "image" || !("alt" in asset) || typeof asset.alt !== "string") continue;
+    if (asset.alt !== deriveImageAssetAlt(candidate, parsed.id)) delete operations[path];
+  }
+}
+
 export function applyPatch(base: LibraryDatabase, patch: PatchEnvelope, options: ApplyPatchOptions = {}): LibraryDatabase {
   assertValidLibrary(base); assertValidPatch(patch);
+  const normalizedBase = normalizeLibraryDatabase(base);
   if ((options.checkBaseRevision ?? true) && patch.baseRevision !== base.revision) throw new Error("Патч создан для другой revision базы");
   if (options.checkBaseHashes ?? true) for (const [path, operation] of Object.entries(patch.operations)) {
-    if (!baseMatches(operation, readPatchPath(base, path))) throw new Error(`Base hash не совпадает: ${path}`);
+    if (!baseMatches(operation, readPatchPath(normalizedBase, path))) throw new Error(`Base hash не совпадает: ${path}`);
   }
-  const result = clone(base);
+  const result = clone(normalizedBase);
   for (const [path, operation] of Object.entries(patch.operations).sort(([a], [b]) => a.localeCompare(b))) mutateAtPath(result, path, operation);
-  applyUpdatedAt(result, base, patch.operations);
-  if (options.validateResult ?? true) assertValidLibrary(result);
-  return result;
+  applyUpdatedAt(result, normalizedBase, patch.operations);
+  if (options.validateResult ?? true) assertOperationPayloadsSourceRepresentable(patch.operations, "Локальный патч содержит данные, не представимые в source tree");
+  const normalizedResult = normalizeLibraryDatabase(result);
+  if (options.validateResult ?? true) {
+    assertDirectImageAssetAltsAreDerived(normalizedBase, result, patch.operations);
+    assertSourceRepresentable(normalizedResult);
+  }
+  return normalizedResult;
 }
 
 function applyBestEffort(base: LibraryDatabase, operations: Record<string, PatchOperation>): LibraryDatabase {
@@ -229,16 +269,37 @@ function applyBestEffort(base: LibraryDatabase, operations: Record<string, Patch
 export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchEnvelope): ReconciledPatch {
   const normalizedIncoming = prunePatchBlobs(incoming);
   assertValidLibrary(staticDatabase); assertValidPatch(normalizedIncoming);
+  const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
+  assertOperationPayloadsSourceRepresentable(normalizedIncoming.operations, "Патч содержит данные, не представимые в source tree");
+  const intended = applyBestEffort(normalizedStatic, normalizedIncoming.operations);
+  assertDirectImageAssetAltsAreDerived(normalizedStatic, intended, normalizedIncoming.operations);
+  assertSourceRepresentable(normalizeLibraryDatabase(intended));
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
   for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
-    const actual = readPatchPath(staticDatabase, path);
+    const actual = readPatchPath(normalizedStatic, path);
     if (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual)) { prunedCount += 1; continue; }
     operations[path] = clone(operation);
     if (!baseMatches(operation, actual)) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
     else applicable[path] = clone(operation);
   }
-  const patch = prunePatchBlobs({ ...clone(normalizedIncoming), baseRevision: staticDatabase.revision, operations });
-  return { patch, effective: applyBestEffort(staticDatabase, applicable), conflicts, prunedCount };
+  let patch = prunePatchBlobs({ ...clone(normalizedIncoming), baseRevision: staticDatabase.revision, operations });
+  removeUncoupledDerivedAssetOperations(normalizedStatic, applicable);
+  const effective = applyBestEffort(normalizedStatic, applicable);
+  assertDirectImageAssetAltsAreDerived(normalizedStatic, effective, applicable);
+  const normalizedEffective = normalizeLibraryDatabase(effective);
+  assertSourceRepresentable(normalizedEffective);
+  const latestApplicable = Object.values(applicable).sort((left, right) => left.changedAt.localeCompare(right.changedAt)).at(-1);
+  if (latestApplicable) {
+    const canonicalApplicable = diffLibrary(normalizedStatic, normalizedEffective, {
+      previousPatch: patch,
+      changedAt: latestApplicable.changedAt,
+      transactionId: latestApplicable.transactionId,
+      blobs: patch.blobs,
+    });
+    const conflicted = Object.fromEntries(Object.entries(operations).filter(([path]) => !(path in applicable)));
+    patch = prunePatchBlobs({ ...patch, operations: { ...canonicalApplicable.operations, ...conflicted } });
+  }
+  return { patch, effective: normalizedEffective, conflicts, prunedCount };
 }
 
 export type ConflictResolution = { choice: "static" } | { choice: "local" } | { choice: "manual"; value?: unknown; delete?: boolean };
@@ -246,7 +307,7 @@ export type ConflictResolution = { choice: "static" } | { choice: "local" } | { 
 export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnvelope, path: string, resolution: ConflictResolution): ReconciledPatch {
   const next = clone(patch); const operation = next.operations[path];
   if (!operation) throw new Error(`Операция ${path} не найдена`);
-  const actual = readPatchPath(staticDatabase, path);
+  const actual = readPatchPath(normalizeLibraryDatabase(staticDatabase), path);
   if (resolution.choice === "static") delete next.operations[path];
   else {
     if (resolution.choice === "manual" && !resolution.delete && !("value" in resolution)) throw new Error("Для ручного разрешения нужно значение либо delete=true");

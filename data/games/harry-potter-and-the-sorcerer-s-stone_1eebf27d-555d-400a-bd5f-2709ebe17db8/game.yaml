@@ -1,0 +1,16 @@
+id: "1eebf27d-555d-400a-bd5f-2709ebe17db8"
+title: Harry Potter and the Sorcerer's Stone
+cover:
+  assetId: "f7c0be2d37290dedbefa1d4024a26f37dd09b40927809a68259201afe64d477e"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - PC
+tags: []
+status: platinum
+placement:
+  tierId: c
+  rank: 13312
+reviewMarkdown: |2-
+createdAt: "2026-07-21T03:55:55.779Z"
+updatedAt: "2026-07-21T04:00:44.685Z"

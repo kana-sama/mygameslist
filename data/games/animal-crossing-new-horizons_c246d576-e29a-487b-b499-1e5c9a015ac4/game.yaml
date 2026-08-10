@@ -1,0 +1,17 @@
+id: "c246d576-e29a-487b-b499-1e5c9a015ac4"
+title: "Animal Crossing: New Horizons"
+cover:
+  assetId: "70b9be959de2b26cbc4b6e2e9ca4b2729d266b0b1aaa26c18c44ddb1481987e2"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo Switch
+tags:
+  - Nintendo Missions
+status: dropped
+placement:
+  tierId: f
+  rank: 17408
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:25:47.176Z"
+updatedAt: "2026-07-23T05:16:06.751Z"

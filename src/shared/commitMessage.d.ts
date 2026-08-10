@@ -7,6 +7,6 @@ export interface LibraryCommitMessage {
 }
 
 export function buildCommitMessage(
-  before: LibraryDatabase,
-  after: LibraryDatabase,
+  before: Readonly<LibraryDatabase>,
+  after: Readonly<LibraryDatabase>,
 ): LibraryCommitMessage;

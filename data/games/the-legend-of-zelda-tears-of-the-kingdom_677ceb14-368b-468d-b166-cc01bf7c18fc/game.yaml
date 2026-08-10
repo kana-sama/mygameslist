@@ -1,0 +1,17 @@
+id: "677ceb14-368b-468d-b166-cc01bf7c18fc"
+title: "The Legend of Zelda: Tears of the Kingdom"
+cover:
+  assetId: "6b958e61fe1409f73b84e0a169c0b173d85de68490b9432b1272e6c291abf98f"
+  alt: Обложка The Legend of Zelda
+  originalName: "image.png"
+platforms:
+  - Nintendo Switch
+tags:
+  - Super Mario
+status: platinum
+placement:
+  tierId: s
+  rank: 17408
+reviewMarkdown: |2-
+createdAt: "2026-07-18T15:57:38.116Z"
+updatedAt: "2026-07-18T15:57:38.121Z"

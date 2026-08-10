@@ -1,4 +1,21 @@
 import { publishedAssetUrl, type LibraryDatabase, type LocalAsset, type PatchEnvelope } from "../domain";
+import type { PendingPublicationJournalV3 } from "./pendingPublication";
+
+export type RecoveryArchivePendingContext =
+  | { status: "none" }
+  | { status: "durable"; journal: PendingPublicationJournalV3; raw: string }
+  | { status: "memory-only"; journal: PendingPublicationJournalV3 }
+  | { status: "corrupt" | "legacy"; raw: string }
+  | { status: "read-failure" };
+
+export interface RecoveryArchiveContext {
+  database: LibraryDatabase;
+  patch: PatchEnvelope;
+  ordinaryPatchRaw: string | null;
+  localAssets: readonly LocalAsset[];
+  deployedSourceCommitSha: string | null;
+  pending: RecoveryArchivePendingContext;
+}
 
 interface ZipEntry {
   name: string;
@@ -58,9 +75,20 @@ function centralHeader(entry: ZipEntry): Blob {
   ));
 }
 
-export async function createRecoveryArchive(database: LibraryDatabase, patch: PatchEnvelope, localAssets: LocalAsset[]): Promise<Blob> {
-  const unpublished = localAssets.map((local) => {
-    const asset = database.assets[local.id];
+/** @deprecated Compile-only Task 7 overload. It throws rather than silently omit pending recovery state. */
+export function createRecoveryArchive(database: LibraryDatabase, patch: PatchEnvelope, localAssets: LocalAsset[]): Promise<Blob>;
+export function createRecoveryArchive(context: RecoveryArchiveContext): Promise<Blob>;
+export async function createRecoveryArchive(
+  contextOrDatabase: RecoveryArchiveContext | LibraryDatabase,
+  legacyPatch?: PatchEnvelope,
+  legacyLocalAssets?: LocalAsset[],
+): Promise<Blob> {
+  if (legacyPatch !== undefined || legacyLocalAssets !== undefined || !("database" in contextOrDatabase)) {
+    throw new Error("Legacy recovery export недоступен без explicit pending/provenance context");
+  }
+  const context = contextOrDatabase;
+  const unpublished = context.localAssets.map((local) => {
+    const asset = context.database.assets[local.id];
     return {
       id: local.id,
       byteLength: local.byteLength,
@@ -71,11 +99,38 @@ export async function createRecoveryArchive(database: LibraryDatabase, patch: Pa
       expectedPublishedUrl: asset ? publishedAssetUrl(asset, "./") : null,
     };
   });
+  const pendingJournal = context.pending.status === "durable" || context.pending.status === "memory-only"
+    ? context.pending.journal
+    : null;
+  const provenance = {
+    version: 1,
+    deployedSourceCommitSha: context.deployedSourceCommitSha,
+    pendingSourceCommitSha: pendingJournal?.sourceCommitSha ?? null,
+    pendingTargetCommitSha: pendingJournal?.targetCommitSha ?? null,
+    pendingTargetRevision: pendingJournal?.targetRevision ?? null,
+    pendingPhase: pendingJournal?.phase ?? null,
+    pendingDurability: context.pending.status === "durable" || context.pending.status === "memory-only"
+      ? context.pending.status
+      : null,
+  };
   const sources: Array<{ name: string; blob: Blob }> = [
-    { name: "library.json", blob: new Blob([JSON.stringify(database, null, 2)], { type: "application/json" }) },
-    { name: "patch.json", blob: new Blob([JSON.stringify({ ...patch, blobs: {} }, null, 2)], { type: "application/json" }) },
+    { name: "library.json", blob: new Blob([JSON.stringify(context.database, null, 2)], { type: "application/json" }) },
+    { name: "patch.json", blob: new Blob([JSON.stringify({ ...context.patch, blobs: {} }, null, 2)], { type: "application/json" }) },
+    ...(context.ordinaryPatchRaw === null ? [] : [
+      { name: "ordinary-patch.raw.txt", blob: new Blob([context.ordinaryPatchRaw], { type: "text/plain;charset=utf-8" }) },
+    ]),
+    { name: "provenance.json", blob: new Blob([JSON.stringify(provenance, null, 2)], { type: "application/json" }) },
+    ...(pendingJournal === null ? [] : [
+      {
+        name: "pending-publication.json",
+        blob: new Blob([JSON.stringify({ status: context.pending.status, journal: pendingJournal }, null, 2)], { type: "application/json" }),
+      },
+    ]),
+    ...(context.pending.status === "durable" || context.pending.status === "corrupt" || context.pending.status === "legacy" ? [
+      { name: "pending-publication.raw.txt", blob: new Blob([context.pending.raw], { type: "text/plain;charset=utf-8" }) },
+    ] : []),
     { name: "local-assets.json", blob: new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), unpublished }, null, 2)], { type: "application/json" }) },
-    ...localAssets.map((local) => ({ name: `media/${local.id}.${local.mimeType === "image/webp" ? "webp" : local.mimeType === "video/mp4" ? "mp4" : "bin"}`, blob: local.blob })),
+    ...context.localAssets.map((local) => ({ name: `media/${local.id}.${local.mimeType === "image/webp" ? "webp" : local.mimeType === "video/mp4" ? "mp4" : "bin"}`, blob: local.blob })),
   ];
   const entries: ZipEntry[] = [];
   let offset = 0;

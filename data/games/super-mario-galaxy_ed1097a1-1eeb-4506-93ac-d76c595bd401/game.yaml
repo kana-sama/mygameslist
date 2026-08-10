@@ -1,0 +1,17 @@
+id: "ed1097a1-1eeb-4506-93ac-d76c595bd401"
+title: Super Mario Galaxy
+cover:
+  assetId: "4ee3429adbfccab7585bdd157aa45b1dfcc3b5abb1e0b7f97eb91524cdc301f6"
+  alt: Обложка игры
+  originalName: "IMAGE 2026-07-17 01:23:07.jpg"
+platforms:
+  - Nintendo Wii
+tags:
+  - Super Mario
+status: dropped
+placement:
+  tierId: b
+  rank: 1024
+reviewMarkdown: |2-
+createdAt: "2026-07-16T21:23:34.775Z"
+updatedAt: "2026-07-17T05:27:01.553Z"

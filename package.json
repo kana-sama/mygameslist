@@ -8,13 +8,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node --import tsx scripts/build-site.ts",
     "preview": "vite preview",
     "push:ci": "bash scripts/push-and-wait-ci.sh",
     "test": "vitest run",
     "test:watch": "vitest",
-    "data:migrate-assets": "node scripts/migrate-inline-assets.mjs",
-    "data:validate": "node scripts/validate-data.mjs"
+    "data:migrate-source": "node --import tsx scripts/migrate-library-source.ts",
+    "data:validate": "node --import tsx scripts/validate-source.ts data"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -29,7 +29,8 @@
     "react-router-dom": "^7.18.1",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -42,6 +43,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.1.1",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"

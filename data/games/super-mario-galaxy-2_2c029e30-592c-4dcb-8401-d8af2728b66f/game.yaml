@@ -1,0 +1,18 @@
+id: "2c029e30-592c-4dcb-8401-d8af2728b66f"
+title: Super Mario Galaxy 2
+cover:
+  assetId: "917d08365d3d19b4c944539ecc111b18a9bc7da51215447e613f14af56fd0a74"
+  alt: Обложка игры
+  originalName: "image.jpeg"
+platforms:
+  - Nintendo Wii
+  - Nintendo Switch
+tags:
+  - Super Mario
+status: wishlist
+placement:
+  tierId: unranked
+  rank: 39936
+reviewMarkdown: |2-
+createdAt: "2026-07-18T16:00:02.641Z"
+updatedAt: "2026-07-18T16:00:02.647Z"

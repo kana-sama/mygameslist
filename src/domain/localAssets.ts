@@ -33,10 +33,19 @@ interface StoredLocalAssetMetadata {
   state: LocalAssetState;
 }
 
+interface StoredLocalAssetSnapshot {
+  asset: LocalAsset;
+  metadataRaw: string;
+  dataRaw: string;
+}
+
 const SHA256 = /^[0-9a-f]{64}$/;
 const STATES = new Set<LocalAssetState>(["local", "publishing", "awaiting-verification"]);
 const STRING_CHUNK_SIZE = 0x8000;
 const STORAGE_RECORD_OVERHEAD_BYTES = 1024;
+const LOCAL_ASSET_MUTATION_LOCK_NAME = "my-game-library.local-assets.v1.mutation";
+
+type LocalAssetLockManager = Pick<LockManager, "request">;
 
 function localAssetMetadataKey(id: string): string { return `${LOCAL_ASSET_METADATA_PREFIX}${id}`; }
 export function localAssetDataKey(id: string): string { return `${LOCAL_ASSET_DATA_PREFIX}${id}`; }
@@ -48,6 +57,11 @@ function defaultStorage(): Storage {
   } catch (reason) {
     throw reason instanceof Error ? reason : new Error("localStorage недоступен");
   }
+}
+
+function productionAssetLockManager(): LocalAssetLockManager | null {
+  try { return typeof navigator === "undefined" ? null : navigator.locks ?? null; }
+  catch { return null; }
 }
 
 async function blobBytes(blob: Blob): Promise<Uint8Array> {
@@ -146,15 +160,23 @@ function storedAssetIds(storage: Pick<Storage, "length" | "key">): string[] {
   return [...ids].sort();
 }
 
-function readStoredAsset(id: string, storage: Pick<Storage, "getItem">): LocalAsset | null {
+function readStoredAssetSnapshot(id: string, storage: Pick<Storage, "getItem">): StoredLocalAssetSnapshot | null {
   if (!SHA256.test(id)) return null;
   const metadataRaw = storage.getItem(localAssetMetadataKey(id));
-  const data = storage.getItem(localAssetDataKey(id));
-  if (metadataRaw === null || data === null) return null;
+  const dataRaw = storage.getItem(localAssetDataKey(id));
+  if (metadataRaw === null || dataRaw === null) return null;
   const metadata = parseMetadata(metadataRaw, id);
   if (!metadata) return null;
-  const bytes = storageStringToBytes(data, metadata.byteLength);
-  return { ...metadata, blob: new Blob([bytes.slice().buffer as ArrayBuffer], { type: metadata.mimeType }) };
+  const bytes = storageStringToBytes(dataRaw, metadata.byteLength);
+  return {
+    asset: { ...metadata, blob: new Blob([bytes.slice().buffer as ArrayBuffer], { type: metadata.mimeType }) },
+    metadataRaw,
+    dataRaw,
+  };
+}
+
+function readStoredAsset(id: string, storage: Pick<Storage, "getItem">): LocalAsset | null {
+  return readStoredAssetSnapshot(id, storage)?.asset ?? null;
 }
 
 function restore(storage: Pick<Storage, "removeItem" | "setItem">, entries: Map<string, string | null>): void {
@@ -225,6 +247,18 @@ export async function writeLocalAssetsAtomic(assets: LocalAsset[], storage: Stor
     metadata: JSON.stringify(metadataFor(asset)),
     data: bytesToStorageString(await blobBytes(asset.blob)),
   })));
+  const lockManager = productionAssetLockManager();
+  if (lockManager === null) throw new Error("Web Lock локальных assets недоступен");
+  return lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => (
+    writeLocalAssetRecordsLocked(records, unique, storage)
+  ));
+}
+
+async function writeLocalAssetRecordsLocked(
+  records: Array<{ id: string; metadata: string; data: string }>,
+  unique: Map<string, LocalAsset>,
+  storage: Storage,
+): Promise<LocalAsset[]> {
   const usage = projectedAssetWriteBytes(storage, records);
   if (!storageIncreaseAllowed(usage.current, usage.projected)) throw new DOMException("Недостаточно места для локальных вложений", "QuotaExceededError");
   const previous = new Map<string, string | null>();
@@ -265,24 +299,34 @@ export async function listLocalAssets(storage: Storage = defaultStorage()): Prom
 
 export async function updateLocalAssetState(ids: string[], state: LocalAssetState, storage: Storage = defaultStorage()): Promise<void> {
   if (!ids.length) return;
-  const previous = new Map<string, string | null>();
-  try {
-    for (const id of ids) {
-      const key = localAssetMetadataKey(id);
-      const raw = storage.getItem(key);
-      previous.set(key, raw);
-      if (raw === null) continue;
-      const metadata = parseMetadata(raw, id);
-      if (metadata) storage.setItem(key, JSON.stringify({ ...metadata, state }));
+  const lockManager = productionAssetLockManager();
+  if (lockManager === null) throw new Error("Web Lock локальных assets недоступен");
+  await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => {
+    const previous = new Map<string, string | null>();
+    try {
+      for (const id of ids) {
+        const key = localAssetMetadataKey(id);
+        const raw = storage.getItem(key);
+        previous.set(key, raw);
+        if (raw === null) continue;
+        const metadata = parseMetadata(raw, id);
+        if (metadata) storage.setItem(key, JSON.stringify({ ...metadata, state }));
+      }
+    } catch (reason) {
+      restore(storage, previous);
+      throw reason;
     }
-  } catch (reason) {
-    restore(storage, previous);
-    throw reason;
-  }
+  });
 }
 
 export async function deleteLocalAssetsAtomic(ids: string[], storage: Storage = defaultStorage()): Promise<void> {
   if (!ids.length) return;
+  const lockManager = productionAssetLockManager();
+  if (lockManager === null) throw new Error("Web Lock локальных assets недоступен");
+  await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => deleteLocalAssetsAtomicLocked(ids, storage));
+}
+
+function deleteLocalAssetsAtomicLocked(ids: string[], storage: Storage): void {
   const previous = new Map<string, string | null>();
   for (const id of ids) {
     previous.set(localAssetMetadataKey(id), storage.getItem(localAssetMetadataKey(id)));
@@ -318,15 +362,56 @@ export async function inspectLocalAssetIntegrity(referencedIds: Iterable<string>
   };
 }
 
-export async function deleteSafeOrphans(referencedIds: Iterable<string>, olderThan: number, storage: Storage = defaultStorage()): Promise<string[]> {
+export async function deleteSafeOrphans(
+  referencedIds: Iterable<string>,
+  olderThan: number,
+  storage: Storage = defaultStorage(),
+  protectedIds: Iterable<string> = [],
+): Promise<string[]> {
   const referenced = new Set(referencedIds);
-  const assets = await listLocalAssets(storage);
-  const byId = new Map(assets.map((asset) => [asset.id, asset]));
-  const orphans = storedAssetIds(storage).filter((id) => {
-    if (referenced.has(id)) return false;
-    const asset = byId.get(id);
-    return !asset || asset.createdAt <= olderThan;
-  });
-  await deleteLocalAssetsAtomic(orphans, storage);
-  return orphans;
+  const protectedSet = new Set(protectedIds);
+  const snapshots = storedAssetIds(storage)
+    .map((id) => readStoredAssetSnapshot(id, storage))
+    .filter((snapshot): snapshot is StoredLocalAssetSnapshot => snapshot !== null)
+    .sort((left, right) => left.asset.createdAt - right.asset.createdAt || left.asset.id.localeCompare(right.asset.id));
+  const candidates: StoredLocalAssetSnapshot[] = [];
+  for (const snapshot of snapshots) {
+    const asset = snapshot.asset;
+    if (
+      referenced.has(asset.id)
+      || protectedSet.has(asset.id)
+      || asset.state !== "local"
+      || asset.createdAt > olderThan
+    ) continue;
+    try {
+      await assertLocalAssetContent(asset);
+      candidates.push(snapshot);
+    } catch {
+      // Recovery export, not garbage collection, owns corrupt or incomplete records.
+    }
+  }
+  const lockManager = productionAssetLockManager();
+  if (lockManager === null) return [];
+  let enteredLock = false;
+  try {
+    return await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => {
+      enteredLock = true;
+      const orphans = candidates.filter((snapshot) => {
+        const { asset, metadataRaw, dataRaw } = snapshot;
+        const currentMetadataRaw = storage.getItem(localAssetMetadataKey(asset.id));
+        const currentDataRaw = storage.getItem(localAssetDataKey(asset.id));
+        if (currentMetadataRaw !== metadataRaw || currentDataRaw !== dataRaw) return false;
+        const currentMetadata = currentMetadataRaw === null ? null : parseMetadata(currentMetadataRaw, asset.id);
+        return currentMetadata?.state === "local"
+          && currentMetadata.createdAt <= olderThan
+          && !referenced.has(asset.id)
+          && !protectedSet.has(asset.id);
+      }).map((snapshot) => snapshot.asset.id);
+      deleteLocalAssetsAtomicLocked(orphans, storage);
+      return orphans;
+    });
+  } catch (reason) {
+    if (!enteredLock) return [];
+    throw reason;
+  }
 }

@@ -22,12 +22,14 @@ const GAME_A_ID = "00000000-0000-4000-8000-000000000001";
 const GAME_B_ID = "00000000-0000-4000-8000-000000000002";
 const NOTE_A_ID = "00000000-0000-4000-8000-000000000011";
 const NOTE_B_ID = "00000000-0000-4000-8000-000000000012";
+const NOTE_C_ID = "00000000-0000-4000-8000-000000000013";
 const PROGRESS_ITEM_ID = "00000000-0000-4000-8000-000000000021";
 const MISSING_GAME_ID = "00000000-0000-4000-8000-000000000099";
 const ASSET_A_ID = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const ASSET_B_ID = "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb";
 const PROGRESS_ASSET_ID = "3fe79651a92ea3850c3fc3dd9519a67c7f70b598fa238a3fd92042f6446e6452";
 const REVISION = "1".repeat(64);
+const PUBLICATION_ID = "99999999-9999-4999-8999-999999999999";
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
 const EARLIER_CHANGED_AT = "2026-08-04T09:00:00.000Z";
 const CHANGED_AT = "2026-08-04T10:00:00.000Z";
@@ -36,7 +38,7 @@ function database(): LibraryDatabase {
   return {
     schemaVersion: 2,
     revision: REVISION,
-    publicationId: null,
+    publicationId: PUBLICATION_ID,
     games: {},
     notes: {},
     assets: {},
@@ -78,6 +80,10 @@ function progressIcon(id: string): Asset {
   return { id, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 12, alt: "", originalName: "progress.webp" };
 }
 
+function imageAsset(id: string, alt: string): Asset {
+  return { id, kind: "image", mime: "image/webp", width: 1, height: 1, byteLength: 12, alt, originalName: "image.webp" };
+}
+
 function patchBetween(
   base: LibraryDatabase,
   effective: LibraryDatabase,
@@ -92,9 +98,416 @@ function operationPaths(patch: PatchEnvelope): string[] {
 }
 
 describe("patch selection", () => {
+  it("includes the derived asset root when the selected winning note-image alt changes", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Image owner");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Winning note"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_A_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "After" }];
+    const patch = patchBetween(base, desired, "winner-alt");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "winning-note-alt",
+      operationPaths: [`/notes/${NOTE_A_ID}/attachments`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+    ]);
+    expect(result.deferredPatch.operations).not.toHaveProperty(`/assets/${ASSET_A_ID}`);
+    expect(result.dependencyReasons).toContainEqual(expect.objectContaining({
+      requiredPath: `/assets/${ASSET_A_ID}`,
+      requiredByChangeId: "winning-note-alt",
+    }));
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "After" });
+  });
+
+  it("includes the fallback derived alt when the selected winning note root is deleted", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Fallback owners");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "First");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "First owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "First" }],
+    };
+    base.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_A_ID, "Fallback owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Fallback" }],
+    };
+    const desired = structuredClone(base);
+    delete desired.notes[NOTE_A_ID];
+    const patch = patchBetween(base, desired, "remove-winner");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "remove-winning-owner",
+      operationPaths: [`/notes/${NOTE_A_ID}`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}`,
+    ]);
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "Fallback" });
+  });
+
+  it("includes the derived asset root when a selected cover removal exposes a note-image fallback", () => {
+    const base = database();
+    base.games[GAME_A_ID] = { ...game(GAME_A_ID, "Cover owner"), coverAssetId: ASSET_A_ID };
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Cover alt");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Fallback note"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Note alt" }],
+    };
+    const desired = structuredClone(base);
+    desired.games[GAME_A_ID].coverAssetId = null;
+    const patch = patchBetween(base, desired, "remove-cover");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "remove-cover",
+      operationPaths: [`/games/${GAME_A_ID}/coverAssetId`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/games/${GAME_A_ID}/coverAssetId`,
+    ]);
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "Note alt" });
+  });
+
+  it("pulls only the future winning owner needed by a selected removal", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Ordered owners");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "First");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "First owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "First" }],
+    };
+    base.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_A_ID, "Future winner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Future before" }],
+    };
+    base.notes[NOTE_C_ID] = {
+      ...note(NOTE_C_ID, GAME_A_ID, "Later nonwinner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Later before" }],
+    };
+
+    const afterRemoval = structuredClone(base);
+    afterRemoval.notes[NOTE_A_ID].attachments = [];
+    const removalPatch = diffLibrary(base, afterRemoval, {
+      changedAt: EARLIER_CHANGED_AT,
+      transactionId: "remove-first-owner",
+    });
+    const afterFutureWinner = applyPatch(base, removalPatch);
+    afterFutureWinner.notes[NOTE_B_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "Future after" }];
+    const futureWinnerPatch = diffLibrary(base, afterFutureWinner, {
+      previousPatch: removalPatch,
+      changedAt: CHANGED_AT,
+      transactionId: "edit-future-winner",
+    });
+    const desired = applyPatch(base, futureWinnerPatch);
+    desired.notes[NOTE_C_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "Later after" }];
+    const patch = diffLibrary(base, desired, {
+      previousPatch: futureWinnerPatch,
+      changedAt: "2026-08-04T11:00:00.000Z",
+      transactionId: "edit-later-nonwinner",
+    });
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "remove-first-owner",
+      operationPaths: [`/notes/${NOTE_A_ID}/attachments`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+      `/notes/${NOTE_B_ID}/attachments`,
+    ]);
+    expect(operationPaths(result.deferredPatch)).toEqual([`/notes/${NOTE_C_ID}/attachments`]);
+    expect(result.dependencyReasons).toContainEqual(expect.objectContaining({
+      requiredPath: `/notes/${NOTE_B_ID}/attachments`,
+      requiredByChangeId: "remove-first-owner",
+    }));
+    expect(applyPatch(base, result.publishPatch)).toMatchObject({
+      assets: { [ASSET_A_ID]: { alt: "Future after" } },
+      notes: {
+        [NOTE_A_ID]: { attachments: [] },
+        [NOTE_B_ID]: { attachments: [{ alt: "Future after" }] },
+        [NOTE_C_ID]: { attachments: [{ alt: "Later before" }] },
+      },
+    });
+  });
+
+  it("prefers a target-created winner over an edited interim winner", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Changing winner order");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "First");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "First owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "First" }],
+    };
+    base.notes[NOTE_C_ID] = {
+      ...note(NOTE_C_ID, GAME_A_ID, "Interim owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Interim before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_A_ID].attachments = [];
+    desired.notes[NOTE_C_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "Interim after" }];
+    desired.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_A_ID, "Target winner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Target" }],
+    };
+    const patch = patchBetween(base, desired, "replace-winner");
+    const effective = applyPatch(base, patch);
+    const snapshots = [base, effective, patch].map((value) => canonicalStringify(value));
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "remove-first-owner",
+      operationPaths: [`/notes/${NOTE_A_ID}/attachments`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+      `/notes/${NOTE_B_ID}`,
+    ]);
+    expect(operationPaths(result.deferredPatch)).toEqual([`/notes/${NOTE_C_ID}/attachments`]);
+    expect(applyPatch(base, result.publishPatch)).toMatchObject({
+      assets: { [ASSET_A_ID]: { alt: "Target" } },
+      notes: {
+        [NOTE_A_ID]: { attachments: [] },
+        [NOTE_B_ID]: { attachments: [{ alt: "Target" }] },
+        [NOTE_C_ID]: { attachments: [{ alt: "Interim before" }] },
+      },
+    });
+    expect([base, effective, patch].map((value) => canonicalStringify(value))).toEqual(snapshots);
+  });
+
+  it("rejects an explicit derived-alt-only seed while its explaining owner edit is deferred", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Image owner");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Winning owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_A_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "After" }];
+    const patch = patchBetween(base, desired, "owner-explains-alt");
+    const effective = applyPatch(base, patch);
+    const snapshots = [base, effective, patch].map((value) => canonicalStringify(value));
+
+    expect(() => resolvePatchSelection(base, effective, patch, [{
+      changeId: "derived-alt-only",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }])).toThrowError(expect.objectContaining({
+      name: "PatchSelectionError",
+      changeId: "derived-alt-only",
+    }));
+    expect([base, effective, patch].map((value) => canonicalStringify(value))).toEqual(snapshots);
+  });
+
+  it("closes an explicit owner removal plus asset over the future winner edit", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Explicit owner transition");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "First");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "First owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "First" }],
+    };
+    base.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_A_ID, "Future winner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Future before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_A_ID].attachments = [];
+    desired.notes[NOTE_B_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "Future after" }];
+    const patch = patchBetween(base, desired, "explicit-owner-transition");
+    const effective = applyPatch(base, patch);
+    const snapshots = [base, effective, patch].map((value) => canonicalStringify(value));
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "explicit-owner-transition",
+      operationPaths: [
+        `/notes/${NOTE_A_ID}/attachments`,
+        `/assets/${ASSET_A_ID}`,
+      ],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+      `/notes/${NOTE_B_ID}/attachments`,
+    ]);
+    expect(result.deferredPatch.operations).toEqual({});
+    expect(result.explicitPaths).toEqual([
+      `/assets/${ASSET_A_ID}`,
+      `/notes/${NOTE_A_ID}/attachments`,
+    ]);
+    expect(result.dependencyReasons).toContainEqual(expect.objectContaining({
+      requiredPath: `/notes/${NOTE_B_ID}/attachments`,
+      requiredByChangeId: "explicit-owner-transition",
+    }));
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "Future after" });
+    expect([base, effective, patch].map((value) => canonicalStringify(value))).toEqual(snapshots);
+  });
+
+  it("rejects an asset-only derived alt caused by a deferred cover removal", () => {
+    const base = database();
+    base.games[GAME_A_ID] = { ...game(GAME_A_ID, "Cover owner"), coverAssetId: ASSET_A_ID };
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Cover");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Fallback note"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Fallback" }],
+    };
+    const desired = structuredClone(base);
+    desired.games[GAME_A_ID].coverAssetId = null;
+    const patch = patchBetween(base, desired, "remove-cover");
+    const effective = applyPatch(base, patch);
+    const snapshots = [base, effective, patch].map((value) => canonicalStringify(value));
+
+    expect(() => resolvePatchSelection(base, effective, patch, [{
+      changeId: "derived-alt-with-deferred-cover-removal",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }])).toThrowError(expect.objectContaining({
+      name: "PatchSelectionError",
+      changeId: "derived-alt-with-deferred-cover-removal",
+    }));
+    expect([base, effective, patch].map((value) => canonicalStringify(value))).toEqual(snapshots);
+  });
+
+  it("rejects a selected winning-owner edit when its required derived asset operation is missing", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Image owner");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Winning owner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_A_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "After" }];
+    const completePatch = patchBetween(base, desired, "owner-with-derived-alt");
+    const effective = applyPatch(base, completePatch);
+    const incompletePatch = structuredClone(completePatch);
+    delete incompletePatch.operations[`/assets/${ASSET_A_ID}`];
+
+    expect(() => resolvePatchSelection(base, effective, incompletePatch, [{
+      changeId: "owner-with-missing-derived-alt",
+      operationPaths: [`/notes/${NOTE_A_ID}/attachments`],
+    }])).toThrowError(expect.objectContaining({
+      name: "PatchSelectionError",
+      changeId: "owner-with-missing-derived-alt",
+      message: expect.stringContaining(`/assets/${ASSET_A_ID}`),
+    }));
+  });
+
+  it("allows a direct global alt change when an unchanged cover owner makes it representable", () => {
+    const base = database();
+    base.games[GAME_A_ID] = { ...game(GAME_A_ID, "Cover owner"), coverAssetId: ASSET_A_ID };
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    const desired = structuredClone(base);
+    desired.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "After");
+    const patch = patchBetween(base, desired, "cover-alt");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "cover-alt",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([`/assets/${ASSET_A_ID}`]);
+    expect(result.deferredPatch.operations).toEqual({});
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "After" });
+  });
+
+  it("allows a direct global alt while a different target cover survives", () => {
+    const base = database();
+    base.games[GAME_A_ID] = { ...game(GAME_A_ID, "First cover"), coverAssetId: ASSET_A_ID };
+    base.games[GAME_B_ID] = { ...game(GAME_B_ID, "Surviving cover"), coverAssetId: ASSET_A_ID };
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    const desired = structuredClone(base);
+    desired.games[GAME_A_ID].coverAssetId = null;
+    desired.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "After");
+    const patch = patchBetween(base, desired, "direct-alt-and-cover-removal");
+    const effective = applyPatch(base, patch);
+    const snapshots = [base, effective, patch].map((value) => canonicalStringify(value));
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "direct-cover-alt",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([`/assets/${ASSET_A_ID}`]);
+    expect(operationPaths(result.deferredPatch)).toEqual([`/games/${GAME_A_ID}/coverAssetId`]);
+    expect(applyPatch(base, result.publishPatch)).toMatchObject({
+      assets: { [ASSET_A_ID]: { alt: "After" } },
+      games: { [GAME_A_ID]: { coverAssetId: ASSET_A_ID } },
+    });
+    expect([base, effective, patch].map((value) => canonicalStringify(value))).toEqual(snapshots);
+  });
+
+  it("keeps global cover priority when an earlier game has a note-image owner", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Earlier note owner");
+    base.games[GAME_B_ID] = { ...game(GAME_B_ID, "Later cover owner"), coverAssetId: ASSET_A_ID };
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Before");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Earlier note"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Note alt" }],
+    };
+    const desired = structuredClone(base);
+    desired.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "After");
+    const patch = patchBetween(base, desired, "cross-game-cover-alt");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "cross-game-cover-alt",
+      operationPaths: [`/assets/${ASSET_A_ID}`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([`/assets/${ASSET_A_ID}`]);
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "After" });
+  });
+
+  it("keeps a nonwinning note-image alt edit local without pulling the asset root", () => {
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Ordered owners");
+    base.assets[ASSET_A_ID] = imageAsset(ASSET_A_ID, "Winner");
+    base.notes[NOTE_A_ID] = {
+      ...note(NOTE_A_ID, GAME_A_ID, "Winner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Winner" }],
+    };
+    base.notes[NOTE_B_ID] = {
+      ...note(NOTE_B_ID, GAME_A_ID, "Nonwinner"),
+      attachments: [{ type: "image", assetId: ASSET_A_ID, alt: "Before" }],
+    };
+    const desired = structuredClone(base);
+    desired.notes[NOTE_B_ID].attachments = [{ type: "image", assetId: ASSET_A_ID, alt: "After" }];
+    const patch = patchBetween(base, desired, "nonwinner-alt");
+    const effective = applyPatch(base, patch);
+
+    const result = resolvePatchSelection(base, effective, patch, [{
+      changeId: "nonwinning-note-alt",
+      operationPaths: [`/notes/${NOTE_B_ID}/attachments`],
+    }]);
+
+    expect(operationPaths(result.publishPatch)).toEqual([`/notes/${NOTE_B_ID}/attachments`]);
+    expect(result.publishPatch.operations).not.toHaveProperty(`/assets/${ASSET_A_ID}`);
+    expect(applyPatch(base, result.publishPatch).assets[ASSET_A_ID]).toMatchObject({ alt: "Winner" });
+  });
+
   it("includes a new progress icon asset with the selected game progress field", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Progress game");
+    base.notes[NOTE_A_ID] = note(NOTE_A_ID, GAME_A_ID, "Progress note");
     const desired = structuredClone(base);
     desired.assets[PROGRESS_ASSET_ID] = progressIcon(PROGRESS_ASSET_ID);
     desired.games[GAME_A_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ASSET_ID, noteId: NOTE_A_ID }];
@@ -117,6 +530,7 @@ describe("patch selection", () => {
   it("does not pull an independently changed cover into a selected progress field", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Independent assets");
+    base.notes[NOTE_A_ID] = note(NOTE_A_ID, GAME_A_ID, "Progress note");
     const afterCover = structuredClone(base);
     afterCover.assets[ASSET_A_ID] = progressIcon(ASSET_A_ID);
     afterCover.games[GAME_A_ID].coverAssetId = ASSET_A_ID;

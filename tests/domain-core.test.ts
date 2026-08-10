@@ -23,10 +23,15 @@ const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const PROGRESS_ITEM_ID = "33333333-3333-4333-8333-333333333333";
 const PROGRESS_ICON_ID = "a".repeat(64);
+const PUBLICATION_ID = "44444444-4444-4444-8444-444444444444";
 const NOW = "2026-07-16T10:00:00.000Z";
 
 function empty(): LibraryDatabase {
   return { schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} };
+}
+
+function sourceBase(): LibraryDatabase {
+  return { ...empty(), publicationId: PUBLICATION_ID };
 }
 
 function game(title = "DuckTales"): Game {
@@ -93,7 +98,7 @@ describe("library validation", () => {
 
 describe("patch lifecycle", () => {
   it("publishes optional progress items as a sparse game field", () => {
-    const base = empty(); base.games[GAME_ID] = game();
+    const base = sourceBase(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
     const current = structuredClone(base);
     current.assets[PROGRESS_ICON_ID] = { id: PROGRESS_ICON_ID, kind: "image", mime: "image/webp", width: 64, height: 64, byteLength: 12, alt: "", originalName: "progress.webp" };
     current.games[GAME_ID].progressItems = [{ id: PROGRESS_ITEM_ID, iconAssetId: PROGRESS_ICON_ID, noteId: NOTE_ID }];
@@ -109,7 +114,7 @@ describe("patch lifecycle", () => {
   });
 
   it("creates a sparse patch, applies it, and derives updatedAt", () => {
-    const base = empty(); base.games[GAME_ID] = game();
+    const base = sourceBase(); base.games[GAME_ID] = game();
     const current = structuredClone(base); current.games[GAME_ID].title = "DuckTales Remastered";
     const patch = diffLibrary(base, current, { changedAt: "2026-07-16T11:00:00.000Z", transactionId: "edit-title" });
     expect(Object.keys(patch.operations)).toEqual([`/games/${GAME_ID}/title`]);
@@ -119,7 +124,7 @@ describe("patch lifecycle", () => {
   });
 
   it("prunes published values and reports/resolves same-field conflicts", () => {
-    const base = empty(); base.games[GAME_ID] = game();
+    const base = sourceBase(); base.games[GAME_ID] = game();
     const local = structuredClone(base); local.games[GAME_ID].title = "Local";
     const patch = diffLibrary(base, local, { changedAt: NOW, transactionId: "title" });
     const published = structuredClone(base); published.games[GAME_ID].title = "Local"; published.revision = "a".repeat(64);
@@ -135,7 +140,7 @@ describe("patch lifecycle", () => {
   });
 
   it("rejects patch operations for service-managed fields", () => {
-    const base = empty(); base.games[GAME_ID] = game();
+    const base = sourceBase(); base.games[GAME_ID] = game();
     const patch = diffLibrary(base, { ...base, games: { [GAME_ID]: { ...game(), title: "Local" } } }, { changedAt: NOW, transactionId: "title" });
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/games/${GAME_ID}/updatedAt`]: operation };
@@ -143,7 +148,7 @@ describe("patch lifecycle", () => {
   });
 
   it("publishes and prunes a sparse note-group move", () => {
-    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const base = sourceBase(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
     const current = structuredClone(base); current.notes[NOTE_ID].groupRank = 2048;
     const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "move-note-group" });
     expect(Object.keys(patch.operations)).toEqual([`/notes/${NOTE_ID}/groupRank`]);
@@ -158,7 +163,7 @@ describe("patch lifecycle", () => {
   });
 
   it("publishes collapsed checklist sections as committed note state", () => {
-    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const base = sourceBase(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
     const current = structuredClone(base);
     current.notes[NOTE_ID].collapsedChecklistSections = ["heading:abc", "list:def"];
 
@@ -177,7 +182,7 @@ describe("patch lifecycle", () => {
   });
 
   it("publishes note size changes as sparse field operations", () => {
-    const base = empty(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
+    const base = sourceBase(); base.games[GAME_ID] = game(); base.notes[NOTE_ID] = note();
     const current = structuredClone(base);
     current.notes[NOTE_ID].doubleHeight = true;
     current.notes[NOTE_ID].doubleWidth = true;
@@ -193,7 +198,7 @@ describe("patch lifecycle", () => {
   });
 
   it("requires root set values to use the entity ID from their operation path", () => {
-    const base = empty(); const current = structuredClone(base); current.games[GAME_ID] = game();
+    const base = sourceBase(); const current = structuredClone(base); current.games[GAME_ID] = game();
     const patch = diffLibrary(base, current, { changedAt: NOW, transactionId: "create" });
     const operation = structuredClone(patch.operations[`/games/${GAME_ID}`]);
     const cases = [
@@ -209,7 +214,7 @@ describe("patch lifecycle", () => {
   });
 
   it("rejects collection entities and legacy schema patches", () => {
-    const base = empty(); base.games[GAME_ID] = game();
+    const base = sourceBase(); base.games[GAME_ID] = game();
     const patch = diffLibrary(base, { ...base, games: { [GAME_ID]: { ...game(), title: "Local" } } }, { changedAt: NOW, transactionId: "title" });
     const [operation] = Object.values(patch.operations);
     patch.operations = { [`/collections/${GAME_ID}`]: operation };

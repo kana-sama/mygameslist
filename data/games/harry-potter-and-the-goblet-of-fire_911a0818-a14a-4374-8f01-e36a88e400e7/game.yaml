@@ -1,0 +1,18 @@
+id: "911a0818-a14a-4374-8f01-e36a88e400e7"
+title: Harry Potter and the Goblet of Fire
+cover:
+  assetId: "95e0249426df925ae7cae58b411dbf866d2af1dcc0e00ce63d7f66e7ad0e6f03"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - PC
+  - Nintendo GameCube
+  - Sony PlayStation 2
+tags: []
+status: platinum
+placement:
+  tierId: c
+  rank: 15360
+reviewMarkdown: |2-
+createdAt: "2026-07-21T04:10:46.909Z"
+updatedAt: "2026-07-21T04:14:17.206Z"

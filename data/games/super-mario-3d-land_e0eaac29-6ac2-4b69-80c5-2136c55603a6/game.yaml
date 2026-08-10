@@ -1,0 +1,17 @@
+id: "e0eaac29-6ac2-4b69-80c5-2136c55603a6"
+title: Super Mario 3D Land
+cover:
+  assetId: "a034834ac67944ce55b34a74ad8c1d2b11e86af7abf736fa93375d1e2a695078"
+  alt: Обложка Super Mario 3D Land
+  originalName: "IMAGE 2026-07-17 09:00:31.jpg"
+platforms:
+  - Nintendo 3DS
+tags:
+  - Super Mario
+status: completed
+placement:
+  tierId: s
+  rank: 7168
+reviewMarkdown: |2-
+createdAt: "2026-07-17T05:02:03.242Z"
+updatedAt: "2026-07-17T05:02:03.286Z"

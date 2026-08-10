@@ -1,0 +1,16 @@
+id: "cb266a9c-4027-4047-8076-9f643b742cd6"
+title: Mulan
+cover:
+  assetId: "dc781a10c352e7cc4c29b645d8253d07d9186b4d518db051d2cc0d7d5459d035"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - GameBoy
+tags: []
+status: dropped
+placement:
+  tierId: f
+  rank: 16384
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:11:52.834Z"
+updatedAt: "2026-07-21T05:11:52.840Z"

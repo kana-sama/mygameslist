@@ -1,0 +1,17 @@
+id: "303a2be3-6ea4-427c-82d6-40bb43faa4d5"
+title: Super Mario Odyssey
+cover:
+  assetId: "180aeb9252fd093fda8251371c74b7879d695a2d60f002ee8053c2eb3ff0e084"
+  alt: Обложка Super Mario Odyssey
+  originalName: "IMAGE 2026-07-17 08:57:11.jpg"
+platforms:
+  - Nintendo Switch
+tags:
+  - Super Mario
+status: completed
+placement:
+  tierId: s
+  rank: 6144
+reviewMarkdown: |2-
+createdAt: "2026-07-17T04:57:27.612Z"
+updatedAt: "2026-07-17T05:02:10.703Z"

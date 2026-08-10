@@ -90,12 +90,20 @@ describe("semantic publication commit messages", () => {
     before.games[CONTRA_ID] = game({ id: CONTRA_ID, title: "Contra" });
     const selectedResult = structuredClone(before);
     selectedResult.games[GAME_ID].title = "DuckTales Remastered";
+    selectedResult.publicationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    selectedResult.revision = "f".repeat(64);
+    const beforeSnapshot = structuredClone(before);
+    const selectedSnapshot = structuredClone(selectedResult);
 
     const result = buildCommitMessage(before, selectedResult);
 
     expect(result.subject).toBe("Update DuckTales Remastered");
     expect(result.body).toContain('Update "DuckTales" -> "DuckTales Remastered": title');
     expect(result.message).not.toContain("Contra");
+    expect(result.message).not.toContain(selectedResult.publicationId);
+    expect(result.message).not.toContain(selectedResult.revision);
+    expect(before).toEqual(beforeSnapshot);
+    expect(selectedResult).toEqual(selectedSnapshot);
   });
 
   it("builds a dynamic subject and a semantic body without embedding image data", () => {

@@ -1,0 +1,17 @@
+id: "e2fccef0-1c62-488d-8e6f-340b846db93f"
+title: Super Mario Bros.
+cover:
+  assetId: "895002822e935fc6da28afddc82277c6524a4c476ada2a83f75b57d69d621516"
+  alt: Обложка Super Mario Bros.
+  originalName: "IMAGE 2026-07-17 08:45:51.jpg"
+platforms:
+  - Nintendo Entertainment System
+tags:
+  - Super Mario
+status: completed
+placement:
+  tierId: b
+  rank: 3072
+reviewMarkdown: |2-
+createdAt: "2026-07-17T04:50:28.600Z"
+updatedAt: "2026-07-17T06:29:05.628Z"

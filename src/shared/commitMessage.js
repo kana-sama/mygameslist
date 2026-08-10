@@ -229,7 +229,8 @@ function subjectWithGames(verb, games) {
   return `${verb} ${cleanLabel(games[0].title, "Untitled game", available)}${suffix}`;
 }
 
-/** Build a bounded semantic commit message without serializing full Markdown or image data. */
+// Build from the deployed base and finalized selected target only, without
+// serializing full Markdown, service metadata, or image data.
 export function buildCommitMessage(before, after) {
   const gameChanges = collectEntityChanges(before.games, after.games, GAME_FIELDS);
   const noteChanges = collectEntityChanges(before.notes, after.notes, NOTE_FIELDS);

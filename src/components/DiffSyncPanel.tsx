@@ -14,9 +14,21 @@ export type DiffSyncStage =
 
 export type DiffSyncPersistence = "none" | "session" | "persistent";
 
+export interface DiffSyncPublicationController {
+  status: "waiting" | "memory-only" | "recovery" | "problem" | "corrupt" | "legacy" | "read-failure";
+  check?: "waiting-source" | "checking" | "asset-verification" | "non-current" | "unrelated" | "unverifiable" | "revision-mismatch" | "finalize-failed" | null;
+  targetCommitUrl?: string;
+  exportCompleted: boolean;
+  onRetryPersistence: () => void | Promise<void>;
+  onRetryCheck: () => void | Promise<void>;
+  onExport: () => void | Promise<void>;
+  onDiscard: () => void | Promise<void>;
+  onReload: () => void;
+}
+
 export interface DiffSyncController {
   connected: boolean;
-  connectMode?: "sync" | "verify";
+  connectMode?: "sync" | "verify" | "recovery";
   persistence: DiffSyncPersistence;
   busy: boolean;
   stage: DiffSyncStage;
@@ -26,6 +38,7 @@ export interface DiffSyncController {
   repository?: string;
   patCreationHref?: string;
   actionLabel?: string;
+  publication?: DiffSyncPublicationController;
   onConnect: (token: string, remember: boolean, selectedPaths?: readonly string[]) => void | Promise<void>;
   onDisconnect: () => void | Promise<void>;
   onSync: (selectedPaths?: readonly string[]) => void | Promise<void>;
@@ -92,6 +105,8 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
   const busy = submitting || controller.busy || isDiffSyncBusy(stage);
   const showPatForm = !controller.connected;
   const connectWithoutSync = showPatForm && controller.connectMode === "verify";
+  const recoveryConnection = showPatForm && controller.connectMode === "recovery";
+  const publicationBlocked = controller.publication !== undefined;
   const actionLabel = controller.actionLabel ?? "Синхронизировать";
 
   useEffect(() => {
@@ -165,8 +180,17 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
     }
   };
 
+  const runPublicationAction = async (action: () => void | Promise<void>) => {
+    if (busy) return;
+    setLocalError(null);
+    setSubmitting(true);
+    try { await action(); }
+    catch (reason) { setLocalError(errorMessage(reason)); }
+    finally { setSubmitting(false); }
+  };
+
   const visibleError = localError ?? controller.error;
-  const showProgress = stage !== "idle";
+  const showProgress = stage !== "idle" && !controller.publication;
   const dismissError = () => {
     setLocalError(null);
     controller.onDismissError?.();
@@ -184,9 +208,46 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
         </button>
       </header>
 
-      {blockedReason && !connectWithoutSync ? <p className="diff-sync-panel__blocked"><Icon name="warning" size={15} />{blockedReason}</p> : null}
+      {blockedReason && !connectWithoutSync && !recoveryConnection ? <p className="diff-sync-panel__blocked"><Icon name="warning" size={15} />{blockedReason}</p> : null}
 
-      {showProgress || controller.pagesPending ? (
+      {controller.publication ? (
+        <div
+          aria-live={controller.publication.status === "waiting" ? "polite" : undefined}
+          className={controller.publication.status === "waiting" ? "diff-sync-progress" : "inline-alert inline-alert--error diff-sync-panel__error"}
+          role={controller.publication.status === "waiting" ? "status" : "alert"}
+        >
+          <Icon name={controller.publication.status === "waiting" ? "check" : "warning"} size={15} />
+          <span>{controller.publication.status === "waiting"
+            ? "Коммит создан. Ждём обновления GitHub Pages…"
+            : controller.publication.status === "memory-only"
+              ? "Браузер не сохранил состояние восстановления. Не закрывайте вкладку."
+              : controller.publication.status === "recovery"
+                ? "Новая публикация опередила этот коммит. Локальные правки сохранены; завершите восстановление и конфликты."
+                : controller.publication.status === "corrupt" || controller.publication.status === "legacy"
+                  ? "Состояние ожидающей публикации повреждено или устарело. Сначала экспортируйте локальную копию."
+                  : controller.publication.status === "read-failure"
+                    ? "Браузер не разрешил прочитать состояние публикации. Экспортируйте копию или перезагрузите страницу."
+                    : controller.publication.check === "non-current"
+                      ? "GitHub Pages показывает не текущую версию main. Локальные данные сохранены."
+                      : controller.publication.check === "unrelated"
+                        ? "На сайте опубликован другой коммит. Требуется восстановление локальных данных."
+                        : controller.publication.check === "revision-mismatch"
+                          ? "Опубликованная версия не совпала с ожидаемой. Локальные данные сохранены."
+                          : controller.publication.check === "finalize-failed"
+                            ? "Сайт обновился, но браузер не завершил локальное восстановление."
+                            : "Пока не удалось проверить публикацию. Локальные данные сохранены."}</span>
+          {controller.publication.targetCommitUrl ? <a href={controller.publication.targetCommitUrl} rel="noreferrer" target="_blank">Коммит<Icon name="external" size={12} /></a> : null}
+          <span>
+            {controller.publication.status === "memory-only" ? <button disabled={busy} onClick={() => void runPublicationAction(controller.publication!.onRetryPersistence)} type="button">Повторить сохранение</button> : null}
+            {controller.publication.status === "waiting" || controller.publication.status === "recovery" || controller.publication.status === "problem" ? <button disabled={busy} onClick={() => void runPublicationAction(controller.publication!.onRetryCheck)} type="button">Повторить проверку</button> : null}
+            <button disabled={busy} onClick={() => void runPublicationAction(controller.publication!.onExport)} type="button">Экспортировать локальную копию</button>
+            {(controller.publication.status === "problem" || controller.publication.status === "read-failure") ? <button disabled={busy} onClick={controller.publication.onReload} type="button">Перезагрузить страницу</button> : null}
+            {controller.publication.exportCompleted && (controller.publication.status === "recovery" || controller.publication.status === "corrupt" || controller.publication.status === "legacy") ? <button disabled={busy} onClick={() => void runPublicationAction(controller.publication!.onDiscard)} type="button">Сбросить после экспорта</button> : null}
+          </span>
+        </div>
+      ) : null}
+
+      {showProgress || controller.pagesPending && !controller.publication ? (
         <div aria-live="polite" className={`diff-sync-progress${stage === "complete" ? " is-complete" : ""}`} role="status">
           <span className="diff-sync-progress__marker">{stage === "complete" ? <Icon name="check" size={15} /> : null}</span>
           <span>{controller.pagesPending ? "Коммит создан. Ждём обновления GitHub Pages…" : stage === "idle" ? "Синхронизация…" : stageLabels[stage]}</span>
@@ -218,8 +279,8 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
               type="password"
               value={pat}
             />
-            <button className="button button--primary" disabled={(Boolean(blockedReason) && !connectWithoutSync) || busy || !pat.trim()} type="submit">
-              {busy ? "Подключаем…" : connectWithoutSync ? "Подключить" : "Подключить и синхронизировать"}
+            <button className="button button--primary" disabled={(Boolean(blockedReason) && !connectWithoutSync && !recoveryConnection) || busy || !pat.trim()} type="submit">
+              {busy ? "Подключаем…" : connectWithoutSync ? "Подключить" : recoveryConnection ? "Подключить и проверить" : "Подключить и синхронизировать"}
             </button>
           </div>
           <label className="diff-sync-auth__remember">
@@ -234,7 +295,7 @@ export function DiffSyncPanel({ blockedReason, controller, onBusyChange, onClose
       ) : (
         <div className="diff-sync-saved">
           <div><Icon name="check" size={15} /><span>{controller.persistence === "persistent" ? "PAT сохранён на этом устройстве" : "PAT хранится до закрытия вкладки"}</span></div>
-          <button className="button button--primary" disabled={Boolean(blockedReason) || busy} onClick={() => void runSync()} ref={savedSyncRef} type="button">{actionLabel}</button>
+          <button className="button button--primary" disabled={publicationBlocked || Boolean(blockedReason) || busy} onClick={() => void runSync()} ref={savedSyncRef} type="button">{actionLabel}</button>
           <button className="button button--ghost button--danger-text" disabled={busy} onClick={() => void disconnect()} type="button">Отключить</button>
         </div>
       )}

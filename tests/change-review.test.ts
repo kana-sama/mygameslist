@@ -28,12 +28,13 @@ const ASSET_C_ID = "c".repeat(64);
 const CREATED_AT = "2026-08-04T08:00:00.000Z";
 const T1 = "2026-08-04T10:00:00.000Z";
 const T2 = "2026-08-04T11:00:00.000Z";
+const PUBLICATION_ID = "99999999-9999-4999-8999-999999999999";
 
 function database(): LibraryDatabase {
   return {
     schemaVersion: 2,
     revision: "",
-    publicationId: null,
+    publicationId: PUBLICATION_ID,
     games: {},
     notes: {},
     assets: {},

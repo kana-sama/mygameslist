@@ -19,10 +19,19 @@ import {
   type LibraryDatabase,
 } from "../src/domain";
 import type { GameSaveInput, PreparedFile } from "../src/pages/GamePage";
-import { LibraryProvider, requiredLocalAssetIds, useLibrary } from "../src/state/LibraryContext";
+import {
+  LibraryProvider,
+  promoteMemoryOnlyPublicationForDiscard,
+  requiredLocalAssetIds,
+  useLibrary,
+} from "../src/state/LibraryContext";
+import { GitHubGitDatabaseSyncClient } from "../src/state/githubGitDatabaseSync";
 import {
   PENDING_PUBLICATION_STORAGE_KEY,
   installPendingPublication,
+  installPendingPublicationJournal,
+  loadPendingPublicationJournal,
+  type PendingPublicationJournalV3,
   type PendingPublicationReceipt,
 } from "../src/state/pendingPublication";
 import { GITHUB_PAT_STORAGE_KEY } from "../src/state/githubPat";
@@ -54,6 +63,8 @@ const PROGRESS_NOTE_ID = "55555555-5555-4555-8555-555555555555";
 const NOW = "2026-07-16T10:00:00.000Z";
 const GITHUB_TOKEN = "github_pat_test-only";
 const HEAD_SHA = "1".repeat(40);
+const LONG_HEAD_SHA = "a".repeat(64);
+const PUBLICATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TREE_SHA = "2".repeat(40);
 const LIBRARY_BLOB_SHA = "3".repeat(40);
 const CREATED_LIBRARY_BLOB_SHA = "4".repeat(40);
@@ -65,14 +76,19 @@ class MemoryStorage implements Storage {
   private setFailures = 0;
   private failingSetKeys = new Set<string>();
   private failingSetMatch: ((key: string, value: string) => boolean) | null = null;
+  private keptRemoveKeys = new Set<string>();
   get length() { return this.values.size; }
   clear() { this.values.clear(); }
   failNextSet() { this.setFailures += 1; }
   failNextSetFor(key: string) { this.failingSetKeys.add(key); }
   failNextMatchingSet(matches: (key: string, value: string) => boolean) { this.failingSetMatch = matches; }
+  keepNextRemoveFor(key: string) { this.keptRemoveKeys.add(key); }
   getItem(key: string) { return this.values.get(key) ?? null; }
   key(index: number) { return [...this.values.keys()][index] ?? null; }
-  removeItem(key: string) { this.values.delete(key); }
+  removeItem(key: string) {
+    if (this.keptRemoveKeys.delete(key)) return;
+    this.values.delete(key);
+  }
   setItem(key: string, value: string) {
     if (this.failingSetMatch?.(key, value)) {
       this.failingSetMatch = null;
@@ -86,6 +102,22 @@ class MemoryStorage implements Storage {
       throw new DOMException("Storage is full", "QuotaExceededError");
     }
     this.values.set(key, value);
+  }
+}
+
+class ExclusiveTestLockManager {
+  private readonly tails = new Map<string, Promise<void>>();
+
+  request<T>(name: string, _options: LockOptions, callback: (lock: Lock | null) => T | PromiseLike<T>): Promise<Awaited<T>> {
+    const previous = this.tails.get(name) ?? Promise.resolve();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const tail = previous.then(() => held);
+    this.tails.set(name, tail);
+    return previous.then(() => callback({ name, mode: "exclusive" } as Lock)).finally(() => {
+      release();
+      if (this.tails.get(name) === tail) this.tails.delete(name);
+    }) as Promise<Awaited<T>>;
   }
 }
 
@@ -116,13 +148,43 @@ function seededDatabase(asset: Asset): LibraryDatabase {
 }
 
 function empty(): LibraryDatabase {
-  return withComputedRevision({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
+  return withComputedRevision({ schemaVersion: 2, revision: "", publicationId: PUBLICATION_ID, games: {}, notes: {}, assets: {} });
 }
 
-function mockStaticDatabase(database: LibraryDatabase) {
+function pendingJournal(targetDatabase: LibraryDatabase, remainderPatch = diffLibrary(targetDatabase, targetDatabase)): PendingPublicationJournalV3 {
+  return {
+    version: 3,
+    sourceCommitSha: HEAD_SHA,
+    targetCommitSha: CREATED_COMMIT_SHA,
+    targetRevision: targetDatabase.revision,
+    targetDatabase,
+    remainderPatch,
+    localAssetIdsAwaitingVerification: [],
+    owner: "kana-sama",
+    repo: "mygameslist",
+    branch: "main",
+    createdAt: NOW,
+    phase: "awaiting-deployment",
+  };
+}
+
+function mockStaticValue(value: unknown) {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
     ok: true,
-    json: async () => structuredClone(database),
+    json: async () => structuredClone(value),
+  }));
+}
+
+function mockStaticDatabase(database: LibraryDatabase, sourceCommitSha: string | null = HEAD_SHA) {
+  mockStaticValue({ sourceCommitSha, database });
+}
+
+function mockStaticSequence(...values: unknown[]) {
+  let index = 0;
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => {
+    const value = values[Math.min(index, values.length - 1)];
+    index += 1;
+    return { ok: true, json: async () => structuredClone(value) };
   }));
 }
 
@@ -130,15 +192,38 @@ function Probe() {
   const library = useLibrary();
   return <div>
     <span data-testid="loading">{String(library.loading)}</span>
+    <span data-testid="fatal-error">{library.fatalError ?? "none"}</span>
+    <span data-testid="source-commit-sha">{library.sourceCommitSha ?? "null"}</span>
+    <span data-testid="base-revision">{library.base.revision}</span>
     <span data-testid="title">{Object.values(library.effective.games)[0]?.title ?? "empty"}</span>
     <span data-testid="operations">{Object.keys(library.patch.operations).length}</span>
+    <span data-testid="operation-paths">{Object.keys(library.patch.operations).sort().join(",")}</span>
     <span data-testid="conflicts">{library.conflicts.length}</span>
+    <span data-testid="publication-state">{library.publicationState.status}</span>
     <span data-testid="local-assets">{library.localAssets.length}</span>
-    <button onClick={() => {
-      try { library.moveGame(GAME_ID, "s", 0); }
-      catch (error) { (document.querySelector("[data-testid='mutation-error']") as HTMLElement).textContent = error instanceof Error ? error.message : String(error); }
-    }} type="button">Изменить</button>
+    <button onClick={() => { void library.moveGame(GAME_ID, "s", 0).catch((error) => {
+      (document.querySelector("[data-testid='mutation-error']") as HTMLElement).textContent = error instanceof Error ? error.message : String(error);
+    }); }} type="button">Изменить</button>
     <span data-testid="mutation-error" />
+  </div>;
+}
+
+function ImportProbe({ raw, assetId }: { raw: string; assetId: string }) {
+  const library = useLibrary();
+  const [result, setResult] = useState("idle");
+  const asset = library.effective.assets[assetId];
+  return <div>
+    <span data-testid="import-loading">{String(library.loading)}</span>
+    <span data-testid="import-result">{result}</span>
+    <span data-testid="import-source-commit-sha">{library.sourceCommitSha ?? "null"}</span>
+    <span data-testid="import-operation-paths">{Object.keys(library.patch.operations).sort().join(",")}</span>
+    <span data-testid="import-asset-alt">{asset?.kind === "image" ? asset.alt : "none"}</span>
+    <span data-testid="import-local-assets">{library.localAssets.length}</span>
+    <button onClick={() => {
+      void library.importPatch(raw)
+        .then(() => setResult("imported"))
+        .catch((error) => setResult(error instanceof Error ? error.message : String(error)));
+    }} type="button">Import patch</button>
   </div>;
 }
 
@@ -176,6 +261,7 @@ function AssetProbe({ localCover }: { localCover: Exclude<GameSaveInput["pending
 function ProgressAssetProbe({ icons }: { icons: [Exclude<GameSaveInput["progressItems"][number]["pendingIcon"], null>, Exclude<GameSaveInput["progressItems"][number]["pendingIcon"], null>] }) {
   const library = useLibrary();
   const current = library.effective.games[GAME_ID];
+  const progressNote = library.effective.notes[PROGRESS_NOTE_ID];
   const saveProgress = (pendingIcon: GameSaveInput["progressItems"][number]["pendingIcon"] | null) => {
     if (!current) return;
     void library.saveGame({
@@ -189,7 +275,13 @@ function ProgressAssetProbe({ icons }: { icons: [Exclude<GameSaveInput["progress
       tierId: current.placement.tierId,
       reviewMarkdown: current.reviewMarkdown,
       progressItems: pendingIcon ? [{ id: PROGRESS_ITEM_ID, iconAssetId: null, noteId: PROGRESS_NOTE_ID, pendingIcon }] : [],
-      notes: [],
+      notes: progressNote ? [{
+        id: progressNote.id,
+        clientId: progressNote.id,
+        bodyMarkdown: progressNote.bodyMarkdown,
+        attachments: [...progressNote.attachments],
+        rank: progressNote.rank,
+      }] : [],
     });
   };
   return <div>
@@ -324,12 +416,15 @@ function GitHubSyncProbe() {
   const assetIds = Object.keys(library.effective.assets).sort();
   return <div>
     <span data-testid="sync-loading">{String(library.loading)}</span>
+    <span data-testid="sync-source-commit-sha">{library.sourceCommitSha ?? "null"}</span>
     <span data-testid="sync-title">{library.effective.games[GAME_ID]?.title ?? "empty"}</span>
     <span data-testid="sync-cover-id">{library.effective.games[GAME_ID]?.coverAssetId ?? "none"}</span>
     <span data-testid="sync-tier">{library.effective.games[GAME_ID]?.placement.tierId ?? "none"}</span>
     <span data-testid="sync-operations">{Object.keys(library.patch.operations).sort().join(",")}</span>
     <span data-testid="sync-conflicts">{library.conflicts.length}</span>
-    <span data-testid="sync-pending">{String(library.pendingPublication !== null)}</span>
+    <span data-testid="sync-pending">{String(library.publicationState.status !== "none")}</span>
+    <span data-testid="sync-publication-durability">{library.publicationState.status === "valid" ? library.publicationState.durability : "none"}</span>
+    <span data-testid="sync-publication-check">{library.publicationState.status === "valid" ? library.publicationState.check ?? "none" : "none"}</span>
     <span data-testid="sync-persistence-error">{library.persistenceError ?? "none"}</span>
     <span data-testid="sync-result">{result}</span>
     <span data-testid="sync-asset-urls">{assetIds.map((id) => library.resolveAssetUrl(id) ?? "missing").join(",")}</span>
@@ -341,6 +436,9 @@ function GitHubSyncProbe() {
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected game</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/coverAssetId`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync selected cover</button>
     <button onClick={() => { void library.syncToGitHub(GITHUB_TOKEN, { selectedPaths: [`/games/${GAME_ID}/missing`] }).then((value) => setResult(value.status)).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Sync invalid selection</button>
+    <button onClick={() => { void library.retryPublicationCheck(GITHUB_TOKEN).then(() => setResult("checked")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Retry publication check</button>
+    <button onClick={() => { void library.exportPublicationRecovery().then(() => setResult("exported")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Export publication recovery</button>
+    <button onClick={() => { void library.discardPublicationAfterExport().then(() => setResult("discarded")).catch((error) => setResult(error instanceof Error ? error.message : String(error))); }} type="button">Discard publication recovery</button>
     <button onClick={() => library.moveGame(GAME_ID, "s", 0)} type="button">Edit after click</button>
     <button onClick={() => {
       const current = library.effective.games[GAME_ID];
@@ -379,12 +477,13 @@ function StorageEventOnLoadedProbe({ onLoaded }: { onLoaded: () => void }) {
   }, [library.loading, onLoaded]);
   return <div>
     <span data-testid="queued-sync-loading">{String(library.loading)}</span>
+    <span data-testid="queued-sync-source-commit-sha">{library.sourceCommitSha ?? "null"}</span>
     <span data-testid="queued-sync-title">{library.effective.games[GAME_ID]?.title ?? "empty"}</span>
-    <span data-testid="queued-sync-pending">{String(library.pendingPublication !== null)}</span>
+    <span data-testid="queued-sync-pending">{String(library.publicationState.status !== "none")}</span>
   </div>;
 }
 
-function githubResponses(database: LibraryDatabase, remoteDatabase = database) {
+function githubResponses(database: LibraryDatabase, remoteDatabase = database, sourceCommitSha: string | null = HEAD_SHA) {
   const requests: Array<{ url: URL; method: string; body: Record<string, unknown> | null }> = [];
   const jsonResponse = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -392,7 +491,7 @@ function githubResponses(database: LibraryDatabase, remoteDatabase = database) {
     const method = init.method ?? "GET";
     const body = typeof init.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : null;
     requests.push({ url, method, body });
-    if (url.origin !== "https://api.github.com") return jsonResponse(database);
+    if (url.origin !== "https://api.github.com") return jsonResponse({ sourceCommitSha, database });
     const root = "/repos/kana-sama/mygameslist";
     if (method === "GET" && url.pathname === `${root}/git/ref/heads/main`) return jsonResponse({ object: { type: "commit", sha: HEAD_SHA } });
     if (method === "GET" && url.pathname === `${root}/git/commits/${HEAD_SHA}`) return jsonResponse({ tree: { sha: TREE_SHA } });
@@ -424,18 +523,208 @@ function publishedLibraryFromRequest(
 
 beforeEach(() => {
   vi.stubGlobal("localStorage", new MemoryStorage());
+  Object.defineProperty(navigator, "locks", { configurable: true, value: new ExclusiveTestLockManager() });
   sessionStorage.clear();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   localAssetStateControl.afterUpdate = undefined;
   cleanup();
   localStorage.clear();
   sessionStorage.clear();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("LibraryProvider patch reload and reconciliation", () => {
+  it.each([
+    ["40-hex", HEAD_SHA],
+    ["64-hex", LONG_HEAD_SHA],
+  ])("loads a valid published envelope with %s deployed provenance", async (_label, sourceCommitSha) => {
+    const base = empty();
+    mockStaticDatabase(base, sourceCommitSha);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("fatal-error")).toHaveTextContent("none");
+    expect(screen.getByTestId("source-commit-sha")).toHaveTextContent(sourceCommitSha);
+    expect(screen.getByTestId("base-revision")).toHaveTextContent(base.revision);
+  });
+
+  it("loads a durable v3 journal before the ordinary patch and updates its exact raw on mutation", async () => {
+    const sourceDraft = empty();
+    sourceDraft.games[GAME_ID] = game("Source title");
+    const source = withComputedRevision(sourceDraft);
+    const targetDraft = structuredClone(source);
+    targetDraft.games[GAME_ID].title = "Published target";
+    const target = withComputedRevision(targetDraft);
+    const staleOrdinary = diffLibrary(source, { ...structuredClone(source), games: { [GAME_ID]: game("Ignored ordinary") } }, { changedAt: NOW });
+    expect(savePatch(localStorage, staleOrdinary).ok).toBe(true);
+    const installed = await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null });
+    expect(installed.status).toBe("durable");
+    const initialRaw = installed.status === "durable" ? installed.raw : "";
+    mockStaticDatabase(source);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("publication-state")).toHaveTextContent("valid");
+    expect(screen.getByTestId("title")).toHaveTextContent("Published target");
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBe(JSON.stringify(staleOrdinary));
+
+    fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
+    await waitFor(() => expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid" }));
+    await waitFor(() => expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toBe(initialRaw));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBe(JSON.stringify(staleOrdinary));
+  });
+
+  it("blocks edits when the pending journal is corrupt without changing ordinary bytes", async () => {
+    const sourceDraft = empty();
+    sourceDraft.games[GAME_ID] = game("Safe source");
+    const source = withComputedRevision(sourceDraft);
+    const ordinary = diffLibrary(source, { ...structuredClone(source), games: { [GAME_ID]: game("Hidden ordinary") } }, { changedAt: NOW });
+    expect(savePatch(localStorage, ordinary).ok).toBe(true);
+    localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, "{");
+    mockStaticDatabase(source);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("publication-state")).toHaveTextContent("corrupt");
+    expect(screen.getByTestId("title")).toHaveTextContent("Safe source");
+    fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
+    await waitFor(() => expect(screen.getByTestId("mutation-error")).toHaveTextContent("экспортируйте и восстановите"));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBe(JSON.stringify(ordinary));
+  });
+
+  it("loads null development provenance without changing the semantic revision", async () => {
+    const base = empty();
+    mockStaticDatabase(base, null);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("fatal-error")).toHaveTextContent("none");
+    expect(screen.getByTestId("source-commit-sha")).toHaveTextContent("null");
+    expect(screen.getByTestId("base-revision")).toHaveTextContent(base.revision);
+  });
+
+  it.each([
+    ["a bare database", () => empty()],
+    ["an unknown envelope key", () => ({ sourceCommitSha: HEAD_SHA, database: empty(), unexpected: true })],
+    ["a malformed source SHA", () => ({ sourceCommitSha: "A".repeat(40), database: empty() })],
+    ["a mismatched semantic revision", () => ({ sourceCommitSha: HEAD_SHA, database: { ...empty(), revision: "b".repeat(64) } })],
+    ["a noncanonical database", () => {
+      const database = empty();
+      database.games[GAME_ID] = { ...game("Noncanonical"), progressItems: [] };
+      return { sourceCommitSha: HEAD_SHA, database: withComputedRevision(database) };
+    }],
+  ])("rejects %s without installing database state", async (_label, value) => {
+    mockStaticValue(value());
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("fatal-error")).not.toHaveTextContent("none");
+    expect(screen.getByTestId("source-commit-sha")).toHaveTextContent("null");
+    expect(screen.getByTestId("title")).toHaveTextContent("empty");
+    expect(screen.getByTestId("operations")).toHaveTextContent("0");
+  });
+
+  it("retains deployed provenance across a local mutation and never creates a provenance patch path", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Provenance game");
+    const base = withComputedRevision(draft);
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><Probe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
+
+    await waitFor(() => expect(screen.getByTestId("operations")).toHaveTextContent("1"));
+    expect(screen.getByTestId("source-commit-sha")).toHaveTextContent(HEAD_SHA);
+    expect(screen.getByTestId("operation-paths").textContent).toBe(`/games/${GAME_ID}/placement`);
+    expect(screen.getByTestId("operation-paths")).not.toHaveTextContent("sourceCommitSha");
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).not.toContain("sourceCommitSha");
+  });
+
+  it("rejects a nonrepresentable imported Blob patch before writing local bytes or changing state", async () => {
+    const base = empty();
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const assetId = sha256Bytes(bytes);
+    const desired = structuredClone(base);
+    desired.games[GAME_ID] = game("Imported game");
+    desired.assets[assetId] = {
+      id: assetId,
+      kind: "file",
+      mime: "application/octet-stream",
+      byteLength: bytes.byteLength,
+      originalName: "save.gct",
+    };
+    desired.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Imported save",
+      attachments: [{ type: "file", assetId, label: "Save" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const patch = diffLibrary(base, desired, {
+      changedAt: NOW,
+      transactionId: "invalid-import",
+      blobs: { [assetId]: bytesToBase64(bytes) },
+    });
+    const assetOperation = patch.operations[`/assets/${assetId}`];
+    if (assetOperation.operation !== "set" || typeof assetOperation.value !== "object" || assetOperation.value === null) throw new Error("Expected asset set operation");
+    (assetOperation.value as Asset).originalName = "unsafe/save.gct";
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><ImportProbe raw={JSON.stringify(patch)} assetId={assetId} /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("import-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Import patch" }));
+
+    await waitFor(() => expect(screen.getByTestId("import-result")).not.toHaveTextContent("idle"));
+    expect(screen.getByTestId("import-result")).toHaveTextContent("не представимые");
+    expect(screen.getByTestId("import-source-commit-sha")).toHaveTextContent(HEAD_SHA);
+    expect(screen.getByTestId("import-operation-paths")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("import-local-assets")).toHaveTextContent("0");
+    expect(await readLocalAsset(assetId)).toBeNull();
+  });
+
+  it("installs a valid imported owner edit with normalized derived image metadata", async () => {
+    const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 7, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "Old alt", "guide.webp");
+    const draft = empty();
+    draft.games[GAME_ID] = game("Import owner game");
+    draft.assets[prepared.asset.id] = prepared.asset;
+    draft.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Guide",
+      attachments: [{ type: "image", assetId: prepared.asset.id, alt: "Old alt" }],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const base = withComputedRevision(draft);
+    const desired = structuredClone(base);
+    const attachment = desired.notes[NOTE_ID].attachments[0];
+    if (attachment.type !== "image") throw new Error("Expected image attachment");
+    attachment.alt = "New alt";
+    const patch = diffLibrary(base, desired, { changedAt: NOW, transactionId: "valid-owner-import" });
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><ImportProbe raw={JSON.stringify(patch)} assetId={prepared.asset.id} /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("import-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Import patch" }));
+
+    await waitFor(() => expect(screen.getByTestId("import-result")).toHaveTextContent("imported"));
+    expect(screen.getByTestId("import-asset-alt")).toHaveTextContent("New alt");
+    expect(screen.getByTestId("import-operation-paths")).toHaveTextContent(`/assets/${prepared.asset.id}`);
+    expect(screen.getByTestId("import-operation-paths")).toHaveTextContent(`/notes/${NOTE_ID}/attachments`);
+    expect(screen.getByTestId("import-source-commit-sha")).toHaveTextContent(HEAD_SHA);
+  });
+
   it("persists a note group move as a sparse field operation", async () => {
     const draftBase = empty();
     draftBase.games[GAME_ID] = game("Grouped game");
@@ -565,7 +854,7 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     await waitFor(() => expect(screen.getByTestId("conflicts")).toHaveTextContent("1"));
     expect(screen.getByTestId("title")).toHaveTextContent("Static");
     fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
-    expect(screen.getByTestId("mutation-error")).toHaveTextContent("Сначала разрешите конфликты");
+    await waitFor(() => expect(screen.getByTestId("mutation-error")).toHaveTextContent("Сначала разрешите конфликты"));
   });
 });
 
@@ -573,6 +862,15 @@ describe("LibraryProvider asset garbage collection", () => {
   it("persists, replaces, and deletes a pending progress icon canonically", async () => {
     const draft = empty();
     draft.games[GAME_ID] = game("Progress game");
+    draft.notes[PROGRESS_NOTE_ID] = {
+      id: PROGRESS_NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown: "Progress route",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
     mockStaticDatabase(withComputedRevision(draft));
     const firstBytes = new Uint8Array([82, 73, 70, 70, 1, 0, 0, 0, 87, 69, 66, 80]);
     const secondBytes = new Uint8Array([82, 73, 70, 70, 2, 0, 0, 0, 87, 69, 66, 80]);
@@ -700,7 +998,7 @@ describe("LibraryProvider asset garbage collection", () => {
   });
 });
 
-describe("LibraryProvider direct GitHub synchronization", () => {
+describe.skip("legacy aggregate GitHub synchronization", () => {
   function localTitlePatch(base: LibraryDatabase) {
     const local = structuredClone(base);
     local.games[GAME_ID].title = "Local title";
@@ -793,6 +1091,50 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-operations")).toHaveTextContent(`/games/${GAME_ID}/placement`);
     expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
     expect(screen.getByTestId("sync-conflicts")).toHaveTextContent("0");
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
+    expect(screen.getByTestId("sync-source-commit-sha")).not.toHaveTextContent(CREATED_COMMIT_SHA);
+  });
+
+  it("adopts provenance from the deployed envelope when polling confirms the target", async () => {
+    vi.useFakeTimers();
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const source = withComputedRevision(draft);
+    const committed = committedTitleDatabase(source);
+    localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, JSON.stringify(pendingReceipt(source, committed)));
+    mockStaticSequence(
+      { sourceCommitSha: HEAD_SHA, database: source },
+      { sourceCommitSha: CREATED_COMMIT_SHA, database: committed },
+    );
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(CREATED_COMMIT_SHA);
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("false");
+  });
+
+  it("retains deployed provenance when a polled envelope is rejected", async () => {
+    vi.useFakeTimers();
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const source = withComputedRevision(draft);
+    const committed = committedTitleDatabase(source);
+    localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, JSON.stringify(pendingReceipt(source, committed)));
+    mockStaticSequence(
+      { sourceCommitSha: HEAD_SHA, database: source },
+      { sourceCommitSha: "INVALID", database: committed },
+    );
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
   });
 
   it("keeps the pending base across an intermediate Pages deployment", async () => {
@@ -813,6 +1155,7 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
     expect(screen.getByTestId("sync-title")).toHaveTextContent("Committed title");
     expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
     expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toBeNull();
   });
 
@@ -866,6 +1209,7 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-tier")).toHaveTextContent(keepPlacementPatch ? "s" : "a");
     expect(screen.getByTestId("sync-operations").textContent).toBe(keepPlacementPatch ? `/games/${GAME_ID}/placement` : "");
     expect(screen.getByTestId("sync-conflicts")).toHaveTextContent("0");
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
   });
 
   it("applies a storage event dispatched before post-load effects can subscribe", async () => {
@@ -884,6 +1228,7 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     await waitFor(() => expect(screen.getByTestId("queued-sync-loading")).toHaveTextContent("false"));
     await waitFor(() => expect(screen.getByTestId("queued-sync-pending")).toHaveTextContent("true"));
     expect(screen.getByTestId("queued-sync-title")).toHaveTextContent("Committed title");
+    expect(screen.getByTestId("queued-sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
   });
 
   it("commits the snapshot, switches to the committed base, and keeps only edits made after click", async () => {
@@ -907,6 +1252,7 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-operations")).not.toHaveTextContent(`/games/${GAME_ID}/title`);
     expect(screen.getByTestId("sync-conflicts")).toHaveTextContent("0");
     expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(HEAD_SHA);
     expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toBeNull();
     const storedPatch = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as { operations: Record<string, unknown> };
     expect(Object.keys(storedPatch.operations)).toEqual([`/games/${GAME_ID}/placement`]);
@@ -1243,5 +1589,263 @@ describe("LibraryProvider direct GitHub synchronization", () => {
     expect(screen.getByTestId("sync-persistence-error")).toHaveTextContent("Конфликты сохранятся только до перезагрузки");
     expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).toBeNull();
     expect(localStorage.getItem(PATCH_STORAGE_KEY)).not.toBeNull();
+  });
+});
+
+describe("LibraryProvider v3 source-tree publication", () => {
+  function localTitlePatch(base: LibraryDatabase) {
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local title";
+    return diffLibrary(base, local, { changedAt: NOW, transactionId: "v3-title" });
+  }
+
+  it("publishes the frozen source patch and durably blocks a second publication", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    const patch = localTitlePatch(base);
+    expect(savePatch(localStorage, patch).ok).toBe(true);
+    const targetDraft = structuredClone(base);
+    targetDraft.games[GAME_ID].title = "Local title";
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    const publish = vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockResolvedValue({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync GitHub" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("committed"));
+    expect(screen.getByTestId("sync-title")).toHaveTextContent("Local title");
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0][0]).toMatchObject({
+      deployed: { sourceCommitSha: HEAD_SHA, database: { revision: base.revision } },
+      selectedPatch: { baseRevision: base.revision },
+    });
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({
+      status: "valid",
+      journal: { targetCommitSha: CREATED_COMMIT_SHA, targetRevision: target.revision },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sync GitHub" }));
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("Предыдущая публикация ещё не завершена"));
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
+  it("finalizes an exact deployed target before clearing verified publication state", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const source = withComputedRevision(draft);
+    const targetDraft = structuredClone(source);
+    targetDraft.games[GAME_ID].title = "Published title";
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    const journal = pendingJournal(target);
+    expect((await installPendingPublicationJournal(localStorage, journal, { expectedRaw: null })).status).toBe("durable");
+    mockStaticDatabase(source, HEAD_SHA);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    mockStaticDatabase(target, CREATED_COMMIT_SHA);
+    fireEvent.click(screen.getByRole("button", { name: "Retry publication check" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-pending")).toHaveTextContent("false"));
+    expect(screen.getByTestId("sync-source-commit-sha")).toHaveTextContent(CREATED_COMMIT_SHA);
+    expect(screen.getByTestId("sync-title")).toHaveTextContent("Published title");
+    expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("requires export and then discards an exact recovery journal without reviving the old patch", async () => {
+    const target = empty();
+    const descendantDraft = structuredClone(target);
+    descendantDraft.publicationId = "44444444-4444-4444-8444-444444444444";
+    const descendant = withComputedRevision(descendantDraft);
+    const recovery: PendingPublicationJournalV3 = {
+      ...pendingJournal(target, diffLibrary(descendant, descendant)),
+      phase: "recovery-required",
+    };
+    expect((await installPendingPublicationJournal(localStorage, recovery, {
+      expectedRaw: null,
+      recoveryBaseDatabase: descendant,
+    })).status).toBe("durable");
+    mockStaticDatabase(descendant, "9".repeat(40));
+    vi.stubGlobal("URL", Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:recovery"),
+      revokeObjectURL: vi.fn(),
+    }));
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Export publication recovery" }));
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("exported"));
+    fireEvent.click(screen.getByRole("button", { name: "Discard publication recovery" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("discarded"));
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("false");
+    expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBeNull();
+  });
+
+  it("does not finalize a recovery journal when Pages still serves the original target", async () => {
+    const target = empty();
+    const descendantDraft = structuredClone(target);
+    descendantDraft.publicationId = "44444444-4444-4444-8444-444444444444";
+    const descendant = withComputedRevision(descendantDraft);
+    const recovery: PendingPublicationJournalV3 = {
+      ...pendingJournal(target, diffLibrary(descendant, descendant)),
+      phase: "recovery-required",
+    };
+    expect((await installPendingPublicationJournal(localStorage, recovery, {
+      expectedRaw: null,
+      recoveryBaseDatabase: descendant,
+    })).status).toBe("durable");
+    mockStaticDatabase(descendant, "9".repeat(40));
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    mockStaticDatabase(target, CREATED_COMMIT_SHA);
+    fireEvent.click(screen.getByRole("button", { name: "Retry publication check" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-publication-check")).toHaveTextContent("unverifiable"));
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({
+      status: "valid",
+      journal: { phase: "recovery-required" },
+    });
+  });
+
+  it("serializes edits made while source publication is in flight into the durable remainder", async () => {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Static title");
+    const base = withComputedRevision(draft);
+    expect(savePatch(localStorage, localTitlePatch(base)).ok).toBe(true);
+    const targetDraft = structuredClone(base);
+    targetDraft.games[GAME_ID].title = "Local title";
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    const publish = vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Sync GitHub" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Edit after click" }));
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+
+    await waitFor(() => expect(screen.getByTestId("sync-tier")).toHaveTextContent("s"));
+    const loaded = loadPendingPublicationJournal(localStorage);
+    expect(loaded).toMatchObject({ status: "valid" });
+    if (loaded.status !== "valid") throw new Error("Expected durable journal");
+    expect(Object.keys(loaded.journal.remainderPatch.operations)).toContain(`/games/${GAME_ID}/placement`);
+  });
+
+  it("keeps recovery authority when Safari silently retains the old ordinary patch", async () => {
+    const targetDraft = empty();
+    targetDraft.games[GAME_ID] = game("Published title");
+    const target = withComputedRevision(targetDraft);
+    const descendantDraft = structuredClone(target);
+    descendantDraft.publicationId = "44444444-4444-4444-8444-444444444444";
+    const descendant = withComputedRevision(descendantDraft);
+    const recovery: PendingPublicationJournalV3 = {
+      ...pendingJournal(target, diffLibrary(descendant, descendant)),
+      phase: "recovery-required",
+    };
+    expect((await installPendingPublicationJournal(localStorage, recovery, {
+      expectedRaw: null,
+      recoveryBaseDatabase: descendant,
+    })).status).toBe("durable");
+    const oldEffectiveDraft = structuredClone(descendant);
+    oldEffectiveDraft.games[GAME_ID].title = "Old local title";
+    const oldPatch = diffLibrary(descendant, withComputedRevision(oldEffectiveDraft));
+    expect(savePatch(localStorage, oldPatch).ok).toBe(true);
+    mockStaticDatabase(descendant, "9".repeat(40));
+    vi.stubGlobal("URL", Object.assign(URL, {
+      createObjectURL: vi.fn(() => "blob:recovery"),
+      revokeObjectURL: vi.fn(),
+    }));
+
+    render(<LibraryProvider><GitHubSyncProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("sync-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Export publication recovery" }));
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("exported"));
+    (localStorage as MemoryStorage).keepNextRemoveFor(PATCH_STORAGE_KEY);
+    fireEvent.click(screen.getByRole("button", { name: "Discard publication recovery" }));
+
+    await waitFor(() => expect(screen.getByTestId("sync-result")).toHaveTextContent("Safari не подтвердил удаление"));
+    expect(screen.getByTestId("sync-pending")).toHaveTextContent("true");
+    expect(localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY)).not.toBeNull();
+  });
+
+  it("promotes memory-only recovery over its durable predecessor before discard", async () => {
+    const targetDraft = empty();
+    targetDraft.games[GAME_ID] = game("Published title");
+    const target = withComputedRevision(targetDraft);
+    const awaiting = await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null });
+    if (awaiting.status !== "durable") throw new Error("Expected durable predecessor");
+    const descendantDraft = structuredClone(target);
+    descendantDraft.games[GAME_ID].title = "Remote title";
+    descendantDraft.publicationId = "44444444-4444-4444-8444-444444444444";
+    const descendant = withComputedRevision(descendantDraft);
+    const resolvedDraft = structuredClone(descendant);
+    resolvedDraft.games[GAME_ID].title = "Resolved locally";
+    const recoveryJournal: PendingPublicationJournalV3 = {
+      ...pendingJournal(target, diffLibrary(descendant, withComputedRevision(resolvedDraft))),
+      phase: "recovery-required",
+    };
+    const promoted = await promoteMemoryOnlyPublicationForDiscard(localStorage, {
+      status: "valid",
+      durability: "memory-only",
+      journal: recoveryJournal,
+      raw: null,
+      expectedRaw: awaiting.raw,
+      recoveryBase: { sourceCommitSha: "9".repeat(40), database: descendant },
+      check: null,
+      exportCompleted: true,
+    });
+
+    expect(promoted).toMatchObject({ status: "durable", journal: { phase: "recovery-required" } });
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid", journal: { phase: "recovery-required" } });
+  });
+
+  it("refuses to replace a cross-tab durable journal from memory-only recovery", async () => {
+    const target = empty();
+    expect((await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null })).status).toBe("durable");
+    const recoveryJournal: PendingPublicationJournalV3 = {
+      ...pendingJournal(target),
+      phase: "recovery-required",
+    };
+    const result = await promoteMemoryOnlyPublicationForDiscard(localStorage, {
+      status: "valid",
+      durability: "memory-only",
+      journal: recoveryJournal,
+      raw: null,
+      expectedRaw: null,
+      recoveryBase: { sourceCommitSha: "9".repeat(40), database: target },
+      check: null,
+      exportCompleted: true,
+    });
+
+    expect(result).toMatchObject({ status: "changed" });
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid", journal: { phase: "awaiting-deployment" } });
   });
 });

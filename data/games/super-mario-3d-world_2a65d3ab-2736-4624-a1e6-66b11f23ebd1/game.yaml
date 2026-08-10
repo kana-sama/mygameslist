@@ -1,0 +1,18 @@
+id: "2a65d3ab-2736-4624-a1e6-66b11f23ebd1"
+title: Super Mario 3D World
+cover:
+  assetId: "ac7e15a4590b3a4db747761c3edecd7733920a5f3599426a102c48ef94cad0f5"
+  alt: Обложка Super Mario 3D World
+  originalName: "IMAGE 2026-07-17 08:54:12.jpg"
+platforms:
+  - Nintendo Wii U
+tags:
+  - Super Mario
+  - Nintendo Missions
+status: completed
+placement:
+  tierId: s
+  rank: 5120
+reviewMarkdown: |2-
+createdAt: "2026-07-17T04:55:00.194Z"
+updatedAt: "2026-07-23T05:15:28.158Z"

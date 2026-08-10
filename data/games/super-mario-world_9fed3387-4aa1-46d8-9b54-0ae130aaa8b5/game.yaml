@@ -1,0 +1,17 @@
+id: "9fed3387-4aa1-46d8-9b54-0ae130aaa8b5"
+title: Super Mario World
+cover:
+  assetId: "4e2da8e0efc734a8cfd29d187229994a50bebf57c3b8b0b8c02f533c7f88ebc7"
+  alt: Обложка игры
+  originalName: "image.jpeg"
+platforms:
+  - Super Nintendo Entertainment System
+tags:
+  - Super Mario
+status: platinum
+placement:
+  tierId: s
+  rank: 3072
+reviewMarkdown: |2-
+createdAt: "2026-07-17T00:27:03.048Z"
+updatedAt: "2026-07-17T12:10:10.010Z"

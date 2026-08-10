@@ -1,0 +1,18 @@
+id: "b4a61db6-a68e-43c4-8974-79e2005f03ad"
+title: Ultimate Spider-Man
+cover:
+  assetId: "d56d940cc3f771d1b2ee06b3fa297989e8c7cfc5fdca30ca9fc587d7267411dc"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - PC
+  - Nintendo GameCube
+  - Sony PlayStation 2
+tags: []
+status: completed
+placement:
+  tierId: c
+  rank: 17408
+reviewMarkdown: |2-
+createdAt: "2026-07-21T04:37:38.747Z"
+updatedAt: "2026-07-21T04:37:38.752Z"

@@ -1,0 +1,17 @@
+id: "ec45bd3e-6703-49b1-9364-56811c185e0c"
+title: Metroid Prime
+cover:
+  assetId: "923a780a566c82e74730b3ca0ad13ee1c2f93b9edb5504a3a8c82a8786518f7f"
+  alt: Обложка Metroid Prime
+  originalName: "IMAGE 2026-07-17 09:43:44.jpg"
+platforms:
+  - Nintendo GameCube
+  - Nintendo Switch
+tags: []
+status: played
+placement:
+  tierId: a
+  rank: 12288
+reviewMarkdown: |2-
+createdAt: "2026-07-17T05:44:34.608Z"
+updatedAt: "2026-07-17T05:44:34.649Z"

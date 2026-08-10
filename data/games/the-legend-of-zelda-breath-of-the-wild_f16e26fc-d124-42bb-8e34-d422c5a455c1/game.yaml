@@ -1,0 +1,17 @@
+id: "f16e26fc-d124-42bb-8e34-d422c5a455c1"
+title: "The Legend of Zelda: Breath of the Wild"
+cover:
+  assetId: "fc20c1c43a2838a7d7e5e736ee93473ab8c31aca18236248432c019baf66c7ef"
+  alt: Обложка игры
+  originalName: "image.jpeg"
+platforms:
+  - Nintendo Switch
+tags:
+  - The Legend of Zelda
+status: platinum
+placement:
+  tierId: s
+  rank: 16384
+reviewMarkdown: |2-
+createdAt: "2026-07-18T15:56:11.413Z"
+updatedAt: "2026-07-18T15:56:37.783Z"

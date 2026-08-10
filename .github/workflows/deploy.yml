@@ -18,14 +18,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Detect public-only push
+      - name: Detect source-only push
         id: changes
         uses: actions/github-script@v8
         with:
           script: |
             const useFullBuild = (reason) => {
               core.notice(`Using full build: ${reason}`);
-              core.setOutput("public_only", "false");
+              core.setOutput("source_only", "false");
             };
 
             if (context.eventName !== "push") {
@@ -67,18 +67,18 @@ jobs:
                 return;
               }
 
-              const isPublicPath = (value) =>
-                typeof value === "string" && value.startsWith("public/");
-              const publicOnly = files.every(
+              const isDataPath = (value) =>
+                typeof value === "string" && value.startsWith("data/");
+              const sourceOnly = files.every(
                 (file) =>
-                  isPublicPath(file.filename) &&
-                  (!file.previous_filename || isPublicPath(file.previous_filename)),
+                  isDataPath(file.filename) &&
+                  (!file.previous_filename || isDataPath(file.previous_filename)),
               );
-              core.setOutput("public_only", String(publicOnly));
+              core.setOutput("source_only", String(sourceOnly));
               core.notice(
-                publicOnly
-                  ? `Using public-only path for ${files.length} changed file(s)`
-                  : "Using full build because files outside public changed",
+                sourceOnly
+                  ? `Using source-only path for ${files.length} changed file(s)`
+                  : "Using full build because files outside data changed",
               );
             } catch (error) {
               core.warning(`Could not compare the pushed range: ${error.message}`);
@@ -97,6 +97,9 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Restore app shell
         id: shell_cache
         uses: actions/cache@v4
@@ -104,16 +107,17 @@ jobs:
           path: |
             dist/index.html
             dist/assets
-          key: pages-shell-${{ runner.os }}-node22-${{ hashFiles('package-lock.json', 'package.json', 'index.html', 'tsconfig*.json', 'vite.config.*', '.env*', 'src/**') }}
+            dist/.nojekyll
+          key: pages-shell-${{ runner.os }}-node22-${{ hashFiles('package-lock.json', 'package.json', 'index.html', 'tsconfig*.json', 'vite.config.*', '.env*', 'src/**', 'public/.nojekyll') }}
 
       - name: Select build path
         id: build_path
         shell: bash
         env:
-          PUBLIC_ONLY: ${{ steps.changes.outputs.public_only }}
+          SOURCE_ONLY: ${{ steps.changes.outputs.source_only }}
           SHELL_CACHE_HIT: ${{ steps.shell_cache.outputs.cache-hit }}
         run: |
-          if [[ "$PUBLIC_ONLY" == "true" && "$SHELL_CACHE_HIT" == "true" && -f dist/index.html && -d dist/assets ]]; then
+          if [[ "$SOURCE_ONLY" == "true" && "$SHELL_CACHE_HIT" == "true" && -f dist/index.html && -d dist/assets && -f dist/.nojekyll ]]; then
             echo "fast=true" >> "$GITHUB_OUTPUT"
             echo "Reusing the cached app shell."
           else
@@ -121,29 +125,62 @@ jobs:
             echo "Running the full test and build path."
           fi
 
-      - name: Validate data
-        run: node scripts/validate-data.mjs
-
-      - name: Install dependencies
-        if: steps.build_path.outputs.fast != 'true'
-        run: npm ci
+      - name: Validate source
+        run: npm run data:validate
 
       - name: Test
         if: steps.build_path.outputs.fast != 'true'
         run: npm test
 
-      - name: Build
+      - name: Typecheck
         if: steps.build_path.outputs.fast != 'true'
-        run: npm run build
+        run: npx tsc -b
 
-      - name: Add public files to cached app shell
-        if: steps.build_path.outputs.fast == 'true'
-        run: cp -R public/. dist/
+      - name: Prepare full artifact destination
+        if: steps.build_path.outputs.fast != 'true'
+        run: rm -rf dist
+
+      - name: Build guarded site artifact
+        id: site
+        env:
+          FAST: ${{ steps.build_path.outputs.fast }}
+          FAST_ARTIFACT_ROOT: ${{ runner.temp }}/pages-artifact-${{ github.run_id }}-${{ github.run_attempt }}
+          SOURCE_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          npx tsx --eval '
+            import { appendFile } from "node:fs/promises";
+            import { buildSite } from "./scripts/build-site.ts";
+            import { captureCheckoutSource, verifyCheckoutSource } from "./scripts/checkout-source-guard.ts";
+            const run = async () => {
+              const expected = await captureCheckoutSource({
+                repositoryRoot: process.cwd(),
+                sourceRoot: "data",
+                expectedCommitSha: process.env.SOURCE_COMMIT_SHA,
+              });
+              const fast = process.env.FAST === "true";
+              const result = await buildSite({
+                sourceRoot: "data",
+                sourceCommitSha: process.env.SOURCE_COMMIT_SHA,
+                shell: fast
+                  ? { kind: "cached", shellRoot: "dist" }
+                  : { kind: "vite", projectRoot: process.cwd() },
+                destination: fast
+                  ? { kind: "staging", artifactRoot: process.env.FAST_ARTIFACT_ROOT }
+                  : { kind: "staging", artifactRoot: "dist" },
+              });
+              await verifyCheckoutSource({ repositoryRoot: process.cwd(), sourceRoot: "data", expected });
+              await appendFile(process.env.GITHUB_OUTPUT, `artifact_root=${result.artifactRoot}\n`);
+            };
+            run().catch((error) => {
+              console.error(error);
+              process.exitCode = 1;
+            });
+          '
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: ${{ steps.site.outputs.artifact_root }}
 
   deploy:
     environment:

@@ -1,0 +1,17 @@
+id: "3b5f3810-69a0-4603-a016-245306ca440b"
+title: "The Legend of Zelda: Ocarina of Time"
+cover:
+  assetId: "60e9ecfe5f94f214915e47d156583d0312f06a5a638b44fd77f9bcfbdad33e88"
+  alt: "Обложка The Legend of Zelda: Ocarina of Time"
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo 64
+tags:
+  - The Legend of Zelda
+status: platinum
+placement:
+  tierId: s
+  rank: 32768
+reviewMarkdown: |2-
+createdAt: "2026-07-17T05:46:31.261Z"
+updatedAt: "2026-07-21T05:27:24.868Z"

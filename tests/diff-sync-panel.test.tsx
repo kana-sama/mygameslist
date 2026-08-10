@@ -164,15 +164,38 @@ describe("DiffDialog GitHub sync shell", () => {
     expect(within(panel).getByText("Сначала разрешите все конфликты.")).toBeInTheDocument();
   });
 
-  it("blocks an empty pending publication and enables another sync when a later edit appears", async () => {
+  it("keeps a durable waiting publication blocked before and after later edits", async () => {
     const user = userEvent.setup();
-    const sync: DiffSyncController = { busy: false, connected: true, error: null, onConnect: vi.fn(), onDisconnect: vi.fn(), onSync: vi.fn(), pagesPending: true, persistence: "session", stage: "complete" };
+    const onSync = vi.fn();
+    const sync: DiffSyncController = {
+      busy: false,
+      connected: true,
+      error: null,
+      onConnect: vi.fn(),
+      onDisconnect: vi.fn(),
+      onSync,
+      pagesPending: false,
+      persistence: "session",
+      stage: "complete",
+      publication: {
+        status: "waiting",
+        check: "waiting-source",
+        targetCommitUrl: "https://github.com/kana/mylib/commit/target",
+        exportCompleted: false,
+        onRetryPersistence: vi.fn(),
+        onRetryCheck: vi.fn(),
+        onExport: vi.fn(),
+        onDiscard: vi.fn(),
+        onReload: vi.fn(),
+      },
+    };
     const { rerender } = renderDialog(sync, emptyReview);
 
     await user.click(screen.getByRole("button", { name: "Синхронизировать всё" }));
     let panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
     expect(within(panel).getByRole("button", { name: "Синхронизировать всё" })).toBeDisabled();
     expect(within(panel).getByRole("status")).toHaveTextContent("Ждём обновления GitHub Pages");
+    expect(within(panel).getByRole("link", { name: "Коммит" })).toHaveAttribute("href", "https://github.com/kana/mylib/commit/target");
 
     rerender(
       <DiffDialog
@@ -190,7 +213,79 @@ describe("DiffDialog GitHub sync shell", () => {
       />,
     );
     panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
-    expect(within(panel).getByRole("button", { name: "Синхронизировать всё" })).toBeEnabled();
+    expect(within(panel).getByRole("button", { name: "Синхронизировать всё" })).toBeDisabled();
+    expect(onSync).not.toHaveBeenCalled();
+  });
+
+  it("shows memory-only recovery actions and keeps callback failures visible", async () => {
+    const user = userEvent.setup();
+    const onRetryPersistence = vi.fn().mockRejectedValue(new Error("Web Lock недоступен"));
+    const onExport = vi.fn().mockResolvedValue(undefined);
+    renderDialog({
+      busy: false,
+      connected: true,
+      error: null,
+      onConnect: vi.fn(),
+      onDisconnect: vi.fn(),
+      onSync: vi.fn(),
+      pagesPending: false,
+      persistence: "session",
+      stage: "idle",
+      publication: {
+        status: "memory-only",
+        check: "waiting-source",
+        exportCompleted: false,
+        onRetryPersistence,
+        onRetryCheck: vi.fn(),
+        onExport,
+        onDiscard: vi.fn(),
+        onReload: vi.fn(),
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Синхронизировать всё" }));
+    const panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
+    expect(within(panel).getByRole("alert")).toHaveTextContent("Не закрывайте вкладку");
+    expect(within(panel).getByRole("button", { name: "Синхронизировать всё" })).toBeDisabled();
+    await user.click(within(panel).getByRole("button", { name: "Экспортировать локальную копию" }));
+    expect(onExport).toHaveBeenCalledTimes(1);
+    await user.click(within(panel).getByRole("button", { name: "Повторить сохранение" }));
+    expect(await within(panel).findByText("Web Lock недоступен")).toBeInTheDocument();
+  });
+
+  it("submits a recovery PAT to the read-only connect callback and never publishes", async () => {
+    const user = userEvent.setup();
+    const onConnect = vi.fn().mockResolvedValue(undefined);
+    const onSync = vi.fn();
+    renderDialog({
+      busy: false,
+      connected: false,
+      connectMode: "recovery",
+      error: null,
+      onConnect,
+      onDisconnect: vi.fn(),
+      onSync,
+      pagesPending: false,
+      persistence: "none",
+      stage: "idle",
+      publication: {
+        status: "problem",
+        check: "unverifiable",
+        exportCompleted: false,
+        onRetryPersistence: vi.fn(),
+        onRetryCheck: vi.fn(),
+        onExport: vi.fn(),
+        onDiscard: vi.fn(),
+        onReload: vi.fn(),
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Синхронизировать всё" }));
+    const panel = screen.getByRole("region", { name: "Синхронизация с GitHub" });
+    await user.type(within(panel).getByLabelText("Fine-grained PAT"), "github_pat_recovery");
+    await user.click(within(panel).getByRole("button", { name: "Подключить и проверить" }));
+    await waitFor(() => expect(onConnect).toHaveBeenCalledWith("github_pat_recovery", false, undefined));
+    expect(onSync).not.toHaveBeenCalled();
   });
 
   it("clears a local error and asks the controller to clear its error", async () => {

@@ -18,12 +18,13 @@ const NOTE_A_ID = "00000000-0000-4000-8000-000000000003";
 const NOTE_B_ID = "00000000-0000-4000-8000-000000000004";
 const TX_1 = "00000000-0000-4000-8000-000000000005";
 const TX_2 = "00000000-0000-4000-8000-000000000006";
+const PUBLICATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CREATED_AT = "2026-07-17T10:00:00.000Z";
 const T1 = "2026-07-17T10:01:00.000Z";
 const T2 = "2026-07-17T10:02:00.000Z";
 
 function emptyDatabase(): LibraryDatabase {
-  return withComputedRevision({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
+  return withComputedRevision({ schemaVersion: 2, revision: "", publicationId: PUBLICATION_ID, games: {}, notes: {}, assets: {} });
 }
 
 function game(id: string, title: string, updatedAt = CREATED_AT): Game {

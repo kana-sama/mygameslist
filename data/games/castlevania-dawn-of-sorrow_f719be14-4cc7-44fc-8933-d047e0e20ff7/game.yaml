@@ -1,0 +1,17 @@
+id: "f719be14-4cc7-44fc-8933-d047e0e20ff7"
+title: "Castlevania: Dawn of Sorrow"
+cover:
+  assetId: "5c129a86fa27a05241359d9bfdb8d3d7bf08d4b29825cb2a2a985fd984ba89c6"
+  alt: "Обложка Castlevania: Dawn of Sorrow"
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo DS
+tags:
+  - Castlevania
+status: platinum
+placement:
+  tierId: b
+  rank: 55296
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:36:17.648Z"
+updatedAt: "2026-07-21T05:39:23.425Z"

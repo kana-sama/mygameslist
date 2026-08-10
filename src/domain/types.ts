@@ -103,7 +103,7 @@ export interface FileAsset {
   base64?: never;
 }
 
-/** Canonical library assets are always metadata for files under public/media. */
+/** Runtime asset metadata points to generated content-addressed files under /media. */
 export type Asset = ImageAsset | FileAsset;
 
 export interface LibraryDatabase {

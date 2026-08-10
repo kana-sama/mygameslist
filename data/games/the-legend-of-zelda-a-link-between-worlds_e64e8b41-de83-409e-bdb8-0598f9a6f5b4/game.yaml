@@ -1,0 +1,17 @@
+id: "e64e8b41-de83-409e-bdb8-0598f9a6f5b4"
+title: "The Legend of Zelda: A Link Between Worlds"
+cover:
+  assetId: "20b4739b73b969e8ca0586396838460985c5165e6b80d8a2e856d2ca9c0628d5"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo 3DS
+tags:
+  - The Legend of Zelda
+status: platinum
+placement:
+  tierId: b
+  rank: 53248
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:28:27.968Z"
+updatedAt: "2026-07-21T05:28:27.976Z"

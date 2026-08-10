@@ -1,0 +1,32 @@
+id: "ef7ef992-4633-409a-aa55-1092aebfc783"
+title: "LEGO Harry Potter: Years 5-7"
+cover:
+  assetId: "4282410e56f182980ad6647a62fdfd1848fdd36999734271d2c9ba59d32f1b29"
+  alt: "Обложка LEGO Harry Potter: Years 5-7"
+  originalName: "clipboard-image.png"
+progressItems:
+  - id: "defa1e70-aa24-460b-9901-51925c146f32"
+    icon:
+      assetId: "9b0c9cf7ed9e6b0e42f3b71eb7d70434da316f3200cc8f0eee987334b056fbf4"
+      originalName: "Codex Image Aug 7, 2026, 07_26_38 AM.png"
+    noteId: "bb4f5b8c-a4fa-43c3-9698-52c9202dcd08"
+  - id: "6812931f-a5a3-4045-ad3d-ed87eec5add0"
+    icon:
+      assetId: "f852cb8721b881e9a4928a40463643f989449c08432bf63af1adee91c1116252"
+      originalName: "Codex Image Aug 7, 2026, 07_16_56 AM.png"
+    noteId: "fef68388-3e9e-4081-ab76-b73da1409d00"
+  - id: "844af6d9-40bf-4bad-90f0-9e17af13c64f"
+    icon:
+      assetId: "48efc73d8e6603f1e3c4285ab35f2740bf9b5ddd6a46d544463fb0eb01a898f8"
+      originalName: "Codex Image Aug 7, 2026, 07_47_14 AM.png"
+    noteId: "61b4a3f8-e4cc-4213-b723-015e64f1fc55"
+platforms: []
+tags:
+  - LEGO
+status: playing
+placement:
+  tierId: unranked
+  rank: 112640
+reviewMarkdown: |2-
+createdAt: "2026-08-06T05:51:00.381Z"
+updatedAt: "2026-08-07T03:47:27.042Z"

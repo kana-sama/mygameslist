@@ -1,0 +1,17 @@
+id: "6a60c30b-d42b-4a6a-8471-6a819be25855"
+title: "Castlevania: Rondo of Blood"
+cover:
+  assetId: "9a1640bbf783033537cb825033f87c9870cbf008ee85a9f7a54d21c4031aa290"
+  alt: Обложка игры
+  originalName: "IMAGE 2026-07-17 08:32:30.jpg"
+platforms:
+  - PC Engine CD
+tags:
+  - Castlevania
+status: platinum
+placement:
+  tierId: s
+  rank: 4096
+reviewMarkdown: |2-
+createdAt: "2026-07-17T04:33:33.867Z"
+updatedAt: "2026-07-17T04:39:08.767Z"

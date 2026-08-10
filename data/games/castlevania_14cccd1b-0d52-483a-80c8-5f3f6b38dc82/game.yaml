@@ -1,0 +1,17 @@
+id: "14cccd1b-0d52-483a-80c8-5f3f6b38dc82"
+title: Castlevania
+cover:
+  assetId: "796d7bccedff738b392629b647b89499e95fc6b3614f23211c88c15b2936dc0b"
+  alt: Обложка Castlevania
+  originalName: "IMAGE 2026-07-17 13:49:01.jpg"
+platforms:
+  - Nintendo Entertainment System
+tags:
+  - Castlevania
+status: playing
+placement:
+  tierId: b
+  rank: 20480
+reviewMarkdown: |2-
+createdAt: "2026-07-17T09:49:41.789Z"
+updatedAt: "2026-07-17T09:49:41.830Z"

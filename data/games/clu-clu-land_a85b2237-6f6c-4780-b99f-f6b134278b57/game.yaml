@@ -1,0 +1,17 @@
+id: "a85b2237-6f6c-4780-b99f-f6b134278b57"
+title: Clu Clu Land
+cover:
+  assetId: "81807fa500e7ac9e0a0d5a739ade53ddb56c33084157f212307265a08ba885f4"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo Entertainment System
+tags:
+  - Nintendo Missions
+status: dropped
+placement:
+  tierId: f
+  rank: 19456
+reviewMarkdown: |2-
+createdAt: "2026-07-23T04:52:27.782Z"
+updatedAt: "2026-07-23T05:15:11.874Z"

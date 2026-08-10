@@ -138,17 +138,12 @@ function LibraryRoutes() {
   );
 
   useEffect(() => {
-    if (githubSyncState.stage !== "complete" || !operationEntries.length) return;
-    setGitHubSyncState((current) => ({ ...current, stage: "idle", commitUrl: undefined }));
-  }, [githubSyncState.stage, library.patch, operationEntries.length]);
-
-  useEffect(() => {
-    const commitSha = library.pendingPublication?.commitSha ?? null;
+    const commitSha = library.publicationState.status === "valid" ? library.publicationState.journal.targetCommitSha : null;
     if (previousPendingCommitRef.current && !commitSha) {
       setGitHubSyncState((current) => ({ ...current, stage: "idle", commitUrl: undefined }));
     }
     previousPendingCommitRef.current = commitSha;
-  }, [library.pendingPublication]);
+  }, [library.publicationState]);
 
   useEffect(() => {
     if (!library.conflicts.length) return;
@@ -260,7 +255,11 @@ function LibraryRoutes() {
       clearGitHubPat();
       throw new Error("Не удалось прочитать сохранённый PAT");
     }
-    if (operationEntries.length) {
+    if (library.publicationState.status !== "none") {
+      githubPatRef.current = loaded.token;
+      setGitHubPatPersistence(loaded.persistence);
+      await library.retryPublicationCheck(loaded.token);
+    } else if (operationEntries.length) {
       githubPatRef.current = loaded.token;
       setGitHubPatPersistence(loaded.persistence);
       await syncWithGitHub(loaded.token, selectedPaths);
@@ -289,11 +288,30 @@ function LibraryRoutes() {
     busy: githubSyncState.busy,
     stage: githubSyncState.stage,
     error: githubSyncState.error,
-    commitUrl: githubSyncState.commitUrl ?? (library.pendingPublication
-      ? `https://github.com/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}/commit/${library.pendingPublication.commitSha}`
-      : undefined),
-    pagesPending: library.pendingPublication !== null,
-    connectMode: operationEntries.length ? "sync" : "verify",
+    commitUrl: githubSyncState.commitUrl,
+    pagesPending: false,
+    connectMode: library.publicationState.status !== "none" ? "recovery" : operationEntries.length ? "sync" : "verify",
+    publication: library.publicationState.status === "none" ? undefined : {
+      status: library.publicationState.status === "valid"
+        ? library.publicationState.durability === "memory-only"
+          ? "memory-only"
+          : library.publicationState.journal.phase === "recovery-required"
+            ? "recovery"
+            : library.publicationState.check === null || library.publicationState.check === "waiting-source" || library.publicationState.check === "checking"
+              ? "waiting"
+              : "problem"
+        : library.publicationState.status,
+      check: library.publicationState.status === "valid" ? library.publicationState.check : undefined,
+      targetCommitUrl: library.publicationState.status === "valid"
+        ? `https://github.com/${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME}/commit/${library.publicationState.journal.targetCommitSha}`
+        : undefined,
+      exportCompleted: library.publicationState.exportCompleted,
+      onRetryPersistence: library.retryPublicationPersistence,
+      onRetryCheck: () => library.retryPublicationCheck(githubPatRef.current ?? undefined),
+      onExport: library.exportPublicationRecovery,
+      onDiscard: library.discardPublicationAfterExport,
+      onReload: library.reloadPage,
+    },
     repository: `${GITHUB_REPOSITORY_OWNER}/${GITHUB_REPOSITORY_NAME} · main`,
     patCreationHref: getGitHubPatCreationUrl(),
     onConnect: connectAndSyncGitHub,
@@ -306,14 +324,14 @@ function LibraryRoutes() {
     onDismissError: () => setGitHubSyncState((current) => ({ ...current, error: null })),
   };
 
-  const discardSelectionIds = (selectionIds: Iterable<string>) => {
+  const discardSelectionIds = async (selectionIds: Iterable<string>) => {
     const result = resolvePatchSelection(
       library.base,
       library.effective,
       library.patch,
       seedsForSelectionIds(selectionIds),
     );
-    library.discardPaths(result.selectedPaths);
+    await library.discardPaths(result.selectedPaths);
   };
 
   const closeDiff = () => {
@@ -360,9 +378,7 @@ function LibraryRoutes() {
             assets={library.effective.assets}
             games={games}
             onMoveGame={(gameId, target) => {
-              try {
-                library.moveGame(gameId, target.tierId, target.index);
-              } catch (error) { showError(error); }
+              void library.moveGame(gameId, target.tierId, target.index).catch(showError);
             }}
             onOpenGame={(id) => navigate(`/games/${id}`)}
             resolveAssetUrl={library.resolveAssetUrl}
@@ -395,7 +411,7 @@ function LibraryRoutes() {
         }}
         onClearAll={() => {
           if (!window.confirm("Отменить все локальные правки?")) return;
-          try { library.clearPatch(); } catch (error) { showError(error); }
+          void library.clearPatch().catch(showError);
         }}
         onClose={closeDiff}
         onDownloadCorruptedRaw={library.corruptedPatchRaw === null ? undefined : library.downloadCorruptedPatch}
@@ -404,7 +420,7 @@ function LibraryRoutes() {
         onExport={exportPatch}
         onImport={(text) => { void library.importPatch(text).catch(showError); }}
         onResolveConflict={(id, resolution, manualValue) => {
-          try { library.resolvePatchConflict(id, resolution, manualValue); } catch (error) { showError(error); }
+          void library.resolvePatchConflict(id, resolution, manualValue).catch(showError);
         }}
         onToggleChange={(selectionId) => setExplicitSelectionIds((current) => {
           const next = new Set(current);
@@ -426,10 +442,10 @@ function LibraryRoutes() {
         onUndoGame={(gameId) => {
           const group = review.groups.find((candidate) => candidate.gameId === gameId);
           const selectionIds = new Set(group?.changes.map((change) => change.selectionId) ?? []);
-          try { discardSelectionIds(selectionIds); } catch (error) { showError(error); }
+          void discardSelectionIds(selectionIds).catch(showError);
         }}
         onUndoChange={(selectionId) => {
-          try { discardSelectionIds([selectionId]); } catch (error) { showError(error); }
+          void discardSelectionIds([selectionId]).catch(showError);
         }}
         open={diffOpen}
         patchBytes={patchBytes}
@@ -475,7 +491,7 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
     mode={mode}
     notes={notes}
     onCancel={() => navigate("/games")}
-    onDelete={game ? async (gameId) => { library.deleteGame(gameId); navigate("/games"); } : undefined}
+    onDelete={game ? async (gameId) => { await library.deleteGame(gameId); navigate("/games"); } : undefined}
     onSave={async (input) => {
       const gameId = await library.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });

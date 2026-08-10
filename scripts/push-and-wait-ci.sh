@@ -24,11 +24,23 @@ fail() {
   exit 1
 }
 
-for command_name in jj git curl jq; do
+for command_name in jj curl jq; do
   command -v "$command_name" >/dev/null 2>&1 || fail "Не найдена команда: $command_name"
 done
 
-remote_url="$(git remote get-url origin)"
+remote_listing="$(jj --ignore-working-copy git remote list)" || fail "Не удалось прочитать список Jujutsu remote"
+origin_count=0
+remote_url=""
+while IFS=' ' read -r remote_name candidate_url trailing; do
+  if [[ "$remote_name" == "origin" ]]; then
+    (( origin_count += 1 ))
+    [[ -n "${candidate_url:-}" && -z "${trailing:-}" ]] || fail "Некорректная запись origin в списке Jujutsu remote"
+    remote_url="$candidate_url"
+  fi
+done <<< "$remote_listing"
+(( origin_count == 1 )) || fail "Ожидалась ровно одна запись origin в списке Jujutsu remote, найдено: $origin_count"
+[[ "$remote_url" == git@github.com:* || "$remote_url" == https://github.com/* ]] || \
+  fail "Не удалось определить GitHub-репозиторий из origin: $remote_url"
 repository="$(printf '%s' "$remote_url" | sed -E 's#^(git@github.com:|https://github.com/)##; s#\.git$##')"
 [[ "$repository" =~ ^[^/]+/[^/]+$ ]] || fail "Не удалось определить GitHub-репозиторий из origin: $remote_url"
 

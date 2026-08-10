@@ -1,0 +1,17 @@
+id: "693ea235-1ced-468a-aca0-4597a561dea1"
+title: Super Mario Sunshine
+cover:
+  assetId: "0b3d9488f031a509dfc5aa21953469addd22f93f18752541c9cb0807615853a3"
+  alt: Обложка Super Mario Sunshine
+  originalName: "IMAGE 2026-07-17 09:40:58.jpg"
+platforms:
+  - Nintendo GameCube
+tags:
+  - Super Mario
+status: dropped
+placement:
+  tierId: c
+  rank: 1024
+reviewMarkdown: |2-
+createdAt: "2026-07-17T05:41:38.870Z"
+updatedAt: "2026-07-18T09:11:32.158Z"

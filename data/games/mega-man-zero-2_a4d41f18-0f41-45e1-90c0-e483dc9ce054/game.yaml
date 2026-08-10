@@ -1,0 +1,16 @@
+id: "a4d41f18-0f41-45e1-90c0-e483dc9ce054"
+title: Mega Man Zero 2
+cover:
+  assetId: "951638b8ff04c5194e6bf27031dcc0fd54a93b2df1f30127f40c03f9894feff5"
+  alt: Обложка игры
+  originalName: "IMAGE 2026-07-17 10:05:17.jpg"
+platforms:
+  - GameBoy Advance
+tags: []
+status: completed
+placement:
+  tierId: b
+  rank: 14336
+reviewMarkdown: |2-
+createdAt: "2026-07-17T06:05:32.277Z"
+updatedAt: "2026-07-17T06:05:32.316Z"

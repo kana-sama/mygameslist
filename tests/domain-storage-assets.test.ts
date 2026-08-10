@@ -30,6 +30,7 @@ import {
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
+const SOURCE_PUBLICATION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const DATE = "2026-07-16T10:00:00.000Z";
 const game = (): Game => ({ id: GAME_ID, title: "Mario", coverAssetId: null, platforms: ["NES"], tags: [], status: "wishlist", placement: { tierId: "unranked", rank: 1024 }, reviewMarkdown: "", createdAt: DATE, updatedAt: DATE });
 const empty = (): LibraryDatabase => ({ schemaVersion: 2, revision: "", publicationId: null, games: {}, notes: {}, assets: {} });
@@ -85,7 +86,8 @@ class MemoryStorage implements Storage {
 
 describe("patch creation/revert and storage recovery", () => {
   it("uses a missing hash for creation and disappears after a full revert", () => {
-    const base = empty(); const current = structuredClone(base); current.games[GAME_ID] = game();
+    const base = withComputedRevision({ ...empty(), publicationId: SOURCE_PUBLICATION_ID });
+    const current = structuredClone(base); current.games[GAME_ID] = game();
     const patch = diffLibrary(base, current, { changedAt: DATE, transactionId: "create" });
     expect(patch.operations[`/games/${GAME_ID}`].baseExists).toBe(false);
     expect(applyPatch(base, patch).games[GAME_ID].title).toBe("Mario");
@@ -171,7 +173,7 @@ describe("patch creation/revert and storage recovery", () => {
     expect(JSON.parse(raw).blobs).toEqual({});
   });
 
-  it("reuses compatible static asset metadata by SHA and keeps incompatible kinds conflicted", () => {
+  it("reuses compatible static asset metadata by SHA and rejects incompatible shared kinds", () => {
     const base = empty();
     const prepared = makeExternalWebPAsset(new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 87, 69, 66, 80]), 1, 1, "local", "local.webp");
     const current = structuredClone(base); current.assets[prepared.asset.id] = prepared.asset; referenceImage(current, prepared.asset.id);
@@ -189,10 +191,7 @@ describe("patch creation/revert and storage recovery", () => {
     const incompatible = empty();
     incompatible.assets[prepared.asset.id] = { id: prepared.asset.id, kind: "file", mime: "application/octet-stream", byteLength: prepared.asset.byteLength, originalName: "static.bin" };
     referenceFile(incompatible, prepared.asset.id);
-    const conflicted = reconcilePatch(withComputedRevision({ ...incompatible, publicationId: NOTE_ID }), patch);
-    expect(conflicted.conflicts).toEqual(expect.arrayContaining([expect.objectContaining({ path: `/assets/${prepared.asset.id}` })]));
-    expect(conflicted.patch.operations).toHaveProperty(`/assets/${prepared.asset.id}`);
-    expect(conflicted.patch.blobs).toEqual({ [prepared.asset.id]: prepared.base64 });
+    expect(() => reconcilePatch(withComputedRevision({ ...incompatible, publicationId: NOTE_ID }), patch)).toThrow();
   });
 });
 

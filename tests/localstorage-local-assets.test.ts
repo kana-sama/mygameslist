@@ -1,11 +1,15 @@
 import {
   attachmentPreflight,
   classifyOriginStorage,
+  canonicalStringify,
   deleteLocalAssetsAtomic,
   deleteSafeOrphans,
+  diffLibrary,
+  finalizePublishedDatabase,
   inspectLocalAssetIntegrity,
   isQuotaExceededError,
   listLocalAssets,
+  LOCAL_ASSET_METADATA_PREFIX,
   localAssetDataKey,
   makeLocalAsset,
   readLocalAsset,
@@ -18,6 +22,7 @@ import {
 } from "../src/domain";
 import { createRecoveryArchive } from "../src/state/recoveryExport";
 import { verifyAndDeletePublishedLocalAssets } from "../src/state/LibraryContext";
+import type { PendingPublicationJournalV3 } from "../src/state/pendingPublication";
 
 function bytes(value: string): Uint8Array { return new TextEncoder().encode(value); }
 function asset(value: string, state: "local" | "publishing" | "awaiting-verification" = "local") {
@@ -47,6 +52,28 @@ class FailingStorage implements Storage {
     this.values.set(key, String(value));
   }
 }
+
+class ExclusiveTestLockManager {
+  private readonly tails = new Map<string, Promise<void>>();
+
+  request<T>(name: string, _options: LockOptions, callback: (lock: Lock | null) => T | PromiseLike<T>): Promise<Awaited<T>> {
+    const previous = this.tails.get(name) ?? Promise.resolve();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const tail = previous.then(() => held);
+    this.tails.set(name, tail);
+    return previous
+      .then(() => callback({ name, mode: "exclusive" } as Lock))
+      .finally(() => {
+        release();
+        if (this.tails.get(name) === tail) this.tails.delete(name);
+      }) as Promise<Awaited<T>>;
+  }
+}
+
+beforeEach(() => {
+  Object.defineProperty(navigator, "locks", { configurable: true, value: new ExclusiveTestLockManager() });
+});
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -144,14 +171,76 @@ describe("atomic localStorage assets", () => {
     expect(report.totalBytes).toBe(orphan.byteLength);
   });
 
-  it("collects unreferenced records left in any publication state", async () => {
+  it("collects only old verified local records and protects journal and crash-stranded states", async () => {
     const local = asset("orphan-local");
     const publishing = asset("orphan-publishing", "publishing");
-    const retained = asset("retained-pending", "awaiting-verification");
-    await writeLocalAssetsAtomic([local, publishing, retained]);
+    const awaiting = asset("orphan-awaiting", "awaiting-verification");
+    const journalProtected = asset("journal-protected-local");
+    await writeLocalAssetsAtomic([local, publishing, awaiting, journalProtected]);
 
-    expect((await deleteSafeOrphans([retained.id], 1000)).sort()).toEqual([local.id, publishing.id].sort());
-    expect((await listLocalAssets()).map((item) => item.id)).toEqual([retained.id]);
+    expect(await deleteSafeOrphans([], 1000, localStorage, new Set([journalProtected.id]))).toEqual([local.id]);
+    expect((await listLocalAssets()).map((item) => item.id).sort()).toEqual([
+      publishing.id,
+      awaiting.id,
+      journalProtected.id,
+    ].sort());
+  });
+
+  it("does not collect an old local record whose bytes fail integrity verification", async () => {
+    const corrupt = asset("corrupt old local");
+    await writeLocalAssetsAtomic([corrupt]);
+    localStorage.setItem(localAssetDataKey(corrupt.id), `${localStorage.getItem(localAssetDataKey(corrupt.id))}x`);
+
+    expect(await deleteSafeOrphans([], 1000)).toEqual([]);
+    expect(localStorage.getItem(localAssetDataKey(corrupt.id))).not.toBeNull();
+  });
+
+  it.each(["publishing", "awaiting-verification"] as const)("preserves an earlier candidate that becomes %s while a later integrity check is pending", async (state) => {
+    const first = asset(`race-first-${state}`);
+    const second = asset(`race-second-${state}`);
+    await writeLocalAssetsAtomic([first, second]);
+    const [earlier, later] = await listLocalAssets();
+    const earlierMetadataKey = `${LOCAL_ASSET_METADATA_PREFIX}${earlier.id}`;
+    const earlierDataRaw = localStorage.getItem(localAssetDataKey(earlier.id));
+    const originalArrayBuffer = Blob.prototype.arrayBuffer;
+    let releaseLater!: () => void;
+    const laterGate = new Promise<void>((resolve) => { releaseLater = resolve; });
+    let signalLaterStarted!: () => void;
+    const laterStarted = new Promise<void>((resolve) => { signalLaterStarted = resolve; });
+    let integrityReads = 0;
+    vi.spyOn(Blob.prototype, "arrayBuffer").mockImplementation(async function (this: Blob) {
+      integrityReads += 1;
+      if (integrityReads === 2) {
+        signalLaterStarted();
+        await laterGate;
+      }
+      return originalArrayBuffer.call(this);
+    });
+
+    const cleanup = deleteSafeOrphans([], 1000);
+    await laterStarted;
+    await updateLocalAssetState([earlier.id], state);
+    const protectedMetadataRaw = localStorage.getItem(earlierMetadataKey);
+    releaseLater();
+
+    expect(await cleanup).toEqual([later.id]);
+    expect(localStorage.getItem(earlierMetadataKey)).toBe(protectedMetadataRaw);
+    expect(localStorage.getItem(localAssetDataKey(earlier.id))).toBe(earlierDataRaw);
+  });
+
+  it("fails closed and preserves local bytes when the asset lock is unavailable", async () => {
+    const local = asset("lock unavailable");
+    await writeLocalAssetsAtomic([local]);
+    const metadataKey = `${LOCAL_ASSET_METADATA_PREFIX}${local.id}`;
+    const metadataRaw = localStorage.getItem(metadataKey);
+    const dataRaw = localStorage.getItem(localAssetDataKey(local.id));
+    Object.defineProperty(navigator, "locks", { configurable: true, value: undefined });
+
+    expect(await deleteSafeOrphans([], 1000)).toEqual([]);
+    await expect(updateLocalAssetState([local.id], "publishing")).rejects.toThrow(/Lock/i);
+    await expect(deleteLocalAssetsAtomic([local.id])).rejects.toThrow(/Lock/i);
+    expect(localStorage.getItem(metadataKey)).toBe(metadataRaw);
+    expect(localStorage.getItem(localAssetDataKey(local.id))).toBe(dataRaw);
   });
 
   it("recognizes authoritative localStorage quota failures", () => {
@@ -190,18 +279,95 @@ describe("publication verification and recovery", () => {
     expect(await listLocalAssets()).toEqual([]);
   });
 
-  it("exports library, patch, metadata, states, and original bytes as a ZIP", async () => {
+  it("exports library, ordinary patch, journal, provenance, metadata, states, and original bytes without credentials", async () => {
     const local = asset("recover me");
     const library = emptyLibrary();
     library.assets[local.id] = { id: local.id, kind: "file", mime: local.mimeType, byteLength: local.byteLength, originalName: "save.bin" };
     const patch = { patchVersion: 2 as const, schemaVersion: 2 as const, baseRevision: "", operations: {}, blobs: {} };
-    const archive = await createRecoveryArchive(library, patch, [local]);
+    const targetDatabase = finalizePublishedDatabase(emptyLibrary(), "00000000-0000-4000-8000-000000000001");
+    const journal: PendingPublicationJournalV3 = {
+      version: 3,
+      sourceCommitSha: "a".repeat(40),
+      targetCommitSha: "b".repeat(40),
+      targetRevision: targetDatabase.revision,
+      targetDatabase,
+      remainderPatch: diffLibrary(targetDatabase, targetDatabase),
+      localAssetIdsAwaitingVerification: [],
+      owner: "kana-sama",
+      repo: "mygameslist",
+      branch: "main",
+      createdAt: "2026-08-11T10:00:00.000Z",
+      phase: "awaiting-deployment",
+    };
+    const archive = await createRecoveryArchive({
+      database: library,
+      patch,
+      ordinaryPatchRaw: JSON.stringify(patch),
+      localAssets: [local],
+      deployedSourceCommitSha: "c".repeat(40),
+      pending: { status: "memory-only", journal },
+      githubToken: "ghp_do-not-export",
+    } as Parameters<typeof createRecoveryArchive>[0] & { githubToken: string });
     const source = new TextDecoder().decode(await archive.arrayBuffer());
     expect(source.slice(0, 2)).toBe("PK");
     expect(source).toContain("library.json");
     expect(source).toContain("patch.json");
+    expect(source).toContain("ordinary-patch.raw.txt");
+    expect(source).toContain("provenance.json");
+    expect(source).toContain("pending-publication.json");
+    expect(source).toContain(journal.targetCommitSha);
+    expect(source).toContain("memory-only");
     expect(source).toContain("local-assets.json");
     expect(source).toContain(`media/${local.id}.bin`);
     expect(source).toContain("recover me");
+    expect(source).not.toContain("ghp_do-not-export");
+  });
+
+  it.each(["corrupt", "legacy"] as const)("preserves exact %s pending raw in the recovery ZIP", async (status) => {
+    const raw = status === "corrupt" ? "{exact corrupt pending bytes" : JSON.stringify({ version: 2, exact: "legacy pending bytes" });
+    const archive = await createRecoveryArchive({
+      database: emptyLibrary(),
+      patch: { patchVersion: 2, schemaVersion: 2, baseRevision: "", operations: {}, blobs: {} },
+      ordinaryPatchRaw: null,
+      localAssets: [],
+      deployedSourceCommitSha: null,
+      pending: { status, raw },
+    });
+    const source = new TextDecoder().decode(await archive.arrayBuffer());
+    expect(source).toContain("pending-publication.raw.txt");
+    expect(source).toContain(raw);
+  });
+
+  it("preserves exact durable journal raw and makes the legacy archive overload fail closed", async () => {
+    const targetDatabase = finalizePublishedDatabase(emptyLibrary(), "00000000-0000-4000-8000-000000000001");
+    const journal: PendingPublicationJournalV3 = {
+      version: 3,
+      sourceCommitSha: "a".repeat(40),
+      targetCommitSha: "b".repeat(40),
+      targetRevision: targetDatabase.revision,
+      targetDatabase,
+      remainderPatch: diffLibrary(targetDatabase, targetDatabase),
+      localAssetIdsAwaitingVerification: [],
+      owner: "kana-sama",
+      repo: "mygameslist",
+      branch: "main",
+      createdAt: "2026-08-11T10:00:00.000Z",
+      phase: "awaiting-deployment",
+    };
+    const raw = canonicalStringify(journal);
+    const patch = diffLibrary(targetDatabase, targetDatabase);
+    const archive = await createRecoveryArchive({
+      database: targetDatabase,
+      patch,
+      ordinaryPatchRaw: null,
+      localAssets: [],
+      deployedSourceCommitSha: journal.targetCommitSha,
+      pending: { status: "durable", journal, raw },
+    });
+    const source = new TextDecoder().decode(await archive.arrayBuffer());
+    expect(source).toContain("pending-publication.raw.txt");
+    expect(source).toContain(raw);
+
+    await expect(createRecoveryArchive(targetDatabase, patch, [])).rejects.toThrow(/explicit pending\/provenance context/i);
   });
 });

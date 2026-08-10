@@ -1,0 +1,16 @@
+id: "4b2da015-1f04-4972-9a60-7e2125ab6477"
+title: Mega Man Zero 3
+cover:
+  assetId: "72d2c2c715b5877120171e7ff732492e1a57130e0bf697bc0db4dd72c5d00ea6"
+  alt: Обложка игры
+  originalName: "IMAGE 2026-07-17 10:05:57.jpg"
+platforms:
+  - GameBoy Advance
+tags: []
+status: completed
+placement:
+  tierId: b
+  rank: 16384
+reviewMarkdown: |2-
+createdAt: "2026-07-17T06:06:08.453Z"
+updatedAt: "2026-07-17T06:06:08.491Z"

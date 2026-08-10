@@ -1,6 +1,7 @@
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
 import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
+import { deriveImageAssetAlt, indexAssetOwners } from "./assetOwnership";
 
 export interface ValidationIssue {
   path: string;
@@ -22,11 +23,11 @@ export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
-export const LOCALLY_PATCHABLE_FIELDS: Record<EntityMapName, readonly string[]> = {
+export const LOCALLY_PATCHABLE_FIELDS = {
   games: ["title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown"],
   notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
   assets: [],
-};
+} as const satisfies Record<EntityMapName, readonly string[]>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -303,6 +304,246 @@ export function assertValidLibrary(value: unknown): asserts value is LibraryData
   if (!result.ok) throw new DomainValidationError(result.issues);
 }
 
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const MARKDOWN_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
+
+function hasUnpairedSurrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!Number.isFinite(next) || next < 0xdc00 || next > 0xdfff) return true;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return true;
+  }
+  return false;
+}
+
+function walkStrings(value: unknown, path: string, visit: (item: string, path: string) => void): void {
+  if (typeof value === "string") { visit(value, path); return; }
+  if (Array.isArray(value)) { value.forEach((item, index) => walkStrings(item, `${path}/${index}`, visit)); return; }
+  if (!isObject(value)) return;
+  for (const [key, item] of Object.entries(value)) {
+    visit(key, `${path}/${key}`);
+    walkStrings(item, `${path}/${key}`, visit);
+  }
+}
+
+function sourceIssue(issues: ValidationIssue[], condition: boolean, path: string, message: string): void {
+  if (!condition) issue(issues, path, message);
+}
+
+function sourceUuid(value: string, path: string, issues: ValidationIssue[]): void {
+  sourceIssue(issues, CANONICAL_UUID.test(value), path, "UUID должен быть в lowercase canonical form");
+}
+
+function sourceSha(value: string, path: string, issues: ValidationIssue[]): void {
+  sourceIssue(issues, SHA256.test(value), path, "SHA-256 должен быть в lowercase canonical form");
+}
+
+function displayFilename(value: string, path: string, issues: ValidationIssue[]): void {
+  sourceIssue(issues, value.trim().length > 0 && value !== "." && value !== ".." && !/[\\/]/.test(value) && !CONTROL.test(value), path, "Имя файла должно быть непустым display filename без пути и control characters");
+}
+
+function singleLine(value: string, path: string, issues: ValidationIssue[], allowEmpty: boolean): void {
+  sourceIssue(issues, (allowEmpty || value.trim().length > 0) && !CONTROL.test(value) && !/[\u2028\u2029]/.test(value), path, "Ожидалась однострочная строка без control characters");
+}
+
+function absoluteHttpUrl(value: string): boolean {
+  if (!/^https?:\/\//i.test(value) || CONTROL.test(value)) return false;
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.hostname.length > 0 && parsed.username === "" && parsed.password === "";
+  } catch {
+    return false;
+  }
+}
+
+function sourceStrings(value: unknown, path: string, issues: ValidationIssue[]): void {
+  walkStrings(value, path, (item, itemPath) => {
+    if (hasUnpairedSurrogate(item)) issue(issues, itemPath, "Строка содержит unpaired surrogate");
+    if (itemPath.endsWith("/reviewMarkdown") || itemPath.endsWith("/bodyMarkdown")) {
+      if (MARKDOWN_CONTROL.test(item)) issue(issues, itemPath, "Markdown содержит недопустимый control character");
+    } else if (CONTROL.test(item)) issue(issues, itemPath, "Метаданные содержат control character");
+  });
+}
+
+function sourceProgressItems(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((item, index) => {
+    if (!isObject(item)) return;
+    const itemPath = `${path}/${index}`;
+    if (typeof item.id === "string") sourceUuid(item.id, `${itemPath}/id`, issues);
+    if (typeof item.iconAssetId === "string") sourceSha(item.iconAssetId, `${itemPath}/iconAssetId`, issues);
+    if (typeof item.noteId === "string") sourceUuid(item.noteId, `${itemPath}/noteId`, issues);
+  });
+}
+
+function sourceAttachments(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((attachment, index) => {
+    if (!isObject(attachment)) return;
+    const itemPath = `${path}/${index}`;
+    if (attachment.type === "link") {
+      if (typeof attachment.url === "string") sourceIssue(issues, absoluteHttpUrl(attachment.url), `${itemPath}/url`, "Ссылка должна быть absolute credential-free HTTP(S) URL");
+      if (typeof attachment.label === "string") singleLine(attachment.label, `${itemPath}/label`, issues, false);
+    } else if (attachment.type === "image") {
+      if (typeof attachment.assetId === "string") sourceSha(attachment.assetId, `${itemPath}/assetId`, issues);
+      if (typeof attachment.alt === "string") singleLine(attachment.alt, `${itemPath}/alt`, issues, true);
+    } else if (attachment.type === "file") {
+      if (typeof attachment.assetId === "string") sourceSha(attachment.assetId, `${itemPath}/assetId`, issues);
+      if (typeof attachment.label === "string") singleLine(attachment.label, `${itemPath}/label`, issues, false);
+    }
+  });
+}
+
+function sourceCollapsedSections(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!Array.isArray(value)) return;
+  value.forEach((item, index) => {
+    if (typeof item === "string") singleLine(item, `${path}/${index}`, issues, false);
+  });
+}
+
+type SourceFieldValidator = (value: unknown, path: string, issues: ValidationIssue[]) => void;
+type LocallyPatchableField<Map extends EntityMapName> = (typeof LOCALLY_PATCHABLE_FIELDS)[Map][number];
+
+const recursivelySourceSafe: SourceFieldValidator = () => { /* sourceStrings validates the complete value */ };
+
+const SOURCE_PATCH_FIELD_VALIDATORS = {
+  games: {
+    title: recursivelySourceSafe,
+    coverAssetId: (value, path, issues) => { if (typeof value === "string") sourceSha(value, path, issues); },
+    progressItems: sourceProgressItems,
+    platforms: recursivelySourceSafe,
+    tags: recursivelySourceSafe,
+    status: recursivelySourceSafe,
+    placement: recursivelySourceSafe,
+    reviewMarkdown: recursivelySourceSafe,
+  },
+  notes: {
+    bodyMarkdown: recursivelySourceSafe,
+    attachments: sourceAttachments,
+    collapsedChecklistSections: sourceCollapsedSections,
+    doubleHeight: recursivelySourceSafe,
+    doubleWidth: recursivelySourceSafe,
+    groupRank: recursivelySourceSafe,
+    rank: recursivelySourceSafe,
+  },
+  assets: {},
+} satisfies { [Map in EntityMapName]: Record<LocallyPatchableField<Map>, SourceFieldValidator> };
+
+function sourceGame(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isObject(value)) return;
+  if (typeof value.id === "string") sourceUuid(value.id, `${path}/id`, issues);
+  SOURCE_PATCH_FIELD_VALIDATORS.games.coverAssetId(value.coverAssetId, `${path}/coverAssetId`, issues);
+  if (value.progressItems !== undefined) SOURCE_PATCH_FIELD_VALIDATORS.games.progressItems(value.progressItems, `${path}/progressItems`, issues);
+}
+
+function sourceNote(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isObject(value)) return;
+  if (typeof value.id === "string") sourceUuid(value.id, `${path}/id`, issues);
+  if (typeof value.gameId === "string") sourceUuid(value.gameId, `${path}/gameId`, issues);
+  SOURCE_PATCH_FIELD_VALIDATORS.notes.attachments(value.attachments, `${path}/attachments`, issues);
+  if (value.collapsedChecklistSections !== undefined) {
+    SOURCE_PATCH_FIELD_VALIDATORS.notes.collapsedChecklistSections(value.collapsedChecklistSections, `${path}/collapsedChecklistSections`, issues);
+  }
+}
+
+function sourceAsset(value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (!isObject(value)) return;
+  if (typeof value.id === "string") sourceSha(value.id, `${path}/id`, issues);
+  if (typeof value.originalName === "string") {
+    displayFilename(value.originalName, `${path}/originalName`, issues);
+    singleLine(value.originalName, `${path}/originalName`, issues, false);
+  }
+  if (typeof value.mime === "string") singleLine(value.mime, `${path}/mime`, issues, false);
+  if (value.kind === "image" && typeof value.alt === "string") singleLine(value.alt, `${path}/alt`, issues, true);
+}
+
+const SOURCE_ROOT_VALIDATORS = {
+  games: sourceGame,
+  notes: sourceNote,
+  assets: sourceAsset,
+} satisfies Record<EntityMapName, SourceFieldValidator>;
+
+function sourcePatchSetValue(parsed: ParsedPatchPath, value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (parsed.field === undefined) {
+    SOURCE_ROOT_VALIDATORS[parsed.map](value, path, issues);
+    return;
+  }
+  const validator = (SOURCE_PATCH_FIELD_VALIDATORS[parsed.map] as Record<string, SourceFieldValidator>)[parsed.field];
+  if (!validator) {
+    issue(issues, path, "Для локального source patch path не определена проверка значения");
+    return;
+  }
+  validator(value, path, issues);
+}
+
+/** Returns the stricter invariant failures required for lossless YAML/Markdown projection. */
+export function sourceRepresentabilityIssues(database: LibraryDatabase): ValidationIssue[] {
+  const validation = validateLibrary(database);
+  if (!validation.ok) return validation.issues;
+  const issues: ValidationIssue[] = [];
+
+  sourceStrings(database, "", issues);
+
+  if (database.revision !== "") sourceSha(database.revision, "/revision", issues);
+  if (database.publicationId === null) issue(issues, "/publicationId", "Source tree требует publication UUID");
+  else sourceUuid(database.publicationId, "/publicationId", issues);
+  for (const [gameId, game] of Object.entries(database.games)) {
+    sourceUuid(gameId, `/games/${gameId}`, issues);
+    sourceGame(game, `/games/${gameId}`, issues);
+    for (const [index, item] of (game.progressItems ?? []).entries()) {
+      sourceIssue(issues, database.notes[item.noteId]?.gameId === gameId, `/games/${gameId}/progressItems/${index}/noteId`, "Source progress item должен ссылаться на заметку той же игры");
+    }
+  }
+  for (const [noteId, note] of Object.entries(database.notes)) {
+    sourceUuid(noteId, `/notes/${noteId}`, issues);
+    sourceNote(note, `/notes/${noteId}`, issues);
+  }
+  for (const [assetId, asset] of Object.entries(database.assets)) {
+    sourceSha(assetId, `/assets/${assetId}`, issues);
+    sourceAsset(asset, `/assets/${assetId}`, issues);
+    if (asset.kind === "image") {
+      const derivedAlt = deriveImageAssetAlt(database, assetId);
+      sourceIssue(issues, asset.alt === derivedAlt, `/assets/${assetId}/alt`, "Global image alt не совпадает с owner-derived значением");
+    }
+  }
+
+  for (const [assetId, owners] of indexAssetOwners(database)) {
+    const originalNames = new Set(owners.map((owner) => owner.originalName));
+    sourceIssue(issues, originalNames.size <= 1, `/assets/${assetId}/originalName`, "Все владельцы SHA должны согласовать originalName");
+    const fileMimes = new Set(owners.filter((owner) => owner.role === "note-file").map((owner) => owner.mime));
+    sourceIssue(issues, fileMimes.size <= 1, `/assets/${assetId}/mime`, "Все file-владельцы SHA должны согласовать MIME");
+    const coverAlts = new Set(owners.filter((owner) => owner.role === "cover").map((owner) => owner.alt));
+    sourceIssue(issues, coverAlts.size <= 1, `/assets/${assetId}/alt`, "Все cover-владельцы SHA должны согласовать alt");
+  }
+
+  return issues;
+}
+
+/** Validates authored values even when a conflicting field operation cannot be materialized. */
+export function patchOperationSourceIssues(path: string, operation: PatchEnvelope["operations"][string]): ValidationIssue[] {
+  const parsed = parsePatchPath(path, true);
+  if (!parsed) return [{ path, message: "Недопустимый source patch path" }];
+  const issues: ValidationIssue[] = [];
+  if (operation.operation !== "set") return issues;
+  const value = operation.value;
+  sourceStrings(value, path, issues);
+  sourcePatchSetValue(parsed, value, path, issues);
+  return issues;
+}
+
+/** Applies the stricter invariants required for lossless YAML/Markdown projection. */
+export function assertSourceRepresentable(database: LibraryDatabase): void {
+  const issues = sourceRepresentabilityIssues(database);
+  if (issues.length) {
+    const first = issues[0];
+    throw new DomainValidationError(issues, `База не представима в source tree: ${first.path || "/"} — ${first.message}`);
+  }
+}
+
 export function libraryRevisionIsValid(database: LibraryDatabase): boolean {
   if (database.revision === "") {
     return database.publicationId === null && [database.games, database.notes, database.assets].every((map) => Object.keys(map).length === 0);
@@ -330,12 +571,47 @@ export function parsePatchPath(path: string, localOnly = false): ParsedPatchPath
   if (tokens.some((token) => token === null)) return null;
   const [map, id, field] = tokens as [string, string, string?];
   if (!ENTITY_MAPS.includes(map as EntityMapName) || !id) return null;
-  if (map === "assets" ? !SHA256.test(id) : !UUID.test(id)) return null;
+  if (map === "assets" ? !SHA256.test(id) : !(localOnly ? CANONICAL_UUID : UUID).test(id)) return null;
   if (field !== undefined) {
     const fields = localOnly ? LOCALLY_PATCHABLE_FIELDS[map as EntityMapName] : ENTITY_FIELDS[map as EntityMapName];
     if (!fields.includes(field) || field === "id") return null;
   }
   return { map: map as EntityMapName, id, field };
+}
+
+function validatePatchSetValue(parsed: ParsedPatchPath, value: unknown, path: string, issues: ValidationIssue[]): void {
+  if (parsed.map === "assets") return;
+  const entityPath = `${path}/value`;
+  if (parsed.map === "games") {
+    if (parsed.field === undefined) { validateGame(value, entityPath, issues); return; }
+    const candidate: Record<string, unknown> = {
+      id: parsed.id,
+      title: "Patch value",
+      coverAssetId: null,
+      platforms: [],
+      tags: [],
+      status: "wishlist",
+      placement: { tierId: "unranked", rank: 1024 },
+      reviewMarkdown: "",
+      createdAt: "2000-01-01T00:00:00.000Z",
+      updatedAt: "2000-01-01T00:00:00.000Z",
+      [parsed.field]: value,
+    };
+    validateGame(candidate, entityPath, issues);
+    return;
+  }
+  if (parsed.field === undefined) { validateNote(value, entityPath, issues); return; }
+  const candidate: Record<string, unknown> = {
+    id: parsed.id,
+    gameId: "00000000-0000-4000-8000-000000000000",
+    bodyMarkdown: "",
+    attachments: [],
+    rank: 1024,
+    createdAt: "2000-01-01T00:00:00.000Z",
+    updatedAt: "2000-01-01T00:00:00.000Z",
+    [parsed.field]: value,
+  };
+  validateNote(candidate, entityPath, issues);
 }
 
 export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
@@ -366,9 +642,10 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     if (parsed && parsed.field === undefined && operation.operation === "set" && (!isObject(operation.value) || operation.value.id !== parsed.id)) {
       issue(issues, `/operations/${path}/value/id`, "ID сущности должен совпадать с ID в пути");
     }
+    if (parsed && operation.operation === "set") validatePatchSetValue(parsed, operation.value, `/operations/${path}`, issues);
     if (parsed?.map === "assets" && parsed.field === undefined && operation.operation === "set") {
       validateAsset(operation.value, `/operations/${path}/value`, issues);
-      if (operation.baseExists !== false) issue(issues, `/operations/${path}`, "Существующие assets неизменяемы");
+      if (operation.baseExists !== false && (!isObject(operation.value) || operation.value.kind !== "image")) issue(issues, `/operations/${path}`, "Существующие assets неизменяемы, кроме owner-derived image alt");
       if (isObject(operation.value)) {
         if (operation.value.kind === undefined) issue(issues, `/operations/${path}/value/base64`, "Patch V2 не хранит inline base64");
         else if (operation.baseExists === false) blobAssets.set(parsed.id, operation.value);

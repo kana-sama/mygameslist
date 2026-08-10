@@ -1,0 +1,27 @@
+id: "41a1ab64-e29e-4c3e-801f-7ebce6532da2"
+title: "LEGO Harry Potter: Years 1–4"
+cover:
+  assetId: "0098e5915f3c03db2a8a6c0b83279f021de0ef1379684a885b43d3f3f53da684"
+  alt: Обложка игры
+  originalName: "clipboard-image.png"
+progressItems:
+  - id: "15ff99ba-333b-459e-83f7-dca7afaf42de"
+    icon:
+      assetId: "9b0c9cf7ed9e6b0e42f3b71eb7d70434da316f3200cc8f0eee987334b056fbf4"
+      originalName: "Codex Image Aug 7, 2026, 07_26_38 AM.png"
+    noteId: "3163b0eb-caf1-464d-b675-d10e8f5233b9"
+  - id: "0a272873-90f2-4fd5-ab68-d5c6abe7a282"
+    icon:
+      assetId: "f852cb8721b881e9a4928a40463643f989449c08432bf63af1adee91c1116252"
+      originalName: "Codex Image Aug 7, 2026, 07_16_56 AM.png"
+    noteId: "3df90019-eb27-4d3e-b209-2518071a6171"
+platforms: []
+tags:
+  - LEGO
+status: platinum
+placement:
+  tierId: a
+  rank: 61440
+reviewMarkdown: |2-
+createdAt: "2026-08-03T00:59:42.616Z"
+updatedAt: "2026-08-07T03:27:26.363Z"

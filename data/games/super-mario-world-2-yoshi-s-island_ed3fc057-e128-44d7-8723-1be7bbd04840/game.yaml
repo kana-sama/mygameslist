@@ -1,0 +1,17 @@
+id: "ed3fc057-e128-44d7-8723-1be7bbd04840"
+title: "Super Mario World 2: Yoshi's Island"
+cover:
+  assetId: "2c3635cd294e65bb2b580ac7835287183edfb72f04f6b90145f590e342b09b2d"
+  alt: "Обложка Super Mario World 2: Yoshi's Island"
+  originalName: "image.jpeg"
+platforms:
+  - Super Nintendo Entertainment System
+  - GameBoy Advance
+tags: []
+status: playing
+placement:
+  tierId: c
+  rank: 2048
+reviewMarkdown: |2-
+createdAt: "2026-07-17T02:13:11.599Z"
+updatedAt: "2026-07-17T05:48:30.164Z"

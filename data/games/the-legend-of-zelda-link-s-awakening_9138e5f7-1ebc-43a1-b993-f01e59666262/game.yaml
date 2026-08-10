@@ -1,0 +1,17 @@
+id: "9138e5f7-1ebc-43a1-b993-f01e59666262"
+title: "The Legend of Zelda: Link's Awakening"
+cover:
+  assetId: "e63e98174a25f28b96b97cbdf628f73302a55cf383745abff78f1cd1bcf7fbe5"
+  alt: "Обложка The Legend of Zelda: Link's Awakening"
+  originalName: "clipboard-image.png"
+platforms:
+  - Nintendo Switch
+tags:
+  - The Legend of Zelda
+status: platinum
+placement:
+  tierId: b
+  rank: 52224
+reviewMarkdown: |2-
+createdAt: "2026-07-21T05:18:29.283Z"
+updatedAt: "2026-07-21T05:18:29.289Z"

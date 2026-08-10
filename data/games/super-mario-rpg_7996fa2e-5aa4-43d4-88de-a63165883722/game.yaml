@@ -1,0 +1,17 @@
+id: "7996fa2e-5aa4-43d4-88de-a63165883722"
+title: Super Mario RPG
+cover:
+  assetId: "af1c7947f12631fbb1cc3aa784ceba064fa07d90b82040ac0f268df4d848e1ed"
+  alt: Обложка игры
+  originalName: "image.jpeg"
+platforms:
+  - Nintendo Switch
+tags:
+  - Super Mario
+status: wishlist
+placement:
+  tierId: unranked
+  rank: 18432
+reviewMarkdown: |2-
+createdAt: "2026-07-18T15:40:17.105Z"
+updatedAt: "2026-07-18T15:40:17.111Z"

@@ -102,10 +102,14 @@ export function assetDataUrl(asset: Asset, blobBase64?: string): string | null {
   return `data:${mime};base64,${blobBase64}`;
 }
 
+export function runtimeAssetFilename(asset: Asset): string {
+  const extension = asset.kind === "image" ? "webp" : isMp4FileMetadata(asset) ? "mp4" : "bin";
+  return `${asset.id.toLowerCase()}.${extension}`;
+}
+
 export function publishedAssetUrl(asset: Asset, baseUrl: string): string {
   const root = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  const extension = asset.kind === "image" ? "webp" : isMp4FileMetadata(asset) ? "mp4" : "bin";
-  return `${root}media/${asset.id}.${extension}`;
+  return `${root}media/${runtimeAssetFilename(asset)}`;
 }
 
 export interface OptimizedImage { asset: ImageAsset; blob: Blob; byteLength: number }
