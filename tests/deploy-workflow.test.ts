@@ -24,9 +24,13 @@ interface Workflow {
 
 let workflow: Workflow;
 let steps: WorkflowStep[];
+let pagesArtifactScript: string;
 
 beforeAll(async () => {
-  workflow = parse(await readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8")) as Workflow;
+  [workflow, pagesArtifactScript] = await Promise.all([
+    readFile(new URL("../.github/workflows/deploy.yml", import.meta.url), "utf8").then((text) => parse(text) as Workflow),
+    readFile(new URL("../scripts/build-pages-artifact.ts", import.meta.url), "utf8"),
+  ]);
   steps = workflow.jobs.build.steps;
 });
 
@@ -149,25 +153,24 @@ describe("Pages build routes", () => {
     const site = stepById("site");
     const run = site.run ?? "";
     expect(site.env?.SOURCE_COMMIT_SHA).toBe("${{ github.sha }}");
-    expect(run).toContain("captureCheckoutSource");
-    expect(run).toContain("buildSite");
-    expect(run).toContain("verifyCheckoutSource");
-    expect(run.indexOf("captureCheckoutSource(")).toBeLessThan(run.indexOf("buildSite("));
-    expect(run.indexOf("buildSite(")).toBeLessThan(run.indexOf("verifyCheckoutSource("));
-    expect(run).toContain('sourceRoot: "data"');
-    expect(run).toContain("sourceCommitSha: process.env.SOURCE_COMMIT_SHA");
-    expect(run).toContain('kind: "cached"');
-    expect(run).toContain('kind: "vite"');
-    expect(run).not.toContain("cp -R public");
+    expect(run).toBe("node --import tsx scripts/build-pages-artifact.ts");
+    expect(run).not.toContain("--eval");
+    expect(pagesArtifactScript.indexOf("captureCheckoutSource({")).toBeLessThan(pagesArtifactScript.indexOf("buildSite({"));
+    expect(pagesArtifactScript.indexOf("buildSite({")).toBeLessThan(pagesArtifactScript.indexOf("verifyCheckoutSource({"));
+    expect(pagesArtifactScript).toContain('const sourceRoot = "data"');
+    expect(pagesArtifactScript).toContain('requiredEnvironment("SOURCE_COMMIT_SHA")');
+    expect(pagesArtifactScript).toContain('kind: "cached"');
+    expect(pagesArtifactScript).toContain('kind: "vite"');
+    expect(pagesArtifactScript).not.toContain("cp -R public");
   });
 
   test("fast route writes a fresh runner-temp artifact while full route produces validated dist", () => {
     const site = stepById("site");
     expect(site.env?.FAST).toContain("steps.build_path.outputs.fast");
     expect(site.env?.FAST_ARTIFACT_ROOT).toContain("runner.temp");
-    expect(site.run).toContain('process.env.FAST === "true"');
-    expect(site.run).toContain('artifactRoot: process.env.FAST_ARTIFACT_ROOT');
-    expect(site.run).toContain('artifactRoot: "dist"');
+    expect(pagesArtifactScript).toContain('process.env.FAST === "true"');
+    expect(pagesArtifactScript).toContain('process.env.FAST_ARTIFACT_ROOT : "dist"');
+    expect(pagesArtifactScript).toContain("destination: { kind: \"staging\", artifactRoot }");
   });
 
   test("uploads the verified builder output immediately without a public overlay", () => {

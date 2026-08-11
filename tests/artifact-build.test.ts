@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import type { LibraryDatabase } from "../src/domain";
@@ -764,6 +765,36 @@ describe("deterministic artifact roots", () => {
     expect(await readFile(join(viteArtifact, ".nojekyll"), "utf8")).toBe("");
     expect((await inventory(cachedArtifact)).some((path) => path.includes("stale") || path.includes("orphan"))).toBe(false);
     expect((await inventory(viteArtifact)).some((path) => path.includes("orphan"))).toBe(false);
+  });
+
+  test("the Pages artifact entrypoint builds an isolated Vite checkout and publishes its artifact root", async () => {
+    const { sourceRoot } = await createSource("pages-entrypoint");
+    const projectRoot = dirname(sourceRoot);
+    const outputPath = join(projectRoot, "github-output.txt");
+    const entrypoint = fileURLToPath(new URL("../scripts/build-pages-artifact.ts", import.meta.url));
+    await mkdir(join(projectRoot, ".git"), { recursive: true });
+    await writeFile(join(projectRoot, ".git", "HEAD"), `${SOURCE_SHA}\n`);
+    await writeFile(join(projectRoot, "index.html"), "<main id=app></main><script type=module src=/main.js></script>");
+    await writeFile(join(projectRoot, "main.js"), "document.querySelector('#app').textContent = 'Pages artifact';");
+    await symlink(
+      await realpath(new URL("../node_modules", import.meta.url)),
+      join(projectRoot, "node_modules"),
+      "dir",
+    );
+
+    await execFileAsync(process.execPath, ["--import", "tsx", entrypoint], {
+      cwd: projectRoot,
+      env: {
+        ...process.env,
+        FAST: "false",
+        SOURCE_COMMIT_SHA: SOURCE_SHA,
+        GITHUB_OUTPUT: outputPath,
+      },
+    });
+
+    expect(await readFile(outputPath, "utf8")).toBe(`artifact_root=${join(projectRoot, "dist")}\n`);
+    expect(await readFile(join(projectRoot, "dist", "data", "library.json"), "utf8")).toContain(SOURCE_SHA);
+    expect(await readFile(join(projectRoot, "dist", "index.html"), "utf8")).toContain("type=\"module\"");
   });
 
   test("null, 40-hex, and 64-hex provenance change only the envelope and never the semantic revision", async () => {

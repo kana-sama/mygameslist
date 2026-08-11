@@ -146,36 +146,7 @@ jobs:
           FAST: ${{ steps.build_path.outputs.fast }}
           FAST_ARTIFACT_ROOT: ${{ runner.temp }}/pages-artifact-${{ github.run_id }}-${{ github.run_attempt }}
           SOURCE_COMMIT_SHA: ${{ github.sha }}
-        run: |
-          npx tsx --eval '
-            import { appendFile } from "node:fs/promises";
-            import { buildSite } from "./scripts/build-site.ts";
-            import { captureCheckoutSource, verifyCheckoutSource } from "./scripts/checkout-source-guard.ts";
-            const run = async () => {
-              const expected = await captureCheckoutSource({
-                repositoryRoot: process.cwd(),
-                sourceRoot: "data",
-                expectedCommitSha: process.env.SOURCE_COMMIT_SHA,
-              });
-              const fast = process.env.FAST === "true";
-              const result = await buildSite({
-                sourceRoot: "data",
-                sourceCommitSha: process.env.SOURCE_COMMIT_SHA,
-                shell: fast
-                  ? { kind: "cached", shellRoot: "dist" }
-                  : { kind: "vite", projectRoot: process.cwd() },
-                destination: fast
-                  ? { kind: "staging", artifactRoot: process.env.FAST_ARTIFACT_ROOT }
-                  : { kind: "staging", artifactRoot: "dist" },
-              });
-              await verifyCheckoutSource({ repositoryRoot: process.cwd(), sourceRoot: "data", expected });
-              await appendFile(process.env.GITHUB_OUTPUT, `artifact_root=${result.artifactRoot}\n`);
-            };
-            run().catch((error) => {
-              console.error(error);
-              process.exitCode = 1;
-            });
-          '
+        run: node --import tsx scripts/build-pages-artifact.ts
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
