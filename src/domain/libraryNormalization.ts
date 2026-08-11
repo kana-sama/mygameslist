@@ -1,5 +1,5 @@
 import { withComputedRevision } from "./canonical";
-import { deriveImageAssetAlt } from "./assetOwnership";
+import { deriveImageAssetAltFromOwners, indexAssetOwners } from "./assetOwnership";
 import { referencedAssetIds } from "./assetReferences";
 import type { LibraryDatabase } from "./types";
 import { assertSourceRepresentable, assertValidLibrary } from "./validation";
@@ -25,8 +25,9 @@ export function normalizeLibraryDatabase(database: LibraryDatabase): LibraryData
   for (const assetId of Object.keys(normalized.assets)) {
     if (!referenced.has(assetId)) delete normalized.assets[assetId];
   }
+  const assetOwners = indexAssetOwners(normalized);
   for (const asset of Object.values(normalized.assets)) {
-    if (asset.kind === "image") asset.alt = deriveImageAssetAlt(normalized, asset.id);
+    if (asset.kind === "image") asset.alt = deriveImageAssetAltFromOwners(assetOwners.get(asset.id));
   }
 
   normalized.games = sortedRecord(normalized.games);

@@ -47,6 +47,30 @@ function assertCanonicalProjectionInput(database: LibraryDatabase): void {
   if (database.publicationId === null) sourceFailure("publicationId is required by the source manifest");
 }
 
+interface ProjectionContext {
+  occurrencesByGame: ReadonlyMap<string, readonly SourceAssetOccurrence[]>;
+  notesByGame: ReadonlyMap<string, readonly Note[]>;
+}
+
+function projectionContext(database: LibraryDatabase): ProjectionContext {
+  const occurrencesByGame = new Map<string, SourceAssetOccurrence[]>();
+  for (const occurrence of collectSourceAssetOccurrences(database)) {
+    const occurrences = occurrencesByGame.get(occurrence.gameId);
+    if (occurrences) occurrences.push(occurrence);
+    else occurrencesByGame.set(occurrence.gameId, [occurrence]);
+  }
+
+  const notesByGame = new Map<string, Note[]>();
+  for (const note of Object.values(database.notes)) {
+    const notes = notesByGame.get(note.gameId);
+    if (notes) notes.push(note);
+    else notesByGame.set(note.gameId, [note]);
+  }
+  for (const notes of notesByGame.values()) notes.sort((left, right) => compareText(left.id, right.id));
+
+  return { occurrencesByGame, notesByGame };
+}
+
 function gameSourceValue(
   database: LibraryDatabase,
   gameId: string,
@@ -114,13 +138,16 @@ function noteSourceValue(database: LibraryDatabase, note: Note): SourceNoteMetad
   return metadata;
 }
 
-export function projectGameSourceBundle(database: LibraryDatabase, gameId: string): ProjectedGameBundle {
-  assertCanonicalProjectionInput(database);
+function projectCanonicalGameSourceBundle(
+  database: LibraryDatabase,
+  gameId: string,
+  context: ProjectionContext,
+): ProjectedGameBundle {
   const game = database.games[gameId];
   if (!game) sourceFailure(`game ${gameId} does not exist`);
 
   const directoryPath = `data/games/${gameSourceDirectoryName(game)}`;
-  const occurrences = collectSourceAssetOccurrences(database).filter((occurrence) => occurrence.gameId === gameId);
+  const occurrences = context.occurrencesByGame.get(gameId) ?? [];
   const assetLeaves = occurrences.map((occurrence) => {
     const asset = database.assets[occurrence.assetId];
     const filename = sourceAssetFilename(occurrence, asset);
@@ -140,9 +167,7 @@ export function projectGameSourceBundle(database: LibraryDatabase, gameId: strin
     logicalId: `game:${gameId}`,
     text: serializeGameYaml(gameSourceValue(database, gameId, occurrences)),
   };
-  const noteLeaves = Object.values(database.notes)
-    .filter((note) => note.gameId === gameId)
-    .sort((left, right) => compareText(left.id, right.id))
+  const noteLeaves = (context.notesByGame.get(gameId) ?? [])
     .map((note): ProjectedSourceLeaf => ({
       kind: "text",
       path: `${directoryPath}/notes/${deriveNoteFilename(note)}`,
@@ -158,10 +183,15 @@ export function projectGameSourceBundle(database: LibraryDatabase, gameId: strin
   };
 }
 
+export function projectGameSourceBundle(database: LibraryDatabase, gameId: string): ProjectedGameBundle {
+  assertCanonicalProjectionInput(database);
+  return projectCanonicalGameSourceBundle(database, gameId, projectionContext(database));
+}
+
 export async function projectSourceTree(database: LibraryDatabase): Promise<SourceProjection> {
   const normalized = await normalizePublishedLibrary(database);
   if (normalized.publicationId === null) sourceFailure("publicationId is required by the source manifest");
-  assertCanonicalProjectionInput(normalized);
+  const context = projectionContext(normalized);
 
   const manifest: ProjectedSourceLeaf = {
     kind: "text",
@@ -175,7 +205,7 @@ export async function projectSourceTree(database: LibraryDatabase): Promise<Sour
   };
   const gameBundles = new Map<string, ProjectedGameBundle>();
   for (const gameId of Object.keys(normalized.games).sort(compareText)) {
-    gameBundles.set(gameId, projectGameSourceBundle(normalized, gameId));
+    gameBundles.set(gameId, projectCanonicalGameSourceBundle(normalized, gameId, context));
   }
   return {
     database: normalized,

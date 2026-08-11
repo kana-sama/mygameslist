@@ -78,10 +78,14 @@ export function indexAssetOwners(database: LibraryDatabase): ReadonlyMap<string,
   );
 }
 
-export function deriveImageAssetAlt(database: LibraryDatabase, assetId: string): string {
-  const owners = indexAssetOwners(database).get(assetId) ?? [];
-  const cover = owners.find((owner): owner is Extract<AssetOwner, { role: "cover" }> => owner.role === "cover");
+export function deriveImageAssetAltFromOwners(owners: readonly AssetOwner[] | undefined): string {
+  const ownerList = owners ?? [];
+  const cover = ownerList.find((owner): owner is Extract<AssetOwner, { role: "cover" }> => owner.role === "cover");
   if (cover) return cover.alt;
-  const noteImage = owners.find((owner): owner is Extract<AssetOwner, { role: "note-image" }> => owner.role === "note-image");
+  const noteImage = ownerList.find((owner): owner is Extract<AssetOwner, { role: "note-image" }> => owner.role === "note-image");
   return noteImage?.alt ?? "";
+}
+
+export function deriveImageAssetAlt(database: LibraryDatabase, assetId: string): string {
+  return deriveImageAssetAltFromOwners(indexAssetOwners(database).get(assetId));
 }

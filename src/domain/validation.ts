@@ -1,7 +1,7 @@
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
 import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
-import { deriveImageAssetAlt, indexAssetOwners } from "./assetOwnership";
+import { deriveImageAssetAltFromOwners, indexAssetOwners } from "./assetOwnership";
 
 export interface ValidationIssue {
   path: string;
@@ -491,6 +491,7 @@ export function sourceRepresentabilityIssues(database: LibraryDatabase): Validat
   if (database.revision !== "") sourceSha(database.revision, "/revision", issues);
   if (database.publicationId === null) issue(issues, "/publicationId", "Source tree требует publication UUID");
   else sourceUuid(database.publicationId, "/publicationId", issues);
+  const assetOwners = indexAssetOwners(database);
   for (const [gameId, game] of Object.entries(database.games)) {
     sourceUuid(gameId, `/games/${gameId}`, issues);
     sourceGame(game, `/games/${gameId}`, issues);
@@ -506,12 +507,12 @@ export function sourceRepresentabilityIssues(database: LibraryDatabase): Validat
     sourceSha(assetId, `/assets/${assetId}`, issues);
     sourceAsset(asset, `/assets/${assetId}`, issues);
     if (asset.kind === "image") {
-      const derivedAlt = deriveImageAssetAlt(database, assetId);
+      const derivedAlt = deriveImageAssetAltFromOwners(assetOwners.get(assetId));
       sourceIssue(issues, asset.alt === derivedAlt, `/assets/${assetId}/alt`, "Global image alt не совпадает с owner-derived значением");
     }
   }
 
-  for (const [assetId, owners] of indexAssetOwners(database)) {
+  for (const [assetId, owners] of assetOwners) {
     const originalNames = new Set(owners.map((owner) => owner.originalName));
     sourceIssue(issues, originalNames.size <= 1, `/assets/${assetId}/originalName`, "Все владельцы SHA должны согласовать originalName");
     const fileMimes = new Set(owners.filter((owner) => owner.role === "note-file").map((owner) => owner.mime));

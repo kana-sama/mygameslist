@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeLibraryRevision, normalizePublishedLibrary } from "../src/domain";
+import { computeLibraryRevision, normalizePublishedLibrary, type LibraryDatabase } from "../src/domain";
 import {
   assembleSourceTree,
   parsePublishedLibraryEnvelope,
@@ -41,6 +41,46 @@ function changedFiles(path: string, bytes: Uint8Array): Map<string, Uint8Array> 
   const files = projectedFiles();
   files.set(path, bytes);
   return files;
+}
+
+function largePublishedSourceDatabase(): LibraryDatabase {
+  const games: LibraryDatabase["games"] = {};
+  const assets: LibraryDatabase["assets"] = {};
+  for (let index = 0; index < 160; index += 1) {
+    const suffix = index.toString(16).padStart(12, "0");
+    const gameId = `00000000-0000-4000-8000-${suffix}`;
+    const assetId = index.toString(16).padStart(64, "0");
+    games[gameId] = {
+      id: gameId,
+      title: `Synthetic game ${index}`,
+      coverAssetId: assetId,
+      platforms: [],
+      tags: [],
+      status: "wishlist",
+      placement: { tierId: "unranked", rank: 1024 },
+      reviewMarkdown: "",
+      createdAt: "2026-08-11T00:00:00.000Z",
+      updatedAt: "2026-08-11T00:00:00.000Z",
+    };
+    assets[assetId] = {
+      id: assetId,
+      kind: "image",
+      mime: "image/webp",
+      width: 1,
+      height: 1,
+      byteLength: 12,
+      alt: `Cover ${index}`,
+      originalName: `cover-${index}.webp`,
+    };
+  }
+  return {
+    schemaVersion: 2,
+    revision: "",
+    publicationId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    games,
+    notes: {},
+    assets,
+  };
 }
 
 describe("source projection", () => {
@@ -91,6 +131,14 @@ describe("source projection", () => {
     database.publicationId = null;
     await expect(projectSourceTree(database)).rejects.toThrow(/publicationId|publication/i);
   });
+
+  it("projects 160 published source games within the aggregate performance budget", async () => {
+    const startedAt = performance.now();
+    const projection = await projectSourceTree(largePublishedSourceDatabase());
+
+    expect(projection.gameBundles).toHaveLength(160);
+    expect(performance.now() - startedAt).toBeLessThan(1_500);
+  }, 15_000);
 });
 
 describe("projected source inventory validation", () => {
