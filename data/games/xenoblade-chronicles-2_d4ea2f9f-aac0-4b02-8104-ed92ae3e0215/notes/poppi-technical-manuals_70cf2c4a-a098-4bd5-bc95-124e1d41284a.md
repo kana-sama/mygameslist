@@ -1,6 +1,7 @@
 <!-- mygameslist-note:v1
 id: "70cf2c4a-a098-4bd5-bc95-124e1d41284a"
 rank: 10240
+groupRank: 2048
 createdAt: "2026-08-12T00:33:42.000Z"
 updatedAt: "2026-08-12T00:33:42.000Z"
 -->
