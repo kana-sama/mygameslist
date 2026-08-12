@@ -7,20 +7,46 @@ updatedAt: "2026-08-12T00:33:42.000Z"
 -->
 # Secret Areas
 
-- [ ] Way of the Practitioner — Cliffs of Morytha · Lower Level; Исследуйте Lower Level и найдите скрытый путь.
-- [ ] Runo Cave-in — Cliffs of Morytha · Upper Level; Открывается по пути Main Story; пропустить невозможно.
-- [ ] Bathein Watchtower — Empire of Mor Ardain · Alba Cavanich; Поднимитесь от Hardhaigh Dock на Lv. 2.
-- [ ] Fief of Forgetfulness — Empire of Mor Ardain · Lower Level; Проход доступен только при Low Tide.
-- [ ] Old Plumbing Entrance — Empire of Mor Ardain · Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.
-- [ ] Suspended Pathway — Empire of Mor Ardain · Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.
-- [ ] Nopon Pioneers' Spring — Empire of Mor Ardain · Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.
-- [ ] Clear Sky Break — Gormott Province · Upper Level - Right; От Nocclia Timber Site идите на север, спуститесь по водной горке в Zeno's Deadbole и нырните в Underground Spring; нужны Lv. 3 Water Mastery и Lv. 3 Fortitude.
-- [ ] Dawnview Grotto — Gormott Province · Upper Level - Right; Пройдите через каменный туннель со стороны Tirkin Turf.
-- [ ] Airborne Throne — Kingdom of Tantal · Upper Level; Исследуйте Upper Level и доберитесь до парящего трона.
-- [ ] Dragon's Whiskers — Kingdom of Uraya · Head; Нырните от Cataracts of Rujah.
-- [ ] Raqura Aquagardens — Kingdom of Uraya · Stomach; Нырните в источник под Ruins of Fountain Park.
-- [ ] View of a Lost Time — Land of Morytha · Streets; От Highway 8 используйте дорожный знак; нужны Lv. 8 Earth Mastery и Lv. 5 Superstrength.
-- [ ] Subterranean Lake Galantia — Spirit Crucible Elpys · Mid Level; Исследуйте Mid Level и найдите подземное озеро.
-- [ ] Profaned Place — Temperantia · Central Plain; Область находится рядом с Tyrannotitan Kurodil.
-- [ ] Lost Capital Judicium — Temperantia · Ruins of Judicium; Исследуйте Ruins of Judicium до открытия столицы.
-- [ ] 7th Perimeter Entrance — World Tree · Mid Level; Исследуйте Mid Level и найдите вход за внешним периметром.
+## Cliffs of Morytha
+
+- [ ] Way of the Practitioner — Lower Level; Исследуйте Lower Level и найдите скрытый путь.
+- [ ] Runo Cave-in — Upper Level; Открывается по пути Main Story; пропустить невозможно.
+
+## Empire of Mor Ardain
+
+- [ ] Bathein Watchtower — Alba Cavanich; Поднимитесь от Hardhaigh Dock на Lv. 2.
+- [ ] Fief of Forgetfulness — Lower Level; Проход доступен только при Low Tide.
+- [ ] Old Plumbing Entrance — Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.
+- [ ] Suspended Pathway — Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.
+- [ ] Nopon Pioneers' Spring — Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.
+
+## Gormott Province
+
+- [ ] Clear Sky Break — Upper Level - Right; От Nocclia Timber Site идите на север, спуститесь по водной горке в Zeno's Deadbole и нырните в Underground Spring; нужны Lv. 3 Water Mastery и Lv. 3 Fortitude.
+- [ ] Dawnview Grotto — Upper Level - Right; Пройдите через каменный туннель со стороны Tirkin Turf.
+
+## Kingdom of Tantal
+
+- [ ] Airborne Throne — Upper Level; Исследуйте Upper Level и доберитесь до парящего трона.
+
+## Kingdom of Uraya
+
+- [ ] Dragon's Whiskers — Head; Нырните от Cataracts of Rujah.
+- [ ] Raqura Aquagardens — Stomach; Нырните в источник под Ruins of Fountain Park.
+
+## Land of Morytha
+
+- [ ] View of a Lost Time — Streets; От Highway 8 используйте дорожный знак; нужны Lv. 8 Earth Mastery и Lv. 5 Superstrength.
+
+## Spirit Crucible Elpys
+
+- [ ] Subterranean Lake Galantia — Mid Level; Исследуйте Mid Level и найдите подземное озеро.
+
+## Temperantia
+
+- [ ] Profaned Place — Central Plain; Область находится рядом с Tyrannotitan Kurodil.
+- [ ] Lost Capital Judicium — Ruins of Judicium; Исследуйте Ruins of Judicium до открытия столицы.
+
+## World Tree
+
+- [ ] 7th Perimeter Entrance — Mid Level; Исследуйте Mid Level и найдите вход за внешним периметром.
