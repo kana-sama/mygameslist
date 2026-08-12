@@ -32,6 +32,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sparklesugar
     - [ ] Narcipear Jelly
     - [ ] Fruity Rice Ball — открывается после Merc Mission `Long-Awaited Work`.
+    - [ ] **Honeycomb Deeds**
 
   - Reedirait Bookstore
 
@@ -41,12 +42,14 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Adventures of Myram — открывается после Merc Mission `Long-Awaited Work`.
     - [ ] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
     - [ ] Tome of Morytha #2 — открывается после Heart-to-Heart `Walking Encyclopedia`.
+    - [ ] **Reedirait Deeds**
 
   - Fishy Fishy
 
     - [x] Grilled Anchortail
     - [x] Oyster Stir-Fry
     - [x] Marine Stir-Fry
+    - [x] **Fishy Fishy Deeds**
 
   - Nopox Hobby Store
 
@@ -56,6 +59,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Tradeway 66
     - [ ] Coral Nopon Chess Set — открывается после Merc Mission `Cooking Display`.
     - [ ] Leftherian Life — открывается после Merc Mission `First Class Freshness!`.
+    - [ ] **Nopox Deeds**
 
   - Strummer Instruments
 
@@ -65,6 +69,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Whispercorder
     - [ ] Casta-Mutes — открывается после Merc Mission `New Sounds`.
     - [ ] Clicky-Clacks — открывается после Merc Mission `Old Routes`.
+    - [ ] **Strummer Deeds**
 
   - Cleo's Cosmetics
 
@@ -74,6 +79,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Curled Eyelashes
     - [ ] Bubbly Mani-Pedi Kit
     - [ ] Full Moon Eyeliner — открывается после Merc Mission `First Class Freshness!`.
+    - [ ] **Cleo Deeds**
 
   - Rumbletum Canteen
 
@@ -82,6 +88,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Massive Mushroom Pie
     - [ ] Bright Samod — открывается после Merc Mission `Cooking Display`.
     - [ ] Tasty Kordeth Samod — открывается после Merc Mission `Old Routes`.
+    - [ ] **Rumbletum Deeds**
 
   - 12 Brothersisterpon
 
@@ -91,6 +98,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sappan Veg Juice — открывается после нахождения всех Brothersisterpons.
     - [ ] Honey au Lait — открывается после нахождения всех Brothersisterpons.
     - [ ] Crispy Blendshake — открывается после нахождения всех Brothersisterpons.
+    - [ ] **Brothersisterpon Deeds**
 
 ## Gormott Province
 
@@ -102,6 +110,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Torigoth Marinade
     - [ ] Stuffed Meaty Carrot
     - [ ] Puri Leaf Salad — открывается после начала Quest `Paying It Forward`.
+    - [ ] **Llysiau Deeds**
 
   - Soniarus Music
 
@@ -110,12 +119,14 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Cedarwood Koto
     - [ ] Woodboard — открывается после Merc Mission `Raddon Family`.
     - [ ] Coralline Marimba — открывается после Merc Mission `The Water City`.
+    - [ ] **Soniarus Deeds**
 
   - Tomi Fishmongers
 
     - [ ] Gormotti Fish Flakes
     - [ ] Grass-Smoked Salmon
     - [ ] Bipedal Crab Chili — открывается после Merc Mission `The Water City`.
+    - [ ] **Tomi Deeds**
 
   - Café Savvy
 
@@ -124,6 +135,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Kukurel Springwater
     - [ ] Passion Fruit Shake — открывается после Merc Mission `Raddon Family`.
     - [ ] Victory Smoothie — открывается после Merc Mission `The Water City`.
+    - [ ] **Savvy Deeds**
 
   - Cmalaf Artwork
 
@@ -131,6 +143,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Black Flower Field
     - [ ] Woodcut Print of Bana — открывается после Merc Mission `Turf War Protection`.
     - [ ] Wood-Carven Queen — открывается после Merc Mission `The Water City`.
+    - [ ] **Cmalaf Deeds**
 
   - Tilly Bakery
 
@@ -141,6 +154,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Cream Orange Paratha
     - [ ] Ruska Noodle Soup — открывается после Merc Mission `Turf War Protection`.
     - [ ] Lucky Dawn Bread — открывается после начала Blade Quest `Our Daily Bread`; продаётся с 05:00 до 06:59.
+    - [ ] **Tilly Deeds**
 
   - Gryff Butchers
 
@@ -148,6 +162,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Tasty Sausage
     - [ ] Mince & Lentil Stir-Fry — открывается после Merc Mission `Raddon Family`.
     - [ ] Mustard Kordeth — открывается после Merc Mission `Farming Tech`.
+    - [ ] **Gryff Deeds**
 
   - Cosmetipolitan
 
@@ -156,6 +171,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Flurrycomb
     - [ ] Conch Hairpin — открывается после Merc Mission `Renowned Goods`.
     - [ ] Sparkly Snow Perfume — открывается после Merc Mission `Farming Tech`.
+    - [ ] **Cosmetipolitan Deeds**
 
   - Neuromin Textiles
 
@@ -165,6 +181,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sun-Dappled Curtains
     - [ ] Leaf-Weave Cape — открывается после Merc Mission `Renowned Goods`.
     - [ ] Snowflake Scarf — открывается после Merc Mission `Farming Tech`.
+    - [ ] **Neuromin Deeds**
 
 ## Kingdom of Uraya
 
@@ -178,6 +195,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Dazzling Handkerchief
     - [ ] Gormotti Woodwing
     - [ ] Sanar-Knit Blanket
+    - [ ] **Fallone Deeds**
 
   - Vibrattio Instruments
 
@@ -186,6 +204,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Hero's Harp
     - [ ] Cloudsnail Arpeggione
     - [ ] Rumble Cello — открывается после Merc Mission `Latest Craze`.
+    - [ ] **Vibrattio Deeds**
 
   - Vargel Tavern
 
@@ -193,6 +212,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Jenerossi Tea
     - [ ] Lentil Milkshake
     - [ ] Fizzi Lassi — открывается после Merc Mission `Fad Foods`.
+    - [ ] **Vargel Deeds**
 
   - Sadecott Groceries
 
@@ -200,6 +220,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sour-Spark-on-a-Stick
     - [ ] Boiled Hustle Hyacinth — открывается после Merc Mission `Bumper Crop`.
     - [ ] Pickled Ice Cabbage — открывается после Merc Mission `Secret Route`.
+    - [ ] **Sadecott Deeds**
 
 - Fonsa Myma
 
@@ -211,6 +232,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Dual Line
     - [ ] Nopopo Yard
     - [ ] Coral Casino
+    - [ ] **Knick-Knacks Deeds**
 
   - Aquaneze Cosmetics
 
@@ -219,12 +241,14 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Golden Mascara
     - [ ] Gorgeous Blusher — открывается после Merc Mission `Latest Craze`.
     - [ ] Fonsett-Rouge Lipgloss — открывается после Merc Mission `Shipping Lanes Closed`.
+    - [ ] **Aquaneze Deeds**
 
   - Sprintsy Sweets
 
     - [ ] Rainbow Parfait
     - [ ] Blossom Custard
     - [ ] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
+    - [ ] **Sprintsy Deeds**
 
   - Volty Butchers
 
@@ -232,6 +256,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Mixed Meat Platter
     - [ ] Hotplate Fry-Up — открывается после Merc Mission `Bumper Crop`.
     - [ ] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
+    - [ ] **Volty Deeds**
 
   - Maluria Antiques
 
@@ -239,6 +264,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Final Chorus
     - [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
     - [ ] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
+    - [ ] **Maluria Deeds**
 
   - Ikthus Fishmongers
 
@@ -246,6 +272,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Bullybelly Carpaccio
     - [ ] Steamed Bluegill — открывается после Merc Mission `Fad Foods`.
     - [ ] Whitebait with Seeds — открывается после Merc Mission `Secret Route`.
+    - [ ] **Ikthus Deeds**
 
   - Aldomar Books
 
@@ -253,6 +280,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] The Legacy of Selosia
     - [ ] Masterpieces of Alrest — открывается после Merc Mission `Bumper Crop`.
     - [ ] Addam's Love and War — открывается после Merc Mission `Secret Route`.
+    - [ ] **Aldomar Deeds**
 
   - Brad Flatforms
 
@@ -261,6 +289,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Master's Curry
     - [ ] Glitterspud Puran — открывается после Merc Mission `Fad Foods`.
     - [ ] Hearty Kordeth Puran — открывается после Merc Mission `Secret Route`.
+    - [ ] **Brad Deeds**
 
 ## Empire of Mor Ardain
 
@@ -274,6 +303,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Estral Quotelettas
     - [ ] Armu & Bean Stew
     - [ ] Quoteletta
+    - [ ] **Bassani Deeds**
 
   - Salter Sweets
 
@@ -283,6 +313,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sky-Jewel Tart
     - [ ] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
     - [ ] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
+    - [ ] **Salter Deeds**
 
   - Haskefell Books
 
@@ -292,6 +323,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Les Awfuls
     - [ ] Love Beyond the Clouds
     - [ ] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
+    - [ ] **Haskefell Deeds**
 
   - Elgeschel Hobby Store
 
@@ -301,6 +333,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Dueling Kingdoms
     - [ ] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
     - [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
+    - [ ] **Elgeschel Deeds**
 
   - Yafush Antiques
 
@@ -309,6 +342,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Ardainian Bear Carving
     - [ ] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
     - [ ] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
+    - [ ] **Yafush Deeds**
 
   - Hanoon Fishmongers
 
@@ -316,6 +350,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Cloud Sea Crab Sticks
     - [ ] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
     - [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
+    - [ ] **Hanoon Deeds**
 
   - Griogair's Greens
 
@@ -323,6 +358,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Campfire Skewers
     - [ ] Crispy Vegetable Salad — открывается после Merc Mission `Secret Spice`.
     - [ ] Steamflake Tabbouleh — открывается после Merc Mission `White and Cold`.
+    - [ ] **Griogair Deeds**
 
   - Adelno Music
 
@@ -332,6 +368,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Hammerplate Snare
     - [ ] Tube Xylophone — открывается после Merc Mission `Secret Spice`.
     - [ ] Icicle Marimba — открывается после Merc Mission `White and Cold`.
+    - [ ] **Adelno Deeds**
 
 ## Leftherian Archipelago
 
@@ -344,6 +381,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Braised Cloud Sea Shark
     - [ ] Seared Whitebait
     - [ ] Smoke-Braised Killifish — открывается после Merc Mission `Merchant Ship`.
+    - [ ] **Coral Leaf Deeds**
 
   - Speck Butchers
 
@@ -353,6 +391,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Zaproast Power Bowl
     - [ ] Fragrant Samod Stralu — открывается после Merc Mission `Nopon Cooking`.
     - [ ] Glarna Stir-Fry — открывается после Merc Mission `Ship Lane Lighting`.
+    - [ ] **Speck Deeds**
 
   - Future Crafts
 
@@ -362,6 +401,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Silken Stool
     - [ ] Noponcho — открывается после Merc Mission `Nopon Cooking`.
     - [ ] Prismatic Headband — открывается после Merc Mission `Ship Lane Lighting`.
+    - [ ] **Future Deeds**
 
   - Talmye Antiques
 
@@ -369,6 +409,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Montecoran Doll
     - [ ] Steel Pipe Lexos
     - [ ] Lush Moonbeam Mask
+    - [ ] **Talmye Deeds**
 
   - Corcaja Greengrocers
 
@@ -377,6 +418,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
     - [ ] Veg & Oyster Aspic
     - [ ] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
+    - [ ] **Corcaja Deeds**
 
   - Cafe Lutino ※1
 
@@ -385,6 +427,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Frozen Odifa — доступно с Chapter 9.
     - [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
     - [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
+    - [ ] **Lutino Deeds**
 
 ## Kingdom of Tantal
 
@@ -397,6 +440,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Prickly Snopickle
     - [ ] Snowy Dudleya Gelée
     - [ ] Vinaigrette Ice Cabbage — открывается после Merc Mission `Weathered Ship`.
+    - [ ] **Lectica Deeds**
 
   - Placks Patisserie
 
@@ -406,6 +450,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Sno-Bake Cheesecake
     - [ ] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
     - [ ] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
+    - [ ] **Placks Deeds**
 
   - Platini Deli
 
@@ -414,6 +459,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Armu Milk Yogurt
     - [ ] Grumbird Cordon Bleu — открывается после Merc Mission `Beat the Heat`.
     - [ ] Samod Stralu — открывается после Merc Mission `Frozen Door`.
+    - [ ] **Platini Deeds**
 
   - Tatraty Fish
 
@@ -421,6 +467,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Abyssturgeon Medallion
     - [ ] Bagna Oyster Roll — открывается после Merc Mission `Frozen Door`.
     - [ ] Whitebait-Samod Hotpot — открывается после Merc Mission `Cuisine Researcher`.
+    - [ ] **Tatraty Deeds**
 
   - Biblio Paulio
 
@@ -430,6 +477,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] The Annals of Addam
     - [ ] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
     - [ ] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
+    - [ ] **Paulio Deeds**
 
   - Boldarde Textiles
 
@@ -439,6 +487,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Heatstripe
     - [ ] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
     - [ ] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
+    - [ ] **Boldarde Deeds**
 
   - Praximo Cosmetics
 
@@ -447,6 +496,7 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Moonstar Lipstick
     - [ ] Noponic Nails
     - [ ] Steam Powder
+    - [ ] **Praximo Deeds**
 
   - Hobby Trappers
 
@@ -455,9 +505,11 @@ updatedAt: "2026-08-12T02:33:42.597Z"
     - [ ] Money-Bye-Bye
     - [ ] Smack-A-Nopon — открывается после Merc Mission `Frozen Door`.
     - [ ] Jeweled Billiard Balls — открывается после Merc Mission `Cuisine Researcher`.
+    - [ ] **Trappers Deeds**
 
   - Memoria Art
 
     - [ ] Ancient King's Portrait
     - [ ] Snow-Crystal Vase
     - [ ] Portrait of Ger the Hero
+    - [ ] **Memoria Deeds**
