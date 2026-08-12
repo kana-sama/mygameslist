@@ -378,6 +378,35 @@ function cardBaseColumnSpan(card: HTMLElement): number {
   return Number.isInteger(value) && value > 0 ? value : 1;
 }
 
+function mutationRequiresShelfLayout(record: MutationRecord, grid: HTMLElement): boolean {
+  const target = record.target instanceof HTMLElement ? record.target : record.target.parentElement;
+  if (!target) return true;
+
+  if (record.type === "attributes") {
+    if (record.attributeName === "aria-expanded") return true;
+    if (record.attributeName !== "class") return true;
+    if (target.parentElement === grid) return true;
+    const previousClasses = new Set((record.oldValue ?? "").split(/\s+/).filter(Boolean));
+    const currentClasses = new Set([...target.classList]);
+    const changedClasses = [...new Set([...previousClasses, ...currentClasses])]
+      .filter((className) => previousClasses.has(className) !== currentClasses.has(className));
+    return !changedClasses.length || changedClasses.some((className) => !(
+      className === "markdown-task-item--checked"
+      || className === "markdown-task-checkbox--checked"
+      || className === "note-card__page-heading-source"
+      || className === "markdown-checklist-heading--complete"
+      || className === "markdown-checklist-group--complete"
+      || className === "markdown-table-group--complete"
+      || className === "markdown-table-row--complete"
+    ));
+  }
+
+  if ((record.type === "characterData" || record.type === "childList") && target.closest(".markdown-checklist-progress")) {
+    return false;
+  }
+  return true;
+}
+
 export function ShelfGrid({
   children,
   className,
@@ -514,8 +543,10 @@ export function ShelfGrid({
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => scheduleLayout(false));
     observer?.observe(grid);
     for (const card of grid.children) observer?.observe(card);
-    const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => scheduleLayout(false));
-    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-required-width"], attributes: true, characterData: true, childList: true, subtree: true });
+    const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver((records) => {
+      if (records.some((record) => mutationRequiresShelfLayout(record, grid))) scheduleLayout(false);
+    });
+    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-required-width"], attributeOldValue: true, attributes: true, characterData: true, childList: true, subtree: true });
     const handleResize = () => scheduleLayout(true);
     window.addEventListener("resize", handleResize);
     layout(true);

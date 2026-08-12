@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildShelfLayout,
@@ -34,6 +34,77 @@ afterEach(() => {
 });
 
 describe("ordered shelf layout", () => {
+  it("does not remeasure cards for checklist visual mutations but remeasures collapsed content", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const frame = nextFrame;
+      nextFrame += 1;
+      frames.set(frame, callback);
+      return frame;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((frame: number) => frames.delete(frame)));
+    let measurements = 0;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      if ((this as HTMLElement).matches(".notes-list > [data-card]")) measurements += 1;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+    const flushFrames = () => {
+      while (frames.size) {
+        const pending = [...frames.values()];
+        frames.clear();
+        pending.forEach((callback) => callback(0));
+      }
+    };
+
+    const { container } = render(
+      <ShelfGrid className="notes-list" layoutKey="visual-mutations">
+        <article data-card="one"><div className="note-card__page-heading-source" /><span className="markdown-checklist-progress">0/1</span><label className="markdown-task-item"><input className="markdown-task-checkbox" type="checkbox" /></label><button className="markdown-checklist-toggle" aria-expanded="true" type="button" /></article>
+        <article data-card="two" />
+      </ShelfGrid>,
+    );
+    const grid = container.querySelector<HTMLElement>(".notes-list")!;
+    const firstCard = grid.children[0] as HTMLElement;
+    const source = firstCard.querySelector<HTMLElement>(".note-card__page-heading-source")!;
+    const progress = firstCard.querySelector<HTMLElement>(".markdown-checklist-progress")!;
+    const task = firstCard.querySelector<HTMLElement>(".markdown-task-item")!;
+    const toggle = firstCard.querySelector<HTMLButtonElement>(".markdown-checklist-toggle")!;
+
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    measurements = 0;
+
+    source.classList.remove("note-card__page-heading-source");
+    progress.textContent = "1/1";
+    task.classList.add("markdown-task-item--checked");
+    task.querySelector("input")!.classList.add("markdown-task-checkbox--checked");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBe(0);
+
+    source.classList.add("note-card__page-heading-source");
+    source.classList.add("note-card__content-height-changed");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBeGreaterThan(0);
+
+    measurements = 0;
+    toggle.setAttribute("aria-expanded", "false");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBeGreaterThan(0);
+  });
+
   it("stretches ordinary cards to the tallest card in their row", () => {
     const layout = buildShelfLayout([100, 150, 120], 3);
 

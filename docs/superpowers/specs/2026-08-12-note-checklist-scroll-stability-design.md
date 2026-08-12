@@ -14,3 +14,7 @@ Task changes use one optimistic note draft rather than the page-wide saving stat
 
 - A task-save regression proves optimistic state, reconciliation, rollback, and a stable sibling Markdown node.
 - The regression counts Markdown parsing and proves that only the changed note is parsed again.
+
+## Safari Shelf Layout
+
+Sticky checklist heading source markers, checklist completion classes, and checklist progress text are visual-only mutations. `ShelfGrid` must ignore them so Safari does not transiently clear and remeasure every shelf card while preserving remeasurement for collapse, direct-card, sizing, editor, and other geometry-bearing mutations.
