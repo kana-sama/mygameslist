@@ -8,6 +8,9 @@
 - Before committing, inspect the change with `jj status` and `jj diff`, and include only files related to the current task. Preserve unrelated work from parallel agents.
 - Finalize a completed change with `jj describe` and then create a fresh working-copy change with `jj new`. Do not use `git commit`, because importing direct Git commits can leave anonymous side heads in `jj log`.
 - Treat every existing or finalized commit as immutable. Never amend, edit, squash into, rebase, abandon, or otherwise rewrite it.
+- Treat commit-history requests literally and keep them mechanical. For a request such as split, reorder, or reword, perform only the requested Jujutsu operation; preserve the final tree and every unrelated change, and never delete or abandon an existing change unless the user explicitly asks for deletion or abandonment.
+- Do not turn repository bookkeeping into feature development. A commit split or other history-only request does not require a specification, implementation plan, subagent, audit, code review, test run, or build unless the user explicitly requests one or the operation also changes code behavior.
+- A user correction narrows or redirects the active request; it does not cancel the parts they still explicitly asked for. After applying the correction, continue and complete the remaining requested work unless the user says to stop.
 
 # Data-content verification
 
