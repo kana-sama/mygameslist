@@ -400,7 +400,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
-  const taskTextEditingEnabled = Boolean(onTaskChange) && !taskChangesDisabled;
+  const taskTextEditingAvailable = Boolean(onTaskChange);
   const taskChangeAt = (sourceLine: number, sourceColumn?: number): RenderedTaskChange | undefined =>
     taskChanges.find((change) =>
       change.sourceLine === sourceLine
@@ -448,10 +448,10 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     ));
   };
   useEffect(() => {
-    if (activeTaskEditor && (!taskTextEditingEnabled || activeTaskEditor.baseMarkdown !== markdown)) {
+    if (activeTaskEditor && (!taskTextEditingAvailable || activeTaskEditor.baseMarkdown !== markdown)) {
       setActiveTaskEditor(null);
     }
-  }, [activeTaskEditor, markdown, taskTextEditingEnabled]);
+  }, [activeTaskEditor, markdown, taskTextEditingAvailable]);
   if (!blocks.length) return <p className={`markdown-empty ${className}`}>{emptyText}</p>;
 
   const collapsedSections = new Set(collapsedChecklistSections);
@@ -487,7 +487,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           const itemKey = `${key}-${item.sourceLine}-${itemIndex}`;
           const children = item.children.map((child, childIndex) => renderList(child, `${itemKey}-child-${childIndex}`));
           if (item.openMarker) {
-            if (!taskTextEditingEnabled) return null;
+            if (!taskTextEditingAvailable) return null;
             const adding = activeTaskEditor?.kind === "add" && activeTaskEditor.sourceLine === item.sourceLine;
             return (
               <li className="markdown-open-checklist-marker" key={itemKey}>
@@ -511,8 +511,10 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                   <button
                     aria-label="Добавить пункт чеклиста"
                     className="markdown-open-checklist-add"
+                    disabled={taskChangesDisabled}
                     onClick={(event) => {
                       event.stopPropagation();
+                      if (taskChangesDisabled) return;
                       setActiveTaskEditor({ baseMarkdown: markdown, kind: "add", sourceLine: item.sourceLine });
                     }}
                     type="button"
@@ -556,15 +558,20 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                 {taskChange ? <TaskDiffControl change={taskChange} /> : (
                   <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                     <input
+                      aria-disabled={taskChangesDisabled || undefined}
                       aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`}
                       checked={item.taskChecked}
                       className="markdown-task-checkbox"
-                      disabled={!onTaskChange || taskChangesDisabled}
+                      disabled={!onTaskChange || activeTaskEditor !== null}
                       onChange={(event) => {
+                        if (taskChangesDisabled) return;
                         const nextMarkdown = setMarkdownTaskChecked(markdown, item.sourceLine, event.currentTarget.checked);
                         if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
                       }}
-                      onClick={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (taskChangesDisabled) event.preventDefault();
+                      }}
                       type="checkbox"
                     />
                   </label>
@@ -588,12 +595,14 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                     />
                   ) : locatedLines(item.value, itemKey, item.sourceLocations)}
                 </span>
-                {taskTextEditingEnabled && !editing ? (
+                {taskTextEditingAvailable && !editing ? (
                   <button
                     aria-label={`Редактировать пункт: ${taskLabel}`}
                     className="markdown-task-edit-button"
+                    disabled={taskChangesDisabled}
                     onClick={(event) => {
                       event.stopPropagation();
+                      if (taskChangesDisabled) return;
                       setActiveTaskEditor({ baseMarkdown: markdown, initialValue: item.firstLineValue, kind: "edit", sourceLine: item.sourceLine });
                     }}
                     title="Редактировать пункт"
@@ -636,16 +645,21 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                   {taskChange ? <TaskDiffControl change={taskChange} /> : (
                     <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                       <input
+                        aria-disabled={taskChangesDisabled || undefined}
                         aria-label={`${cell.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
                         checked={cell.taskChecked}
                         className="markdown-task-checkbox"
-                        disabled={!onTaskChange || taskChangesDisabled}
+                        disabled={!onTaskChange || activeTaskEditor !== null}
                         onChange={(event) => {
+                          if (taskChangesDisabled) return;
                           if (cell.taskSourceColumn === undefined) return;
                           const nextMarkdown = setMarkdownTableTaskChecked(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked);
                           if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
                         }}
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (taskChangesDisabled) event.preventDefault();
+                        }}
                         type="checkbox"
                       />
                     </label>

@@ -688,11 +688,12 @@ function PlainNoteEditor({
   );
 }
 
-function InlineTextField({ active, ariaLabel, triggerAriaLabel, className = "", value, children, onBegin, onCommit, onEnd }: {
+function InlineTextField({ active, ariaLabel, triggerAriaLabel, className = "", disabled = false, value, children, onBegin, onCommit, onEnd }: {
   active: boolean;
   ariaLabel: string;
   triggerAriaLabel?: string;
   className?: string;
+  disabled?: boolean;
   value: string;
   children: ReactNode;
   onBegin: () => void;
@@ -706,16 +707,17 @@ function InlineTextField({ active, ariaLabel, triggerAriaLabel, className = "", 
     if (cancelled.current) { cancelled.current = false; return; }
     if (draft === value || await onCommit(draft)) onEnd();
   };
-  if (!active) return <button aria-label={triggerAriaLabel ?? ariaLabel} className={`inline-value-trigger ${className}`} onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
+  if (!active) return <button aria-label={triggerAriaLabel ?? ariaLabel} className={`inline-value-trigger ${className}`} disabled={disabled} onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
   return <input aria-label={ariaLabel} autoFocus className={`inline-field-input ${className}`} onBlur={() => void finish()} onChange={(event) => setDraft(event.currentTarget.value)} onKeyDown={(event) => {
     if (event.key === "Enter") event.currentTarget.blur();
     if (event.key === "Escape") { cancelled.current = true; setDraft(value); onEnd(); }
   }} value={draft} />;
 }
 
-function InlineSelectField<T extends string>({ active, ariaLabel, value, options, children, onBegin, onCommit, onEnd }: {
+function InlineSelectField<T extends string>({ active, ariaLabel, disabled = false, value, options, children, onBegin, onCommit, onEnd }: {
   active: boolean;
   ariaLabel: string;
+  disabled?: boolean;
   value: T;
   options: readonly T[];
   children: ReactNode;
@@ -723,13 +725,14 @@ function InlineSelectField<T extends string>({ active, ariaLabel, value, options
   onCommit: (value: T) => Promise<boolean>;
   onEnd: () => void;
 }) {
-  if (!active) return <button aria-label={ariaLabel} className="inline-value-trigger" onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
+  if (!active) return <button aria-label={ariaLabel} className="inline-value-trigger" disabled={disabled} onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
   return <select aria-label={ariaLabel} autoFocus className="inline-field-select" defaultValue={value} onBlur={onEnd} onChange={(event) => { const next = event.currentTarget.value as T; void onCommit(next).then((saved) => saved && onEnd()); }} onKeyDown={(event) => { if (event.key === "Escape") onEnd(); }}>{options.map((option) => <option key={option} value={option}>{ariaLabel === "Статус" ? STATUS_LABELS[option as StatusId] : TIER_LABELS[option as TierId]}</option>)}</select>;
 }
 
-function InlineValuesField({ active, ariaLabel, values, suggestions, children, onBegin, onCommit, onEnd }: {
+function InlineValuesField({ active, ariaLabel, disabled = false, values, suggestions, children, onBegin, onCommit, onEnd }: {
   active: boolean;
   ariaLabel: string;
+  disabled?: boolean;
   values: string[];
   suggestions: string[];
   children: ReactNode;
@@ -739,19 +742,19 @@ function InlineValuesField({ active, ariaLabel, values, suggestions, children, o
 }) {
   const [draft, setDraft] = useState(values);
   useEffect(() => { if (active) setDraft(values); }, [active, values]);
-  if (!active) return <button aria-label={ariaLabel} className="inline-value-trigger" onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
+  if (!active) return <button aria-label={ariaLabel} className="inline-value-trigger" disabled={disabled} onClick={onBegin} title="Нажмите, чтобы изменить" type="button">{children}</button>;
   return <div className="inline-values-editor" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onEnd(); }} onKeyDown={(event) => {
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDraft(values); onEnd(); }
   }}><TagInput autoFocus label={ariaLabel} onChange={(next) => { setDraft(next); void onCommit(next); }} suggestions={suggestions} values={draft} /></div>;
 }
 
-function InlineNoteCard({ note, index, count, editing, editorAutoFocus, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
+function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsDisabled, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove }: {
   note: EditableNote;
   index: number;
   count: number;
   editing: boolean;
   editorAutoFocus: boolean;
-  actionsDisabled?: boolean;
+  actionsDisabled: boolean;
   sortingDisabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   assets: Record<string, Asset>;
@@ -770,12 +773,13 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, sortingD
 }) {
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
-  return <SortableNoteCard assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onCollapsedChecklistSectionsChange={(collapsedChecklistSections) => onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined })} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
+  return <SortableNoteCard actionsDisabled={actionsDisabled} assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onCollapsedChecklistSectionsChange={(collapsedChecklistSections) => onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined })} onEdit={onEdit} onTaskChange={(bodyMarkdown) => onTaskSave({ ...note, bodyMarkdown })} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} />;
 }
 
-function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled }: {
+function SortableNoteCard({ note, assets, actionsDisabled, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled }: {
   note: EditableNote;
   assets: Record<string, Asset>;
+  actionsDisabled: boolean;
   disabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   resolveAssetUrl?: (assetId: string) => string | null;
@@ -792,12 +796,13 @@ function SortableNoteCard({ note, assets, disabled, dropIndicatorEdge, resolveAs
     disabled,
   });
 
-  return <ScrollableNoteCard assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} />;
+  return <ScrollableNoteCard actionsDisabled={actionsDisabled} assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} />;
 }
 
-function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
+function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false }: {
   note: EditableNote;
   assets: Record<string, Asset>;
+  actionsDisabled?: boolean;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
@@ -860,7 +865,7 @@ function ScrollableNoteCard({ note, assets, resolveAssetUrl, onEdit, onTaskChang
           </div>
         </div>
       </div>
-      <div className="note-card__actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__drag" ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__edit" onClick={onEdit} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div>
+      <div className="note-card__actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__drag" disabled={actionsDisabled} ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__edit" disabled={actionsDisabled} onClick={onEdit} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div>
       <NoteDropZones disabled={dropDisabled} indicatorEdge={dropIndicatorEdge} note={note} />
     </article>
     <PageStickyChecklistHeading cardRef={cardRef} layoutKey={`${note.bodyMarkdown}\u0000${(note.collapsedChecklistSections ?? []).join("\u0000")}\u0000${taskChangesDisabled}`} viewportRef={viewportRef} />
@@ -1140,7 +1145,6 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const progressTrigger = useRef<HTMLElement | null>(null);
   const progressPageMounted = useRef(true);
   const taskSaveInFlight = useRef(false);
-  const globalActionsDisabled = saving;
   const initialNoteFiles = useRef(new Map<string, File[]>());
   const noteFileDrag = useNoteFileDragReveal();
   const noteSensors = useSensors(
@@ -1149,10 +1153,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     useSensor(NOTE_LIST_SENSOR_TYPES.keyboard, NOTE_LIST_SENSOR_OPTIONS.keyboard),
   );
   const cover = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(assets[game.coverAssetId]) : null;
+  const globalActionsDisabled = saving || optimisticTaskNote !== null;
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
   const persist = async (overrides: Partial<GameSaveInput> = {}, { globalSaving = true }: { globalSaving?: boolean } = {}): Promise<boolean> => {
-    if (globalSaving && saving) return false;
+    if (globalSaving && globalActionsDisabled) return false;
     if (globalSaving) setSaving(true);
     setError(null);
     try {
@@ -1178,7 +1183,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     }
   };
   const deleteGame = async () => {
-    if (saving || !onDelete || !window.confirm(`Удалить «${game.title}» вместе с заметками?`)) return;
+    if (globalActionsDisabled || !onDelete || !window.confirm(`Удалить «${game.title}» вместе с заметками?`)) return;
     setSaving(true); setError(null);
     try { await onDelete(game.id); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось удалить игру"); }
@@ -1206,14 +1211,14 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     requestAnimationFrame(focusProgressAfterDelete);
   }, [focusProgressAfterDelete, progressDraft, restoreProgressDeleteFocus, saving]);
   const beginProgressEdit = (itemId: string, trigger: HTMLButtonElement) => {
-    if (saving) return;
+    if (globalActionsDisabled) return;
     const item = editableProgressItems.find((candidate) => candidate.id === itemId);
     if (!item) return;
     progressTrigger.current = trigger;
     setProgressDraft({ ...item });
   };
   const beginProgressAdd = () => {
-    if (saving || storageLocked) return;
+    if (globalActionsDisabled || storageLocked) return;
     progressTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
     setProgressDraft({ id: crypto.randomUUID(), iconAssetId: null, noteId: "", pendingIcon: null });
   };
@@ -1236,7 +1241,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     else requestAnimationFrame(focusProgressAfterDelete);
   };
   const moveProgressItem = async (activeItemId: string, overItemId: string) => {
-    if (saving) return;
+    if (globalActionsDisabled) return;
     const reordered = reorderProgressItems(editableProgressItems, activeItemId, overItemId);
     if (!reordered) return;
     await persist({ progressItems: reordered });
@@ -1261,12 +1266,12 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     if (await persist({ notes: nextNotes })) { setEditingDraft(null); setNoteDirty(false); }
   };
   const saveTaskNote = async (draft: EditableNote) => {
-    if (taskSaveInFlight.current || saving) return;
+    if (taskSaveInFlight.current || saving || editingField !== null || editingDraft !== null || coverEditing || progressDraft !== null) return;
     taskSaveInFlight.current = true;
     setOptimisticTaskNote(draft);
     setTaskSaveNoteId(draft.clientId);
     try {
-      const nextNotes = taskDisplayedNotes.map((note) => note.clientId === draft.clientId ? draft : note);
+      const nextNotes = visibleNotes.map((note) => note.clientId === draft.clientId ? draft : note);
       if (!await persist({ notes: nextNotes }, { globalSaving: false })) setOptimisticTaskNote(null);
     } finally {
       taskSaveInFlight.current = false;
@@ -1300,7 +1305,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   };
   const noteGroups = groupDraftNotes(visibleNotes);
   const emptyGroupRank = nextEmptyNoteGroupRank(visibleNotes);
-  const sortingDisabled = saving || editingDraft !== null;
+  const sortingDisabled = globalActionsDisabled || editingDraft !== null;
   const activeNote = activeNoteId ? editableNotes.find((note) => note.clientId === activeNoteId) ?? null : null;
   const startNoteDrag = ({ active }: DragStartEvent) => {
     const clientId = String(active.data.current?.clientId ?? "");
@@ -1333,20 +1338,20 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     <div className="page game-view-page">
       <div className="game-view-layout">
         <aside aria-label={game.title} className="game-sidebar">
-          {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} canAddBlob={canAddBlob} currentPreviewUrl={cover} disabled={storageLocked} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className={`game-sidebar__cover${game.status === "platinum" ? " cover--platinum" : ""}`} onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
-          <h1><InlineTextField active={editingField === "title"} ariaLabel="Название" triggerAriaLabel={game.title} onBegin={() => !saving && setEditingField("title")} onCommit={async (title) => {
+          {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} canAddBlob={canAddBlob} currentPreviewUrl={cover} disabled={storageLocked || globalActionsDisabled} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className={`game-sidebar__cover${game.status === "platinum" ? " cover--platinum" : ""}`} disabled={globalActionsDisabled} onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
+          <h1><InlineTextField active={editingField === "title"} ariaLabel="Название" disabled={globalActionsDisabled} triggerAriaLabel={game.title} onBegin={() => !globalActionsDisabled && setEditingField("title")} onCommit={async (title) => {
             if (!title.trim()) { setError("Название не может быть пустым."); return false; }
             return persist({ title: title.trim() });
           }} onEnd={() => setEditingField((field) => field === "title" ? null : field)} value={game.title}>{game.title}</InlineTextField></h1>
           <dl className="game-sidebar__meta">
-            <div className="game-sidebar__meta-short"><dt>Статус</dt><dd><InlineSelectField active={editingField === "status"} ariaLabel="Статус" onBegin={() => !saving && setEditingField("status")} onCommit={(status) => persist({ status })} onEnd={() => setEditingField((field) => field === "status" ? null : field)} options={STATUS_IDS} value={game.status}><span className={`status-label status-label--${game.status}`}>{STATUS_LABELS[game.status]}</span></InlineSelectField></dd></div>
-            <div className="game-sidebar__meta-short"><dt>Тир</dt><dd><InlineSelectField active={editingField === "tier"} ariaLabel="Тир" onBegin={() => !saving && setEditingField("tier")} onCommit={(tierId) => persist({ tierId })} onEnd={() => setEditingField((field) => field === "tier" ? null : field)} options={TIER_IDS} value={game.placement.tierId}><b className={`tier-badge tier-badge--${game.placement.tierId}`}>{TIER_LABELS[game.placement.tierId]}</b></InlineSelectField></dd></div>
-            <div><dt>Платформы</dt><dd><InlineValuesField active={editingField === "platforms"} ariaLabel="Платформы" onBegin={() => !saving && setEditingField("platforms")} onCommit={(platforms) => persist({ platforms })} onEnd={() => setEditingField((field) => field === "platforms" ? null : field)} suggestions={platformSuggestions} values={game.platforms}>{game.platforms.length ? game.platforms.join(" · ") : "Не указаны"}</InlineValuesField></dd></div>
-            <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" onBegin={() => !saving && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
+            <div className="game-sidebar__meta-short"><dt>Статус</dt><dd><InlineSelectField active={editingField === "status"} ariaLabel="Статус" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("status")} onCommit={(status) => persist({ status })} onEnd={() => setEditingField((field) => field === "status" ? null : field)} options={STATUS_IDS} value={game.status}><span className={`status-label status-label--${game.status}`}>{STATUS_LABELS[game.status]}</span></InlineSelectField></dd></div>
+            <div className="game-sidebar__meta-short"><dt>Тир</dt><dd><InlineSelectField active={editingField === "tier"} ariaLabel="Тир" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tier")} onCommit={(tierId) => persist({ tierId })} onEnd={() => setEditingField((field) => field === "tier" ? null : field)} options={TIER_IDS} value={game.placement.tierId}><b className={`tier-badge tier-badge--${game.placement.tierId}`}>{TIER_LABELS[game.placement.tierId]}</b></InlineSelectField></dd></div>
+            <div><dt>Платформы</dt><dd><InlineValuesField active={editingField === "platforms"} ariaLabel="Платформы" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("platforms")} onCommit={(platforms) => persist({ platforms })} onEnd={() => setEditingField((field) => field === "platforms" ? null : field)} suggestions={platformSuggestions} values={game.platforms}>{game.platforms.length ? game.platforms.join(" · ") : "Не указаны"}</InlineValuesField></dd></div>
+            <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
-          <GameProgressGrid assets={assets} disabled={storageLocked || saving} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={saving} />
-          {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={saving} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
+          <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
+          {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>

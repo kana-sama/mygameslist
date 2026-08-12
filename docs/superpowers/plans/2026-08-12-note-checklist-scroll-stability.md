@@ -14,3 +14,9 @@
 - [x] Classify observed mutations in `ShelfGrid` before scheduling layout.
 - [x] Ignore sticky-source, checklist completion, and progress counter mutations.
 - [x] Retain remeasurement for collapse and genuine height-changing mutations with shelf regressions.
+
+## Task 3: Keep checklist-click DOM and saves stable
+
+- [x] Keep checklist edit/Add, drag, edit, and card actions mounted during the task lock.
+- [x] Guard non-task metadata, cover, progress, delete, note edit/add/reorder actions until reconciliation while sibling checkboxes remain available.
+- [x] Add whole-grid DOM identity, focus/scroll, rollback, race, and UI focus regressions.

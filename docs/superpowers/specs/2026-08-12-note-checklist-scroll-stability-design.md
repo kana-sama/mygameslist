@@ -18,3 +18,12 @@ Task changes use one optimistic note draft rather than the page-wide saving stat
 ## Safari Shelf Layout
 
 Sticky checklist heading source markers, checklist completion classes, and checklist progress text are visual-only mutations. `ShelfGrid` must ignore them so Safari does not transiently clear and remeasure every shelf card while preserving remeasurement for collapse, direct-card, sizing, editor, and other geometry-bearing mutations.
+
+## Checklist Click Stability
+
+While an optimistic task save is pending, task edit, open-marker Add, drag, edit, and card-action DOM stays mounted. Controls use disabled or guarded behavior without child-list churn, preserve focus and page position, and leave sibling task checkboxes available. Metadata, cover, progress, delete, note edit/add/reorder actions wait until the optimistic note reconciles so their save payload cannot overwrite it.
+
+## Final Verification
+
+- Whole-grid regressions prove zero child-list mutations, exact action-node identity, focus, scroll stability, task-save races, and rollback.
+- UI acceptance coverage proves progress deletion keeps focus restoration safe without an intervening DOM churn frame.

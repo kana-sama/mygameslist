@@ -9,7 +9,6 @@ import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
 vi.mock("../src/components/MonacoMarkdownEditor", async () => (
   import("./mocks/MonacoMarkdownEditorMock")
 ));
-
 vi.mock("../src/domain/markdownChecklist", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/domain/markdownChecklist")>();
   return { ...actual, parseMarkdownBlocks: vi.fn(actual.parseMarkdownBlocks) };
@@ -786,7 +785,7 @@ describe("Markdown tasks", () => {
     expect(onSave.mock.calls[0][0].notes[0].collapsedChecklistSections).toEqual(note.collapsedChecklistSections);
   });
 
-  it("rolls the optimistic task checkbox back when saving fails", async () => {
+  it("keeps the controlled checkbox unchanged when saving fails", async () => {
     const user = userEvent.setup();
     let failSave: ((reason: Error) => void) | undefined;
     const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>(() => new Promise((_resolve, reject) => { failSave = reject; }));
@@ -802,31 +801,88 @@ describe("Markdown tasks", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
-  it("updates only the optimistic task note and preserves its sibling Markdown render", async () => {
+  it("updates and locks only the optimistic task note without losing checkbox focus or moving its sibling or the page", async () => {
     const user = userEvent.setup();
     let finishSave: (() => void) | undefined;
     const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>(() => new Promise((resolve) => { finishSave = resolve; }));
-    const first = makeNote("- [ ] First task");
+    const first = makeNote("- [ ] First task\n- [ ] Editable task\n- [ ] ...");
     const second = { ...makeNote("- [ ] Second task"), id: "33333333-3333-4333-8333-333333333333" };
+    Object.defineProperties(window, {
+      scrollX: { configurable: true, value: 140 },
+      scrollY: { configurable: true, value: 260 },
+    });
     const view = render(<GamePage assets={{}} game={game} mode="game" notes={[first, second]} onSave={onSave} />);
     const firstCheckbox = screen.getByRole("checkbox", { name: "Отметить: First task" });
     const secondCheckbox = screen.getByRole("checkbox", { name: "Отметить: Second task" });
-    const secondMarkdown = secondCheckbox.closest(".markdown");
+    const firstMarkdown = firstCheckbox.closest(".markdown")!;
+    const editButtons = [...firstMarkdown.querySelectorAll<HTMLButtonElement>(".markdown-task-edit-button")];
+    const addButton = firstMarkdown.querySelector<HTMLButtonElement>(".markdown-open-checklist-add")!;
+    const secondMarkdown = secondCheckbox.closest(".markdown")!;
+    const notesGrid = firstMarkdown.closest(".notes-list")!;
+    const cardActions = [...notesGrid.querySelectorAll<HTMLElement>(".note-card__actions")];
+    const dragButtons = [...notesGrid.querySelectorAll<HTMLButtonElement>(".note-card__drag")];
+    const scrollBefore = [window.scrollX, window.scrollY];
+    const childListMutations: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => childListMutations.push(...records.filter((record) => record.type === "childList")));
+    observer.observe(notesGrid, { childList: true, subtree: true });
     vi.mocked(parseMarkdownBlocks).mockClear();
 
     await user.click(firstCheckbox);
 
     expect(firstCheckbox).toBeChecked();
-    expect(firstCheckbox).toBeDisabled();
+    expect(firstCheckbox).toHaveFocus();
+    expect(firstCheckbox).toHaveAttribute("aria-disabled", "true");
+    expect(firstCheckbox).not.toBeDisabled();
+    expect(firstMarkdown.querySelectorAll(".markdown-task-edit-button")).toHaveLength(editButtons.length);
+    expect([...firstMarkdown.querySelectorAll(".markdown-task-edit-button")]).toEqual(editButtons);
+    expect(addButton).toBeDisabled();
+    expect(firstMarkdown.querySelector(".markdown-open-checklist-add")).toBe(addButton);
+    expect([...notesGrid.querySelectorAll(".note-card__actions")]).toEqual(cardActions);
+    expect([...notesGrid.querySelectorAll(".note-card__drag")]).toEqual(dragButtons);
     expect(secondCheckbox).not.toBeDisabled();
+    expect(secondCheckbox).not.toHaveAttribute("aria-disabled");
     expect(secondCheckbox.closest(".markdown")).toBe(secondMarkdown);
+    expect([window.scrollX, window.scrollY]).toEqual(scrollBefore);
     expect(onSave.mock.calls[0][0].notes.map((note) => note.clientId)).toEqual([first.id, second.id]);
+    await Promise.resolve();
+    expect(childListMutations).toEqual([]);
     expect(parseMarkdownBlocks).toHaveBeenCalledTimes(1);
 
     finishSave?.();
-    view.rerender(<GamePage assets={{}} game={game} mode="game" notes={[{ ...first, bodyMarkdown: "- [x] First task" }, second]} onSave={onSave} />);
-    await waitFor(() => expect(firstCheckbox).not.toBeDisabled());
+    view.rerender(<GamePage assets={{}} game={game} mode="game" notes={[{ ...first, bodyMarkdown: "- [x] First task\n- [ ] Editable task\n- [ ] ..." }, second]} onSave={onSave} />);
+    await waitFor(() => expect(firstCheckbox).not.toHaveAttribute("aria-disabled"));
+    expect(addButton).not.toBeDisabled();
     expect(secondCheckbox.closest(".markdown")).toBe(secondMarkdown);
+    observer.disconnect();
+  });
+
+  it("blocks ordinary page actions until the task state is reconciled, then preserves it in the next save", async () => {
+    const user = userEvent.setup();
+    let finishSave: (() => void) | undefined;
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>(() => new Promise((resolve) => { finishSave = resolve; }));
+    const first = makeNote("- [ ] Task");
+    const second = { ...makeNote("- [ ] Sibling"), id: "33333333-3333-4333-8333-333333333333" };
+    const view = render(<GamePage assets={{}} game={game} mode="game" notes={[first, second]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Task" }));
+    expect(screen.getByRole("button", { name: game.title })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Статус" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить элемент прогресса" })).toBeDisabled();
+    expect(screen.getAllByRole<HTMLButtonElement>("button", { name: "Редактировать заметку" }).every((button) => button.disabled)).toBe(true);
+    expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Отметить: Sibling" })).not.toHaveAttribute("aria-disabled");
+
+    finishSave?.();
+    view.rerender(<GamePage assets={{}} game={game} mode="game" notes={[{ ...first, bodyMarkdown: "- [x] Task" }, second]} onSave={onSave} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: game.title })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: game.title }));
+    const title = screen.getByRole("textbox", { name: "Название" });
+    await user.clear(title);
+    await user.type(title, "Changed title{Enter}");
+
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave.mock.calls[1][0].title).toBe("Changed title");
+    expect(onSave.mock.calls[1][0].notes[0].bodyMarkdown).toBe("- [x] Task");
   });
 
   it("does not start concurrent saves from rapid task clicks", async () => {
@@ -838,11 +894,11 @@ describe("Markdown tasks", () => {
 
     const checkboxes = screen.getAllByRole("checkbox");
     await user.click(checkboxes[0]);
-    expect(checkboxes[1]).toBeDisabled();
+    expect(checkboxes[1]).toHaveAttribute("aria-disabled", "true");
     await user.click(checkboxes[1]);
     expect(onSave).toHaveBeenCalledTimes(1);
     finishSave?.();
-    await waitFor(() => expect(checkboxes[1]).not.toBeDisabled());
+    await waitFor(() => expect(checkboxes[1]).not.toHaveAttribute("aria-disabled"));
   });
 
   it("lets the storage layer decide whether a task toggle fits", async () => {

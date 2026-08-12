@@ -562,7 +562,8 @@ describe("GamePage", () => {
     await user.click(screen.getByRole("button", { name: "Удалить" }));
 
     const add = screen.getByRole("button", { name: "Добавить элемент прогресса" });
-    expect(deleteFrameAddStates).toContain(true);
+    expect(deleteFrameAddStates.length).toBeGreaterThan(0);
+    expect(deleteFrameAddStates).not.toContain(true);
     expect(add).toBeEnabled();
     expect(add).toHaveFocus();
   });
