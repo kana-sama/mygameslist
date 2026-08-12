@@ -2,12 +2,18 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hasMarkdownTasks, insertMarkdownOpenChecklistItem, MarkdownView, setMarkdownTaskChecked, setMarkdownTaskItemText } from "../src/components/Markdown";
+import { parseMarkdownBlocks } from "../src/domain/markdownChecklist";
 import type { Game, Note } from "../src/domain/types";
 import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
 
 vi.mock("../src/components/MonacoMarkdownEditor", async () => (
   import("./mocks/MonacoMarkdownEditorMock")
 ));
+
+vi.mock("../src/domain/markdownChecklist", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/domain/markdownChecklist")>();
+  return { ...actual, parseMarkdownBlocks: vi.fn(actual.parseMarkdownBlocks) };
+});
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
@@ -780,17 +786,47 @@ describe("Markdown tasks", () => {
     expect(onSave.mock.calls[0][0].notes[0].collapsedChecklistSections).toEqual(note.collapsedChecklistSections);
   });
 
-  it("keeps the controlled checkbox unchanged when saving fails", async () => {
+  it("rolls the optimistic task checkbox back when saving fails", async () => {
     const user = userEvent.setup();
-    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>().mockRejectedValue(new Error("Storage failed"));
+    let failSave: ((reason: Error) => void) | undefined;
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>(() => new Promise((_resolve, reject) => { failSave = reject; }));
 
     render(<GamePage assets={{}} game={game} mode="game" notes={[makeNote("- [ ] Retry later")]} onSave={onSave} />);
 
     const checkbox = screen.getByRole("checkbox");
     await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+    failSave?.(new Error("Storage failed"));
     expect(await screen.findByRole("alert")).toHaveTextContent("Storage failed");
     expect(checkbox).not.toBeChecked();
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+  });
+
+  it("updates only the optimistic task note and preserves its sibling Markdown render", async () => {
+    const user = userEvent.setup();
+    let finishSave: (() => void) | undefined;
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>(() => new Promise((resolve) => { finishSave = resolve; }));
+    const first = makeNote("- [ ] First task");
+    const second = { ...makeNote("- [ ] Second task"), id: "33333333-3333-4333-8333-333333333333" };
+    const view = render(<GamePage assets={{}} game={game} mode="game" notes={[first, second]} onSave={onSave} />);
+    const firstCheckbox = screen.getByRole("checkbox", { name: "Отметить: First task" });
+    const secondCheckbox = screen.getByRole("checkbox", { name: "Отметить: Second task" });
+    const secondMarkdown = secondCheckbox.closest(".markdown");
+    vi.mocked(parseMarkdownBlocks).mockClear();
+
+    await user.click(firstCheckbox);
+
+    expect(firstCheckbox).toBeChecked();
+    expect(firstCheckbox).toBeDisabled();
+    expect(secondCheckbox).not.toBeDisabled();
+    expect(secondCheckbox.closest(".markdown")).toBe(secondMarkdown);
+    expect(onSave.mock.calls[0][0].notes.map((note) => note.clientId)).toEqual([first.id, second.id]);
+    expect(parseMarkdownBlocks).toHaveBeenCalledTimes(1);
+
+    finishSave?.();
+    view.rerender(<GamePage assets={{}} game={game} mode="game" notes={[{ ...first, bodyMarkdown: "- [x] First task" }, second]} onSave={onSave} />);
+    await waitFor(() => expect(firstCheckbox).not.toBeDisabled());
+    expect(secondCheckbox.closest(".markdown")).toBe(secondMarkdown);
   });
 
   it("does not start concurrent saves from rapid task clicks", async () => {

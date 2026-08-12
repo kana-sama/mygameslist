@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useMemo, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { MarkdownDecoration } from "../domain/markdownDiff";
 import {
   getChecklistProgress,
@@ -396,7 +396,7 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-export function MarkdownView({ markdown, className = "", collapsedChecklistSections = [], decorations, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
+function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], decorations, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
@@ -785,4 +785,43 @@ export function MarkdownView({ markdown, className = "", collapsedChecklistSecti
   flushSection();
 
   return <div className={`markdown ${className}`}>{content}</div>;
+}
+
+function sameStrings(left: readonly string[] | undefined, right: readonly string[] | undefined): boolean {
+  return left === right || Boolean(left && right && left.length === right.length && left.every((value, index) => value === right[index]));
+}
+
+const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => (
+  previous.markdown === next.markdown
+  && previous.className === next.className
+  && previous.emptyText === next.emptyText
+  && sameStrings(previous.collapsedChecklistSections, next.collapsedChecklistSections)
+  && previous.decorations === next.decorations
+  && previous.inlineChanges === next.inlineChanges
+  && previous.rowChanges === next.rowChanges
+  && previous.taskChanges === next.taskChanges
+  && previous.taskChangesDisabled === next.taskChangesDisabled
+  && previous.onTaskChange === next.onTaskChange
+  && previous.onCollapsedChecklistSectionsChange === next.onCollapsedChecklistSectionsChange
+));
+
+export function MarkdownView({ onTaskChange, onCollapsedChecklistSectionsChange, ...renderProps }: MarkdownViewProps) {
+  const taskChangeRef = useRef(onTaskChange);
+  const collapsedSectionsChangeRef = useRef(onCollapsedChecklistSectionsChange);
+  taskChangeRef.current = onTaskChange;
+  collapsedSectionsChangeRef.current = onCollapsedChecklistSectionsChange;
+  const stableTaskChange = useCallback((markdown: string) => {
+    taskChangeRef.current?.(markdown);
+  }, []);
+  const stableCollapsedSectionsChange = useCallback((sections: string[]) => {
+    collapsedSectionsChangeRef.current?.(sections);
+  }, []);
+
+  return (
+    <MemoizedMarkdownRenderBody
+      {...renderProps}
+      onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange ? stableCollapsedSectionsChange : undefined}
+      onTaskChange={onTaskChange ? stableTaskChange : undefined}
+    />
+  );
 }
