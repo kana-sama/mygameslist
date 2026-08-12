@@ -4,17 +4,19 @@ groupRank: 2048
 rank: 3072
 doubleHeight: true
 collapsedChecklistSections:
+  - "group:1hvh87y-22"
+  - "group:1le00f0-26"
+  - "group:1lh12x2-2q"
   - "heading:12a39n2-19"
-  - "heading:1e7grcw-19"
+  - "heading:14ewmv5-19"
   - "heading:1kyaobx-19"
   - "heading:1ufv46v-19"
   - "heading:1uqusto-19"
   - "heading:ax1qo3-1a"
-  - "heading:edy5jf-19"
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T02:32:49.258Z"
+updatedAt: "2026-08-12T21:01:16.448Z"
 -->
 # Quests
 
@@ -28,9 +30,9 @@ updatedAt: "2026-08-12T02:32:49.258Z"
 
   - Normal Quests
 
-    - [ ] Cargo Escort — Ysolde · Central Exchange
-    - [ ] Hide and Seek — Aft · Bower Lounge
-    - [ ] Better Late Than Never — Gegebi · Bower Lounge
+    - [x] Cargo Escort — Ysolde · Central Exchange
+    - [x] Hide and Seek — Aft · Bower Lounge
+    - [x] Better Late Than Never — Gegebi · Bower Lounge
 
 ## Chapter 2
 
@@ -38,18 +40,18 @@ updatedAt: "2026-08-12T02:32:49.258Z"
 
   - Main Quests
 
-    - [ ] The Race to Find Nia — Tora's House; требования: "Lady Mòrag and Dughall" cutscene.
-    - [ ] Artificial Blade Parts 1 — Torigoth Market; требования: "An Ironclad Plan" cutscene.
-    - [ ] Artificial Blade Parts 2 — Torigoth Market; требования: "An Ironclad Plan" cutscene.
+    - [x] The Race to Find Nia — Tora's House; требования: "Lady Mòrag and Dughall" cutscene.
+    - [x] Artificial Blade Parts 1 — Torigoth Market; требования: "An Ironclad Plan" cutscene.
+    - [x] Artificial Blade Parts 2 — Torigoth Market; требования: "An Ironclad Plan" cutscene.
 
   - Normal Quests
 
-    - [ ] Concerned Carpenter — Siorge · Torigoth Market
-    - [ ] Paying It Forward — Bowery · Torigoth Market
+    - [x] Concerned Carpenter — Siorge · Torigoth Market
+    - [x] Paying It Forward — Bowery · Torigoth Market
     - [ ] Buoy Can't Swim — Sulya · Coolley Lake
     - [ ] Crane Criminals — Pettle · Saets Lumber Co.; требования: Part of "The Case of the Crane".
-    - [ ] Fresh and Fruity — Twaina · Grodd Residential Zone
-    - [ ] Knocked About Nopon — Tunini · Plains of Evening Calm
+    - [x] Fresh and Fruity — Twaina · Grodd Residential Zone
+    - [x] Knocked About Nopon — Tunini · Plains of Evening Calm
     - [ ] Repair Torigoth's Crane — Natheus · Saets Lumber Co.; требования: Part of "The Case of the Crane".
     - [ ] The Case of the Crane — Eyvan · Saets Lumber Co.
 

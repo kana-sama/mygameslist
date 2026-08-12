@@ -1,13 +1,14 @@
 <!-- mygameslist-note:v1
 id: "a56dba92-6c2b-4e2a-9c27-e6cb84e3afd8"
-rank: 12288
 groupRank: 2048
+rank: 12288
+doubleHeight: true
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T00:33:42.000Z"
+updatedAt: "2026-08-12T06:43:58.269Z"
 -->
 # Brothersisterpons
 
-- [ ] Kawawa — Gormott Province · Upper Level - Right · Plains of Evening Calm · Chapter 2 onward; Ищите на выступе у края равнины, недалеко от Torigoth Arch Travel Point.
+- [x] Kawawa — Gormott Province · Upper Level - Right · Plains of Evening Calm · Chapter 2 onward; Ищите на выступе у края равнины, недалеко от Torigoth Arch Travel Point.
 - [ ] Monono — Gormott Province · Titan Battleship · Starboard Balcony · Chapter 3 onward; Ищите в северо-восточном углу балкона; доступ зависит от сюжета.
 - [ ] Tanini — Kingdom of Uraya · Stomach · Crown of Sanctuary · Chapter 3 onward; Ищите за кораллами у обрыва.
 - [ ] Yamama — Empire of Mor Ardain · Upper Level · Old Pipe Junction Corridor · Chapter 4 onward; От Ruined Laborers' Bridge войдите в здание на нижнем уровне.
