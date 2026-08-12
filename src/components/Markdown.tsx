@@ -622,6 +622,13 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     const table = block.table;
     if (!table) return null;
     const alignmentClass = (index: number) => table.alignments[index] ? `markdown-table-cell--${table.alignments[index]}` : undefined;
+    const rows = table.sections.flatMap((section) => section.rows);
+    const completedColumns = table.headers.map((_header, cellIndex) => {
+      const taskCells = rows
+        .map((row) => row.cells[cellIndex])
+        .filter((cell) => cell?.taskChecked !== undefined);
+      return taskCells.length > 0 && taskCells.every((cell) => cell.taskChecked);
+    });
 
     const renderTableRow = (row: MarkdownTableRow, rowIndex: number, rowKey: string): ReactNode => {
       const progress = getTableRowProgress(row);
@@ -633,14 +640,14 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           {row.cells.map((cell, cellIndex) => {
             const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
             if (cell.taskChecked === undefined) {
-              return <td className={alignmentClass(cellIndex)} key={cellKey}>{locatedInline(cell.value, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
+              return <td className={alignmentClass(cellIndex)} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>{locatedInline(cell.value, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
             }
             const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
             const cellLabel = markdownLabel(cell.value);
             const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
             const taskChange = taskChangeAt(row.sourceLine, cell.taskSourceColumn);
             return (
-              <td className={alignmentClass(cellIndex)} key={cellKey}>
+              <td className={alignmentClass(cellIndex)} data-checklist-checked={cell.taskChecked || undefined} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>
                 <div className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}`}>
                   {taskChange ? <TaskDiffControl change={taskChange} /> : (
                     <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
@@ -679,7 +686,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           <thead>
             <tr {...diffVisualAttributes(table.headers[0]?.sourceLine, table.headers.map((header) => header.value).join(" | "))}>
               {table.headers.map((cell, cellIndex) => (
-                <th key={`${key}-header-${cellIndex}`} scope="col">
+                <th data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={`${key}-header-${cellIndex}`} scope="col">
                   {locatedInline(cell.value, `${key}-header-${cellIndex}`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}
                 </th>
               ))}

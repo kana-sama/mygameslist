@@ -416,6 +416,31 @@ describe("Markdown tasks", () => {
     }
   });
 
+  it("renders green backgrounds for checked cells, completed rows, and completed columns", () => {
+    const markdown = [
+      "| Stage | Main | Secret |",
+      "| --- | --- | --- |",
+      "| Start | [x] | [x] |",
+      "| Finish | [x] | [ ] |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const startRow = screen.getByText("Start").closest("tr")!;
+    const finishRow = screen.getByText("Finish").closest("tr")!;
+    const mainHeader = screen.getByRole("columnheader", { name: "Main" });
+    const secretHeader = screen.getByRole("columnheader", { name: "Secret" });
+
+    expect(startRow).toHaveClass("markdown-table-row--complete");
+    expect(finishRow).not.toHaveClass("markdown-table-row--complete");
+    expect(startRow.querySelectorAll('[data-checklist-checked="true"]')).toHaveLength(2);
+    expect(finishRow.querySelectorAll('[data-checklist-checked="true"]')).toHaveLength(1);
+    expect(mainHeader).toHaveAttribute("data-checklist-column-complete", "true");
+    expect(secretHeader).not.toHaveAttribute("data-checklist-column-complete");
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Start — Main" }).closest("td")).toHaveAttribute("data-checklist-column-complete", "true");
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Finish — Main" }).closest("td")).toHaveAttribute("data-checklist-column-complete", "true");
+  });
+
   it("aggregates every checklist in a heading section without crossing sibling boundaries", () => {
     const markdown = [
       "- [x] Unscoped task",

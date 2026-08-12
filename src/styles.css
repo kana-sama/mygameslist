@@ -21,6 +21,7 @@
   --danger: #d8767e;
   --warning: #c8a260;
   --success: #6fa686;
+  --success-wash: rgba(111, 166, 134, .16);
   --radius: 6px;
   --shadow: 0 10px 30px rgba(0, 0, 0, .32);
   --note-text-height: 300px;
@@ -396,6 +397,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-table-cell--center > .markdown-table-task { justify-content: center; }
 .markdown-table-cell--right > .markdown-table-task { justify-content: flex-end; }
 .markdown-table-task--only { justify-content: center; }
+.markdown-table td[data-checklist-checked="true"], .markdown-table th[data-checklist-column-complete="true"], .markdown-table td[data-checklist-column-complete="true"], .markdown-table-row--complete > td { background: var(--success-wash); }
 .markdown-table-row--complete > td { color: var(--success); }
 .markdown-table-row--complete > td a, .markdown-table-row--complete > td code { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
