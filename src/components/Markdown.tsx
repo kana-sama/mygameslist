@@ -33,6 +33,34 @@ interface MarkdownInlineLocation {
   sourceLine: number;
 }
 
+function MarkdownSpoiler({ children }: { children: ReactNode }) {
+  const [revealed, setRevealed] = useState(false);
+  const reveal = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    setRevealed(true);
+  };
+
+  if (revealed) return <span className="markdown-spoiler" data-revealed="true">{children}</span>;
+
+  return (
+    <span
+      aria-label="Показать спойлер"
+      className="markdown-spoiler"
+      data-revealed="false"
+      onClick={reveal}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        reveal(event);
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      {children}
+    </span>
+  );
+}
+
 function decorationAt(
   location: MarkdownInlineLocation,
   startColumn: number,
@@ -158,7 +186,13 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     if (match.index > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, match.index), keyPrefix, cursor, location));
     const raw = match[0];
     const key = `${keyPrefix}-${match.index}`;
-    if (raw.startsWith("`")) {
+    if (raw.startsWith("||")) {
+      nodes.push(
+        <MarkdownSpoiler key={key}>
+          {renderInline(raw.slice(2, -2), `${key}-spoiler`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined)}
+        </MarkdownSpoiler>,
+      );
+    } else if (raw.startsWith("`")) {
       nodes.push(<code key={key}>{renderDecoratedText(raw.slice(1, -1), key, match.index + 1, location)}</code>);
     } else if (raw.startsWith("[")) {
       const linkMatch = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);

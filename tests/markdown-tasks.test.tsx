@@ -59,6 +59,48 @@ afterEach(() => {
 });
 
 describe("Markdown tasks", () => {
+  it("reveals spoiler segments independently", async () => {
+    const user = userEvent.setup();
+    const markdown = "Before ||secret **detail**|| after and ||second||";
+    const view = render(<MarkdownView markdown={markdown} />);
+
+    const spoilers = screen.getAllByRole("button", { name: "Показать спойлер" });
+    expect(spoilers).toHaveLength(2);
+    expect(spoilers[0]).toHaveAttribute("data-revealed", "false");
+    expect(spoilers[1]).toHaveAttribute("data-revealed", "false");
+
+    await user.click(spoilers[0]);
+
+    const revealed = view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]");
+    expect(revealed).toHaveClass("markdown-spoiler");
+    expect(revealed?.querySelector("strong")).toHaveTextContent("detail");
+    expect(screen.queryByRole("button", { name: "Показать спойлер" })).toBe(spoilers[1]);
+    expect(spoilers[1]).toHaveAttribute("data-revealed", "false");
+
+    view.unmount();
+    render(<MarkdownView markdown={markdown} />);
+    expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(2);
+
+    const keyboardSpoiler = screen.getAllByRole("button", { name: "Показать спойлер" })[0];
+    keyboardSpoiler.focus();
+    await user.keyboard("{Enter}");
+    expect(keyboardSpoiler).toHaveAttribute("data-revealed", "true");
+  });
+
+  it("renders a table spoiler without adding a column", () => {
+    const markdown = [
+      "| Stage | Note |",
+      "| --- | --- |",
+      "| Start | ||secret|| |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
+  });
+
   it("renders GFM-style tasks alongside ordinary list items and ignores lookalikes", async () => {
     const user = userEvent.setup();
     const onTaskChange = vi.fn();

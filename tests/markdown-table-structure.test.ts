@@ -35,6 +35,19 @@ describe("Markdown table structure", () => {
       .toEqual([[0, 1, 2], [0, 1, 2], [0, 1, 2]]);
   });
 
+  it("keeps paired spoiler pipes inside one table cell", () => {
+    const lines = [
+      "| Stage | Note |",
+      "| --- | --- |",
+      "| Start | ||secret|| |",
+    ];
+    const table = parseMarkdownTableAtLine(lines, 2);
+
+    expect(table?.lines).toHaveLength(3);
+    expect(table?.lines[2].syntax.cells).toHaveLength(2);
+    expect(table?.lines[2].syntax.cells[1].value).toBe("||secret||");
+  });
+
   it.each([
     [["text | value"]],
     [["| header | only |"]],

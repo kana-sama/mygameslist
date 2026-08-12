@@ -401,6 +401,9 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-table-row--complete > td { color: var(--success); }
 .markdown-table-row--complete > td a, .markdown-table-row--complete > td code { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.markdown-spoiler { border: 0; background: transparent; color: inherit; font: inherit; }
+.markdown-spoiler[data-revealed="false"] { filter: blur(.25em); user-select: none; cursor: pointer; }
+.markdown-spoiler[data-revealed="true"] { filter: none; }
 .markdown code { padding: 1px 3px; border-radius: 3px; color: #cbd9e3; background: #252a2f; }
 .markdown pre { padding: 8px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--field); }
 .markdown pre code { padding: 0; background: none; }
