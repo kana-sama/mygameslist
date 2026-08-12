@@ -101,6 +101,68 @@ describe("Markdown tasks", () => {
     expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
   });
 
+  it("checkbox-bound spoilers reveal only while matching list tasks are checked", async () => {
+    const user = userEvent.setup();
+    let markdown = "- [ ] ||hidden list||";
+    let view: ReturnType<typeof render>;
+    const onTaskChange = vi.fn((nextMarkdown: string) => {
+      markdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+    });
+    view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: ||hidden list||" }));
+    expect(onTaskChange).toHaveBeenCalledWith("- [x] ||hidden list||");
+    expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Показать спойлер" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: ||hidden list||" }));
+    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
+
+    await user.click(screen.getByRole("button", { name: "Показать спойлер" }));
+    expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
+
+    view.unmount();
+    render(<MarkdownView markdown="- [x] ||already done||" />);
+    expect(screen.queryByRole("button", { name: "Показать спойлер" })).not.toBeInTheDocument();
+    expect(document.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
+
+    cleanup();
+    render(<MarkdownView markdown="- [x] Prefix ||ordinary||" />);
+    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
+  });
+
+  it("checkbox-bound spoilers reveal only while matching table tasks are checked", async () => {
+    const user = userEvent.setup();
+    let markdown = [
+      "| Stage | Secret |",
+      "| --- | --- |",
+      "| Start | [ ] ||hidden table|| |",
+      "| Finish | [x] ||already done table|| |",
+    ].join("\n");
+    let view: ReturnType<typeof render>;
+    const onTaskChange = vi.fn((nextMarkdown: string) => {
+      markdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+    });
+    view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(1);
+    expect(view.container.querySelectorAll(".markdown-spoiler[data-revealed=\"true\"]")).toHaveLength(1);
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: ||hidden table||" }));
+    expect(onTaskChange).toHaveBeenCalledWith([
+      "| Stage | Secret |",
+      "| --- | --- |",
+      "| Start | [x] ||hidden table|| |",
+      "| Finish | [x] ||already done table|| |",
+    ].join("\n"));
+    expect(view.container.querySelectorAll(".markdown-spoiler[data-revealed=\"true\"]")).toHaveLength(2);
+
+    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: ||hidden table||" }));
+    expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(1);
+  });
+
   it("renders GFM-style tasks alongside ordinary list items and ignores lookalikes", async () => {
     const user = userEvent.setup();
     const onTaskChange = vi.fn();

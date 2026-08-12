@@ -21,7 +21,7 @@ import type {
   RenderedRowChange,
   RenderedTaskChange,
 } from "./markdownDiffRenderModel";
-import { markdownInlineTokenPattern } from "./markdownInlineSyntax";
+import { markdownInlineTokenPattern, markdownIsSingleSpoiler } from "./markdownInlineSyntax";
 
 export { hasMarkdownTasks } from "../domain/markdownChecklist";
 
@@ -33,14 +33,14 @@ interface MarkdownInlineLocation {
   sourceLine: number;
 }
 
-function MarkdownSpoiler({ children }: { children: ReactNode }) {
+function MarkdownSpoiler({ children, forceRevealed = false }: { children: ReactNode; forceRevealed?: boolean }) {
   const [revealed, setRevealed] = useState(false);
   const reveal = (event: { stopPropagation: () => void }) => {
     event.stopPropagation();
     setRevealed(true);
   };
 
-  if (revealed) return <span className="markdown-spoiler" data-revealed="true">{children}</span>;
+  if (revealed || forceRevealed) return <span className="markdown-spoiler" data-revealed="true">{children}</span>;
 
   return (
     <span
@@ -176,7 +176,7 @@ function renderDecoratedText(
   return nodes;
 }
 
-function renderInline(source: string, keyPrefix = "inline", location?: MarkdownInlineLocation): ReactNode[] {
+function renderInline(source: string, keyPrefix = "inline", location?: MarkdownInlineLocation, forceRevealSpoilers = false): ReactNode[] {
   const nodes: ReactNode[] = [];
   const token = markdownInlineTokenPattern();
   let cursor = 0;
@@ -188,8 +188,8 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     const key = `${keyPrefix}-${match.index}`;
     if (raw.startsWith("||")) {
       nodes.push(
-        <MarkdownSpoiler key={key}>
-          {renderInline(raw.slice(2, -2), `${key}-spoiler`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined)}
+        <MarkdownSpoiler forceRevealed={forceRevealSpoilers} key={key}>
+          {renderInline(raw.slice(2, -2), `${key}-spoiler`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined, forceRevealSpoilers)}
         </MarkdownSpoiler>,
       );
     } else if (raw.startsWith("`")) {
@@ -207,16 +207,16 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
             target={isExternal ? "_blank" : undefined}
             title={linkMatch[3] || undefined}
           >
-            {renderInline(linkMatch[1], `${key}-label`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined)}
+            {renderInline(linkMatch[1], `${key}-label`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined, forceRevealSpoilers)}
           </a>,
         );
       } else {
         nodes.push(...renderDecoratedText(raw, key, match.index, location));
       }
     } else if (raw.startsWith("**") || raw.startsWith("__")) {
-      nodes.push(<strong key={key}>{renderInline(raw.slice(2, -2), `${key}-strong`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined)}</strong>);
+      nodes.push(<strong key={key}>{renderInline(raw.slice(2, -2), `${key}-strong`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined, forceRevealSpoilers)}</strong>);
     } else {
-      nodes.push(<em key={key}>{renderInline(raw.slice(1, -1), `${key}-em`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined)}</em>);
+      nodes.push(<em key={key}>{renderInline(raw.slice(1, -1), `${key}-em`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined, forceRevealSpoilers)}</em>);
     }
     cursor = match.index + raw.length;
   }
@@ -455,7 +455,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       "data-testid": "diff-visual-row",
     };
   };
-  const locatedInline = (value: string, key: string, location?: MarkdownTextLocation): ReactNode[] =>
+  const locatedInline = (value: string, key: string, location?: MarkdownTextLocation, forceRevealSpoilers = false): ReactNode[] =>
     renderInline(
       value,
       key,
@@ -465,9 +465,10 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
         renderedInlineChangeIds: new Set(),
         ...location,
       } : undefined,
+      forceRevealSpoilers,
     );
-  const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = []): ReactNode => {
-    if (!decorations && !inlineChanges.length) return renderInline(value, key);
+  const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = [], forceRevealSpoilers = false): ReactNode => {
+    if (!decorations && !inlineChanges.length) return renderInline(value, key, undefined, forceRevealSpoilers);
     const lines = value.split("\n");
     return lines.map((line, index) => (
       <Fragment key={`${key}-line-${index}`}>
@@ -475,7 +476,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           className="markdown-diff-rendered-line"
           {...diffVisualAttributes(locations[index]?.sourceLine, line)}
         >
-          {locatedInline(line, `${key}-line-${index}`, locations[index])}
+          {locatedInline(line, `${key}-line-${index}`, locations[index], forceRevealSpoilers)}
         </span>
         {index < lines.length - 1 ? <br /> : null}
       </Fragment>
@@ -627,7 +628,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                         if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
                       }}
                     />
-                  ) : locatedLines(item.value, itemKey, item.sourceLocations)}
+                  ) : locatedLines(item.value, itemKey, item.sourceLocations, Boolean(item.taskChecked && markdownIsSingleSpoiler(item.value)))}
                 </span>
                 {taskTextEditingAvailable && !editing ? (
                   <button
@@ -705,7 +706,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                       />
                     </label>
                   )}
-                  {cell.value ? <span>{locatedInline(cell.value, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</span> : null}
+                  {cell.value ? <span>{locatedInline(cell.value, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, Boolean(cell.taskChecked && markdownIsSingleSpoiler(cell.value)))}</span> : null}
                 </div>
               </td>
             );

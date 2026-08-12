@@ -9,6 +9,10 @@ export function markdownInlineTokenPattern(): RegExp {
   return new RegExp(INLINE_TOKEN_SOURCE, "g");
 }
 
+export function markdownIsSingleSpoiler(source: string): boolean {
+  return /^\|\|[^|\n]+\|\|$/.test(source.trim());
+}
+
 function collectVisibleRanges(source: string, offset: number, ranges: MarkdownSourceRange[]): void {
   const token = markdownInlineTokenPattern();
   let cursor = 0;
