@@ -10,427 +10,441 @@ updatedAt: "2026-08-12T00:33:42.000Z"
 
 ## Argentum Trade Guild
 
-### Honeycomb Sweets
+- Goldmouth
 
-- [ ] Melodious Melon Parfait
-- [ ] Cinnopon Roll
-- [ ] Sparklesugar
-- [ ] Narcipear Jelly
-- [ ] Fruity Rice Ball — открывается после Merc Mission `Long-Awaited Work`.
+  - Honeycomb Sweets
 
-### Reedirait Bookstore
+    - [ ] Melodious Melon Parfait
+    - [ ] Cinnopon Roll
+    - [ ] Sparklesugar
+    - [ ] Narcipear Jelly
+    - [ ] Fruity Rice Ball — открывается после Merc Mission `Long-Awaited Work`.
 
-- [ ] Salvaging Made Easy
-- [ ] Yumyum's Golden Gun
-- [ ] The Millenarian Titan
-- [ ] Adventures of Myram — открывается после Merc Mission `Long-Awaited Work`.
-- [ ] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
-- [ ] Tome of Morytha #2 — открывается после Heart-to-Heart `Walking Encyclopedia`.
+  - Reedirait Bookstore
 
-### Fishy Fishy
+    - [ ] Salvaging Made Easy
+    - [ ] Yumyum's Golden Gun
+    - [ ] The Millenarian Titan
+    - [ ] Adventures of Myram — открывается после Merc Mission `Long-Awaited Work`.
+    - [ ] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
+    - [ ] Tome of Morytha #2 — открывается после Heart-to-Heart `Walking Encyclopedia`.
 
-- [ ] Grilled Anchortail
-- [ ] Oyster Stir-Fry
-- [ ] Marine Stir-Fry
+  - Fishy Fishy
 
-### Nopox Hobby Store
+    - [ ] Grilled Anchortail
+    - [ ] Oyster Stir-Fry
+    - [ ] Marine Stir-Fry
 
-- [ ] Clattertongue
-- [ ] Nopon Chess Set
-- [ ] Sneak-Thief King
-- [ ] Tradeway 66
-- [ ] Coral Nopon Chess Set — открывается после Merc Mission `Cooking Display`.
-- [ ] Leftherian Life — открывается после Merc Mission `First Class Freshness!`.
+  - Nopox Hobby Store
 
-### Strummer Instruments
+    - [ ] Clattertongue
+    - [ ] Nopon Chess Set
+    - [ ] Sneak-Thief King
+    - [ ] Tradeway 66
+    - [ ] Coral Nopon Chess Set — открывается после Merc Mission `Cooking Display`.
+    - [ ] Leftherian Life — открывается после Merc Mission `First Class Freshness!`.
 
-- [ ] Roly-Poly Maracas
-- [ ] Nopolele
-- [ ] Funky Conga
-- [ ] Whispercorder
-- [ ] Casta-Mutes — открывается после Merc Mission `New Sounds`.
-- [ ] Clicky-Clacks — открывается после Merc Mission `Old Routes`.
+  - Strummer Instruments
 
-### Cleo's Cosmetics
+    - [ ] Roly-Poly Maracas
+    - [ ] Nopolele
+    - [ ] Funky Conga
+    - [ ] Whispercorder
+    - [ ] Casta-Mutes — открывается после Merc Mission `New Sounds`.
+    - [ ] Clicky-Clacks — открывается после Merc Mission `Old Routes`.
 
-- [ ] Eau de Doux
-- [ ] Elastifying Tonic
-- [ ] Freshening Gel
-- [ ] Curled Eyelashes
-- [ ] Bubbly Mani-Pedi Kit
-- [ ] Full Moon Eyeliner — открывается после Merc Mission `First Class Freshness!`.
+  - Cleo's Cosmetics
 
-### Rumbletum Canteen
+    - [ ] Eau de Doux
+    - [ ] Elastifying Tonic
+    - [ ] Freshening Gel
+    - [ ] Curled Eyelashes
+    - [ ] Bubbly Mani-Pedi Kit
+    - [ ] Full Moon Eyeliner — открывается после Merc Mission `First Class Freshness!`.
 
-- [ ] Juicy Samod
-- [ ] Lightly Fried Rice
-- [ ] Massive Mushroom Pie
-- [ ] Bright Samod — открывается после Merc Mission `Cooking Display`.
-- [ ] Tasty Kordeth Samod — открывается после Merc Mission `Old Routes`.
+  - Rumbletum Canteen
 
-### 12 Brothersisterpon
+    - [ ] Juicy Samod
+    - [ ] Lightly Fried Rice
+    - [ ] Massive Mushroom Pie
+    - [ ] Bright Samod — открывается после Merc Mission `Cooking Display`.
+    - [ ] Tasty Kordeth Samod — открывается после Merc Mission `Old Routes`.
 
-- [ ] Twinklejuice
-- [ ] Fizz Juice
-- [ ] Chunky Juice
-- [ ] Sappan Veg Juice — открывается после нахождения всех Brothersisterpons.
-- [ ] Honey au Lait — открывается после нахождения всех Brothersisterpons.
-- [ ] Crispy Blendshake — открывается после нахождения всех Brothersisterpons.
+  - 12 Brothersisterpon
+
+    - [ ] Twinklejuice
+    - [ ] Fizz Juice
+    - [ ] Chunky Juice
+    - [ ] Sappan Veg Juice — открывается после нахождения всех Brothersisterpons.
+    - [ ] Honey au Lait — открывается после нахождения всех Brothersisterpons.
+    - [ ] Crispy Blendshake — открывается после нахождения всех Brothersisterpons.
 
 ## Gormott Province
 
-### Llysiau Greens
+- Torigoth
 
-- [ ] Crispy Sauté
-- [ ] Torigoth Marinade
-- [ ] Stuffed Meaty Carrot
-- [ ] Puri Leaf Salad — открывается после начала Quest `Paying It Forward`.
+  - Llysiau Greens
 
-### Soniarus Music
+    - [ ] Crispy Sauté
+    - [ ] Torigoth Marinade
+    - [ ] Stuffed Meaty Carrot
+    - [ ] Puri Leaf Salad — открывается после начала Quest `Paying It Forward`.
 
-- [ ] Torigonda
-- [ ] Woodgrain Alphorn
-- [ ] Cedarwood Koto
-- [ ] Woodboard — открывается после Merc Mission `Raddon Family`.
-- [ ] Coralline Marimba — открывается после Merc Mission `The Water City`.
+  - Soniarus Music
 
-### Tomi Fishmongers
+    - [ ] Torigonda
+    - [ ] Woodgrain Alphorn
+    - [ ] Cedarwood Koto
+    - [ ] Woodboard — открывается после Merc Mission `Raddon Family`.
+    - [ ] Coralline Marimba — открывается после Merc Mission `The Water City`.
 
-- [ ] Gormotti Fish Flakes
-- [ ] Grass-Smoked Salmon
-- [ ] Bipedal Crab Chili — открывается после Merc Mission `The Water City`.
+  - Tomi Fishmongers
 
-### Café Savvy
+    - [ ] Gormotti Fish Flakes
+    - [ ] Grass-Smoked Salmon
+    - [ ] Bipedal Crab Chili — открывается после Merc Mission `The Water City`.
 
-- [ ] Lunana Smoothie
-- [ ] Gormotti Honeytea
-- [ ] Kukurel Springwater
-- [ ] Passion Fruit Shake — открывается после Merc Mission `Raddon Family`.
-- [ ] Victory Smoothie — открывается после Merc Mission `The Water City`.
+  - Café Savvy
 
-### Cmalaf Artwork
+    - [ ] Lunana Smoothie
+    - [ ] Gormotti Honeytea
+    - [ ] Kukurel Springwater
+    - [ ] Passion Fruit Shake — открывается после Merc Mission `Raddon Family`.
+    - [ ] Victory Smoothie — открывается после Merc Mission `The Water City`.
 
-- [ ] The Girl on the Hill
-- [ ] Black Flower Field
-- [ ] Woodcut Print of Bana — открывается после Merc Mission `Turf War Protection`.
-- [ ] Wood-Carven Queen — открывается после Merc Mission `The Water City`.
+  - Cmalaf Artwork
 
-### Tilly Bakery
+    - [ ] The Girl on the Hill
+    - [ ] Black Flower Field
+    - [ ] Woodcut Print of Bana — открывается после Merc Mission `Turf War Protection`.
+    - [ ] Wood-Carven Queen — открывается после Merc Mission `The Water City`.
 
-- [ ] Ruska Dumplings
-- [ ] Ruska Noodle Goulash
-- [ ] Deluxe Ham Toastie
-- [ ] Beat Paste Paratha
-- [ ] Cream Orange Paratha
-- [ ] Ruska Noodle Soup — открывается после Merc Mission `Turf War Protection`.
-- [ ] Lucky Dawn Bread — открывается после начала Blade Quest `Our Daily Bread`; продаётся с 05:00 до 06:59.
+  - Tilly Bakery
 
-### Gryff Butchers
+    - [ ] Ruska Dumplings
+    - [ ] Ruska Noodle Goulash
+    - [ ] Deluxe Ham Toastie
+    - [ ] Beat Paste Paratha
+    - [ ] Cream Orange Paratha
+    - [ ] Ruska Noodle Soup — открывается после Merc Mission `Turf War Protection`.
+    - [ ] Lucky Dawn Bread — открывается после начала Blade Quest `Our Daily Bread`; продаётся с 05:00 до 06:59.
 
-- [ ] Estral Steak
-- [ ] Tasty Sausage
-- [ ] Mince & Lentil Stir-Fry — открывается после Merc Mission `Raddon Family`.
-- [ ] Mustard Kordeth — открывается после Merc Mission `Farming Tech`.
+  - Gryff Butchers
 
-### Cosmetipolitan
+    - [ ] Estral Steak
+    - [ ] Tasty Sausage
+    - [ ] Mince & Lentil Stir-Fry — открывается после Merc Mission `Raddon Family`.
+    - [ ] Mustard Kordeth — открывается после Merc Mission `Farming Tech`.
 
-- [ ] Puffoundation
-- [ ] Treesap Conditioner
-- [ ] Flurrycomb
-- [ ] Conch Hairpin — открывается после Merc Mission `Renowned Goods`.
-- [ ] Sparkly Snow Perfume — открывается после Merc Mission `Farming Tech`.
+  - Cosmetipolitan
 
-### Neuromin Textiles
+    - [ ] Puffoundation
+    - [ ] Treesap Conditioner
+    - [ ] Flurrycomb
+    - [ ] Conch Hairpin — открывается после Merc Mission `Renowned Goods`.
+    - [ ] Sparkly Snow Perfume — открывается после Merc Mission `Farming Tech`.
 
-- [ ] Puzzletree Pouch
-- [ ] Torigoth-Weave Mat
-- [ ] Wood-Dye Waistcloth
-- [ ] Sun-Dappled Curtains
-- [ ] Leaf-Weave Cape — открывается после Merc Mission `Renowned Goods`.
-- [ ] Snowflake Scarf — открывается после Merc Mission `Farming Tech`.
+  - Neuromin Textiles
+
+    - [ ] Puzzletree Pouch
+    - [ ] Torigoth-Weave Mat
+    - [ ] Wood-Dye Waistcloth
+    - [ ] Sun-Dappled Curtains
+    - [ ] Leaf-Weave Cape — открывается после Merc Mission `Renowned Goods`.
+    - [ ] Snowflake Scarf — открывается после Merc Mission `Farming Tech`.
 
 ## Kingdom of Uraya
 
-### Fallone Crafts
+- Garfont Village
 
-- [ ] Sanar-Knit Headband
-- [ ] Armu-Skin Gladiator
-- [ ] Coralweave Towel
-- [ ] Dazzling Handkerchief
-- [ ] Gormotti Woodwing
-- [ ] Sanar-Knit Blanket
+  - Fallone Crafts
 
-### Vibrattio Instruments
+    - [ ] Sanar-Knit Headband
+    - [ ] Armu-Skin Gladiator
+    - [ ] Coralweave Towel
+    - [ ] Dazzling Handkerchief
+    - [ ] Gormotti Woodwing
+    - [ ] Sanar-Knit Blanket
 
-- [ ] Scarlet Shamisen
-- [ ] Fonsan Viola
-- [ ] Hero's Harp
-- [ ] Cloudsnail Arpeggione
-- [ ] Rumble Cello — открывается после Merc Mission `Latest Craze`.
+  - Vibrattio Instruments
 
-### Vargel Tavern
+    - [ ] Scarlet Shamisen
+    - [ ] Fonsan Viola
+    - [ ] Hero's Harp
+    - [ ] Cloudsnail Arpeggione
+    - [ ] Rumble Cello — открывается после Merc Mission `Latest Craze`.
 
-- [ ] Black Roast Coffee
-- [ ] Jenerossi Tea
-- [ ] Lentil Milkshake
-- [ ] Fizzi Lassi — открывается после Merc Mission `Fad Foods`.
+  - Vargel Tavern
 
-### Sadecott Groceries
+    - [ ] Black Roast Coffee
+    - [ ] Jenerossi Tea
+    - [ ] Lentil Milkshake
+    - [ ] Fizzi Lassi — открывается после Merc Mission `Fad Foods`.
 
-- [ ] Pomegranate Soup
-- [ ] Sour-Spark-on-a-Stick
-- [ ] Boiled Hustle Hyacinth — открывается после Merc Mission `Bumper Crop`.
-- [ ] Pickled Ice Cabbage — открывается после Merc Mission `Secret Route`.
+  - Sadecott Groceries
 
-### Hobby Knick-Knacks
+    - [ ] Pomegranate Soup
+    - [ ] Sour-Spark-on-a-Stick
+    - [ ] Boiled Hustle Hyacinth — открывается после Merc Mission `Bumper Crop`.
+    - [ ] Pickled Ice Cabbage — открывается после Merc Mission `Secret Route`.
 
-- [ ] Castle Poker
-- [ ] Gladiator Wrestling
-- [ ] Coral Reversi
-- [ ] Dual Line
-- [ ] Nopopo Yard
-- [ ] Coral Casino
+- Fonsa Myma
 
-### Aquaneze Cosmetics
+  - Hobby Knick-Knacks
 
-- [ ] Red Opal Lipstick
-- [ ] Titan-Oil Handcream
-- [ ] Golden Mascara
-- [ ] Gorgeous Blusher — открывается после Merc Mission `Latest Craze`.
-- [ ] Fonsett-Rouge Lipgloss — открывается после Merc Mission `Shipping Lanes Closed`.
+    - [ ] Castle Poker
+    - [ ] Gladiator Wrestling
+    - [ ] Coral Reversi
+    - [ ] Dual Line
+    - [ ] Nopopo Yard
+    - [ ] Coral Casino
 
-### Sprintsy Sweets
+  - Aquaneze Cosmetics
 
-- [ ] Rainbow Parfait
-- [ ] Blossom Custard
-- [ ] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
+    - [ ] Red Opal Lipstick
+    - [ ] Titan-Oil Handcream
+    - [ ] Golden Mascara
+    - [ ] Gorgeous Blusher — открывается после Merc Mission `Latest Craze`.
+    - [ ] Fonsett-Rouge Lipgloss — открывается после Merc Mission `Shipping Lanes Closed`.
 
-### Volty Butchers
+  - Sprintsy Sweets
 
-- [ ] Armu T-Bone Steak
-- [ ] Mixed Meat Platter
-- [ ] Hotplate Fry-Up — открывается после Merc Mission `Bumper Crop`.
-- [ ] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
+    - [ ] Rainbow Parfait
+    - [ ] Blossom Custard
+    - [ ] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
 
-### Maluria Antiques
+  - Volty Butchers
 
-- [ ] Patron King's Carving
-- [ ] Final Chorus
-- [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
-- [ ] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
+    - [ ] Armu T-Bone Steak
+    - [ ] Mixed Meat Platter
+    - [ ] Hotplate Fry-Up — открывается после Merc Mission `Bumper Crop`.
+    - [ ] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
 
-### Ikthus Fishmongers
+  - Maluria Antiques
 
-- [ ] Dried Sunfish
-- [ ] Bullybelly Carpaccio
-- [ ] Steamed Bluegill — открывается после Merc Mission `Fad Foods`.
-- [ ] Whitebait with Seeds — открывается после Merc Mission `Secret Route`.
+    - [ ] Patron King's Carving
+    - [ ] Final Chorus
+    - [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
+    - [ ] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
 
-### Aldomar Books
+  - Ikthus Fishmongers
 
-- [ ] The Alrestogony
-- [ ] The Legacy of Selosia
-- [ ] Masterpieces of Alrest — открывается после Merc Mission `Bumper Crop`.
-- [ ] Addam's Love and War — открывается после Merc Mission `Secret Route`.
+    - [ ] Dried Sunfish
+    - [ ] Bullybelly Carpaccio
+    - [ ] Steamed Bluegill — открывается после Merc Mission `Fad Foods`.
+    - [ ] Whitebait with Seeds — открывается после Merc Mission `Secret Route`.
 
-### Brad Flatforms
+  - Aldomar Books
 
-- [ ] Wrapped Glarna Bake
-- [ ] Three-Cheese Puran
-- [ ] Master's Curry
-- [ ] Glitterspud Puran — открывается после Merc Mission `Fad Foods`.
-- [ ] Hearty Kordeth Puran — открывается после Merc Mission `Secret Route`.
+    - [ ] The Alrestogony
+    - [ ] The Legacy of Selosia
+    - [ ] Masterpieces of Alrest — открывается после Merc Mission `Bumper Crop`.
+    - [ ] Addam's Love and War — открывается после Merc Mission `Secret Route`.
+
+  - Brad Flatforms
+
+    - [ ] Wrapped Glarna Bake
+    - [ ] Three-Cheese Puran
+    - [ ] Master's Curry
+    - [ ] Glitterspud Puran — открывается после Merc Mission `Fad Foods`.
+    - [ ] Hearty Kordeth Puran — открывается после Merc Mission `Secret Route`.
 
 ## Empire of Mor Ardain
 
-### Bassani Butchers
+- Alba Cavanich
 
-- [ ] Meat & Lentil Skewer
-- [ ] Herbal Tartare Kascha
-- [ ] Grumbird Casserole
-- [ ] Estral Quotelettas
-- [ ] Armu & Bean Stew
-- [ ] Quoteletta
+  - Bassani Butchers
 
-### Salter Sweets
+    - [ ] Meat & Lentil Skewer
+    - [ ] Herbal Tartare Kascha
+    - [ ] Grumbird Casserole
+    - [ ] Estral Quotelettas
+    - [ ] Armu & Bean Stew
+    - [ ] Quoteletta
 
-- [ ] Steamed Milk Brioche
-- [ ] Steamed-Gel Ice Cream
-- [ ] Sweet Lentil Bun
-- [ ] Sky-Jewel Tart
-- [ ] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
-- [ ] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
+  - Salter Sweets
 
-### Haskefell Books
+    - [ ] Steamed Milk Brioche
+    - [ ] Steamed-Gel Ice Cream
+    - [ ] Sweet Lentil Bun
+    - [ ] Sky-Jewel Tart
+    - [ ] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
+    - [ ] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
 
-- [ ] Ardainian Arms Album
-- [ ] Emperor Ephim's War
-- [ ] Imperial Secret Escapes
-- [ ] Les Awfuls
-- [ ] Love Beyond the Clouds
-- [ ] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
+  - Haskefell Books
 
-### Elgeschel Hobby Store
+    - [ ] Ardainian Arms Album
+    - [ ] Emperor Ephim's War
+    - [ ] Imperial Secret Escapes
+    - [ ] Les Awfuls
+    - [ ] Love Beyond the Clouds
+    - [ ] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
 
-- [ ] Army Field Manual
-- [ ] Chooby Tubes
-- [ ] Secret Trials
-- [ ] Dueling Kingdoms
-- [ ] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
-- [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
+  - Elgeschel Hobby Store
 
-### Yafush Antiques
+    - [ ] Army Field Manual
+    - [ ] Chooby Tubes
+    - [ ] Secret Trials
+    - [ ] Dueling Kingdoms
+    - [ ] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
+    - [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
 
-- [ ] Punk Doll
-- [ ] Copper Ephim Statue
-- [ ] Ardainian Bear Carving
-- [ ] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
-- [ ] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
+  - Yafush Antiques
 
-### Hanoon Fishmongers
+    - [ ] Punk Doll
+    - [ ] Copper Ephim Statue
+    - [ ] Ardainian Bear Carving
+    - [ ] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
+    - [ ] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
 
-- [ ] Grilled Salmon in Herbs
-- [ ] Cloud Sea Crab Sticks
-- [ ] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
-- [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
+  - Hanoon Fishmongers
 
-### Griogair's Greens
+    - [ ] Grilled Salmon in Herbs
+    - [ ] Cloud Sea Crab Sticks
+    - [ ] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
+    - [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
 
-- [ ] Dolphin Carrot Sliders
-- [ ] Campfire Skewers
-- [ ] Crispy Vegetable Salad — открывается после Merc Mission `Secret Spice`.
-- [ ] Steamflake Tabbouleh — открывается после Merc Mission `White and Cold`.
+  - Griogair's Greens
 
-### Adelno Music
+    - [ ] Dolphin Carrot Sliders
+    - [ ] Campfire Skewers
+    - [ ] Crispy Vegetable Salad — открывается после Merc Mission `Secret Spice`.
+    - [ ] Steamflake Tabbouleh — открывается после Merc Mission `White and Cold`.
 
-- [ ] Pipe Trumpet
-- [ ] Steamwork Organ
-- [ ] Army-Issue Violin
-- [ ] Hammerplate Snare
-- [ ] Tube Xylophone — открывается после Merc Mission `Secret Spice`.
-- [ ] Icicle Marimba — открывается после Merc Mission `White and Cold`.
+  - Adelno Music
+
+    - [ ] Pipe Trumpet
+    - [ ] Steamwork Organ
+    - [ ] Army-Issue Violin
+    - [ ] Hammerplate Snare
+    - [ ] Tube Xylophone — открывается после Merc Mission `Secret Spice`.
+    - [ ] Icicle Marimba — открывается после Merc Mission `White and Cold`.
 
 ## Leftherian Archipelago
 
-### Coral Leaf Fresh Fish
+- Fonsett Village
 
-- [ ] Broiled Pinfin
-- [ ] Sautéed Beat Shrimps
-- [ ] Braised Cloud Sea Shark
-- [ ] Seared Whitebait
-- [ ] Smoke-Braised Killifish — открывается после Merc Mission `Merchant Ship`.
+  - Coral Leaf Fresh Fish
 
-### Speck Butchers
+    - [ ] Broiled Pinfin
+    - [ ] Sautéed Beat Shrimps
+    - [ ] Braised Cloud Sea Shark
+    - [ ] Seared Whitebait
+    - [ ] Smoke-Braised Killifish — открывается после Merc Mission `Merchant Ship`.
 
-- [ ] Pastel Camill
-- [ ] Albacon Frystack
-- [ ] Sweet Armu Belly Stew
-- [ ] Zaproast Power Bowl
-- [ ] Fragrant Samod Stralu — открывается после Merc Mission `Nopon Cooking`.
-- [ ] Glarna Stir-Fry — открывается после Merc Mission `Ship Lane Lighting`.
+  - Speck Butchers
 
-### Future Crafts
+    - [ ] Pastel Camill
+    - [ ] Albacon Frystack
+    - [ ] Sweet Armu Belly Stew
+    - [ ] Zaproast Power Bowl
+    - [ ] Fragrant Samod Stralu — открывается после Merc Mission `Nopon Cooking`.
+    - [ ] Glarna Stir-Fry — открывается после Merc Mission `Ship Lane Lighting`.
 
-- [ ] Jellyfish Balsam Rug
-- [ ] Codweave Shop Curtain
-- [ ] Codweave Safety Blanky
-- [ ] Silken Stool
-- [ ] Noponcho — открывается после Merc Mission `Nopon Cooking`.
-- [ ] Prismatic Headband — открывается после Merc Mission `Ship Lane Lighting`.
+  - Future Crafts
 
-### Talmye Antiques
+    - [ ] Jellyfish Balsam Rug
+    - [ ] Codweave Shop Curtain
+    - [ ] Codweave Safety Blanky
+    - [ ] Silken Stool
+    - [ ] Noponcho — открывается после Merc Mission `Nopon Cooking`.
+    - [ ] Prismatic Headband — открывается после Merc Mission `Ship Lane Lighting`.
 
-- [ ] Luna Lizard Wreath
-- [ ] Montecoran Doll
-- [ ] Steel Pipe Lexos
-- [ ] Lush Moonbeam Mask
+  - Talmye Antiques
 
-### Corcaja Greengrocers
+    - [ ] Luna Lizard Wreath
+    - [ ] Montecoran Doll
+    - [ ] Steel Pipe Lexos
+    - [ ] Lush Moonbeam Mask
 
-- [ ] Lybarian Chowder
-- [ ] Green Cheese Salad
-- [ ] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
-- [ ] Veg & Oyster Aspic
-- [ ] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
+  - Corcaja Greengrocers
 
-### Cafe Lutino ※1
+    - [ ] Lybarian Chowder
+    - [ ] Green Cheese Salad
+    - [ ] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
+    - [ ] Veg & Oyster Aspic
+    - [ ] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
 
-- [ ] Odifa — доступно с Chapter 9.
-- [ ] Indoline Tea — доступно с Chapter 9.
-- [ ] Frozen Odifa — доступно с Chapter 9.
-- [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
-- [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
+  - Cafe Lutino ※1
+
+    - [ ] Odifa — доступно с Chapter 9.
+    - [ ] Indoline Tea — доступно с Chapter 9.
+    - [ ] Frozen Odifa — доступно с Chapter 9.
+    - [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
+    - [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
 
 ## Kingdom of Tantal
 
-### Lectica Vegetables
+- Theosoir
 
-- [ ] Steamed Veg Stralu
-- [ ] Addam's Embercakes
-- [ ] Prickly Snopickle
-- [ ] Snowy Dudleya Gelée
-- [ ] Vinaigrette Ice Cabbage — открывается после Merc Mission `Weathered Ship`.
+  - Lectica Vegetables
 
-### Placks Patisserie
+    - [ ] Steamed Veg Stralu
+    - [ ] Addam's Embercakes
+    - [ ] Prickly Snopickle
+    - [ ] Snowy Dudleya Gelée
+    - [ ] Vinaigrette Ice Cabbage — открывается после Merc Mission `Weathered Ship`.
 
-- [ ] Airy Snowflake Sherbet
-- [ ] Thawing Mille-Feuille
-- [ ] Baked Narcipear
-- [ ] Sno-Bake Cheesecake
-- [ ] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
-- [ ] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
+  - Placks Patisserie
 
-### Platini Deli
+    - [ ] Airy Snowflake Sherbet
+    - [ ] Thawing Mille-Feuille
+    - [ ] Baked Narcipear
+    - [ ] Sno-Bake Cheesecake
+    - [ ] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
+    - [ ] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
 
-- [ ] Tantalese Spicy Sausage
-- [ ] Genbu Carpaccio
-- [ ] Armu Milk Yogurt
-- [ ] Grumbird Cordon Bleu — открывается после Merc Mission `Beat the Heat`.
-- [ ] Samod Stralu — открывается после Merc Mission `Frozen Door`.
+  - Platini Deli
 
-### Tatraty Fish
+    - [ ] Tantalese Spicy Sausage
+    - [ ] Genbu Carpaccio
+    - [ ] Armu Milk Yogurt
+    - [ ] Grumbird Cordon Bleu — открывается после Merc Mission `Beat the Heat`.
+    - [ ] Samod Stralu — открывается после Merc Mission `Frozen Door`.
 
-- [ ] Aromalocaris Sauté
-- [ ] Abyssturgeon Medallion
-- [ ] Bagna Oyster Roll — открывается после Merc Mission `Frozen Door`.
-- [ ] Whitebait-Samod Hotpot — открывается после Merc Mission `Cuisine Researcher`.
+  - Tatraty Fish
 
-### Biblio Paulio
+    - [ ] Aromalocaris Sauté
+    - [ ] Abyssturgeon Medallion
+    - [ ] Bagna Oyster Roll — открывается после Merc Mission `Frozen Door`.
+    - [ ] Whitebait-Samod Hotpot — открывается после Merc Mission `Cuisine Researcher`.
 
-- [ ] Prideful Walking
-- [ ] The Armu Who Loved
-- [ ] Witness the Crustip
-- [ ] The Annals of Addam
-- [ ] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
-- [ ] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
+  - Biblio Paulio
 
-### Boldarde Textiles
+    - [ ] Prideful Walking
+    - [ ] The Armu Who Loved
+    - [ ] Witness the Crustip
+    - [ ] The Annals of Addam
+    - [ ] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
+    - [ ] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
 
-- [ ] Tantalese Velvet
-- [ ] Snowflake-Weave Sole
-- [ ] Genbu-Weave Cloth
-- [ ] Heatstripe
-- [ ] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
-- [ ] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
+  - Boldarde Textiles
 
-### Praximo Cosmetics
+    - [ ] Tantalese Velvet
+    - [ ] Snowflake-Weave Sole
+    - [ ] Genbu-Weave Cloth
+    - [ ] Heatstripe
+    - [ ] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
+    - [ ] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
 
-- [ ] Steamy Oil
-- [ ] Chocolate Shadow
-- [ ] Moonstar Lipstick
-- [ ] Noponic Nails
-- [ ] Steam Powder
+  - Praximo Cosmetics
 
-### Hobby Trappers
+    - [ ] Steamy Oil
+    - [ ] Chocolate Shadow
+    - [ ] Moonstar Lipstick
+    - [ ] Noponic Nails
+    - [ ] Steam Powder
 
-- [ ] Don't Feed the Armu
-- [ ] Bluff Knight
-- [ ] Money-Bye-Bye
-- [ ] Smack-A-Nopon — открывается после Merc Mission `Frozen Door`.
-- [ ] Jeweled Billiard Balls — открывается после Merc Mission `Cuisine Researcher`.
+  - Hobby Trappers
 
-### Memoria Art
+    - [ ] Don't Feed the Armu
+    - [ ] Bluff Knight
+    - [ ] Money-Bye-Bye
+    - [ ] Smack-A-Nopon — открывается после Merc Mission `Frozen Door`.
+    - [ ] Jeweled Billiard Balls — открывается после Merc Mission `Cuisine Researcher`.
 
-- [ ] Ancient King's Portrait
-- [ ] Snow-Crystal Vase
-- [ ] Portrait of Ger the Hero
+  - Memoria Art
+
+    - [ ] Ancient King's Portrait
+    - [ ] Snow-Crystal Vase
+    - [ ] Portrait of Ger the Hero
