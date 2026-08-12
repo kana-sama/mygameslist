@@ -14,7 +14,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T02:23:49.783Z"
+updatedAt: "2026-08-12T02:32:49.258Z"
 -->
 # Quests
 
@@ -24,7 +24,7 @@ updatedAt: "2026-08-12T02:23:49.783Z"
 
   - Main Quests
 
-    - [ ] Big Job Preparations — Goldmouth Return Port
+    - [x] Big Job Preparations — Goldmouth Return Port
 
   - Normal Quests
 

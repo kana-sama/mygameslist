@@ -1,9 +1,10 @@
 <!-- mygameslist-note:v1
 id: "43f5bd37-39b0-4f3f-b612-a0d791222d2a"
-rank: 8192
 groupRank: 2048
+rank: 8192
+doubleHeight: true
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T00:33:42.000Z"
+updatedAt: "2026-08-12T02:28:48.654Z"
 -->
 # Secret Areas
 
