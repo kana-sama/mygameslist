@@ -101,6 +101,62 @@ describe("Markdown tasks", () => {
     expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
   });
 
+  it("keeps escaped table spoiler delimiters literal beside a real spoiler", async () => {
+    const user = userEvent.setup();
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "| Stage | Note |",
+      "| --- | --- |",
+      "| Literal | \\|\\|literal\\|\\| |",
+      "| Checked | [x] \\|\\|checked literal\\|\\| |",
+      "| Real | ||real spoiler|| |",
+    ].join("\n");
+
+    const view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    const table = screen.getByRole("table");
+    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
+    expect([...table.querySelectorAll("tbody tr")].every((row) => row.children.length === 2)).toBe(true);
+
+    const literal = screen.getByText("||literal||");
+    const checkedLiteral = screen.getByText("||checked literal||");
+    expect(literal.closest(".markdown-spoiler")).toBeNull();
+    expect(checkedLiteral.closest(".markdown-spoiler")).toBeNull();
+    expect(view.container.querySelectorAll(".markdown-spoiler")).toHaveLength(1);
+    expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveTextContent("real spoiler");
+
+    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: ||checked literal||" }));
+    expect(onTaskChange).toHaveBeenCalledWith(markdown.replace("[x] \\|\\|checked literal", "[ ] \\|\\|checked literal"));
+  });
+
+  it("uses escaped source in table headers and groups without unescaping code or shifting decorations", () => {
+    const markdown = [
+      "| \\|\\|Header\\|\\| | Note |",
+      "| --- | --- |",
+      "| \\|\\|Group\\|\\| |",
+      "| --- | --- |",
+      "| Row | `x\\|y` |",
+      "| Mark | A \\| B |",
+    ].join("\n");
+
+    const view = render(<MarkdownView decorations={[{
+      endColumn: 13,
+      endLine: 5,
+      kind: "modified",
+      label: "Изменено",
+      startColumn: 12,
+      startLine: 5,
+    }]} markdown={markdown} />);
+
+    expect(screen.getByRole("columnheader", { name: "||Header||" }).querySelector(".markdown-spoiler")).toBeNull();
+    expect(screen.getByText("||Group||").closest(".markdown-spoiler")).toBeNull();
+    expect(screen.getByText("x\\|y").closest("code")).toBeInTheDocument();
+    expect(view.container.querySelector("[aria-label=\"Изменено: |\"]")).toHaveTextContent("|");
+    expect(screen.queryByRole("button", { name: "Показать спойлер" })).not.toBeInTheDocument();
+  });
+
   it("checkbox-bound spoilers reveal only while matching list tasks are checked", async () => {
     const user = userEvent.setup();
     let markdown = "- [ ] ||hidden list||";

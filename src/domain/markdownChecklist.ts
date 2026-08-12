@@ -44,6 +44,7 @@ export interface MarkdownTableCell {
   value: string;
   sourceColumn?: number;
   sourceLine?: number;
+  sourceValue?: string;
   taskChecked?: boolean;
   taskSourceColumn?: number;
 }
@@ -258,6 +259,7 @@ function parseTableGroupHeader(
     title: {
       sourceColumn: titleCells[0].sourceColumn,
       sourceLine: titleIndex,
+      sourceValue: titleCells[0].sourceText,
       value: titleCells[0].value,
     },
   };
@@ -274,6 +276,7 @@ function parseTableStart(lines: string[], startIndex: number): { alignments: Mar
     headers: headerCells.map((cell) => ({
       sourceColumn: cell.sourceColumn,
       sourceLine: startIndex,
+      sourceValue: cell.sourceText,
       value: cell.value,
     })),
   };
@@ -282,9 +285,11 @@ function parseTableStart(lines: string[], startIndex: number): { alignments: Mar
 function parseTableRow(parsedCells: readonly ParsedTableCell[], columnCount: number, sourceLine: number): MarkdownTableRow {
   const cells = parsedCells.slice(0, columnCount).map<MarkdownTableCell>((cell) => {
     const task = TASK_MARKER.exec(cell.value);
+    const taskSource = task ? TASK_MARKER.exec(cell.sourceText) : null;
     return {
       sourceColumn: cell.sourceColumn + (task?.[0].length ?? 0),
       sourceLine,
+      sourceValue: taskSource ? cell.sourceText.slice(taskSource[0].length) : cell.sourceText,
       value: task ? cell.value.slice(task[0].length) : cell.value,
       taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
       taskSourceColumn: task ? cell.sourceColumn : undefined,

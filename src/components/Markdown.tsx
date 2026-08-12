@@ -186,7 +186,9 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     if (match.index > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, match.index), keyPrefix, cursor, location));
     const raw = match[0];
     const key = `${keyPrefix}-${match.index}`;
-    if (raw.startsWith("||")) {
+    if (raw === "\\|") {
+      nodes.push(...renderDecoratedText("|", key, match.index + 1, location));
+    } else if (raw.startsWith("||")) {
       nodes.push(
         <MarkdownSpoiler forceRevealed={forceRevealSpoilers} key={key}>
           {renderInline(raw.slice(2, -2), `${key}-spoiler`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 2 } : undefined, forceRevealSpoilers)}
@@ -674,8 +676,9 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
         <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}>
           {row.cells.map((cell, cellIndex) => {
             const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
+            const inlineSource = cell.sourceValue ?? cell.value;
             if (cell.taskChecked === undefined) {
-              return <td className={alignmentClass(cellIndex)} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>{locatedInline(cell.value, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
+              return <td className={alignmentClass(cellIndex)} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>{locatedInline(inlineSource, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
             }
             const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
             const cellLabel = markdownLabel(cell.value);
@@ -706,7 +709,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                       />
                     </label>
                   )}
-                  {cell.value ? <span>{locatedInline(cell.value, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, Boolean(cell.taskChecked && markdownIsSingleSpoiler(cell.value)))}</span> : null}
+                  {cell.value ? <span>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, Boolean(cell.taskChecked && markdownIsSingleSpoiler(inlineSource)))}</span> : null}
                 </div>
               </td>
             );
@@ -722,7 +725,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             <tr {...diffVisualAttributes(table.headers[0]?.sourceLine, table.headers.map((header) => header.value).join(" | "))}>
               {table.headers.map((cell, cellIndex) => (
                 <th data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={`${key}-header-${cellIndex}`} scope="col">
-                  {locatedInline(cell.value, `${key}-header-${cellIndex}`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}
+                  {locatedInline(cell.sourceValue ?? cell.value, `${key}-header-${cellIndex}`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}
                 </th>
               ))}
             </tr>
@@ -743,7 +746,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             const groupKey = `${key}-group-${section.titleSourceLine}`;
             const headerChildren = <>
               <span className="markdown-table-group__title">
-                {locatedInline(section.title.value, `${groupKey}-title`, section.title.sourceLine === undefined || section.title.sourceColumn === undefined ? undefined : { sourceColumn: section.title.sourceColumn, sourceLine: section.title.sourceLine })}
+                {locatedInline(section.title.sourceValue ?? section.title.value, `${groupKey}-title`, section.title.sourceLine === undefined || section.title.sourceColumn === undefined ? undefined : { sourceColumn: section.title.sourceColumn, sourceLine: section.title.sourceLine })}
               </span>{" "}
               {progress ? <ChecklistProgressView progress={progress} /> : null}
             </>;

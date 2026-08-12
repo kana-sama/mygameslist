@@ -3,6 +3,7 @@ import {
   findMarkdownTableSourceLines,
   parseMarkdownTableAtLine,
 } from "../src/components/markdownTableStructure";
+import { parseMarkdownBlocks } from "../src/domain/markdownChecklist";
 
 describe("Markdown table structure", () => {
   it("returns every source line in ordinary and grouped tables", () => {
@@ -46,6 +47,32 @@ describe("Markdown table structure", () => {
     expect(table?.lines).toHaveLength(3);
     expect(table?.lines[2].syntax.cells).toHaveLength(2);
     expect(table?.lines[2].syntax.cells[1].value).toBe("||secret||");
+  });
+
+  it("preserves escaped table cell source alongside its decoded value", () => {
+    const lines = [
+      "| Stage | Note |",
+      "| --- | --- |",
+      "| Literal | \\|\\|literal\\|\\| |",
+      "| Checked | [x] \\|\\|checked literal\\|\\| |",
+    ];
+    const parsed = parseMarkdownBlocks(lines.join("\n"))[0].table;
+
+    expect(parsed?.headers).toHaveLength(2);
+    expect(parsed?.sections[0].rows).toHaveLength(2);
+    expect(parsed?.sections[0].rows.every((row) => row.cells.length === 2)).toBe(true);
+    expect(parsed?.sections[0].rows[0].cells[1]).toMatchObject({
+      sourceColumn: 12,
+      sourceValue: "\\|\\|literal\\|\\|",
+      value: "||literal||",
+    });
+    expect(parsed?.sections[0].rows[1].cells[1]).toMatchObject({
+      sourceColumn: 16,
+      sourceValue: "\\|\\|checked literal\\|\\|",
+      taskChecked: true,
+      taskSourceColumn: 12,
+      value: "||checked literal||",
+    });
   });
 
   it.each([

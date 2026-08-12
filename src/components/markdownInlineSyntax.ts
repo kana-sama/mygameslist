@@ -3,7 +3,7 @@ export interface MarkdownSourceRange {
   start: number;
 }
 
-const INLINE_TOKEN_SOURCE = "(`[^`\\n]+`|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|\\|\\|[^|\\n]+\\|\\||\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|\\*[^*\\n]+\\*|_[^_\\n]+_)";
+const INLINE_TOKEN_SOURCE = "(`[^`\\n]+`|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|\\\\[|]|\\|\\|[^|\\n]+\\|\\||\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|\\*[^*\\n]+\\*|_[^_\\n]+_)";
 
 export function markdownInlineTokenPattern(): RegExp {
   return new RegExp(INLINE_TOKEN_SOURCE, "g");
@@ -24,7 +24,9 @@ function collectVisibleRanges(source: string, offset: number, ranges: MarkdownSo
     }
     const raw = match[0];
     const start = offset + match.index;
-    if (raw.startsWith("`")) {
+    if (raw === "\\|") {
+      ranges.push({ start: start + 1, end: start + 2 });
+    } else if (raw.startsWith("`")) {
       ranges.push({ start: start + 1, end: start + raw.length - 1 });
     } else if (raw.startsWith("[")) {
       const link = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);
