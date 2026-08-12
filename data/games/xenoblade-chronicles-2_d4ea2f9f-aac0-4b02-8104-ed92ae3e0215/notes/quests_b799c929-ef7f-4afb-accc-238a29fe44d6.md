@@ -16,7 +16,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T21:01:16.448Z"
+updatedAt: "2026-08-12T21:13:04.000Z"
 -->
 # Quests
 
@@ -54,6 +54,7 @@ updatedAt: "2026-08-12T21:01:16.448Z"
     - [x] Knocked About Nopon — Tunini · Plains of Evening Calm
     - [ ] Repair Torigoth's Crane — Natheus · Saets Lumber Co.; требования: Part of "The Case of the Crane".
     - [ ] The Case of the Crane — Eyvan · Saets Lumber Co.
+    - [ ] Tora's Secret Stash [Switch 2] — Tora's House; награда: Pretty Core Crystal для получения MOMO.
 
   - DLC Quests
 
@@ -235,6 +236,7 @@ updatedAt: "2026-08-12T21:01:16.448Z"
   - Normal Quests
 
     - [ ] Dagas's Past: Folktales — Dagas · Fonsa Myma; требования: Part of Dagas' "Lost Kingdom" Blade quest.
+    - [ ] The Home of the Soul [Switch 2] — Stone Gate Ruins; требования: доступ к Tantal и Key Affinity Lv. 4 в обоих режимах MOMO.
 
 - Empire of Mor Ardain
 
