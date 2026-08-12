@@ -1,10 +1,20 @@
 <!-- mygameslist-note:v1
 id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
-rank: 3072
 groupRank: 2048
+rank: 3072
 doubleHeight: true
+collapsedChecklistSections:
+  - "heading:12a39n2-19"
+  - "heading:1e7grcw-19"
+  - "heading:1kyaobx-19"
+  - "heading:1ufv46v-19"
+  - "heading:1uqusto-19"
+  - "heading:ax1qo3-1a"
+  - "heading:edy5jf-19"
+  - "heading:lqp86a-19"
+  - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T00:33:42.000Z"
+updatedAt: "2026-08-12T02:23:49.783Z"
 -->
 # Quests
 
