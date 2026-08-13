@@ -644,6 +644,12 @@
 .markdown { color: #c6d9e1; }
 .markdown a { color: #8ed9f4; }
 .markdown code { color: #f0ce83; background: rgba(225, 183, 95, .1); }
+.markdown-spoiler[data-revealed="false"] {
+  filter: none;
+  color: transparent;
+  background: rgba(120, 202, 236, .2);
+  box-shadow: inset 0 0 0 1px rgba(120, 202, 236, .14);
+}
 
 .note-card__text { --note-title-block-start: 0px; }
 
