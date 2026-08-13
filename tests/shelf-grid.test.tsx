@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("ordered shelf layout", () => {
-  it("does not remeasure cards for checklist visual mutations but remeasures collapsed content", async () => {
+  it("does not remeasure cards for note visual-state mutations but remeasures geometry mutations", async () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     const frames = new Map<number, FrameRequestCallback>();
     let nextFrame = 1;
@@ -61,12 +61,13 @@ describe("ordered shelf layout", () => {
 
     const { container } = render(
       <ShelfGrid className="notes-list" layoutKey="visual-mutations">
-        <article data-card="one"><span className="markdown-checklist-progress">0/1</span><label className="markdown-task-item"><input className="markdown-task-checkbox" type="checkbox" /></label><button className="markdown-checklist-toggle" aria-expanded="true" type="button" /></article>
+        <article data-card="one"><div className="note-card__viewport-frame" /><span className="markdown-checklist-progress">0/1</span><label className="markdown-task-item"><input className="markdown-task-checkbox" type="checkbox" /></label><button className="markdown-checklist-toggle" aria-expanded="true" type="button" /></article>
         <article data-card="two" />
       </ShelfGrid>,
     );
     const grid = container.querySelector<HTMLElement>(".notes-list")!;
     const firstCard = grid.children[0] as HTMLElement;
+    const viewportFrame = firstCard.querySelector<HTMLElement>(".note-card__viewport-frame")!;
     const progress = firstCard.querySelector<HTMLElement>(".markdown-checklist-progress")!;
     const task = firstCard.querySelector<HTMLElement>(".markdown-task-item")!;
     const toggle = firstCard.querySelector<HTMLButtonElement>(".markdown-checklist-toggle")!;
@@ -86,6 +87,52 @@ describe("ordered shelf layout", () => {
     });
     expect(measurements).toBe(0);
 
+    viewportFrame.classList.add("is-scrollable", "can-scroll-down");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBe(0);
+
+    viewportFrame.classList.remove("can-scroll-down");
+    viewportFrame.classList.add("can-scroll-up");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBe(0);
+
+    viewportFrame.classList.remove("is-scrollable", "can-scroll-up");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBe(0);
+
+    viewportFrame.classList.add("markdown-task-item--checked");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBeGreaterThan(0);
+
+    measurements = 0;
+    progress.classList.add("can-scroll-up");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBeGreaterThan(0);
+
+    measurements = 0;
+    viewportFrame.classList.add("note-card__viewport-height-changed");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+    expect(measurements).toBeGreaterThan(0);
+
+    measurements = 0;
     firstCard.classList.add("note-card__content-height-changed");
     await act(async () => {
       await Promise.resolve();

@@ -390,6 +390,13 @@ function mutationRequiresShelfLayout(record: MutationRecord, grid: HTMLElement):
     const currentClasses = new Set([...target.classList]);
     const changedClasses = [...new Set([...previousClasses, ...currentClasses])]
       .filter((className) => previousClasses.has(className) !== currentClasses.has(className));
+    if (target.matches(".note-card__viewport-frame")) {
+      return !changedClasses.length || changedClasses.some((className) => !(
+        className === "is-scrollable"
+        || className === "can-scroll-up"
+        || className === "can-scroll-down"
+      ));
+    }
     return !changedClasses.length || changedClasses.some((className) => !(
       className === "markdown-task-item--checked"
       || className === "markdown-task-checkbox--checked"
