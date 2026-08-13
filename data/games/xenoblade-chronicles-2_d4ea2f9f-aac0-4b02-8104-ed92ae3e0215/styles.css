@@ -514,7 +514,6 @@
 
 .note-card:not(.note-card--editing):hover,
 .note-card:not(.note-card--editing):focus-within {
-  transform: translateY(-3px);
   filter: drop-shadow(9px 11px 0 rgba(49, 126, 158, .5)) drop-shadow(10px 19px 16px rgba(0, 0, 0, .42)) drop-shadow(0 0 15px rgba(120, 202, 236, .13));
 }
 
@@ -1072,7 +1071,6 @@
   .note-card { filter: drop-shadow(5px 7px 0 rgba(34, 101, 132, .34)) drop-shadow(5px 12px 10px rgba(0, 0, 0, .3)); }
   .note-card:not(.note-card--editing):hover,
   .note-card:not(.note-card--editing):focus-within {
-    transform: translateY(-2px);
     filter: drop-shadow(5px 8px 0 rgba(49, 126, 158, .44)) drop-shadow(5px 14px 12px rgba(0, 0, 0, .38));
   }
   .note-card__content > .markdown { padding-inline: 10px; }
