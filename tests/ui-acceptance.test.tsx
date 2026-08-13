@@ -111,6 +111,28 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
+  it("moves game style activation entirely through the app shell id", async () => {
+    const view = render(<AppShell gameId={DUCK_ID} onOpenDiff={vi.fn()} route="game" storage={{ bytes: 0, operationCount: 0 }}><div>Игра</div></AppShell>);
+
+    expect(view.container.firstElementChild).toHaveAttribute("id", DUCK_ID);
+
+    view.rerender(<AppShell onOpenDiff={vi.fn()} route="game" storage={{ bytes: 0, operationCount: 0 }}><div>Игра</div></AppShell>);
+
+    expect(view.container.firstElementChild).not.toHaveAttribute("id");
+
+    const { activeGameIdForRoute } = await import("../src/App");
+    const games = { [DUCK_ID]: makeGame() };
+
+    expect(activeGameIdForRoute(`/games/${DUCK_ID}`, games)).toBe(DUCK_ID);
+    expect.soft(activeGameIdForRoute(`/games/${DUCK_ID}/`, games)).toBe(DUCK_ID);
+    expect.soft(activeGameIdForRoute(`/games/%31${DUCK_ID.slice(1)}`, games)).toBe(DUCK_ID);
+    expect(activeGameIdForRoute("/", games)).toBeUndefined();
+    expect(activeGameIdForRoute("/games", games)).toBeUndefined();
+    expect(activeGameIdForRoute("/games/new", games)).toBeUndefined();
+    expect(activeGameIdForRoute(`/games/${MARIO_ID}`, games)).toBeUndefined();
+    expect(activeGameIdForRoute(`/games/${DUCK_ID}/notes`, games)).toBeUndefined();
+  });
+
   it("keeps exactly the same header structure between the tier list and catalog", () => {
     const view = render(<AppShell onOpenDiff={vi.fn()} route="tiers" storage={{ bytes: 0, operationCount: 0 }}><div>Тирлист</div></AppShell>);
     const tierHeader = view.container.querySelector(".app-header");

@@ -215,6 +215,37 @@ describe("scrollable long note cards", () => {
 
   });
 
+  it("keeps page-sticky checklist headings inside their nearest app shell", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.matches(".app-header")) return rect({ top: 0, right: 800, bottom: 48, left: 0 });
+      const card = this.matches("article[data-note-id]") ? this : this.closest<HTMLElement>("article[data-note-id]");
+      if (this === card) return rect({ top: 40, right: 342, bottom: 360, left: 10 });
+      if (this.matches(".markdown-section")) return rect({ top: 46, right: 336, bottom: 360, left: 16 });
+      if (this.matches("h2.markdown-checklist-heading")) return rect({ top: 46, right: 336, bottom: 70, left: 16 });
+      return rect();
+    });
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Scoped checklist\n- [ ] Pending task",
+      1024,
+    );
+
+    render(
+      <div className="app-shell">
+        <header className="app-header" />
+        <GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />
+      </div>,
+    );
+
+    const source = screen.getByText("Pending task").closest<HTMLElement>("article")!
+      .querySelector<HTMLElement>("h2.markdown-checklist-heading")!;
+    const shell = source.closest<HTMLElement>(".app-shell");
+    const mirror = screen.getByTestId("note-page-sticky-heading");
+
+    expect(shell).not.toBeNull();
+    expect(mirror.closest(".app-shell")).toBe(shell);
+  });
+
   it("keeps a page-sticky checklist heading fully visible through the card's last pixel", () => {
     const style = installProductionStyles();
     const header = document.createElement("header");
@@ -252,6 +283,7 @@ describe("scrollable long note cards", () => {
       flushAnimationFrames();
 
       const mirror = screen.getByTestId("note-page-sticky-heading");
+      expect(mirror.parentElement).toBe(document.body);
       expect(mirror).toHaveStyle({ left: "16px", top: "48px", width: "320px" });
       expect(getComputedStyle(mirror).position).toBe("fixed");
       expect(screen.getAllByRole("heading", { name: /^First checklist / })).toHaveLength(1);

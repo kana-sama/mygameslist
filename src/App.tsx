@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HashRouter,
+  matchRoutes,
   Route,
   Routes,
   useLocation,
@@ -57,6 +58,14 @@ function routeKind(pathname: string): AppRoute {
   if (pathname === "/games") return "catalog";
   if (pathname === "/games/new") return "new";
   return "game";
+}
+
+export function activeGameIdForRoute(pathname: string, games: Readonly<Record<string, { id: string }>>): string | undefined {
+  const gameId = matchRoutes([
+    { path: "/games/new" },
+    { path: "/games/:id" },
+  ], pathname)?.at(-1)?.params.id;
+  return gameId ? games[gameId]?.id : undefined;
 }
 
 function entityName(
@@ -127,6 +136,7 @@ function LibraryRoutes() {
   }, []);
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
+  const gameId = activeGameIdForRoute(location.pathname, library.effective.games);
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
   const review = useMemo(
     () => buildChangeReview(library.base, library.effective, library.patch),
@@ -349,6 +359,7 @@ function LibraryRoutes() {
 
   return (
     <AppShell
+      gameId={gameId}
       games={games}
       onNavigate={navigateHref}
       onOpenDiff={() => {

@@ -159,6 +159,29 @@ describe("projected source inventory validation", () => {
     expect(result.blobShasByPath.get(GAME_A_YAML_PATH)).toMatch(/^[0-9a-f]{40}$/);
   });
 
+  it("accepts an optional opaque root game stylesheet without projecting it", async () => {
+    const projection = await projectSourceTree(fixtureDatabase());
+    const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
+    const entries = [
+      ...projectedEntries(true),
+      {
+        kind: "file" as const,
+        path: stylesheetPath,
+        git: { mode: "100644", type: "blob" as const, objectId: "b".repeat(40) },
+      },
+    ];
+
+    const inventory = validateProjectedSourceInventory(projection, entries);
+
+    expect(inventory.entries).toContainEqual(entries.at(-1));
+    expect(inventory.blobShasByPath.has(stylesheetPath)).toBe(false);
+    expect(inventory.optionalGameStylesByGameId.get(GAME_A_ID)).toEqual({
+      path: stylesheetPath,
+      blobSha: "b".repeat(40),
+    });
+    expect(projection.leaves.some((leaf) => leaf.path === stylesheetPath)).toBe(false);
+  });
+
   it.each([
     ["missing", (entries: SourceTreeEntry[]) => entries.filter((entry) => entry.path !== IMAGE_A_PATH)],
     ["extra", (entries: SourceTreeEntry[]) => [...entries, { kind: "file", path: "data/extra.txt" } as const]],
@@ -204,6 +227,35 @@ describe("source assembly", () => {
     expect(assembled.runtimeMedia.get(`${IMAGE_ID}.webp`)).toEqual(IMAGE_BYTES);
     expect(assembled.sourceAssetOccurrences).toBe(3);
     expect(reader.reads.filter((path) => path === IMAGE_A_PATH || path === IMAGE_B_PATH)).toHaveLength(2);
+  });
+
+  it("accepts an opaque root game stylesheet without reading it into runtime data", async () => {
+    const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
+    const entries = [...projectedEntries(), { kind: "file" as const, path: stylesheetPath }];
+    const files = projectedFiles();
+    files.set(stylesheetPath, new Uint8Array([0xff, 0xfe]));
+    const reader = new MemorySourceTreeReader(entries, files);
+
+    const assembled = await assembleSourceTree(reader, { sourceCommitSha: null });
+    const expected = await normalizePublishedLibrary(fixtureDatabase());
+
+    expect(assembled.database).toEqual(expected);
+    expect(reader.reads).not.toContain(stylesheetPath);
+  });
+
+  it.each([
+    ["renamed root stylesheet", `${GAME_A_DIRECTORY}/theme.css`],
+    ["stylesheet under notes", `${GAME_A_DIRECTORY}/notes/styles.css`],
+    ["nested stylesheet", `${GAME_A_DIRECTORY}/theme/styles.css`],
+  ])("rejects a %s", async (_label, stylesheetPath) => {
+    const entries = [...projectedEntries(), { kind: "file" as const, path: stylesheetPath }];
+    const files = projectedFiles();
+    files.set(stylesheetPath, new TextEncoder().encode(".fixture {}"));
+
+    await expect(assembleSourceTree(
+      new MemorySourceTreeReader(entries, files),
+      { sourceCommitSha: null },
+    )).rejects.toThrow(/source|entry|path|note/i);
   });
 
   it("preserves empty, no-final-LF, multiple-final-LF bodies and default group omission", async () => {

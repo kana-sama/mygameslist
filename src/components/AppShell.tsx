@@ -22,6 +22,7 @@ export interface StorageSummary {
 
 export interface AppShellProps {
   children: ReactNode;
+  gameId?: string;
   games?: Game[];
   route: AppRoute;
   storage: StorageSummary;
@@ -58,6 +59,7 @@ function NavLink({
 
 export function AppShell({
   children,
+  gameId,
   games = [],
   route,
   storage,
@@ -85,7 +87,7 @@ export function AppShell({
   const displayedBytes = storage.bytes;
 
   return (
-    <div className="app-shell" data-route={route}>
+    <div className="app-shell" data-route={route} id={gameId}>
       <a className="skip-link" href="#main-content">К основному содержимому</a>
       <header className="app-header">
         <nav aria-label="Основная навигация" className="app-nav app-nav--desktop">

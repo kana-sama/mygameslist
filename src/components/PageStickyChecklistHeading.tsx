@@ -174,6 +174,7 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
   ) : (
     <h2 className={snapshot.className} dangerouslySetInnerHTML={{ __html: snapshot.contentHtml }} />
   );
+  const portalTarget = snapshot.source.closest<HTMLElement>(".app-shell") ?? document.body;
 
   return createPortal(
     <div
@@ -183,6 +184,6 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
     >
       {heading}
     </div>,
-    document.body,
+    portalTarget,
   );
 }
