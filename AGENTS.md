@@ -19,6 +19,11 @@
 - A data-authoring task may use task-specific tests or scripts temporarily to verify exact content. Remove every such data-specific test or script after verification and before finalizing the feature commit.
 - Keep corrections to an unfinalized feature in that feature's working-copy commit. Put a follow-up fix, review correction, specification update, or plan update in a new descendant commit only when the original feature commit is already immutable, such as after it has been pushed to `main`.
 
+# Test boundaries
+
+- Permanent repository tests cover application-code behavior and stable code contracts. They must not assert generated infrastructure artifacts such as bundle topology, chunk names, content hashes, compressed sizes, build manifests, or exact authored-data output.
+- Infrastructure and authored-data work may use task-specific temporary tests or scripts to verify that a build configuration or generated data is correct. Remove every such verifier before finalizing the related commit.
+
 # Reference-based work
 
 - Treat any artifact the user cites as normative for both content and observable structure. Before planning, inspect it and the relevant repository specifications, tests, and implementation; preserve its hierarchy, container count, grouping syntax, order, and interaction model unless the approved specification explicitly requires a deviation.

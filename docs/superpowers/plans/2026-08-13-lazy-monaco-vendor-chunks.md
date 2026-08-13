@@ -4,20 +4,19 @@
 
 **Goal:** Remove Monaco from the initial browser payload and create cache-stable third-party chunks without pulling unrelated lazy dependencies into startup.
 
-**Architecture:** A lightweight React Suspense wrapper dynamically imports the existing editor without changing editor internals. Narrow Rolldown code-splitting groups isolate stable dependency families, while manifest-based integration tests validate the real production graph, gzip budget, and cross-build hash stability.
+**Architecture:** A lightweight React Suspense wrapper dynamically imports the existing editor without changing editor internals. Narrow Rolldown code-splitting groups isolate stable dependency families. Bundle shape, gzip budget, and cross-build hash stability are validated with a temporary verifier that is removed before commit.
 
 **Tech Stack:** React 19, TypeScript 7, Vite 8, Rolldown 1, Vitest 4.
 
 ## Global Constraints
 
-- Keep this request as exactly one Jujutsu commit containing specification, plan, implementation, and permanent generic tests.
 - Use `React.lazy` and `Suspense`; do not change Monaco editor behavior or feature registration.
 - Use `build.rolldownOptions.output.codeSplitting.groups`; do not use deprecated `manualChunks` or experimental import maps.
 - Use only narrow package-family groups; never capture all of `node_modules`.
 - Set recursive dependency capture to false with non-strict entry signatures. Keep strict execution-order disabled because its generated entry imports cascade entry-only changes into vendor hashes.
 - Initial production JavaScript must be at most 350 KiB gzip and must not statically preload Monaco JavaScript or CSS.
 - Named vendor hashes must remain unchanged across an application-entry-only source perturbation.
-- Permanent tests must remain generic and must not encode any real game identifier or authored game content.
+- Permanent tests cover application behavior only. Infrastructure and authored-data verification may use temporary tests or scripts, which must be removed before commit.
 
 ---
 
@@ -29,7 +28,6 @@
 - Modify: `src/styles.css`
 - Modify: `vite.config.ts`
 - Create: `tests/lazy-monaco-note-editor.test.tsx`
-- Create: `tests/build-chunking.test.ts`
 
 **Interfaces:**
 - Consumes: `MonacoNoteEditorProps` and the named `MonacoNoteEditor` export from `src/components/MonacoNoteEditor.tsx`.
@@ -56,9 +54,9 @@ Run: `npm test -- tests/lazy-monaco-note-editor.test.tsx tests/monaco-note-edito
 
 Expected: PASS; update asynchronous assertions only where the new real loading boundary requires them, without weakening behavior assertions.
 
-- [ ] **Step 5: Write the production-graph failing test**
+- [ ] **Step 5: Create a temporary production-graph verifier**
 
-Create `tests/build-chunking.test.ts` using Vite's programmatic `build` API and isolated temporary output directories. Enable the Vite manifest for the test builds, then:
+Create an untracked verifier in a temporary directory using Vite's programmatic `build` API and isolated temporary output directories. Enable the Vite manifest for the verification builds, then:
 
 - walk the entry's static `imports` graph and assert it contains no `vendor-monaco` JavaScript and no CSS owned only by the dynamic editor graph;
 - find the dynamic `src/components/MonacoNoteEditor.tsx` graph and assert it reaches `vendor-monaco` and owns deferred CSS;
@@ -67,21 +65,21 @@ Create `tests/build-chunking.test.ts` using Vite's programmatic `build` API and 
 - make two builds with a post-transform plugin that changes only a harmless entry probe, assert entry filenames differ, and assert each named vendor filename is identical;
 - assert no initial file or preload belongs to `@jsquash/webp`.
 
-- [ ] **Step 6: Run the production-graph test and verify RED**
+- [ ] **Step 6: Run the temporary verifier and capture the baseline**
 
-Run: `npm test -- tests/build-chunking.test.ts`
+Run the temporary verifier.
 
-Expected: FAIL because Monaco is still in the initial graph and the named groups are not configured.
+Expected before the chunk configuration: Monaco remains in the initial graph and the named groups do not exist.
 
 - [ ] **Step 7: Implement narrow Rolldown groups**
 
 Modify `vite.config.ts` to configure `rolldownOptions.preserveEntrySignatures` to an allowed non-strict value. Add `output.codeSplitting` with `includeDependenciesRecursively: false` and ordered, narrow regex groups for Monaco, framework, Markdown, and tools. Keep strict execution-order at its default so entry-only changes cannot cascade through generated vendor-to-entry imports, and keep `@jsquash/webp` ungrouped so its existing dynamic import remains deferred.
 
-- [ ] **Step 8: Run focused tests and verify GREEN**
+- [ ] **Step 8: Verify the production graph, then remove the verifier**
 
-Run: `npm test -- tests/build-chunking.test.ts tests/lazy-monaco-note-editor.test.tsx tests/monaco-note-editor.test.tsx tests/note-editor-auto-width.test.tsx tests/ui-acceptance.test.tsx`
+Run the temporary verifier, then delete it. Run: `npm test -- tests/lazy-monaco-note-editor.test.tsx tests/monaco-note-editor.test.tsx tests/note-editor-auto-width.test.tsx tests/ui-acceptance.test.tsx`
 
-Expected: PASS with the real production manifest satisfying all graph, budget, and hash assertions.
+Expected: the temporary verifier confirms the graph, budget, and hash properties; the permanent functional tests pass; no infrastructure test remains in `tests/`.
 
 - [ ] **Step 9: Verify the complete change**
 

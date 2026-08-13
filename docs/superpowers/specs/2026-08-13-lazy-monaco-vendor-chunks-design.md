@@ -38,9 +38,8 @@ Automatic splitting handles all other modules. The configuration disables recurs
 ## Verification
 
 - A component test holds the dynamic editor module unresolved, verifies the loading surface, resolves it, and verifies prop forwarding and editor replacement.
-- A production-build test reads Vite's manifest, walks the initial static import graph, and proves Monaco JS/CSS are absent while the dynamic editor graph contains them.
-- The build test measures gzip size of the initial JavaScript graph against the 350 KiB budget.
-- Two production builds with different application-only probe code prove the entry hash changes and the named vendor hashes remain stable.
+- A temporary, uncommitted production-build verifier reads Vite's manifest, walks the initial static import graph, and proves Monaco JS/CSS are absent while the dynamic editor graph contains them.
+- The temporary verifier measures gzip size against the 350 KiB budget and compares two application-only builds to confirm stable vendor hashes. It is removed before commit because generated bundle structure is infrastructure output, not an application behavior contract.
 - Existing editor tests, the full test suite, TypeScript build, and production build remain green.
 
 ## Out of scope
