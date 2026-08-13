@@ -29,6 +29,7 @@ export interface AppShellProps {
   onOpenDiff: () => void;
   onNavigate?: (href: string) => void;
   resolveAssetUrl?: (assetId: string) => string | null;
+  localChangesIndicator?: ReactNode;
 }
 
 function NavLink({
@@ -57,16 +58,7 @@ function NavLink({
   );
 }
 
-export function AppShell({
-  children,
-  gameId,
-  games = [],
-  route,
-  storage,
-  onOpenDiff,
-  onNavigate,
-  resolveAssetUrl,
-}: AppShellProps) {
+export function LocalChangesIndicator({ storage, onOpenDiff }: Pick<AppShellProps, "storage" | "onOpenDiff">) {
   const budget = storage.budgetBytes ?? 4 * 1024 * 1024;
   const ratio = budget ? storage.bytes / budget : 0;
   const localAssetCount = storage.localAssetCount ?? 0;
@@ -86,6 +78,35 @@ export function AppShell({
   const storageNeedsAttention = storageLevel === "warning" || storageLevel === "critical" || storageLevel === "blocked";
   const displayedBytes = storage.bytes;
 
+  return <>
+    <button
+      aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(displayedBytes)}${localAssetCount ? `, локальных файлов: ${localAssetCount}` : ""}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageNeedsAttention ? ", хранилище требует внимания" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}
+      className={`patch-pill patch-pill--${storageLevel}`}
+      onClick={onOpenDiff}
+      title={storage.error}
+      type="button"
+    >
+      <span className="patch-pill__pulse" aria-hidden="true" />
+      <span>Локальные правки</span>
+      <strong>{storage.operationCount}</strong>
+      <span className="patch-pill__size">{formatBytes(displayedBytes)}</span>
+      {storage.conflictCount ? <span className="patch-pill__conflicts" aria-label={`${storage.conflictCount} конфликтов`}><Icon name="warning" size={15} /></span> : null}
+    </button>
+    {storage.error ? <span className="visually-hidden" role="alert">{storage.error}</span> : null}
+  </>;
+}
+
+export function AppShell({
+  children,
+  gameId,
+  games = [],
+  route,
+  storage,
+  onOpenDiff,
+  onNavigate,
+  resolveAssetUrl,
+  localChangesIndicator,
+}: AppShellProps) {
   return (
     <div className="app-shell" data-route={route} id={gameId}>
       <a className="skip-link" href="#main-content">К основному содержимому</a>
@@ -97,20 +118,7 @@ export function AppShell({
         <GlobalGameSearch games={games} onNavigate={onNavigate} />
         <div className="app-header__actions">
           <RandomGameButton games={games} onNavigate={onNavigate} resolveAssetUrl={resolveAssetUrl} />
-          <button
-            aria-label={`Локальные правки: ${storage.operationCount}, ${formatBytes(displayedBytes)}${localAssetCount ? `, локальных файлов: ${localAssetCount}` : ""}${storage.conflictCount ? `, конфликтов: ${storage.conflictCount}` : ""}${storageNeedsAttention ? ", хранилище требует внимания" : ""}${storage.error ? `, ошибка: ${storage.error}` : ""}`}
-            className={`patch-pill patch-pill--${storageLevel}`}
-            onClick={onOpenDiff}
-            title={storage.error}
-            type="button"
-          >
-            <span className="patch-pill__pulse" aria-hidden="true" />
-            <span>Локальные правки</span>
-            <strong>{storage.operationCount}</strong>
-            <span className="patch-pill__size">{formatBytes(displayedBytes)}</span>
-            {storage.conflictCount ? <span className="patch-pill__conflicts" aria-label={`${storage.conflictCount} конфликтов`}><Icon name="warning" size={15} /></span> : null}
-          </button>
-          {storage.error ? <span className="visually-hidden" role="alert">{storage.error}</span> : null}
+          {localChangesIndicator ?? <LocalChangesIndicator onOpenDiff={onOpenDiff} storage={storage} />}
           <a className="button button--primary button--new-game" href="#/games/new" onClick={onNavigate ? (event) => { event.preventDefault(); onNavigate("#/games/new"); } : undefined}>
             <Icon name="plus" size={18} />Добавить игру
           </a>

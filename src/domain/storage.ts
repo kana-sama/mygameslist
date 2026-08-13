@@ -81,6 +81,59 @@ export function loadPatch(storage: Pick<Storage, "getItem">, key = PATCH_STORAGE
 
 export interface PatchWriteResult { ok: boolean; usage: StorageUsage; error?: Error; blocked?: boolean }
 
+export type ValidatedInteractionPatchWriteResult =
+  | { status: "durable"; raw: string | null; usage: StorageUsage }
+  | { status: "changed"; currentRaw: string | null; usage: StorageUsage }
+  | { status: "failure"; error: Error; usage: StorageUsage; blocked?: boolean };
+
+export function storedInteractionPatchRaw(patch: PatchEnvelope): string | null {
+  if (Object.keys(patch.operations).length === 0) return null;
+  return JSON.stringify({ ...patch, blobs: {} });
+}
+
+/**
+ * Persists a patch produced by the targeted interaction transition. The caller
+ * must supply the previously authoritative patch and the already-validated
+ * next patch; untrusted/bootstrap paths must continue to use savePatch.
+ */
+export function saveValidatedInteractionPatch(
+  storage: Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">,
+  previousPatch: PatchEnvelope,
+  nextPatch: PatchEnvelope,
+  key = PATCH_STORAGE_KEY,
+): ValidatedInteractionPatchWriteResult {
+  let usage = classifyStorageUsage(0);
+  try {
+    const expectedRaw = storedInteractionPatchRaw(previousPatch);
+    const raw = storedInteractionPatchRaw(nextPatch);
+    const currentRaw = storage.getItem(key);
+    const currentBytes = webkitStorageBytes(storage);
+    usage = classifyStorageUsage(currentBytes);
+    if (currentRaw !== expectedRaw) return { status: "changed", currentRaw, usage };
+
+    const previousBytes = currentRaw === null ? 0 : webkitStringBytes(key, currentRaw);
+    const nextBytes = raw === null ? 0 : webkitStringBytes(key, raw);
+    const projectedBytes = currentBytes - previousBytes + nextBytes;
+    usage = classifyStorageUsage(projectedBytes);
+    if (previousBytes > currentBytes || !storageIncreaseAllowed(currentBytes, projectedBytes)) {
+      return { status: "failure", blocked: true, usage, error: new Error("Локальное хранилище Safari заполнено на 95%") };
+    }
+
+    const beforeWrite = storage.getItem(key);
+    if (beforeWrite !== expectedRaw) return { status: "changed", currentRaw: beforeWrite, usage: classifyStorageUsage(currentBytes) };
+    if (raw === null) storage.removeItem(key);
+    else storage.setItem(key, raw);
+    const readback = storage.getItem(key);
+    if (readback !== raw) {
+      return { status: "failure", usage, error: new Error("Safari не подтвердил точные bytes локального патча") };
+    }
+    return { status: "durable", raw, usage: classifyStorageUsage(webkitStorageBytes(storage)) };
+  } catch (reason) {
+    try { usage = classifyStorageUsage(webkitStorageBytes(storage)); } catch { /* Preserve the last computable usage. */ }
+    return { status: "failure", usage, error: reason instanceof Error ? reason : new Error(String(reason)) };
+  }
+}
+
 /** Keeps the previous valid value on all quota/access failures. */
 export function savePatch(storage: Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">, patch: PatchEnvelope, key = PATCH_STORAGE_KEY): PatchWriteResult {
   try {

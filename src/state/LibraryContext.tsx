@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -11,17 +12,20 @@ import {
 import type { GameSaveInput, EditableAttachment } from "../pages/GamePage";
 import {
   PATCH_STORAGE_KEY,
+  MISSING_VALUE_HASH,
   SAFARI_SAFE_BUDGET_BYTES,
   applyPatch,
   assertSourceRepresentable,
   assertValidLibrary,
   base64ToBytes,
+  canonicalStringify,
   classifyStorageUsage,
   deleteLocalAssetsAtomic,
   deleteSafeOrphans,
   describeAssetForRecovery,
   diffLibrary,
   discardOperation,
+  entityPath,
   estimateOriginStorage,
   garbageCollectUnreferencedAssets,
   inspectLocalAssetIntegrity,
@@ -47,6 +51,7 @@ import {
   savePatch,
   sha256Bytes,
   storageIsPersisted,
+  updateInteractiveNoteField,
   updateLocalAssetState,
   validatePatch,
   webkitStorageBytes,
@@ -64,6 +69,7 @@ import {
   type ReconciledPatch,
   type StorageUsage,
   type TierId,
+  type InteractiveNoteFieldUpdate,
 } from "../domain";
 import { parsePublishedLibraryEnvelope, type PublishedLibraryEnvelope } from "../source";
 import {
@@ -71,10 +77,18 @@ import {
   discardPendingPublicationAfterRecoveryExport,
   finalizePendingPublicationJournal,
   installPendingPublicationJournal,
+  installValidatedInteractionJournal,
   loadPendingPublicationJournal,
   type LegacyPendingPublicationRecovery,
   type PendingPublicationJournalV3,
 } from "./pendingPublication";
+import {
+  advanceInteractionRescueJournalWatermarkLocked,
+  loadActiveInteractionRescue,
+  pendingJournalRawHash,
+  persistInteractionPatchWithRescue,
+  resolveRescuedNoteInteraction,
+} from "./interactionRescue";
 import { createRecoveryArchive, downloadRecoveryArchive } from "./recoveryExport";
 import {
   GitHubGitDatabaseSyncClient,
@@ -86,6 +100,7 @@ import {
   GITHUB_REPOSITORY_OWNER,
   loadGitHubPat,
 } from "./githubPat";
+import { createLibraryStore, useLibraryStoreSelector, type LibraryStore } from "./libraryStore";
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
   return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
@@ -178,6 +193,18 @@ function patchUsage(patch: PatchEnvelope): StorageUsage {
   }
 }
 
+function samePublicationIdentity(left: PendingPublicationJournalV3, right: PendingPublicationJournalV3): boolean {
+  return left.phase === right.phase
+    && left.owner === right.owner
+    && left.repo === right.repo
+    && left.branch === right.branch
+    && left.sourceCommitSha === right.sourceCommitSha
+    && left.targetCommitSha === right.targetCommitSha
+    && left.targetRevision === right.targetRevision
+    && canonicalStringify(left.targetDatabase) === canonicalStringify(right.targetDatabase)
+    && JSON.stringify(left.localAssetIdsAwaitingVerification) === JSON.stringify(right.localAssetIdsAwaitingVerification);
+}
+
 function garbageCollectReconciledAssets(base: LibraryDatabase, reconciled: ReconciledPatch): ReconciledPatch {
   if (reconciled.conflicts.length) return reconciled;
   const effective = structuredClone(reconciled.effective);
@@ -267,6 +294,51 @@ interface LibraryState {
   retainedLocalAssetIds: readonly string[];
 }
 
+function installStoredInteractionRescue(
+  state: LibraryState,
+  ordinary = loadPatch(localStorage),
+  rescueBaseRevision = state.base.revision,
+): LibraryState {
+  const rescue = loadActiveInteractionRescue(localStorage, ordinary.raw, rescueBaseRevision);
+  if (rescue.status !== "active") return state;
+  let next = state;
+  for (const entry of rescue.entries) {
+    const update = resolveRescuedNoteInteraction(entry, ordinary.patch);
+    if (!update) continue;
+    const rootPath = entityPath("notes", entry.noteId);
+    const fieldPath = entityPath("notes", entry.noteId, entry.field);
+    if (!next.effective.notes[entry.noteId]) {
+      const ordinaryRoot = ordinary.patch?.operations[rootPath];
+      if (ordinaryRoot?.operation !== "set" || next.base.notes[entry.noteId]) continue;
+      const rootOperation = {
+        ...structuredClone(ordinaryRoot),
+        baseExists: false,
+        baseHash: MISSING_VALUE_HASH,
+      };
+      const operations = { ...next.patch.operations, [rootPath]: rootOperation };
+      delete operations[fieldPath];
+      try {
+        const bridged = reconcilePatch(next.base, { ...next.patch, operations });
+        next = { ...next, effective: bridged.effective, patch: bridged.patch, conflicts: bridged.conflicts };
+      } catch { continue; }
+    }
+    const retainedConflicts = next.conflicts.filter((conflict) => conflict.path !== rootPath && conflict.path !== fieldPath);
+    try {
+      const updated = updateInteractiveNoteField({
+        base: next.base,
+        effective: next.effective,
+        patch: next.patch,
+        conflicts: retainedConflicts,
+        update,
+        changedAt: entry.changedAt,
+        transactionId: entry.transactionId,
+      });
+      next = { ...next, effective: updated.effective, patch: updated.patch, conflicts: retainedConflicts };
+    } catch { /* Preserve every recoverable earlier interaction if one later entry cannot be applied. */ }
+  }
+  return next;
+}
+
 export interface LibraryGitHubSyncResult {
   status: "committed" | "up-to-date";
   commitSha: string;
@@ -279,7 +351,7 @@ export interface LibraryGitHubSyncOptions {
   selectedPaths?: readonly string[];
 }
 
-export interface LibraryContextValue extends LibraryState {
+interface LibrarySnapshot extends LibraryState {
   loading: boolean;
   fatalError: string | null;
   persistenceError: string | null;
@@ -292,9 +364,13 @@ export interface LibraryContextValue extends LibraryState {
   localAssets: LocalAsset[];
   localAssetBytes: number;
   games: LibraryDatabase["games"];
+}
+
+interface LibraryActions {
   canAddBlob: (byteLength: number) => Promise<string | null>;
   resolveAssetUrl: (assetId: string) => string | null;
   saveGame: (input: GameSaveInput) => Promise<string>;
+  saveNoteInteraction: (update: InteractiveNoteFieldUpdate) => Promise<void>;
   deleteGame: (gameId: string) => Promise<void>;
   moveGame: (gameId: string, tierId: TierId, index: number) => Promise<void>;
   discardPath: (path: string) => Promise<void>;
@@ -315,9 +391,42 @@ export interface LibraryContextValue extends LibraryState {
   syncToGitHub: (token: string, options?: LibraryGitHubSyncOptions) => Promise<LibraryGitHubSyncResult>;
 }
 
-const LibraryContext = createContext<LibraryContextValue | null>(null);
+export interface LibraryContextValue extends LibrarySnapshot, LibraryActions {}
+
+interface LibraryContextContainer {
+  store: LibraryStore<LibrarySnapshot>;
+  actions: LibraryActions;
+}
+
+const LibraryContext = createContext<LibraryContextContainer | null>(null);
+
+function identitySnapshot(snapshot: LibrarySnapshot): LibrarySnapshot {
+  return snapshot;
+}
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
+  const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: LIBRARY_SCHEMA_VERSION, revision: "", publicationId: null, games: {}, notes: {}, assets: {} }), []);
+  const [libraryStore] = useState(() => createLibraryStore<LibrarySnapshot>({
+    sourceCommitSha: null,
+    base: fallbackBase,
+    effective: fallbackBase,
+    patch: emptyPatch(""),
+    conflicts: [],
+    publicationState: { status: "none", exportCompleted: false },
+    retainedLocalAssetIds: [],
+    loading: true,
+    fatalError: null,
+    persistenceError: null,
+    corruptedPatchRaw: null,
+    usage: classifyStorageUsage(0, SAFARI_SAFE_BUDGET_BYTES),
+    storageEstimate: null,
+    quotaStatus: { usage: null, quota: null, remaining: null, ratio: null, level: "unknown" },
+    persistentStorage: false,
+    attachmentsBlocked: false,
+    localAssets: [],
+    localAssetBytes: 0,
+    games: fallbackBase.games,
+  }));
   const [state, setState] = useState<LibraryState | null>(null);
   const [loading, setLoading] = useState(true);
   const [fatalError, setFatalError] = useState<string | null>(null);
@@ -339,12 +448,21 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const syncInFlightRef = useRef(false);
   const deployedEnvelopeRef = useRef<PublishedLibraryEnvelope | null>(null);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const interactionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const checkPublicationRef = useRef<(token?: string) => Promise<void>>(async () => undefined);
+  const actionsRef = useRef<LibraryActions | null>(null);
 
   const setLibraryState = useCallback((next: LibraryState) => {
     stateRef.current = next;
+    const currentSnapshot = libraryStore.getSnapshot();
+    libraryStore.replaceSnapshot({
+      ...currentSnapshot,
+      ...next,
+      usage: patchUsage(next.patch),
+      games: next.effective.games,
+    });
     setState(next);
-  }, []);
+  }, [libraryStore]);
 
   const installLocalAssets = useCallback((assets: LocalAsset[]) => {
     localAssetsRef.current = assets;
@@ -383,6 +501,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const enqueueInteraction = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    const result = interactionQueueRef.current.then(operation, operation);
+    interactionQueueRef.current = result.then(() => undefined, () => undefined);
+    return result;
+  }, []);
+
+  const replaceRescueLineage = useCallback((ordinaryRaw: string | null, baseRevision: string) => (
+    previousJournalRaw: string | null,
+    nextJournalRaw: string,
+  ) => advanceInteractionRescueJournalWatermarkLocked(
+    localStorage,
+    ordinaryRaw,
+    baseRevision,
+    previousJournalRaw,
+    nextJournalRaw,
+  ), []);
+
   const protectedPublicationAssetIds = useCallback((publicationState: PublicationState): string[] => (
     publicationState.status === "valid"
       ? [...new Set(publicationState.journal.localAssetIdsAwaitingVerification)].sort()
@@ -394,13 +529,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     deployed: PublishedLibraryEnvelope,
     bridge?: LibraryState,
   ): LibraryState => {
+    const withInteractionRescue = (candidate: LibraryState) => installStoredInteractionRescue(candidate);
     if (loadResult.status === "valid") {
       const journal = loadResult.journal;
+      const ordinary = loadPatch(localStorage);
       const sameRepository = journal.owner === GITHUB_REPOSITORY_OWNER
         && journal.repo === GITHUB_REPOSITORY_NAME
         && journal.branch === "main";
       if (!sameRepository) {
-        return {
+        return withInteractionRescue({
           sourceCommitSha: deployed.sourceCommitSha,
           base: deployed.database,
           effective: deployed.database,
@@ -408,7 +545,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           conflicts: [],
           retainedLocalAssetIds: bridge?.retainedLocalAssetIds ?? [],
           publicationState: { status: "corrupt", raw: loadResult.raw, error: "Ожидающая публикация относится к другому репозиторию", exportCompleted: false },
-        };
+        });
       }
       const publicationState: PublicationState = {
         status: "valid",
@@ -422,7 +559,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       };
       if (journal.phase === "awaiting-deployment") {
         const reconciled = reconcilePatch(journal.targetDatabase, journal.remainderPatch);
-        return {
+        const candidate: LibraryState = {
           sourceCommitSha: deployed.sourceCommitSha,
           base: journal.targetDatabase,
           effective: reconciled.effective,
@@ -431,8 +568,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           retainedLocalAssetIds: bridge?.retainedLocalAssetIds ?? [],
           publicationState,
         };
+        const rescue = loadActiveInteractionRescue(localStorage, ordinary.raw, ordinary.patch?.baseRevision ?? deployed.database.revision);
+        if (rescue.status !== "active") return candidate;
+        return rescue.supersedingJournalHash === pendingJournalRawHash(loadResult.raw)
+          ? candidate
+          : installStoredInteractionRescue(candidate, ordinary, ordinary.patch?.baseRevision ?? deployed.database.revision);
       }
-      return {
+      return withInteractionRescue({
         sourceCommitSha: deployed.sourceCommitSha,
         base: deployed.database,
         effective: deployed.database,
@@ -440,7 +582,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         conflicts: [],
         retainedLocalAssetIds: bridge?.retainedLocalAssetIds ?? [],
         publicationState,
-      };
+      });
     }
     const safeState = {
       sourceCommitSha: deployed.sourceCommitSha,
@@ -450,10 +592,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       conflicts: [],
       retainedLocalAssetIds: bridge?.retainedLocalAssetIds ?? [],
     };
-    if (loadResult.status === "absent") return { ...safeState, publicationState: { status: "none", exportCompleted: false } };
-    if (loadResult.status === "corrupt") return { ...safeState, publicationState: { status: "corrupt", raw: loadResult.raw, error: loadResult.error.message, exportCompleted: false } };
-    if (loadResult.status === "legacy") return { ...safeState, publicationState: { status: "legacy", raw: loadResult.raw, recovery: loadResult.recovery, error: loadResult.error.message, exportCompleted: false } };
-    return { ...safeState, publicationState: { status: "read-failure", error: loadResult.error.message, exportCompleted: false } };
+    if (loadResult.status === "absent") return withInteractionRescue({ ...safeState, publicationState: { status: "none", exportCompleted: false } });
+    if (loadResult.status === "corrupt") return withInteractionRescue({ ...safeState, publicationState: { status: "corrupt", raw: loadResult.raw, error: loadResult.error.message, exportCompleted: false } });
+    if (loadResult.status === "legacy") return withInteractionRescue({ ...safeState, publicationState: { status: "legacy", raw: loadResult.raw, recovery: loadResult.recovery, error: loadResult.error.message, exportCompleted: false } });
+    return withInteractionRescue({ ...safeState, publicationState: { status: "read-failure", error: loadResult.error.message, exportCompleted: false } });
   }, []);
 
   const reloadPublicationAuthority = useCallback(async (keepBridgeOnAbsent = false) => {
@@ -506,8 +648,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (authority.durability === "memory-only") {
         installedAuthority = { ...authority, journal, recoveryBase: authority.recoveryBase, exportCompleted: false };
       } else {
+        const ordinary = loadPatch(localStorage);
         const result = await installPendingPublicationJournal(localStorage, journal, {
           expectedRaw: authority.raw,
+          replaceRescueLineage: replaceRescueLineage(
+            ordinary.raw,
+            ordinary.patch?.baseRevision ?? deployedEnvelopeRef.current?.database.revision ?? base.revision,
+          ),
           ...(journal.phase === "recovery-required" && authority.recoveryBase
             ? { recoveryBaseDatabase: authority.recoveryBase.database }
             : {}),
@@ -586,7 +733,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         await refreshQuota();
       }
     }
-  }, [protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, reloadPublicationAuthority, setLibraryState]);
+  }, [protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, reloadPublicationAuthority, replaceRescueLineage, setLibraryState]);
 
   useEffect(() => {
     let active = true;
@@ -621,6 +768,20 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           setPersistenceError(error instanceof Error ? error.message : "localStorage недоступен");
         }
         let reconciled = reconcilePatch(initial.base, patch);
+        if (loadedPublication.status === "absent") {
+          initial = installStoredInteractionRescue({
+            ...initial,
+            effective: reconciled.effective,
+            patch: reconciled.patch,
+            conflicts: reconciled.conflicts,
+          });
+          reconciled = {
+            effective: initial.effective,
+            patch: initial.patch,
+            conflicts: initial.conflicts,
+            prunedCount: reconciled.prunedCount,
+          };
+        }
         try {
           reconciled = garbageCollectReconciledAssets(initial.base, reconciled);
           assertValidLibrary(reconciled.effective);
@@ -663,9 +824,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
             setPersistenceError(reason instanceof Error ? reason.message : "localStorage недоступен для локальных вложений");
           }
         }
-        initial = { ...initial, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts };
-        setLibraryState(initial);
-        if (initial.publicationState.status === "valid") window.setTimeout(() => void checkPublicationRef.current(), 0);
+        initial = loadedPublication.status === "absent"
+          ? installStoredInteractionRescue({ ...initial, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts })
+          : { ...initial, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts };
+        if (loadedPublication.status !== "absent") initial = installStoredInteractionRescue(initial);
+        const authoritativeInitial = installStoredInteractionRescue(initial);
+        setLibraryState(authoritativeInitial);
+        if (authoritativeInitial.publicationState.status === "valid") window.setTimeout(() => void checkPublicationRef.current(), 0);
       } catch (error) {
         if (active) setFatalError(error instanceof Error ? error.message : "Не удалось открыть библиотеку");
       } finally {
@@ -866,9 +1031,14 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         remainderPatch: reconciled.patch,
         phase: "recovery-required",
       };
+      const ordinary = loadPatch(localStorage);
       const installed = await installPendingPublicationJournal(localStorage, recoveryJournal, {
         expectedRaw: authority.raw,
         recoveryBaseDatabase: envelope.database,
+        replaceRescueLineage: replaceRescueLineage(
+          ordinary.raw,
+          ordinary.patch?.baseRevision ?? deployedEnvelopeRef.current?.database.revision ?? latest.base.revision,
+        ),
       });
       if (installed.status === "changed") {
         await reloadPublicationAuthority();
@@ -910,7 +1080,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setPersistenceError(reason instanceof Error ? `Не удалось проверить публикацию: ${reason.message}` : "Не удалось проверить публикацию");
       setLibraryState({ ...latest, publicationState: { ...latest.publicationState, check: "unverifiable" } });
     }
-  }, [refreshLocalAssets, refreshQuota, reloadPublicationAuthority, setLibraryState]);
+  }, [refreshLocalAssets, refreshQuota, reloadPublicationAuthority, replaceRescueLineage, setLibraryState]);
 
   checkPublicationRef.current = performPublicationCheck;
 
@@ -935,6 +1105,99 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const patch = diffLibrary(current.base, normalizedNext, { previousPatch: current.patch });
     await persistReconciled({ base: current.base, reconciled: reconcilePatch(current.base, patch), remember: true });
   }), [corruptedPatchRaw, enqueue, persistReconciled]);
+
+  const saveNoteInteraction = useCallback((update: InteractiveNoteFieldUpdate) => enqueueInteraction(async () => {
+    const current = libraryStore.getSnapshot();
+    if (current.loading) throw new Error("Библиотека ещё загружается");
+    if (current.corruptedPatchRaw !== null) throw new Error("Сначала экспортируйте или сбросьте повреждённый локальный патч");
+    if (current.publicationState.status === "corrupt" || current.publicationState.status === "legacy" || current.publicationState.status === "read-failure") {
+      throw new Error("Сначала экспортируйте и восстановите состояние публикации");
+    }
+
+    const changedAt = new Date().toISOString();
+    const transactionId = globalThis.crypto?.randomUUID?.()
+      ?? `note-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const updated = updateInteractiveNoteField({
+      base: current.base,
+      effective: current.effective,
+      patch: current.patch,
+      conflicts: current.conflicts,
+      update,
+      changedAt,
+      transactionId,
+    });
+
+    let publicationState = current.publicationState;
+    if (publicationState.status === "none") {
+      const written = await persistInteractionPatchWithRescue(
+        localStorage,
+        current.patch,
+        updated.patch,
+        update,
+        changedAt,
+        transactionId,
+      );
+      if (written.status !== "durable") {
+        const message = written.status === "authority_changed"
+          ? "Ожидающая публикация изменила источник локальных правок"
+          : written.status === "changed"
+            ? "Локальный патч изменился в другой вкладке"
+            : written.error.message;
+        setPersistenceError(message);
+        throw new Error(message);
+      }
+    } else {
+      const ordinary = loadPatch(localStorage);
+      const journal: PendingPublicationJournalV3 = {
+        ...publicationState.journal,
+        remainderPatch: structuredClone(updated.patch),
+      };
+      const expectedRaw = publicationState.durability === "durable"
+        ? publicationState.raw
+        : publicationState.expectedRaw;
+      let installed: Awaited<ReturnType<typeof installValidatedInteractionJournal>>;
+      try {
+        installed = await installValidatedInteractionJournal(localStorage, journal, {
+          expectedRaw,
+          replaceRescueLineage: replaceRescueLineage(
+            ordinary.raw,
+            ordinary.patch?.baseRevision ?? deployedEnvelopeRef.current?.database.revision ?? current.base.revision,
+          ),
+        });
+      } catch (reason) {
+        const message = reason instanceof Error ? reason.message : "Safari не сохранил ожидающую публикацию";
+        setPersistenceError(message);
+        throw new Error(message);
+      }
+      if (installed.status !== "durable") {
+        const message = installed.status === "changed"
+          ? "Ожидающая публикация изменилась в другой вкладке"
+          : installed.error.message;
+        setPersistenceError(message);
+        throw new Error(message);
+      }
+      publicationState = {
+        ...publicationState,
+        durability: "durable",
+        journal: installed.journal,
+        raw: installed.raw,
+        expectedRaw: installed.raw,
+        exportCompleted: false,
+      };
+    }
+
+    undoStack.current = [...undoStack.current.slice(-49), structuredClone(current.patch)];
+    setPersistenceError(null);
+    setLibraryState({
+      sourceCommitSha: current.sourceCommitSha,
+      base: current.base,
+      effective: updated.effective,
+      patch: updated.patch,
+      conflicts: current.conflicts,
+      retainedLocalAssetIds: current.retainedLocalAssetIds,
+      publicationState,
+    });
+  }), [enqueueInteraction, libraryStore, replaceRescueLineage, setLibraryState]);
 
   const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
     const id = input.id ?? crypto.randomUUID();
@@ -1221,14 +1484,26 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         selectedPatch: snapshotPublishPatch,
         localAssets: new Map(mediaRecords.map((asset) => [asset.id, asset.blob])),
       });
-      const reconcileLatestRemainder = (): ReconciledPatch => {
-        const latest = stateRef.current;
-        if (!latest) throw new Error("Локальное состояние закрылось во время синхронизации");
+      const reconcileLatestRemainder = (): {
+        snapshot: LibraryState;
+        ordinaryRaw: string | null;
+        reconciled: ReconciledPatch;
+      } => {
+        const latestSnapshot = stateRef.current;
+        if (!latestSnapshot) throw new Error("Локальное состояние закрылось во время синхронизации");
+        const ordinary = loadPatch(localStorage);
+        if (ordinary.error) throw new Error("Локальный патч стал нечитаемым во время публикации");
+        const latest = installStoredInteractionRescue(latestSnapshot, ordinary);
         const postClickPatch = diffLibrary(snapshotEffective, latest.effective);
         const rebasedPostClickPatch = rebasePostClickOverlaps(snapshotDeferredPatch, postClickPatch);
-        return reconcilePatch(result.database, mergePatchEnvelopes(snapshotDeferredPatch, rebasedPostClickPatch));
+        return {
+          snapshot: latestSnapshot,
+          ordinaryRaw: ordinary.raw,
+          reconciled: reconcilePatch(result.database, mergePatchEnvelopes(snapshotDeferredPatch, rebasedPostClickPatch)),
+        };
       };
-      const remaining = reconcileLatestRemainder();
+      const initialRemainder = reconcileLatestRemainder();
+      const remaining = initialRemainder.reconciled;
       if (result.status === "up_to_date") {
         publicationAccepted = true;
         if (snapshotLocalAssetIds.length) await updateLocalAssetState(snapshotLocalAssetIds, "local");
@@ -1267,10 +1542,104 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         phase: "awaiting-deployment",
       };
-      const installed = await installPendingPublicationJournal(localStorage, journal, { expectedRaw: null });
+      const compatibleStoredJournal = () => {
+        const loaded = loadPendingPublicationJournal(localStorage);
+        if (loaded.status !== "valid" || !samePublicationIdentity(loaded.journal, journal)) return null;
+        return { status: "durable" as const, journal: loaded.journal, raw: loaded.raw };
+      };
+      let handoffRemainder = initialRemainder;
+      let installed: Awaited<ReturnType<typeof installPendingPublicationJournal>>;
+      while (true) {
+        installed = await installPendingPublicationJournal(localStorage, {
+          ...journal,
+          remainderPatch: handoffRemainder.reconciled.patch,
+        }, {
+          expectedRaw: null,
+          expectedOrdinaryRaw: handoffRemainder.ordinaryRaw,
+          replaceRescueLineage: replaceRescueLineage(handoffRemainder.ordinaryRaw, snapshot.base.revision),
+        });
+        if (installed.status !== "changed" || !("currentOrdinaryRaw" in installed)) break;
+        handoffRemainder = reconcileLatestRemainder();
+      }
+      let forceJournalRefresh = false;
       if (installed.status === "changed") {
-        await reloadPublicationAuthority();
-        throw new Error("Другая вкладка уже сохранила состояние публикации");
+        const concurrent = compatibleStoredJournal();
+        if (!concurrent) throw new Error("Другая вкладка сохранила несовместимое состояние публикации");
+        installed = concurrent;
+        forceJournalRefresh = true;
+      }
+      let finalRemaining = handoffRemainder.reconciled;
+      let observedSnapshot: LibraryState | null = forceJournalRefresh ? null : handoffRemainder.snapshot;
+      let memoryOnlyExpectedRaw: string | null = null;
+      if (installed.status === "durable") {
+        while (true) {
+          const latestRemainder = reconcileLatestRemainder();
+          if (latestRemainder.snapshot === observedSnapshot) break;
+          const previousRaw = installed.raw;
+          const refreshed = await installPendingPublicationJournal(localStorage, {
+            ...installed.journal,
+            remainderPatch: latestRemainder.reconciled.patch,
+          }, {
+            expectedRaw: previousRaw,
+            replaceRescueLineage: replaceRescueLineage(latestRemainder.ordinaryRaw, snapshot.base.revision),
+          });
+          if (refreshed.status === "changed") {
+            const concurrent = compatibleStoredJournal();
+            if (!concurrent) throw new Error("Другая вкладка изменила публикацию несовместимым journal");
+            installed = concurrent;
+            observedSnapshot = null;
+            continue;
+          }
+          if (refreshed.status === "memory_only") {
+            publicationAccepted = false;
+            const observed = loadPendingPublicationJournal(localStorage);
+            const deployed = deployedEnvelopeRef.current;
+            if (observed.status === "valid" && deployed) {
+              setLibraryState(installLoadedAuthority(observed, deployed, stateRef.current ?? snapshot));
+            }
+            const message = "Не удалось подтвердить актуальный journal публикации; локальная правка сохранена в rescue authority";
+            setPersistenceError(message);
+            throw new Error(message);
+          }
+          installed = refreshed;
+          finalRemaining = latestRemainder.reconciled;
+          observedSnapshot = latestRemainder.snapshot;
+        }
+      } else {
+        finalRemaining = reconcileLatestRemainder().reconciled;
+        const observed = loadPendingPublicationJournal(localStorage);
+        if (observed.status === "valid" && samePublicationIdentity(observed.journal, journal)) {
+          installed = { status: "durable", journal: observed.journal, raw: observed.raw };
+          observedSnapshot = null;
+          while (true) {
+            const latestRemainder = reconcileLatestRemainder();
+            if (latestRemainder.snapshot === observedSnapshot) break;
+            const refreshed = await installPendingPublicationJournal(localStorage, {
+              ...installed.journal,
+              remainderPatch: latestRemainder.reconciled.patch,
+            }, {
+              expectedRaw: installed.raw,
+              replaceRescueLineage: replaceRescueLineage(latestRemainder.ordinaryRaw, snapshot.base.revision),
+            });
+            if (refreshed.status !== "durable") {
+              publicationAccepted = false;
+              const currentAuthority = loadPendingPublicationJournal(localStorage);
+              const deployed = deployedEnvelopeRef.current;
+              if (deployed) setLibraryState(installLoadedAuthority(currentAuthority, deployed, stateRef.current ?? snapshot));
+              const message = "Не удалось подтвердить актуальный journal публикации; локальная правка сохранена в rescue authority";
+              setPersistenceError(message);
+              throw new Error(message);
+            }
+            installed = refreshed;
+            finalRemaining = latestRemainder.reconciled;
+            observedSnapshot = latestRemainder.snapshot;
+          }
+        } else {
+          installed = {
+            ...installed,
+            journal: { ...installed.journal, remainderPatch: finalRemaining.patch },
+          };
+        }
       }
       const publicationState: PublicationState = installed.status === "durable"
         ? {
@@ -1288,7 +1657,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           durability: "memory-only",
           journal: installed.journal,
           raw: null,
-          expectedRaw: null,
+          expectedRaw: memoryOnlyExpectedRaw,
           recoveryBase: null,
           check: "waiting-source",
           exportCompleted: false,
@@ -1297,9 +1666,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         ...(stateRef.current ?? snapshot),
         sourceCommitSha: clickSourceCommitSha,
         base: result.database,
-        effective: remaining.effective,
-        patch: remaining.patch,
-        conflicts: remaining.conflicts,
+        effective: finalRemaining.effective,
+        patch: finalRemaining.patch,
+        conflicts: finalRemaining.conflicts,
         publicationState,
       });
       undoStack.current = [];
@@ -1333,9 +1702,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }
       syncInFlightRef.current = false;
     }
-  }), [corruptedPatchRaw, enqueue, persistReconciled, refreshLocalAssets, reloadPublicationAuthority, setLibraryState]);
+  }), [corruptedPatchRaw, enqueue, installLoadedAuthority, persistReconciled, refreshLocalAssets, reloadPublicationAuthority, setLibraryState]);
 
-  const fallbackBase = useMemo<LibraryDatabase>(() => ({ schemaVersion: LIBRARY_SCHEMA_VERSION, revision: "", publicationId: null, games: {}, notes: {}, assets: {} }), []);
   const resolvedState = state ?? { sourceCommitSha: null, base: fallbackBase, effective: fallbackBase, patch: emptyPatch(""), conflicts: [], publicationState: { status: "none", exportCompleted: false } as PublicationState, retainedLocalAssetIds: [] };
   const usage = state ? patchUsage(state.patch) : classifyStorageUsage(typeof localStorage === "undefined" ? 0 : (() => { try { return webkitStorageBytes(localStorage); } catch { return 0; } })(), SAFARI_SAFE_BUDGET_BYTES);
   const canAddBlob = useCallback(async (byteLength: number): Promise<string | null> => {
@@ -1359,8 +1727,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const current = stateRef.current;
     if (!current || current.publicationState.status !== "valid" || current.publicationState.durability !== "memory-only") return;
     const authority = current.publicationState;
+    const ordinary = loadPatch(localStorage);
     const installed = await installPendingPublicationJournal(localStorage, authority.journal, {
       expectedRaw: authority.expectedRaw,
+      replaceRescueLineage: replaceRescueLineage(
+        ordinary.raw,
+        ordinary.patch?.baseRevision ?? deployedEnvelopeRef.current?.database.revision ?? current.base.revision,
+      ),
       ...(authority.journal.phase === "recovery-required" && authority.recoveryBase
         ? { recoveryBaseDatabase: authority.recoveryBase.database }
         : {}),
@@ -1379,7 +1752,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       ...current,
       publicationState: { ...authority, durability: "durable", journal: installed.journal, raw: installed.raw, expectedRaw: installed.raw },
     });
-  }), [enqueue, reloadPublicationAuthority, setLibraryState]);
+  }), [enqueue, reloadPublicationAuthority, replaceRescueLineage, setLibraryState]);
 
   const retryPublicationCheck = useCallback((token?: string) => enqueue(async () => {
     await checkPublicationRef.current(token);
@@ -1509,7 +1882,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     await refreshQuota();
   }, [mutate, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota]);
   const localAssetBytes = localAssets.reduce((total, asset) => total + asset.byteLength, 0);
-  const value = useMemo<LibraryContextValue>(() => ({
+  const snapshot = useMemo<LibrarySnapshot>(() => ({
     ...resolvedState,
     loading,
     fatalError,
@@ -1523,9 +1896,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     localAssets,
     localAssetBytes,
     games: resolvedState.effective.games,
+  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, quotaStatus, persistentStorage, attachmentWriteBlocked, localAssets, localAssetBytes]);
+
+  useLayoutEffect(() => {
+    libraryStore.replaceSnapshot(snapshot);
+  }, [libraryStore, snapshot]);
+
+  actionsRef.current = {
     canAddBlob,
     resolveAssetUrl,
     saveGame,
+    saveNoteInteraction,
     deleteGame,
     moveGame,
     discardPath,
@@ -1544,15 +1925,59 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     deleteAllLocalAssets,
     verifyGitHubAccess,
     syncToGitHub,
-  }), [resolvedState, loading, fatalError, persistenceError, corruptedPatchRaw, usage, storageEstimate, quotaStatus, persistentStorage, attachmentWriteBlocked, localAssets, localAssetBytes, canAddBlob, resolveAssetUrl, saveGame, deleteGame, moveGame, discardPath, discardPaths, clearPatch, resolvePatchConflict, importPatch, undoLast, downloadCorruptedPatch, exportRecoveryArchive, retryPublicationPersistence, retryPublicationCheck, exportPublicationRecovery, discardPublicationAfterExport, reloadPage, deleteAllLocalAssets, verifyGitHubAccess, syncToGitHub]);
+  };
 
-  return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;
+  const stableActions = useMemo<LibraryActions>(() => ({
+    canAddBlob: (...args) => actionsRef.current!.canAddBlob(...args),
+    resolveAssetUrl: (...args) => actionsRef.current!.resolveAssetUrl(...args),
+    saveGame: (...args) => actionsRef.current!.saveGame(...args),
+    saveNoteInteraction: (...args) => actionsRef.current!.saveNoteInteraction(...args),
+    deleteGame: (...args) => actionsRef.current!.deleteGame(...args),
+    moveGame: (...args) => actionsRef.current!.moveGame(...args),
+    discardPath: (...args) => actionsRef.current!.discardPath(...args),
+    discardPaths: (...args) => actionsRef.current!.discardPaths(...args),
+    clearPatch: (...args) => actionsRef.current!.clearPatch(...args),
+    resolvePatchConflict: (...args) => actionsRef.current!.resolvePatchConflict(...args),
+    importPatch: (...args) => actionsRef.current!.importPatch(...args),
+    undoLast: (...args) => actionsRef.current!.undoLast(...args),
+    downloadCorruptedPatch: (...args) => actionsRef.current!.downloadCorruptedPatch(...args),
+    exportRecoveryArchive: (...args) => actionsRef.current!.exportRecoveryArchive(...args),
+    retryPublicationPersistence: (...args) => actionsRef.current!.retryPublicationPersistence(...args),
+    retryPublicationCheck: (...args) => actionsRef.current!.retryPublicationCheck(...args),
+    exportPublicationRecovery: (...args) => actionsRef.current!.exportPublicationRecovery(...args),
+    discardPublicationAfterExport: (...args) => actionsRef.current!.discardPublicationAfterExport(...args),
+    reloadPage: (...args) => actionsRef.current!.reloadPage(...args),
+    deleteAllLocalAssets: (...args) => actionsRef.current!.deleteAllLocalAssets(...args),
+    verifyGitHubAccess: (...args) => actionsRef.current!.verifyGitHubAccess(...args),
+    syncToGitHub: (...args) => actionsRef.current!.syncToGitHub(...args),
+  }), []);
+
+  const contextValue = useMemo<LibraryContextContainer>(() => ({
+    store: libraryStore,
+    actions: stableActions,
+  }), [libraryStore, stableActions]);
+
+  return <LibraryContext.Provider value={contextValue}>{children}</LibraryContext.Provider>;
 }
 
 export function useLibrary(): LibraryContextValue {
-  const value = useContext(LibraryContext);
-  if (!value) throw new Error("useLibrary must be used inside LibraryProvider");
-  return value;
+  const context = useContext(LibraryContext);
+  if (!context) throw new Error("useLibrary must be used inside LibraryProvider");
+  const snapshot = useLibraryStoreSelector(context.store, identitySnapshot);
+  return useMemo(() => ({ ...snapshot, ...context.actions }), [context.actions, snapshot]);
+}
+
+export function useLibrarySelector<Selection>(
+  selector: (library: LibraryContextValue) => Selection,
+  isEqual: (left: Selection, right: Selection) => boolean = Object.is,
+): Selection {
+  const context = useContext(LibraryContext);
+  if (!context) throw new Error("useLibrarySelector must be used inside LibraryProvider");
+  return useLibraryStoreSelector(
+    context.store,
+    (snapshot) => selector({ ...snapshot, ...context.actions }),
+    isEqual,
+  );
 }
 
 export function operationLocalValue(database: LibraryDatabase, path: string): unknown {

@@ -11,8 +11,10 @@ import {
 import {
   AppShell,
   DiffDialog,
+  LocalChangesIndicator,
   type AppRoute,
   type DiffSyncController,
+  type StorageSummary,
 } from "./components";
 import {
   PATCH_STORAGE_KEY,
@@ -22,11 +24,14 @@ import {
   resolvePatchSelection,
   webkitStringBytes,
   type Asset,
+  type Game,
+  type LibraryDatabase,
+  type Note,
   type PatchSelectionSeed,
   type PatchOperation,
 } from "./domain";
-import { CatalogPage, GamePage, TierListPage } from "./pages";
-import { LibraryProvider, useLibrary } from "./state/LibraryContext";
+import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
+import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -72,8 +77,8 @@ function entityName(
   map: string,
   id: string,
   operation: PatchOperation,
-  effective: ReturnType<typeof useLibrary>["effective"],
-  base: ReturnType<typeof useLibrary>["base"],
+  effective: LibraryContextValue["effective"],
+  base: LibraryContextValue["base"],
 ): string {
   const rootValue = operation.operation === "set" && operation.value && typeof operation.value === "object"
     ? operation.value as Record<string, unknown>
@@ -107,11 +112,129 @@ function assetSummary(value: unknown): unknown {
   };
 }
 
+function sameStructuralGame(left: Game, right: Game): boolean {
+  return Object.is(left, right) || (
+    left.id === right.id
+    && left.title === right.title
+    && left.coverAssetId === right.coverAssetId
+    && left.progressItems === right.progressItems
+    && left.platforms === right.platforms
+    && left.tags === right.tags
+    && left.status === right.status
+    && left.placement === right.placement
+    && left.reviewMarkdown === right.reviewMarkdown
+    && left.createdAt === right.createdAt
+  );
+}
+
+function sameStructuralNote(left: Note, right: Note): boolean {
+  return Object.is(left, right) || (
+    left.id === right.id
+    && left.gameId === right.gameId
+    && left.attachments === right.attachments
+    && left.doubleHeight === right.doubleHeight
+    && left.doubleWidth === right.doubleWidth
+    && left.groupRank === right.groupRank
+    && left.rank === right.rank
+    && left.createdAt === right.createdAt
+  );
+}
+
+function sameStructuralRecord<T>(
+  left: Readonly<Record<string, T>>,
+  right: Readonly<Record<string, T>>,
+  isEqual: (left: T, right: T) => boolean,
+): boolean {
+  if (Object.is(left, right)) return true;
+  const leftIds = Object.keys(left);
+  const rightIds = Object.keys(right);
+  return leftIds.length === rightIds.length
+    && leftIds.every((id) => right[id] !== undefined && isEqual(left[id], right[id]));
+}
+
+function sameStructuralDatabase(left: LibraryDatabase, right: LibraryDatabase): boolean {
+  return Object.is(left, right) || (
+    left.schemaVersion === right.schemaVersion
+    && left.revision === right.revision
+    && left.publicationId === right.publicationId
+    && sameStructuralRecord(left.games, right.games, sameStructuralGame)
+    && sameStructuralRecord(left.notes, right.notes, sameStructuralNote)
+    && Object.is(left.assets, right.assets)
+  );
+}
+
+function samePublicationBoundary(left: LibraryContextValue["publicationState"], right: LibraryContextValue["publicationState"]): boolean {
+  if (Object.is(left, right)) return true;
+  if (left.status !== right.status) return false;
+  if (left.status !== "valid" || right.status !== "valid") return false;
+  return left.durability === right.durability
+    && left.journal.phase === right.journal.phase
+    && left.journal.sourceCommitSha === right.journal.sourceCommitSha
+    && left.journal.targetCommitSha === right.journal.targetCommitSha
+    && left.journal.targetRevision === right.journal.targetRevision
+    && left.recoveryBase === right.recoveryBase
+    && left.check === right.check
+    && left.exportCompleted === right.exportCompleted;
+}
+
+function sameLibraryRouteBoundary(left: LibraryContextValue, right: LibraryContextValue): boolean {
+  return Object.is(left, right) || (
+    left.sourceCommitSha === right.sourceCommitSha
+    && Object.is(left.base, right.base)
+    && sameStructuralDatabase(left.effective, right.effective)
+    && Object.is(left.conflicts, right.conflicts)
+    && samePublicationBoundary(left.publicationState, right.publicationState)
+    && Object.is(left.retainedLocalAssetIds, right.retainedLocalAssetIds)
+    && left.loading === right.loading
+    && left.fatalError === right.fatalError
+    && left.corruptedPatchRaw === right.corruptedPatchRaw
+    && Object.is(left.storageEstimate, right.storageEstimate)
+    && Object.is(left.quotaStatus, right.quotaStatus)
+    && left.persistentStorage === right.persistentStorage
+    && left.attachmentsBlocked === right.attachmentsBlocked
+    && Object.is(left.localAssets, right.localAssets)
+    && left.localAssetBytes === right.localAssetBytes
+  );
+}
+
+function identityLibrary(library: LibraryContextValue): LibraryContextValue {
+  return library;
+}
+
+function sameStorageSummary(left: StorageSummary, right: StorageSummary): boolean {
+  return left.bytes === right.bytes
+    && left.budgetBytes === right.budgetBytes
+    && left.localAssetCount === right.localAssetCount
+    && left.localAssetBytes === right.localAssetBytes
+    && left.quotaLevel === right.quotaLevel
+    && left.persistent === right.persistent
+    && left.oldestLocalAssetAt === right.oldestLocalAssetAt
+    && left.operationCount === right.operationCount
+    && left.conflictCount === right.conflictCount
+    && left.error === right.error;
+}
+
+function SubscribedLocalChangesIndicator({ actionError, onOpenDiff }: { actionError: string | null; onOpenDiff: () => void }) {
+  const storage = useLibrarySelector<StorageSummary>((library) => ({
+    bytes: library.usage.bytes,
+    budgetBytes: library.usage.budget,
+    localAssetCount: library.localAssets.length,
+    localAssetBytes: library.localAssetBytes,
+    quotaLevel: library.attachmentsBlocked ? "blocked" : library.quotaStatus.level,
+    persistent: library.persistentStorage,
+    oldestLocalAssetAt: library.localAssets[0]?.createdAt ?? null,
+    operationCount: Object.keys(library.patch.operations).length,
+    conflictCount: library.conflicts.length,
+    error: actionError ?? library.persistenceError ?? undefined,
+  }), sameStorageSummary);
+  return <LocalChangesIndicator onOpenDiff={onOpenDiff} storage={storage} />;
+}
+
 function LibraryRoutes() {
-  const library = useLibrary();
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
+  const library = useLibrarySelector(identityLibrary, diffOpen ? Object.is : sameLibraryRouteBoundary);
   const [selectionMode, setSelectionMode] = useState(false);
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
@@ -349,6 +472,11 @@ function LibraryRoutes() {
     setSelectionMode(false);
     setExplicitSelectionIds(new Set());
   };
+  const openDiff = () => {
+    setSelectionMode(false);
+    setExplicitSelectionIds(new Set());
+    setDiffOpen(true);
+  };
 
   if (library.loading) {
     return <div className="boot-screen"><span className="boot-screen__spinner" /><p>Открываем библиотеку…</p></div>;
@@ -361,12 +489,9 @@ function LibraryRoutes() {
     <AppShell
       gameId={gameId}
       games={games}
+      localChangesIndicator={<SubscribedLocalChangesIndicator actionError={actionError} onOpenDiff={openDiff} />}
       onNavigate={navigateHref}
-      onOpenDiff={() => {
-        setSelectionMode(false);
-        setExplicitSelectionIds(new Set());
-        setDiffOpen(true);
-      }}
+      onOpenDiff={openDiff}
       resolveAssetUrl={library.resolveAssetUrl}
       route={routeKind(location.pathname)}
       storage={{
@@ -476,16 +601,75 @@ function LibraryRoutes() {
   );
 }
 
+interface GameRouteSelection {
+  assets: LibraryDatabase["assets"];
+  game?: Game;
+  gameSuggestions: Game[];
+  notes: Note[];
+  attachmentsBlocked: boolean;
+  canAddBlob: LibraryContextValue["canAddBlob"];
+  deleteGame: LibraryContextValue["deleteGame"];
+  resolveAssetUrl: LibraryContextValue["resolveAssetUrl"];
+  saveGame: LibraryContextValue["saveGame"];
+  saveNoteInteraction: LibraryContextValue["saveNoteInteraction"];
+}
+
+function sameStructuralArray<T>(left: readonly T[], right: readonly T[], isEqual: (left: T, right: T) => boolean): boolean {
+  return left.length === right.length && left.every((value, index) => isEqual(value, right[index]));
+}
+
+function sameGameRouteSelection(left: GameRouteSelection, right: GameRouteSelection): boolean {
+  return Object.is(left.assets, right.assets)
+    && (left.game === undefined ? right.game === undefined : right.game !== undefined && sameStructuralGame(left.game, right.game))
+    && sameStructuralArray(left.gameSuggestions, right.gameSuggestions, sameStructuralGame)
+    && sameStructuralArray(left.notes, right.notes, sameStructuralNote)
+    && left.attachmentsBlocked === right.attachmentsBlocked
+    && left.canAddBlob === right.canAddBlob
+    && left.deleteGame === right.deleteGame
+    && left.resolveAssetUrl === right.resolveAssetUrl
+    && left.saveGame === right.saveGame
+    && left.saveNoteInteraction === right.saveNoteInteraction;
+}
+
+function sameNoteInteractionSnapshot(left: NoteInteractionSnapshot | undefined, right: NoteInteractionSnapshot | undefined): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || left.bodyMarkdown !== right.bodyMarkdown) return false;
+  const leftSections = left.collapsedChecklistSections ?? [];
+  const rightSections = right.collapsedChecklistSections ?? [];
+  return leftSections.length === rightSections.length
+    && leftSections.every((section, index) => section === rightSections[index]);
+}
+
+function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapshot | undefined {
+  return useLibrarySelector((library) => {
+    const note = library.effective.notes[noteId];
+    return note ? {
+      bodyMarkdown: note.bodyMarkdown,
+      collapsedChecklistSections: note.collapsedChecklistSections,
+    } : undefined;
+  }, sameNoteInteractionSnapshot);
+}
+
 function GameRoute({ mode }: { mode: "new" | "game" }) {
-  const library = useLibrary();
   const navigate = useNavigate();
   const { id } = useParams();
-  const gameSuggestions = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
-  const game = id ? library.effective.games[id] : undefined;
-  const notes = useMemo(
-    () => id ? Object.values(library.effective.notes).filter((note) => note.gameId === id) : [],
-    [id, library.effective.notes],
-  );
+  const selection = useLibrarySelector<GameRouteSelection>((library) => ({
+    assets: library.effective.assets,
+    game: id ? library.effective.games[id] : undefined,
+    gameSuggestions: Object.values(library.effective.games),
+    notes: id ? Object.values(library.effective.notes).filter((note) => note.gameId === id) : [],
+    attachmentsBlocked: library.attachmentsBlocked,
+    canAddBlob: library.canAddBlob,
+    deleteGame: library.deleteGame,
+    resolveAssetUrl: library.resolveAssetUrl,
+    saveGame: library.saveGame,
+    saveNoteInteraction: library.saveNoteInteraction,
+  }), sameGameRouteSelection);
+  const { assets, game, gameSuggestions, notes } = selection;
+  const noteInteractionSource = useMemo<NoteInteractionSource>(() => ({
+    useNoteInteractionSnapshot: useRouteNoteInteractionSnapshot,
+    saveNoteInteraction: selection.saveNoteInteraction,
+  }), [selection.saveNoteInteraction]);
   const platformSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.platforms))];
   const tagSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.tags))];
 
@@ -494,22 +678,23 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
   }
 
   return <GamePage
-    assets={library.effective.assets}
-    canAddBlob={library.canAddBlob}
+    assets={assets}
+    canAddBlob={selection.canAddBlob}
     game={game}
     gameSuggestions={gameSuggestions}
     key={game?.id ?? "new"}
     mode={mode}
     notes={notes}
+    noteInteractionSource={noteInteractionSource}
     onCancel={() => navigate("/games")}
-    onDelete={game ? async (gameId) => { await library.deleteGame(gameId); navigate("/games"); } : undefined}
+    onDelete={game ? async (gameId) => { await selection.deleteGame(gameId); navigate("/games"); } : undefined}
     onSave={async (input) => {
-      const gameId = await library.saveGame(input);
+      const gameId = await selection.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
     platformSuggestions={platformSuggestions}
-    resolveAssetUrl={library.resolveAssetUrl}
-    storageLocked={library.attachmentsBlocked}
+    resolveAssetUrl={selection.resolveAssetUrl}
+    storageLocked={selection.attachmentsBlocked}
     tagSuggestions={tagSuggestions}
   />;
 }

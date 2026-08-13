@@ -5,6 +5,8 @@ import {
   LOCAL_ASSET_METADATA_PREFIX,
   PATCH_STORAGE_KEY,
   bytesToBase64,
+  canonicalStringify,
+  canonicalHash,
   diffLibrary,
   localAssetDataKey,
   makeExternalWebPAsset,
@@ -44,13 +46,102 @@ const localAssetStateControl = vi.hoisted(() => ({
   afterUpdate: undefined as undefined | ((state: string) => Promise<void>),
 }));
 
+const interactionPersistenceControl = vi.hoisted(() => ({
+  fullPatchWrites: 0,
+  fullJournalWrites: 0,
+  fastPatchWrites: 0,
+  fastJournalWrites: 0,
+  throwJournalBoundary: false,
+  fullJournalInstallStarted: null as (() => void) | null,
+  holdFullJournalInstall: null as Promise<void> | null,
+  forcedFullJournalResults: [] as Array<
+    | "actual"
+    | "memory_only"
+    | "memory_only_after_write"
+    | "durable_after_write"
+    | "changed"
+    | "changed_incompatible"
+    | "changed_unreadable"
+    | "throw_after_write"
+  >,
+}));
+
 vi.mock("../src/domain", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/domain")>();
   return {
     ...actual,
+    savePatch: (...args: Parameters<typeof actual.savePatch>) => {
+      interactionPersistenceControl.fullPatchWrites += 1;
+      return actual.savePatch(...args);
+    },
+    saveValidatedInteractionPatch: (...args: unknown[]) => {
+      interactionPersistenceControl.fastPatchWrites += 1;
+      return (actual as unknown as { saveValidatedInteractionPatch: (...values: unknown[]) => unknown })
+        .saveValidatedInteractionPatch(...args);
+    },
     updateLocalAssetState: async (...args: Parameters<typeof actual.updateLocalAssetState>) => {
       await actual.updateLocalAssetState(...args);
       await localAssetStateControl.afterUpdate?.(args[1]);
+    },
+  };
+});
+
+vi.mock("../src/state/pendingPublication", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/state/pendingPublication")>();
+  return {
+    ...actual,
+    installPendingPublicationJournal: async (...args: Parameters<typeof actual.installPendingPublicationJournal>) => {
+      interactionPersistenceControl.fullJournalWrites += 1;
+      if (interactionPersistenceControl.throwJournalBoundary) throw new Error("interaction journal boundary failed");
+      if (interactionPersistenceControl.holdFullJournalInstall) {
+        interactionPersistenceControl.fullJournalInstallStarted?.();
+        await interactionPersistenceControl.holdFullJournalInstall;
+      }
+      const forced = interactionPersistenceControl.forcedFullJournalResults.shift() ?? "actual";
+      if (forced === "memory_only") {
+        return { status: "memory_only" as const, journal: args[1], error: new Error("forced replacement memory-only") };
+      }
+      if (forced === "memory_only_after_write") {
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, canonicalStringify(args[1]));
+        return { status: "memory_only" as const, journal: args[1], error: new Error("forced unconfirmed journal write") };
+      }
+      if (forced === "durable_after_write") {
+        const raw = canonicalStringify(args[1]);
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, raw);
+        return { status: "durable" as const, journal: args[1], raw };
+      }
+      if (forced === "changed") {
+        const currentRaw = localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
+        if (currentRaw === null) throw new Error("Expected predecessor journal before forced CAS change");
+        const concurrent = JSON.parse(currentRaw) as PendingPublicationJournalV3;
+        concurrent.createdAt = "2026-07-16T10:00:00.001Z";
+        const concurrentRaw = JSON.stringify(concurrent);
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, concurrentRaw);
+        return { status: "changed" as const, currentRaw: concurrentRaw };
+      }
+      if (forced === "changed_incompatible") {
+        const incompatible = structuredClone(args[1]);
+        incompatible.targetCommitSha = "7".repeat(40);
+        const incompatibleRaw = canonicalStringify(incompatible);
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, incompatibleRaw);
+        return { status: "changed" as const, currentRaw: incompatibleRaw };
+      }
+      if (forced === "changed_unreadable") {
+        const unreadableRaw = "{unreadable-journal";
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, unreadableRaw);
+        return { status: "changed" as const, currentRaw: unreadableRaw };
+      }
+      if (forced === "throw_after_write") {
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, canonicalStringify(args[1]));
+        throw new Error("forced installer throw after write");
+      }
+      return actual.installPendingPublicationJournal(...args);
+    },
+    installValidatedInteractionJournal: async (...args: unknown[]) => {
+      interactionPersistenceControl.fastJournalWrites += 1;
+      if (interactionPersistenceControl.throwJournalBoundary) throw new Error("interaction journal boundary failed");
+      return (actual as unknown as { installValidatedInteractionJournal: (...values: unknown[]) => unknown })
+        .installValidatedInteractionJournal(...args);
     },
   };
 });
@@ -76,14 +167,20 @@ class MemoryStorage implements Storage {
   private setFailures = 0;
   private failingSetKeys = new Set<string>();
   private failingSetMatch: ((key: string, value: string) => boolean) | null = null;
+  private failReadAfterSetKeys = new Set<string>();
+  private failingGetKeys = new Set<string>();
   private keptRemoveKeys = new Set<string>();
   get length() { return this.values.size; }
   clear() { this.values.clear(); }
   failNextSet() { this.setFailures += 1; }
   failNextSetFor(key: string) { this.failingSetKeys.add(key); }
+  failNextReadAfterSetFor(key: string) { this.failReadAfterSetKeys.add(key); }
   failNextMatchingSet(matches: (key: string, value: string) => boolean) { this.failingSetMatch = matches; }
   keepNextRemoveFor(key: string) { this.keptRemoveKeys.add(key); }
-  getItem(key: string) { return this.values.get(key) ?? null; }
+  getItem(key: string) {
+    if (this.failingGetKeys.delete(key)) throw new DOMException("Storage is unavailable", "SecurityError");
+    return this.values.get(key) ?? null;
+  }
   key(index: number) { return [...this.values.keys()][index] ?? null; }
   removeItem(key: string) {
     if (this.keptRemoveKeys.delete(key)) return;
@@ -102,6 +199,7 @@ class MemoryStorage implements Storage {
       throw new DOMException("Storage is full", "QuotaExceededError");
     }
     this.values.set(key, value);
+    if (this.failReadAfterSetKeys.delete(key)) this.failingGetKeys.add(key);
   }
 }
 
@@ -410,6 +508,45 @@ function NoteGroupProbe() {
   </div>;
 }
 
+function NoteInteractionProbe() {
+  const library = useLibrary();
+  const [result, setResult] = useState("idle");
+  const [syncResult, setSyncResult] = useState("idle");
+  const note = library.effective.notes[NOTE_ID];
+  const bodyOperation = library.patch.operations[`/notes/${NOTE_ID}/bodyMarkdown`];
+  const save = (value: string) => {
+    void library.saveNoteInteraction({ noteId: NOTE_ID, field: "bodyMarkdown", value })
+      .then(() => setResult("saved"))
+      .catch((error) => setResult(error instanceof Error ? error.message : String(error)));
+  };
+  return <div>
+    <span data-testid="interaction-loading">{String(library.loading)}</span>
+    <span data-testid="interaction-body">{note?.bodyMarkdown ?? "missing"}</span>
+    <span data-testid="interaction-result">{result}</span>
+    <span data-testid="interaction-sync-result">{syncResult}</span>
+    <span data-testid="interaction-authority">{library.publicationState.status}</span>
+    <span data-testid="interaction-patch-value">{bodyOperation?.operation === "set" ? String(bodyOperation.value) : "none"}</span>
+    <span data-testid="interaction-tier">{library.effective.games[GAME_ID]?.placement.tierId ?? "missing"}</span>
+    <span data-testid="interaction-persistence-error">{library.persistenceError ?? "none"}</span>
+    <span data-testid="interaction-conflicts">{library.conflicts.length}</span>
+    <button type="button" onClick={() => save("First click")}>First note click</button>
+    <button type="button" onClick={() => save("Second click")}>Second note click</button>
+    <button type="button" onClick={() => save("Before")}>Restore base note</button>
+    <button type="button" onClick={() => { void library.moveGame(GAME_ID, "s", 0); }}>Move after handoff</button>
+    <button type="button" onClick={() => {
+      setSyncResult("syncing");
+      void library.syncToGitHub(GITHUB_TOKEN)
+        .then(() => setSyncResult("synced"))
+        .catch((error) => setSyncResult(error instanceof Error ? error.message : String(error)));
+    }}>Start structural sync</button>
+    <button type="button" onClick={() => {
+      void library.undoLast()
+        .then((restored) => setResult(`undo:${String(restored)}`))
+        .catch((error) => setResult(error instanceof Error ? error.message : String(error)));
+    }}>Undo note click</button>
+  </div>;
+}
+
 function GitHubSyncProbe() {
   const library = useLibrary();
   const [result, setResult] = useState("idle");
@@ -525,11 +662,23 @@ beforeEach(() => {
   vi.stubGlobal("localStorage", new MemoryStorage());
   Object.defineProperty(navigator, "locks", { configurable: true, value: new ExclusiveTestLockManager() });
   sessionStorage.clear();
+  interactionPersistenceControl.fullPatchWrites = 0;
+  interactionPersistenceControl.fullJournalWrites = 0;
+  interactionPersistenceControl.fastPatchWrites = 0;
+  interactionPersistenceControl.fastJournalWrites = 0;
+  interactionPersistenceControl.throwJournalBoundary = false;
+  interactionPersistenceControl.fullJournalInstallStarted = null;
+  interactionPersistenceControl.holdFullJournalInstall = null;
+  interactionPersistenceControl.forcedFullJournalResults = [];
 });
 
 afterEach(() => {
   vi.useRealTimers();
   localAssetStateControl.afterUpdate = undefined;
+  interactionPersistenceControl.throwJournalBoundary = false;
+  interactionPersistenceControl.fullJournalInstallStarted = null;
+  interactionPersistenceControl.holdFullJournalInstall = null;
+  interactionPersistenceControl.forcedFullJournalResults = [];
   cleanup();
   localStorage.clear();
   sessionStorage.clear();
@@ -855,6 +1004,602 @@ describe("LibraryProvider patch reload and reconciliation", () => {
     expect(screen.getByTestId("title")).toHaveTextContent("Static");
     fireEvent.click(screen.getByRole("button", { name: "Изменить" }));
     await waitFor(() => expect(screen.getByTestId("mutation-error")).toHaveTextContent("Сначала разрешите конфликты"));
+  });
+});
+
+describe("LibraryProvider interactive note persistence", () => {
+  function databaseWithNote(bodyMarkdown = "Before"): LibraryDatabase {
+    const draft = empty();
+    draft.games[GAME_ID] = game("Interaction game");
+    draft.notes[NOTE_ID] = {
+      id: NOTE_ID,
+      gameId: GAME_ID,
+      bodyMarkdown,
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    return withComputedRevision(draft);
+  }
+
+  it("keeps useLibrary compatible and persists each click as one distinct undoable transaction", async () => {
+    const base = databaseWithNote();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    const setItem = vi.spyOn(localStorage, "setItem");
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    const firstStored = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as ReturnType<typeof diffLibrary>;
+    const firstTransaction = firstStored.operations[`/notes/${NOTE_ID}/bodyMarkdown`]?.transactionId;
+    expect(setItem.mock.calls.filter(([key]) => key === PATCH_STORAGE_KEY)).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Second note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Second click"));
+    const secondStored = JSON.parse(localStorage.getItem(PATCH_STORAGE_KEY) ?? "null") as ReturnType<typeof diffLibrary>;
+    const secondTransaction = secondStored.operations[`/notes/${NOTE_ID}/bodyMarkdown`]?.transactionId;
+    expect(setItem.mock.calls.filter(([key]) => key === PATCH_STORAGE_KEY)).toHaveLength(2);
+    expect(secondTransaction).not.toBe(firstTransaction);
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    expect(screen.getByTestId("interaction-result")).toHaveTextContent("undo:true");
+    fireEvent.click(screen.getByRole("button", { name: "Undo note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before"));
+    expect(screen.getByTestId("interaction-result")).toHaveTextContent("undo:true");
+    fireEvent.click(screen.getByRole("button", { name: "Undo note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("undo:false"));
+  });
+
+  it("updates a durable pending-publication remainder without touching the ordinary patch", async () => {
+    const source = databaseWithNote("Source");
+    const targetDraft = structuredClone(source);
+    targetDraft.notes[NOTE_ID].bodyMarkdown = "Published target";
+    const target = withComputedRevision(targetDraft);
+    const staleOrdinary = diffLibrary(source, source);
+    expect(savePatch(localStorage, staleOrdinary).ok).toBe(true);
+    const installed = await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null });
+    expect(installed.status).toBe("durable");
+    const ordinaryRaw = localStorage.getItem(PATCH_STORAGE_KEY);
+    mockStaticDatabase(source);
+
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    const setItem = vi.spyOn(localStorage, "setItem");
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    const loaded = loadPendingPublicationJournal(localStorage);
+    expect(loaded.status).toBe("valid");
+    if (loaded.status !== "valid") throw new Error("Expected durable pending publication");
+    expect(loaded.journal.remainderPatch.operations[`/notes/${NOTE_ID}/bodyMarkdown`]).toMatchObject({
+      operation: "set",
+      value: "First click",
+    });
+    expect(setItem.mock.calls.filter(([key]) => key === PENDING_PUBLICATION_STORAGE_KEY)).toHaveLength(1);
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toBe(ordinaryRaw);
+  });
+
+  it("keeps the prior snapshot and undo history when immediate persistence throws", async () => {
+    const base = databaseWithNote();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    (localStorage as MemoryStorage).failNextSetFor(PATCH_STORAGE_KEY);
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("Storage is full"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before");
+    expect(screen.getByTestId("interaction-persistence-error")).toHaveTextContent("Storage is full");
+    fireEvent.click(screen.getByRole("button", { name: "Undo note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("undo:false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before");
+  });
+
+  it("blocks an interaction that overlaps an active conflict without attempting persistence", async () => {
+    const base = databaseWithNote();
+    const conflictPatch = {
+      patchVersion: 2 as const,
+      schemaVersion: 2 as const,
+      baseRevision: base.revision,
+      operations: {
+        [`/notes/${NOTE_ID}/bodyMarkdown`]: {
+          operation: "set" as const,
+          value: "Conflicting local value",
+          baseExists: true,
+          baseHash: canonicalHash("Outdated base value"),
+          changedAt: NOW,
+          transactionId: "conflicting-transaction",
+        },
+      },
+      blobs: {},
+    };
+    localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(conflictPatch));
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-conflicts")).toHaveTextContent("1");
+    const setItem = vi.spyOn(localStorage, "setItem");
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("конфликт"));
+    expect(setItem).not.toHaveBeenCalled();
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before");
+  });
+
+  it.each([
+    ["ordinary patch", false],
+    ["pending journal", true],
+  ])("uses only the already-validated fast persistence boundary for an %s interaction", async (_label, pending) => {
+    const source = databaseWithNote("Source");
+    const targetDraft = structuredClone(source);
+    targetDraft.notes[NOTE_ID].bodyMarkdown = "Published target";
+    const target = withComputedRevision(targetDraft);
+    if (pending) {
+      expect((await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null })).status).toBe("durable");
+    }
+    mockStaticDatabase(source);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    interactionPersistenceControl.fullPatchWrites = 0;
+    interactionPersistenceControl.fullJournalWrites = 0;
+    interactionPersistenceControl.fastPatchWrites = 0;
+    interactionPersistenceControl.fastJournalWrites = 0;
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    expect(interactionPersistenceControl.fullPatchWrites).toBe(0);
+    expect(interactionPersistenceControl.fullJournalWrites).toBe(0);
+    expect(interactionPersistenceControl.fastPatchWrites).toBe(pending ? 0 : 1);
+    expect(interactionPersistenceControl.fastJournalWrites).toBe(pending ? 1 : 0);
+  });
+
+  it("keeps a responsive interaction in the final authority when publication installs its journal concurrently", async () => {
+    const base = databaseWithNote();
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local structural title";
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "structural-title" })).ok).toBe(true);
+    const targetDraft = structuredClone(local);
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    const publish = vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
+    let releaseJournalInstall!: () => void;
+    interactionPersistenceControl.holdFullJournalInstall = new Promise<void>((resolve) => { releaseJournalInstall = resolve; });
+    const journalInstallStarted = new Promise<void>((resolve) => {
+      interactionPersistenceControl.fullJournalInstallStarted = resolve;
+    });
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    await journalInstallStarted;
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toContain("First click");
+    const rescueRaw = localStorage.getItem("my-game-library.note-interaction-rescue.v1");
+    expect(rescueRaw).toContain("baseRevision");
+    expect(rescueRaw).toContain(base.revision);
+    expect(rescueRaw).toContain(NOTE_ID);
+
+    interactionPersistenceControl.holdFullJournalInstall = null;
+    releaseJournalInstall();
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("synced"));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("saved"));
+    expect(screen.getByTestId("interaction-authority")).toHaveTextContent("valid");
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("First click");
+    const loaded = loadPendingPublicationJournal(localStorage);
+    expect(loaded.status).toBe("valid");
+    if (loaded.status !== "valid") throw new Error("Expected durable pending publication");
+    expect(loaded.journal.remainderPatch.operations[`/notes/${NOTE_ID}/bodyMarkdown`]).toMatchObject({
+      operation: "set",
+      value: "First click",
+    });
+
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("First click");
+  });
+
+  it.each([
+    {
+      label: "an initial unconfirmed write",
+      forcedResults: ["memory_only_after_write"],
+      expectedPublication: "synced",
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: CREATED_COMMIT_SHA,
+      preserveRemoval: false,
+    },
+    {
+      label: "an initial incompatible changed result",
+      forcedResults: ["changed_incompatible"],
+      expectedPublication: "несовместим",
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: "7".repeat(40),
+      preserveRemoval: false,
+    },
+    {
+      label: "a replacement unreadable changed result",
+      forcedResults: ["durable_after_write", "changed_unreadable"],
+      expectedPublication: "несовместим",
+      expectedJournalStatus: "corrupt",
+      expectedTargetCommitSha: null,
+      preserveRemoval: false,
+    },
+    {
+      label: "a replacement write whose stale journal cannot be removed",
+      forcedResults: ["durable_after_write", "memory_only"],
+      expectedPublication: /journal|публикац/i,
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: CREATED_COMMIT_SHA,
+      preserveRemoval: true,
+    },
+    {
+      label: "an installer throw after stale bytes were written",
+      forcedResults: ["throw_after_write"],
+      expectedPublication: "forced installer throw after write",
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: CREATED_COMMIT_SHA,
+      preserveRemoval: false,
+    },
+    {
+      label: "a compatible replacement adopted from another tab",
+      forcedResults: ["durable_after_write", "changed", "actual"],
+      expectedPublication: "synced",
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: CREATED_COMMIT_SHA,
+      preserveRemoval: false,
+    },
+  ] as const)("keeps a successful interaction authoritative after $label and reload", async ({
+    forcedResults,
+    expectedPublication,
+    expectedJournalStatus,
+    expectedTargetCommitSha,
+    preserveRemoval,
+  }) => {
+    const base = databaseWithNote();
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local structural title";
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "structural-title" })).ok).toBe(true);
+    const targetDraft = structuredClone(local);
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("syncing"));
+    let releaseJournalInstall!: () => void;
+    interactionPersistenceControl.holdFullJournalInstall = new Promise<void>((resolve) => { releaseJournalInstall = resolve; });
+    const journalInstallStarted = new Promise<void>((resolve) => {
+      interactionPersistenceControl.fullJournalInstallStarted = resolve;
+    });
+    interactionPersistenceControl.forcedFullJournalResults = [...forcedResults];
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    await journalInstallStarted;
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toContain("First click");
+    const removeItem = vi.spyOn(localStorage, "removeItem");
+    if (preserveRemoval) (localStorage as MemoryStorage).keepNextRemoveFor(PENDING_PUBLICATION_STORAGE_KEY);
+
+    interactionPersistenceControl.holdFullJournalInstall = null;
+    releaseJournalInstall();
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).not.toHaveTextContent("syncing"));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("saved"));
+    expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent(expectedPublication);
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("First click");
+    if (preserveRemoval) {
+      expect(removeItem.mock.calls.filter(([key]) => key === PENDING_PUBLICATION_STORAGE_KEY)).toHaveLength(0);
+    }
+
+    const persisted = loadPendingPublicationJournal(localStorage);
+    expect(persisted.status).toBe(expectedJournalStatus);
+    if (persisted.status === "valid") {
+      expect(persisted.journal.targetCommitSha).toBe(expectedTargetCommitSha);
+    }
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).toContain("First click");
+    const authorityRescueRaw = localStorage.getItem("my-game-library.note-interaction-rescue.v1");
+    expect(authorityRescueRaw).toContain("baseRevision");
+    expect(authorityRescueRaw).toContain(base.revision);
+    expect(authorityRescueRaw).toContain(NOTE_ID);
+
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("First click");
+  });
+
+  it("never removes a compatible journal adopted from another tab after a later unconfirmed replacement", async () => {
+    const base = databaseWithNote();
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local structural title";
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "structural-title" })).ok).toBe(true);
+    const targetDraft = structuredClone(local);
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("syncing"));
+    let releaseJournalInstall!: () => void;
+    interactionPersistenceControl.holdFullJournalInstall = new Promise<void>((resolve) => { releaseJournalInstall = resolve; });
+    const journalInstallStarted = new Promise<void>((resolve) => {
+      interactionPersistenceControl.fullJournalInstallStarted = resolve;
+    });
+    interactionPersistenceControl.forcedFullJournalResults = ["durable_after_write", "changed", "memory_only"];
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    await journalInstallStarted;
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    const removeItem = vi.spyOn(localStorage, "removeItem");
+
+    interactionPersistenceControl.holdFullJournalInstall = null;
+    releaseJournalInstall();
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).not.toHaveTextContent("syncing"));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("saved"));
+    expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent(/journal|публикац/i);
+    expect(removeItem.mock.calls.filter(([key]) => key === PENDING_PUBLICATION_STORAGE_KEY)).toHaveLength(0);
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid" });
+
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("First click");
+  });
+
+  it("recovers a return-to-base interaction whose ordinary patch has no field operation", async () => {
+    const base = databaseWithNote();
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local structural title";
+    local.notes[NOTE_ID].bodyMarkdown = "First click";
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "published-note" })).ok).toBe(true);
+    const targetDraft = structuredClone(local);
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click");
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("syncing"));
+    let releaseJournalInstall!: () => void;
+    interactionPersistenceControl.holdFullJournalInstall = new Promise<void>((resolve) => { releaseJournalInstall = resolve; });
+    const journalInstallStarted = new Promise<void>((resolve) => {
+      interactionPersistenceControl.fullJournalInstallStarted = resolve;
+    });
+    interactionPersistenceControl.forcedFullJournalResults = ["memory_only_after_write"];
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    await journalInstallStarted;
+
+    fireEvent.click(screen.getByRole("button", { name: "Restore base note" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before"));
+    expect(localStorage.getItem(PATCH_STORAGE_KEY)).not.toContain(`/notes/${NOTE_ID}/bodyMarkdown`);
+
+    interactionPersistenceControl.holdFullJournalInstall = null;
+    releaseJournalInstall();
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("synced"));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("saved"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before");
+    expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid" });
+
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("Before");
+  });
+
+  it("does not let an absorbed ordinary rescue override a later durable journal interaction", async () => {
+    const base = databaseWithNote();
+    const local = structuredClone(base);
+    local.games[GAME_ID].title = "Local structural title";
+    expect(savePatch(localStorage, diffLibrary(base, local, { changedAt: NOW, transactionId: "structural-title" })).ok).toBe(true);
+    const targetDraft = structuredClone(local);
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    let resolvePublication!: (value: Awaited<ReturnType<GitHubGitDatabaseSyncClient["publishSourceTree"]>>) => void;
+    vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockImplementation(() => new Promise((resolve) => {
+      resolvePublication = resolve;
+    }));
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("syncing"));
+    let releaseJournalInstall!: () => void;
+    interactionPersistenceControl.holdFullJournalInstall = new Promise<void>((resolve) => { releaseJournalInstall = resolve; });
+    const journalInstallStarted = new Promise<void>((resolve) => {
+      interactionPersistenceControl.fullJournalInstallStarted = resolve;
+    });
+    resolvePublication({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    await journalInstallStarted;
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    interactionPersistenceControl.holdFullJournalInstall = null;
+    releaseJournalInstall();
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("synced"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Second note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Second click"));
+    const afterSecond = loadPendingPublicationJournal(localStorage);
+    expect(afterSecond.status).toBe("valid");
+    if (afterSecond.status === "valid") expect(afterSecond.journal.remainderPatch.operations[`/notes/${NOTE_ID}/bodyMarkdown`]).toMatchObject({ value: "Second click" });
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Second click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("Second click");
+  });
+
+  it("keeps the latest fast click after an ordinary click, journal handoff, and full journal transition", async () => {
+    const base = databaseWithNote();
+    const targetDraft = structuredClone(base);
+    targetDraft.notes[NOTE_ID].bodyMarkdown = "First click";
+    targetDraft.publicationId = "33333333-3333-4333-8333-333333333333";
+    const target = withComputedRevision(targetDraft);
+    vi.spyOn(GitHubGitDatabaseSyncClient.prototype, "publishSourceTree").mockResolvedValue({
+      status: "published",
+      sourceCommitSha: HEAD_SHA,
+      targetCommitSha: CREATED_COMMIT_SHA,
+      database: target,
+      uploadedLocalAssetIds: [],
+      lostResponseConfirmed: false,
+    });
+    mockStaticDatabase(base);
+    const view = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    fireEvent.click(screen.getByRole("button", { name: "Start structural sync" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-sync-result")).toHaveTextContent("synced"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Move after handoff" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-tier")).toHaveTextContent("s"));
+    fireEvent.click(screen.getByRole("button", { name: "Second note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Second click"));
+
+    view.unmount();
+    mockStaticDatabase(base);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Second click");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("Second click");
+  });
+
+  it("does not reactivate a return-to-base rescue against a different deployed revision", async () => {
+    const base = databaseWithNote("Before");
+    mockStaticDatabase(base);
+    const first = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("First click"));
+    fireEvent.click(screen.getByRole("button", { name: "Restore base note" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-body")).toHaveTextContent("Before"));
+    first.unmount();
+
+    const deployedDraft = structuredClone(base);
+    deployedDraft.notes[NOTE_ID].bodyMarkdown = "New deployed body";
+    const deployed = withComputedRevision(deployedDraft);
+    mockStaticDatabase(deployed, CREATED_COMMIT_SHA);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("New deployed body");
+    expect(screen.getByTestId("interaction-patch-value")).toHaveTextContent("none");
+  });
+
+  it("surfaces a thrown journal persistence boundary error without publishing or adding undo", async () => {
+    const source = databaseWithNote("Source");
+    const targetDraft = structuredClone(source);
+    targetDraft.notes[NOTE_ID].bodyMarkdown = "Published target";
+    const target = withComputedRevision(targetDraft);
+    expect((await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null })).status).toBe("durable");
+    mockStaticDatabase(source);
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    interactionPersistenceControl.throwJournalBoundary = true;
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("interaction journal boundary failed"));
+    expect(screen.getByTestId("interaction-persistence-error")).toHaveTextContent("interaction journal boundary failed");
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Published target");
+    interactionPersistenceControl.throwJournalBoundary = false;
+    fireEvent.click(screen.getByRole("button", { name: "Undo note click" }));
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent("undo:false"));
+  });
+
+  it("does not resurrect a failed journal interaction after its write succeeds but readback throws", async () => {
+    const source = databaseWithNote("Source");
+    const targetDraft = structuredClone(source);
+    targetDraft.notes[NOTE_ID].bodyMarkdown = "Published target";
+    const target = withComputedRevision(targetDraft);
+    expect((await installPendingPublicationJournal(localStorage, pendingJournal(target), { expectedRaw: null })).status).toBe("durable");
+    mockStaticDatabase(source);
+    const first = render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    (localStorage as MemoryStorage).failNextReadAfterSetFor(PENDING_PUBLICATION_STORAGE_KEY);
+
+    fireEvent.click(screen.getByRole("button", { name: "First note click" }));
+
+    await waitFor(() => expect(screen.getByTestId("interaction-result")).toHaveTextContent(/Safari/));
+    expect(screen.getByTestId("interaction-persistence-error")).toHaveTextContent(/Safari/);
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Published target");
+    first.unmount();
+
+    render(<LibraryProvider><NoteInteractionProbe /></LibraryProvider>);
+    await waitFor(() => expect(screen.getByTestId("interaction-loading")).toHaveTextContent("false"));
+    expect(screen.getByTestId("interaction-body")).toHaveTextContent("Published target");
   });
 });
 

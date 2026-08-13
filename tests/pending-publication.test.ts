@@ -401,6 +401,51 @@ describe("pending publication journal install and recovery update", () => {
     expect(storage.calls.filter((call) => call === `get:${PENDING_PUBLICATION_STORAGE_KEY}`).length).toBeGreaterThanOrEqual(2);
   });
 
+  it("refuses an initial journal derived from different ordinary patch bytes", async () => {
+    const storage = new MemoryStorage();
+    const currentOrdinaryRaw = "current ordinary patch";
+    storage.values.set(PATCH_STORAGE_KEY, currentOrdinaryRaw);
+
+    expect(await installPendingPublicationJournal(storage, journal(), {
+      expectedRaw: null,
+      expectedOrdinaryRaw: "stale ordinary patch",
+    })).toEqual({
+      status: "changed",
+      currentRaw: null,
+      currentOrdinaryRaw,
+    });
+    expect(storage.values.has(PENDING_PUBLICATION_STORAGE_KEY)).toBe(false);
+    expect(storage.calls.some((call) => call === `set:${PENDING_PUBLICATION_STORAGE_KEY}`)).toBe(false);
+  });
+
+  it("rechecks ordinary patch bytes immediately before an initial journal write", async () => {
+    const storage = new MemoryStorage();
+    const expectedOrdinaryRaw = "expected ordinary patch";
+    const currentOrdinaryRaw = "new ordinary patch";
+    storage.values.set(PATCH_STORAGE_KEY, expectedOrdinaryRaw);
+    let ordinaryReads = 0;
+    storage.readOverride = (key, value) => {
+      if (key !== PATCH_STORAGE_KEY) return value;
+      ordinaryReads += 1;
+      if (ordinaryReads === 3) {
+        storage.values.set(key, currentOrdinaryRaw);
+        return currentOrdinaryRaw;
+      }
+      return value;
+    };
+
+    expect(await installPendingPublicationJournal(storage, journal(), {
+      expectedRaw: null,
+      expectedOrdinaryRaw,
+    })).toEqual({
+      status: "changed",
+      currentRaw: null,
+      currentOrdinaryRaw,
+    });
+    expect(storage.values.has(PENDING_PUBLICATION_STORAGE_KEY)).toBe(false);
+    expect(storage.calls.some((call) => call === `set:${PENDING_PUBLICATION_STORAGE_KEY}`)).toBe(false);
+  });
+
   it.each(["prewrite-read-failure", "quota", "readback-mismatch", "readback-failure", "budget"] as const)("returns a complete memory-only journal after %s", async (failure) => {
     const storage = new MemoryStorage();
     if (failure === "prewrite-read-failure") storage.failGetAt = 1;

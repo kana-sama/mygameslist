@@ -1,6 +1,6 @@
 import { canonicalHash, canonicalStringify, MISSING_VALUE_HASH, withComputedRevision } from "./canonical";
 import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch } from "./types";
-import { DomainValidationError, assertSourceRepresentable, assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, patchOperationSourceIssues, type EntityMapName } from "./validation";
+import { DomainValidationError, assertSourceRepresentable, assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, patchOperationSourceIssues, validateInteractiveNoteField, validateInteractiveNoteOperationMetadata, type EntityMapName } from "./validation";
 import { deriveImageAssetAlt } from "./assetOwnership";
 import { normalizeLibraryDatabase } from "./libraryNormalization";
 
@@ -18,6 +18,10 @@ export interface ApplyPatchOptions {
   checkBaseHashes?: boolean;
   validateResult?: boolean;
 }
+
+export type InteractiveNoteFieldUpdate =
+  | { noteId: string; field: "bodyMarkdown"; value: string }
+  | { noteId: string; field: "collapsedChecklistSections"; value: string[] | undefined };
 
 function clone<T>(value: T): T { return structuredClone(value); }
 function hasOwn(value: object, key: string): boolean { return Object.prototype.hasOwnProperty.call(value, key); }
@@ -91,6 +95,108 @@ function freshOperation(base: { exists: boolean; value?: unknown }, operation: "
     changedAt,
     transactionId,
   };
+}
+
+function assertInteractiveNoteFieldIsValid(update: InteractiveNoteFieldUpdate): void {
+  const issues = validateInteractiveNoteField(update.field, update.value);
+  if (issues.length) throw new DomainValidationError(issues, "Некорректное значение интерактивной заметки");
+}
+
+function assertInteractiveNoteOperationMetadataIsValid(changedAt: string, transactionId: string): void {
+  const issues = validateInteractiveNoteOperationMetadata(changedAt, transactionId);
+  if (issues.length) throw new DomainValidationError(issues, "Некорректные метаданные операции интерактивной заметки");
+}
+
+function assertTargetOperationIsSourceRepresentable(path: string, operation: PatchOperation): void {
+  const issues = patchOperationSourceIssues(path, operation);
+  if (issues.length) throw new DomainValidationError(issues, "Локальный патч содержит данные, не представимые в source tree");
+}
+
+function hasOverlappingInteractiveNoteConflict(conflicts: readonly PatchConflict[], rootPath: string, fieldPath: string): boolean {
+  return conflicts.some((conflict) => conflict.path === rootPath || conflict.path === fieldPath);
+}
+
+/** Applies one note interaction without reprocessing the rest of the library. */
+export function updateInteractiveNoteField(input: {
+  base: LibraryDatabase;
+  effective: LibraryDatabase;
+  patch: PatchEnvelope;
+  conflicts: readonly PatchConflict[];
+  update: InteractiveNoteFieldUpdate;
+  changedAt: string;
+  transactionId: string;
+}): { effective: LibraryDatabase; patch: PatchEnvelope } {
+  const { base, effective, patch, conflicts, update, changedAt, transactionId } = input;
+  assertInteractiveNoteFieldIsValid(update);
+  assertInteractiveNoteOperationMetadataIsValid(changedAt, transactionId);
+  const rootPath = entityPath("notes", update.noteId);
+  const fieldPath = entityPath("notes", update.noteId, update.field);
+  if (hasOverlappingInteractiveNoteConflict(conflicts, rootPath, fieldPath)) {
+    throw new Error(`Нельзя изменить заметку с неразрешённым конфликтом: ${update.noteId}`);
+  }
+
+  const effectiveNote = effective.notes[update.noteId];
+  if (!effectiveNote) throw new Error(`Заметка не найдена: ${update.noteId}`);
+  const baseNote = base.notes[update.noteId];
+  const baseFieldExists = baseNote !== undefined && hasOwn(baseNote, update.field);
+  const baseValue = baseNote?.[update.field];
+  const matchesBase = baseFieldExists
+    ? same(update.value, baseValue)
+    : update.value === undefined;
+  const createdRoot = patch.operations[rootPath];
+  const isLocallyCreatedRoot = createdRoot?.operation === "set"
+    && !createdRoot.baseExists
+    && createdRoot.baseHash === MISSING_VALUE_HASH
+    && baseNote === undefined;
+  if (createdRoot && !isLocallyCreatedRoot) {
+    throw new Error(`Нельзя изменить заметку с корневой операцией: ${update.noteId}`);
+  }
+
+  const nextNote = {
+    ...effectiveNote,
+    ...(update.field === "collapsedChecklistSections" && update.value === undefined
+      ? (() => { const { collapsedChecklistSections: _removed, ...withoutField } = effectiveNote; return withoutField; })()
+      : { [update.field]: clone(update.value) }),
+    updatedAt: changedAt,
+  };
+  const nextEffective = {
+    ...effective,
+    games: {
+      ...effective.games,
+      [effectiveNote.gameId]: {
+        ...effective.games[effectiveNote.gameId],
+        updatedAt: changedAt,
+      },
+    },
+    notes: { ...effective.notes, [update.noteId]: nextNote },
+  };
+
+  let operations: Record<string, PatchOperation>;
+  if (isLocallyCreatedRoot) {
+    const operation: PatchOperation = {
+      ...createdRoot,
+      value: clone(nextNote),
+      changedAt,
+      transactionId,
+    };
+    assertTargetOperationIsSourceRepresentable(rootPath, operation);
+    operations = { ...patch.operations, [rootPath]: operation };
+  } else if (matchesBase) {
+    operations = { ...patch.operations };
+    delete operations[fieldPath];
+  } else {
+    const operation = freshOperation(
+      { exists: baseFieldExists, ...(baseFieldExists ? { value: baseValue } : {}) },
+      update.value === undefined ? "delete" : "set",
+      update.value,
+      changedAt,
+      transactionId,
+    );
+    assertTargetOperationIsSourceRepresentable(fieldPath, operation);
+    operations = { ...patch.operations, [fieldPath]: operation };
+  }
+
+  return { effective: nextEffective, patch: { ...patch, operations } };
 }
 
 function retainTimestamp(path: string, candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {

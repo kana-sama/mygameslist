@@ -114,6 +114,25 @@ export function validateMarkdown(value: string): string[] {
   return errors;
 }
 
+/** Validates the two note fields that can be changed by immediate interactions. */
+export function validateInteractiveNoteField(
+  field: "bodyMarkdown" | "collapsedChecklistSections",
+  value: string | string[] | undefined,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (field === "bodyMarkdown") markdown(value, "/bodyMarkdown", issues);
+  else if (value !== undefined) stringList(value, "/collapsedChecklistSections", issues);
+  return issues;
+}
+
+/** Validates metadata for the operation produced by an immediate note interaction. */
+export function validateInteractiveNoteOperationMetadata(changedAt: string, transactionId: string): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  isoDate(changedAt, "/changedAt", issues);
+  string(transactionId, "/transactionId", issues, false, 200);
+  return issues;
+}
+
 function markdown(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!string(value, path, issues, true, 2_000_000)) return;
   for (const message of validateMarkdown(value)) issue(issues, path, message);

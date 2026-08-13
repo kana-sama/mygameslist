@@ -20,6 +20,7 @@ import {
 
 /** The v3 schema intentionally reuses the historical key so legacy bytes remain recoverable. */
 export const PENDING_PUBLICATION_STORAGE_KEY = "my-game-library.pending-publication.v1";
+export const PENDING_PUBLICATION_INTERACTION_COMMIT_KEY = "my-game-library.pending-publication-interaction-commit.v1";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const GIT_OBJECT_SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
@@ -44,9 +45,15 @@ const JOURNAL_KEYS = [
 
 type PublicationStorage = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">;
 
+interface PendingPublicationInteractionCommitV1 {
+  version: 1;
+  previousRaw: string | null;
+  attemptedRawHash: string;
+}
+
 export type PendingPublicationLockManager = Pick<LockManager, "request">;
 
-const PENDING_PUBLICATION_LOCK_NAME = "my-game-library.pending-publication-journal.v3";
+export const LOCAL_LIBRARY_AUTHORITY_LOCK_NAME = "my-game-library.pending-publication-journal.v3";
 
 export interface PendingPublicationJournalV3 {
   version: 3;
@@ -85,12 +92,17 @@ export type PendingPublicationJournalLoadResult =
 export type InstallPendingPublicationJournalResult =
   | { status: "durable"; journal: PendingPublicationJournalV3; raw: string }
   | { status: "memory_only"; journal: PendingPublicationJournalV3; error: Error }
-  | { status: "changed"; currentRaw: string | null };
+  | { status: "changed"; currentRaw: string | null; currentOrdinaryRaw?: string | null };
 
 export interface InstallPendingPublicationJournalOptions {
   expectedRaw: string | null;
+  expectedOrdinaryRaw?: string | null;
   recoveryBaseDatabase?: LibraryDatabase;
   lockManager?: PendingPublicationLockManager | null;
+  replaceRescueLineage?: (
+    previousJournalRaw: string | null,
+    nextJournalRaw: string,
+  ) => { status: "durable" | "absent" | "inactive" } | { status: "changed" | "failure"; error: Error };
 }
 
 export interface FinalizePendingPublicationJournalOptions {
@@ -236,6 +248,38 @@ function parseJournalRaw(raw: string): PendingPublicationJournalV3 {
   return journal;
 }
 
+function interactionJournalRawHash(raw: string): string {
+  return sha256Bytes(new TextEncoder().encode(raw));
+}
+
+function parseInteractionCommit(raw: string): PendingPublicationInteractionCommitV1 {
+  const value: unknown = JSON.parse(raw);
+  if (!isObject(value) || !exactKeys(value, ["version", "previousRaw", "attemptedRawHash"]) || value.version !== 1) {
+    throw new Error("Некорректный marker interaction journal");
+  }
+  if (value.previousRaw !== null && typeof value.previousRaw !== "string") throw new Error("Некорректный previous journal marker");
+  if (typeof value.attemptedRawHash !== "string" || !SHA256.test(value.attemptedRawHash)) throw new Error("Некорректный hash interaction journal");
+  if (value.previousRaw !== null) parseJournalRaw(value.previousRaw);
+  const marker = value as unknown as PendingPublicationInteractionCommitV1;
+  if (raw !== canonicalStringify(marker)) throw new Error("Marker interaction journal имеет неканонические bytes");
+  return marker;
+}
+
+function previousRawForIncompleteInteraction(storage: Pick<Storage, "getItem">, currentRaw: string | null): string | null {
+  if (currentRaw === null) return currentRaw;
+  try {
+    const markerRaw = storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY);
+    if (markerRaw === null) return currentRaw;
+    const marker = parseInteractionCommit(markerRaw);
+    const confirmedCurrentRaw = storage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
+    const confirmedMarkerRaw = storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY);
+    if (confirmedCurrentRaw !== currentRaw || confirmedMarkerRaw !== markerRaw) return confirmedCurrentRaw;
+    return interactionJournalRawHash(currentRaw) === marker.attemptedRawHash ? marker.previousRaw : currentRaw;
+  } catch {
+    return currentRaw;
+  }
+}
+
 function legacyExpectedKeys(version: 1 | 2): readonly string[] {
   return version === 1
     ? ["version", "owner", "repo", "branch", "sourceRevision", "commitSha", "createdAt", "database", "blobs"]
@@ -287,6 +331,7 @@ export function loadPendingPublicationJournal(storage: Pick<Storage, "getItem">)
   } catch {
     return { status: "read_failure", error: new Error("Safari не разрешил прочитать ожидающую публикацию") };
   }
+  raw = previousRawForIncompleteInteraction(storage, raw);
   if (raw === null) return { status: "absent" };
   let parsed: unknown;
   try {
@@ -330,11 +375,112 @@ export async function installPendingPublicationJournal(
   const lockManager = productionLockManager(options.lockManager);
   if (lockManager === null) return memoryOnly(canonical, "Web Lock ожидающей публикации недоступен");
   try {
-    return await lockManager.request(PENDING_PUBLICATION_LOCK_NAME, { mode: "exclusive" }, () => (
+    return await lockManager.request(LOCAL_LIBRARY_AUTHORITY_LOCK_NAME, { mode: "exclusive" }, () => (
       installPendingPublicationJournalLocked(storage, canonical, raw, options)
     ));
   } catch {
     return memoryOnly(canonical, "Safari не предоставил Web Lock ожидающей публикации");
+  }
+}
+
+function interactionMemoryOnly(
+  journal: PendingPublicationJournalV3,
+  message: string,
+): InstallPendingPublicationJournalResult {
+  return { status: "memory_only", journal, error: new Error(message) };
+}
+
+/**
+ * CAS-persist a journal whose unchanged authority and new remainder have
+ * already been validated by trusted provider/domain paths. Bootstrap, import,
+ * publication, and recovery flows must continue to use the full installer.
+ */
+export async function installValidatedInteractionJournal(
+  storage: PublicationStorage,
+  journal: PendingPublicationJournalV3,
+  options: Pick<InstallPendingPublicationJournalOptions, "expectedRaw" | "lockManager" | "replaceRescueLineage">,
+): Promise<InstallPendingPublicationJournalResult> {
+  let raw: string;
+  try { raw = canonicalStringify(journal); }
+  catch { return interactionMemoryOnly(journal, "Не удалось сериализовать ожидающую публикацию"); }
+  const lockManager = productionLockManager(options.lockManager);
+  if (lockManager === null) return interactionMemoryOnly(journal, "Web Lock ожидающей публикации недоступен");
+  try {
+    return await lockManager.request(LOCAL_LIBRARY_AUTHORITY_LOCK_NAME, { mode: "exclusive" }, () => {
+      let previousPending: string | null;
+      let ordinaryPatch: string | null;
+      let previousMarkerRaw: string | null;
+      try {
+        previousPending = storage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
+        previousMarkerRaw = storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY);
+        if (previousMarkerRaw !== null) {
+          const previousMarker = parseInteractionCommit(previousMarkerRaw);
+          if (previousPending !== null && interactionJournalRawHash(previousPending) === previousMarker.attemptedRawHash) {
+            if (storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY) !== previousMarkerRaw) {
+              return interactionMemoryOnly(journal, "Marker незавершённого journal изменился");
+            }
+            if (previousMarker.previousRaw === null) storage.removeItem(PENDING_PUBLICATION_STORAGE_KEY);
+            else storage.setItem(PENDING_PUBLICATION_STORAGE_KEY, previousMarker.previousRaw);
+            if (storage.getItem(PENDING_PUBLICATION_STORAGE_KEY) !== previousMarker.previousRaw) {
+              return interactionMemoryOnly(journal, "Safari не подтвердил rollback незавершённого journal");
+            }
+            previousPending = previousMarker.previousRaw;
+          }
+        }
+        if (previousPending !== options.expectedRaw) return { status: "changed", currentRaw: previousPending };
+        ordinaryPatch = storage.getItem(PATCH_STORAGE_KEY);
+        webkitStorageBytes(storage);
+      } catch {
+        return interactionMemoryOnly(journal, "Safari не разрешил прочитать localStorage перед сохранением journal");
+      }
+      const marker = canonicalStringify({
+        version: 1,
+        previousRaw: previousPending,
+        attemptedRawHash: interactionJournalRawHash(raw),
+      } satisfies PendingPublicationInteractionCommitV1);
+      try {
+        const beforeWrite = storage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
+        if (beforeWrite !== options.expectedRaw) return { status: "changed", currentRaw: beforeWrite };
+        if (storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY) !== previousMarkerRaw) {
+          return interactionMemoryOnly(journal, "Marker незавершённого journal изменился");
+        }
+        const lineage = options.replaceRescueLineage?.(previousPending, raw);
+        if (lineage?.status === "changed") return { status: "changed", currentRaw: previousPending };
+        if (lineage?.status === "failure") return interactionMemoryOnly(journal, lineage.error.message);
+        const currentBytes = webkitStorageBytes(storage);
+        const previousPendingBytes = previousPending === null ? 0 : webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, previousPending);
+        const ordinaryPatchBytes = ordinaryPatch === null ? 0 : webkitStringBytes(PATCH_STORAGE_KEY, ordinaryPatch);
+        const previousMarkerBytes = previousMarkerRaw === null ? 0 : webkitStringBytes(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY, previousMarkerRaw);
+        const projectedBytes = currentBytes
+          - previousPendingBytes
+          - previousMarkerBytes
+          + webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, raw)
+          + webkitStringBytes(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY, marker);
+        if (ordinaryPatchBytes > currentBytes || !storageIncreaseAllowed(currentBytes, projectedBytes)) {
+          return interactionMemoryOnly(journal, "Ожидающая публикация не помещается в безопасный бюджет Safari");
+        }
+        storage.setItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY, marker);
+        if (storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY) !== marker) {
+          return interactionMemoryOnly(journal, "Safari не подтвердил marker незавершённого journal");
+        }
+        storage.setItem(PENDING_PUBLICATION_STORAGE_KEY, raw);
+        if (storage.getItem(PENDING_PUBLICATION_STORAGE_KEY) !== raw) {
+          return interactionMemoryOnly(journal, "Safari не подтвердил точные bytes ожидающей публикации");
+        }
+        if (storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY) !== marker) {
+          return interactionMemoryOnly(journal, "Marker незавершённого journal изменился");
+        }
+        storage.removeItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY);
+        if (storage.getItem(PENDING_PUBLICATION_INTERACTION_COMMIT_KEY) !== null) {
+          return interactionMemoryOnly(journal, "Safari не подтвердил завершение journal commit");
+        }
+        return { status: "durable", journal, raw };
+      } catch {
+        return interactionMemoryOnly(journal, "Safari не сохранил ожидающую публикацию");
+      }
+    });
+  } catch {
+    return interactionMemoryOnly(journal, "Safari не предоставил Web Lock ожидающей публикации");
   }
 }
 
@@ -346,7 +492,6 @@ function installPendingPublicationJournalLocked(
 ): InstallPendingPublicationJournalResult {
   let previousPending: string | null;
   let ordinaryPatch: string | null;
-  let currentBytes: number;
   try {
     previousPending = storage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
     if (previousPending !== options.expectedRaw) return { status: "changed", currentRaw: previousPending };
@@ -355,15 +500,12 @@ function installPendingPublicationJournalLocked(
       catch { return { status: "changed", currentRaw: previousPending }; }
     }
     ordinaryPatch = storage.getItem(PATCH_STORAGE_KEY);
-    currentBytes = webkitStorageBytes(storage);
+    if (Object.prototype.hasOwnProperty.call(options, "expectedOrdinaryRaw") && ordinaryPatch !== options.expectedOrdinaryRaw) {
+      return { status: "changed", currentRaw: previousPending, currentOrdinaryRaw: ordinaryPatch };
+    }
+    webkitStorageBytes(storage);
   } catch {
     return memoryOnly(canonical, "Safari не разрешил прочитать localStorage перед сохранением journal");
-  }
-  const previousPendingBytes = previousPending === null ? 0 : webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, previousPending);
-  const ordinaryPatchBytes = ordinaryPatch === null ? 0 : webkitStringBytes(PATCH_STORAGE_KEY, ordinaryPatch);
-  const projectedBytes = currentBytes - previousPendingBytes + webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, raw);
-  if (ordinaryPatchBytes > currentBytes || !storageIncreaseAllowed(currentBytes, projectedBytes)) {
-    return memoryOnly(canonical, "Ожидающая публикация не помещается в безопасный бюджет Safari");
   }
   try {
     const currentRaw = storage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
@@ -371,6 +513,22 @@ function installPendingPublicationJournalLocked(
     if (currentRaw !== null) {
       try { parseJournalRaw(currentRaw); }
       catch { return { status: "changed", currentRaw }; }
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "expectedOrdinaryRaw")) {
+      const currentOrdinaryRaw = storage.getItem(PATCH_STORAGE_KEY);
+      if (currentOrdinaryRaw !== options.expectedOrdinaryRaw) {
+        return { status: "changed", currentRaw, currentOrdinaryRaw };
+      }
+    }
+    const lineage = options.replaceRescueLineage?.(currentRaw, raw);
+    if (lineage?.status === "changed") return { status: "changed", currentRaw };
+    if (lineage?.status === "failure") return memoryOnly(canonical, lineage.error.message);
+    const currentBytes = webkitStorageBytes(storage);
+    const previousPendingBytes = previousPending === null ? 0 : webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, previousPending);
+    const ordinaryPatchBytes = ordinaryPatch === null ? 0 : webkitStringBytes(PATCH_STORAGE_KEY, ordinaryPatch);
+    const projectedBytes = currentBytes - previousPendingBytes + webkitStringBytes(PENDING_PUBLICATION_STORAGE_KEY, raw);
+    if (ordinaryPatchBytes > currentBytes || !storageIncreaseAllowed(currentBytes, projectedBytes)) {
+      return memoryOnly(canonical, "Ожидающая публикация не помещается в безопасный бюджет Safari");
     }
     storage.setItem(PENDING_PUBLICATION_STORAGE_KEY, raw);
   } catch {
@@ -432,7 +590,7 @@ export async function finalizePendingPublicationJournal(
   const lockManager = productionLockManager(options.lockManager);
   if (lockManager === null) return failure("lock", "Web Lock ожидающей публикации недоступен");
   try {
-    return await lockManager.request(PENDING_PUBLICATION_LOCK_NAME, { mode: "exclusive" }, () => (
+    return await lockManager.request(LOCAL_LIBRARY_AUTHORITY_LOCK_NAME, { mode: "exclusive" }, () => (
       finalizePendingPublicationJournalLocked(storage, options, patchRaw)
     ));
   } catch {
@@ -517,7 +675,7 @@ export async function discardPendingPublicationAfterRecoveryExport(
   const lockManager = productionLockManager(options.lockManager);
   if (lockManager === null) return { status: "failure", error: new Error("Web Lock ожидающей публикации недоступен") };
   try {
-    return await lockManager.request(PENDING_PUBLICATION_LOCK_NAME, { mode: "exclusive" }, () => (
+    return await lockManager.request(LOCAL_LIBRARY_AUTHORITY_LOCK_NAME, { mode: "exclusive" }, () => (
       discardPendingPublicationAfterRecoveryExportLocked(storage, expectedRaw)
     ));
   } catch {

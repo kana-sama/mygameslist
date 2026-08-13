@@ -21,6 +21,10 @@ vi.mock("../src/state/LibraryContext", () => ({
     if (!libraryHarness.current) throw new Error("Library test harness is not installed");
     return libraryHarness.current;
   },
+  useLibrarySelector: (selector: (library: LibraryContextValue) => unknown) => {
+    if (!libraryHarness.current) throw new Error("Library test harness is not installed");
+    return selector(libraryHarness.current);
+  },
 }));
 
 vi.mock("../src/components/MonacoMarkdownEditor", async () => (
@@ -118,6 +122,7 @@ function libraryValue(base: LibraryDatabase, effective: LibraryDatabase): Librar
     canAddBlob: vi.fn().mockResolvedValue(null),
     resolveAssetUrl: vi.fn().mockReturnValue(null),
     saveGame: vi.fn().mockResolvedValue(GAME_A_ID),
+    saveNoteInteraction: vi.fn().mockResolvedValue(undefined),
     deleteGame: vi.fn().mockResolvedValue(undefined),
     moveGame: vi.fn().mockResolvedValue(undefined),
     discardPath: vi.fn().mockResolvedValue(undefined),
