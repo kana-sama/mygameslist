@@ -1,4 +1,4 @@
-import { Fragment, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { Children, Fragment, isValidElement, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
 import type { MarkdownDecoration } from "../domain/markdownDiff";
 import {
   getChecklistProgress,
@@ -33,6 +33,14 @@ interface MarkdownInlineLocation {
   sourceLine: number;
 }
 
+function reactNodeText(node: ReactNode): string {
+  return Children.toArray(node).map((child) => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    if (!isValidElement(child)) return "";
+    return reactNodeText((child.props as { children?: ReactNode }).children);
+  }).join("");
+}
+
 function MarkdownSpoiler({ children, forceRevealed = false }: { children: ReactNode; forceRevealed?: boolean }) {
   const [revealed, setRevealed] = useState(false);
   const reveal = (event: { stopPropagation: () => void }) => {
@@ -56,9 +64,16 @@ function MarkdownSpoiler({ children, forceRevealed = false }: { children: ReactN
       role="button"
       tabIndex={0}
     >
-      {children}
+      <span aria-hidden="true">{reactNodeText(children)}</span>
     </span>
   );
+}
+
+function markdownTaskLabel(source: string, revealExactSpoiler: boolean): string {
+  const safeSource = revealExactSpoiler && markdownIsSingleSpoiler(source)
+    ? source.trim().slice(2, -2)
+    : source.replace(/\|\|([^|\n]+)\|\|/g, "скрытый спойлер");
+  return markdownLabel(safeSource).replace(/\\\|/g, "|");
 }
 
 function decorationAt(
@@ -587,7 +602,8 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             );
           }
           const editing = activeTaskEditor?.kind === "edit" && activeTaskEditor.sourceLine === item.sourceLine;
-          const taskLabel = markdownLabel(item.firstLineValue) || "пункт";
+          const forceRevealSpoilers = Boolean(item.taskChecked && markdownIsSingleSpoiler(item.value));
+          const taskLabel = markdownTaskLabel(item.firstLineValue, forceRevealSpoilers) || "пункт";
           const taskChange = taskChangeAt(item.sourceLine, item.taskSourceColumn);
           return (
             <li className={`markdown-task-item${item.taskChecked ? " markdown-task-item--checked" : ""}`} key={itemKey}>
@@ -596,7 +612,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                   <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                     <input
                       aria-disabled={taskChangesDisabled || undefined}
-                      aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${item.value || "пункт"}`}
+                      aria-label={`${item.taskChecked ? "Снять отметку" : "Отметить"}: ${taskLabel}`}
                       checked={item.taskChecked}
                       className="markdown-task-checkbox"
                       disabled={!onTaskChange || activeTaskEditor !== null}
@@ -630,7 +646,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                         if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
                       }}
                     />
-                  ) : locatedLines(item.value, itemKey, item.sourceLocations, Boolean(item.taskChecked && markdownIsSingleSpoiler(item.value)))}
+                  ) : locatedLines(item.value, itemKey, item.sourceLocations, forceRevealSpoilers)}
                 </span>
                 {taskTextEditingAvailable && !editing ? (
                   <button
@@ -670,7 +686,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     const renderTableRow = (row: MarkdownTableRow, rowIndex: number, rowKey: string): ReactNode => {
       const progress = getTableRowProgress(row);
       const rowComplete = progress.total > 0 && progress.checked === progress.total;
-      const rowLabel = row.cells.map((cell) => markdownLabel(cell.value)).find(Boolean);
+      const rowLabel = row.cells.map((cell) => markdownTaskLabel(cell.sourceValue ?? cell.value, false)).find(Boolean);
       const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
       return (
         <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}>
@@ -680,8 +696,9 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             if (cell.taskChecked === undefined) {
               return <td className={alignmentClass(cellIndex)} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>{locatedInline(inlineSource, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
             }
-            const columnLabel = markdownLabel(table.headers[cellIndex]?.value ?? "");
-            const cellLabel = markdownLabel(cell.value);
+            const forceRevealSpoilers = Boolean(cell.taskChecked && markdownIsSingleSpoiler(inlineSource));
+            const columnLabel = markdownTaskLabel(table.headers[cellIndex]?.sourceValue ?? table.headers[cellIndex]?.value ?? "", false);
+            const cellLabel = markdownTaskLabel(inlineSource, forceRevealSpoilers);
             const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
             const taskChange = taskChangeAt(row.sourceLine, cell.taskSourceColumn);
             return (
@@ -709,7 +726,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                       />
                     </label>
                   )}
-                  {cell.value ? <span>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, Boolean(cell.taskChecked && markdownIsSingleSpoiler(inlineSource)))}</span> : null}
+                  {cell.value ? <span>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, forceRevealSpoilers)}</span> : null}
                 </div>
               </td>
             );

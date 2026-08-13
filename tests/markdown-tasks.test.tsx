@@ -85,6 +85,61 @@ describe("Markdown tasks", () => {
     keyboardSpoiler.focus();
     await user.keyboard("{Enter}");
     expect(keyboardSpoiler).toHaveAttribute("data-revealed", "true");
+
+    cleanup();
+    render(<MarkdownView markdown="||space reveal||" />);
+    const spaceSpoiler = screen.getByRole("button", { name: "Показать спойлер" });
+    spaceSpoiler.focus();
+    await user.keyboard(" ");
+    expect(spaceSpoiler).toHaveAttribute("data-revealed", "true");
+  });
+
+  it("keeps closed spoiler links inert and restores them after reveal", async () => {
+    const user = userEvent.setup();
+    render(<MarkdownView markdown="||[guide](https://example.com)||" />);
+
+    const spoiler = screen.getByRole("button", { name: "Показать спойлер" });
+    expect(spoiler).toHaveTextContent("guide");
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /guide/i })).not.toBeInTheDocument();
+
+    await user.click(spoiler);
+
+    expect(screen.getByRole("link", { name: "guide" })).toHaveAttribute("href", "https://example.com/");
+  });
+
+  it("keeps empty and unmatched spoiler delimiters literal", () => {
+    render(<MarkdownView markdown={"||||\n\n||unmatched"} />);
+
+    expect(screen.getByText("||||")).toBeInTheDocument();
+    expect(screen.getByText("||unmatched")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Показать спойлер" })).not.toBeInTheDocument();
+  });
+
+  it("redacts hidden spoiler bodies from list and table task controls", () => {
+    const markdown = [
+      "- [ ] ||list secret||",
+      "- [x] ||visible list||",
+      "- [x] Prefix ||mixed list secret||",
+      "",
+      "| Stage | Task |",
+      "| --- | --- |",
+      "| Hidden | [ ] ||table secret|| |",
+      "| Visible | [x] ||visible table|| |",
+      "| Mixed | [x] Prefix ||mixed table secret|| |",
+      "| Literal | [x] \\|\\|literal\\|\\| |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} onTaskChange={vi.fn()} />);
+
+    expect(screen.getAllByRole("checkbox", { name: "Отметить: скрытый спойлер" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Редактировать пункт: скрытый спойлер" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: visible list" })).toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox", { name: "Снять отметку: Prefix скрытый спойлер" })).toHaveLength(2);
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: visible table" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: ||literal||" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /secret/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Редактировать пункт:.*secret/ })).not.toBeInTheDocument();
   });
 
   it("renders a table spoiler without adding a column", () => {
@@ -167,16 +222,15 @@ describe("Markdown tasks", () => {
     });
     view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
 
-    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
-    await user.click(screen.getByRole("checkbox", { name: "Отметить: ||hidden list||" }));
+    await user.click(screen.getByRole("button", { name: "Показать спойлер" }));
+    expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: скрытый спойлер" }));
     expect(onTaskChange).toHaveBeenCalledWith("- [x] ||hidden list||");
     expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Показать спойлер" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: ||hidden list||" }));
-    expect(screen.getByRole("button", { name: "Показать спойлер" })).toHaveAttribute("data-revealed", "false");
-
-    await user.click(screen.getByRole("button", { name: "Показать спойлер" }));
+    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: hidden list" }));
     expect(view.container.querySelector(".markdown-spoiler[data-revealed=\"true\"]")).toBeInTheDocument();
 
     view.unmount();
@@ -206,7 +260,7 @@ describe("Markdown tasks", () => {
 
     expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(1);
     expect(view.container.querySelectorAll(".markdown-spoiler[data-revealed=\"true\"]")).toHaveLength(1);
-    await user.click(screen.getByRole("checkbox", { name: "Отметить: ||hidden table||" }));
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: скрытый спойлер" }));
     expect(onTaskChange).toHaveBeenCalledWith([
       "| Stage | Secret |",
       "| --- | --- |",
@@ -215,7 +269,7 @@ describe("Markdown tasks", () => {
     ].join("\n"));
     expect(view.container.querySelectorAll(".markdown-spoiler[data-revealed=\"true\"]")).toHaveLength(2);
 
-    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: ||hidden table||" }));
+    await user.click(screen.getByRole("checkbox", { name: "Снять отметку: hidden table" }));
     expect(screen.getAllByRole("button", { name: "Показать спойлер" })).toHaveLength(1);
   });
 
