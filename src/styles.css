@@ -505,7 +505,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card { position: relative; min-width: 0; height: 100%; display: block; align-self: stretch; padding: 0; border: 0; background: transparent; }
 .note-card--double-height { --note-text-height: 600px; }
 .note-card:not(.note-card--editing) { overflow: visible; }
-.note-card__surface { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
+.note-card__surface { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: clip; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
 .note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 4; }
 .note-card--sortable { touch-action: pan-y; }
 .note-card--sortable.is-dragging { opacity: .28; }
@@ -526,11 +526,12 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-editor-sortable.is-drop-target > .note-card { box-shadow: inset 0 0 0 1px var(--accent); }
 .note-drag-preview { width: min(360px, calc(100vw - 20px)); max-height: 220px; overflow: hidden !important; padding-bottom: 0 !important; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; pointer-events: none; cursor: grabbing !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .4); }
 .note-drag-preview .note-card__content { max-height: 220px; overflow: hidden; }
-.note-card__text { position: relative; min-width: 0; flex: 1; }
+.note-card__text { --note-title-block-start: 6px; position: relative; min-width: 0; min-height: 0; display: grid; flex: 1; }
 .note-attachments + .note-card__text { border-top: 1px solid var(--line-soft); }
+.note-card__viewport-frame, .note-card__page-heading { grid-area: 1 / 1; }
 .note-card__viewport-frame { position: relative; max-height: var(--note-text-height); min-height: 0; }
-.note-card__viewport { max-height: var(--note-text-height); overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
-.notes-list > [data-shelf-position] .note-card__text { min-height: 0; display: flex; flex-direction: column; }
+.note-card__viewport { max-height: var(--note-text-height); overflow-y: auto; overscroll-behavior: none; scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
+.notes-list > [data-shelf-position] .note-card__text { min-height: 0; display: grid; }
 .notes-list > [data-shelf-position] .note-card__viewport-frame { max-height: none; flex: 1; }
 .notes-list > [data-shelf-position] .note-card__viewport { height: 100%; max-height: none; }
 .note-card__viewport-frame::before, .note-card__viewport-frame::after { position: absolute; z-index: 2; right: 0; left: 0; display: flex; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .12s; }
@@ -538,11 +539,11 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card__viewport-frame::after { content: "Прокрутить ↓"; bottom: 0; height: 38px; align-items: flex-end; padding-bottom: 4px; color: var(--muted); background: linear-gradient(to bottom, rgba(20, 21, 24, 0), #141518 72%); font-size: 9px; letter-spacing: .02em; }
 .note-card__viewport-frame.can-scroll-up::before, .note-card__viewport-frame.can-scroll-down::after { opacity: 1; }
 .note-card__content > .markdown { padding: 6px; }
-.note-card__viewport .markdown-section > h2.markdown-checklist-heading { position: sticky; z-index: 3; top: 0; margin-inline: -6px; padding-inline: 6px; background: #141518; }
-.note-card__viewport .markdown-section > h2.markdown-checklist-heading .markdown-checklist-heading__toggle:focus-visible { outline-offset: -2px; }
-.note-card__page-heading { position: fixed; z-index: 49; box-sizing: border-box; margin: 0; background: #141518; }
-.note-card__page-heading > h2 { box-sizing: border-box; width: 100%; margin: 0; padding-inline: 6px; background: #141518; }
-.note-card__page-heading-source { visibility: hidden; }
+.note-card__viewport .markdown-note-title--inner { position: sticky; z-index: 3; top: var(--note-title-block-start); margin-inline: -6px; padding-inline: 6px; background: #141518; pointer-events: none; }
+.note-card__viewport .markdown-note-title--inner .markdown-checklist-heading__toggle:focus-visible { outline-offset: -2px; }
+.note-card__page-heading { position: sticky; z-index: 40; top: var(--app-header-height); align-self: start; box-sizing: border-box; padding-top: var(--note-title-block-start); padding-block-start: var(--note-title-block-start); margin: 0; background: #141518; }
+.note-card__page-heading:empty { display: none; }
+.note-card__page-heading > h2 { box-sizing: border-box; width: 100%; padding-inline: 6px; background: #141518; }
 .note-card__actions { position: absolute; z-index: 3; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__actions button:hover:not(:disabled), .note-card__actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }

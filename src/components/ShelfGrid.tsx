@@ -393,7 +393,6 @@ function mutationRequiresShelfLayout(record: MutationRecord, grid: HTMLElement):
     return !changedClasses.length || changedClasses.some((className) => !(
       className === "markdown-task-item--checked"
       || className === "markdown-task-checkbox--checked"
-      || className === "note-card__page-heading-source"
       || className === "markdown-checklist-heading--complete"
       || className === "markdown-checklist-group--complete"
       || className === "markdown-table-group--complete"

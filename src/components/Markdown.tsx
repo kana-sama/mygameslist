@@ -1,4 +1,5 @@
 import { Children, Fragment, isValidElement, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { MarkdownDecoration } from "../domain/markdownDiff";
 import {
   getChecklistProgress,
@@ -348,6 +349,7 @@ export function setMarkdownTaskItemText(markdown: string, sourceLine: number, va
 export interface MarkdownViewProps {
   markdown: string;
   className?: string;
+  firstHeadingPortalTarget?: Element | null;
   collapsedChecklistSections?: readonly string[];
   decorations?: readonly MarkdownDecoration[];
   inlineChanges?: readonly RenderedInlineChange[];
@@ -447,8 +449,9 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], decorations, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
+function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], decorations, firstHeadingPortalTarget, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
+  const firstTopLevelHeadingIndex = blocks[0]?.type === "heading" && blocks[0].depth === 1 ? 0 : -1;
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
   const taskTextEditingAvailable = Boolean(onTaskChange);
@@ -831,12 +834,26 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
       const headingClassName = progress ? `markdown-checklist-heading${!progress.open && progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
       const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<ChecklistProgressView progress={progress} /></> : children;
-      const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
-        <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} type="button">{progressChildren}</button>
-      ) : progressChildren;
-      if (block.depth === 1) return <h2 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h2>;
-      if (block.depth === 2) return <h3 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h3>;
-      return <h4 className={headingClassName} data-checklist-section-id={progress ? collapseId : undefined} key={key}>{headingChildren}</h4>;
+      const renderHeading = (variant: "inner" | "outer" | "single", headingKey: string): ReactNode => {
+        const visualDuplicate = variant === "inner";
+        const titleLayer = variant === "single" ? "" : ` markdown-note-title--${variant}`;
+        const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
+          <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} tabIndex={visualDuplicate ? -1 : undefined} type="button">{progressChildren}</button>
+        ) : progressChildren;
+        const commonProps = {
+          "aria-hidden": visualDuplicate || undefined,
+          className: `${headingClassName ?? ""}${titleLayer}`.trim() || undefined,
+          "data-checklist-section-id": progress ? collapseId : undefined,
+          inert: visualDuplicate || undefined,
+        };
+        if (block.depth === 1) return <h2 key={headingKey} {...commonProps}>{headingChildren}</h2>;
+        if (block.depth === 2) return <h3 key={headingKey} {...commonProps}>{headingChildren}</h3>;
+        return <h4 key={headingKey} {...commonProps}>{headingChildren}</h4>;
+      };
+      if (index === firstTopLevelHeadingIndex && firstHeadingPortalTarget) {
+        return <Fragment key={key}>{renderHeading("inner", `${key}-inner`)}{createPortal(renderHeading("outer", `${key}-outer`), firstHeadingPortalTarget)}</Fragment>;
+      }
+      return renderHeading("single", key);
     }
     return <p key={key}>{locatedLines(block.value ?? "", key, block.sourceLocations)}</p>;
   };
@@ -870,6 +887,7 @@ function sameStrings(left: readonly string[] | undefined, right: readonly string
 const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => (
   previous.markdown === next.markdown
   && previous.className === next.className
+  && previous.firstHeadingPortalTarget === next.firstHeadingPortalTarget
   && previous.emptyText === next.emptyText
   && sameStrings(previous.collapsedChecklistSections, next.collapsedChecklistSections)
   && previous.decorations === next.decorations

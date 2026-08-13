@@ -475,7 +475,7 @@
 
 .note-card__surface {
   isolation: isolate;
-  overflow: hidden;
+  overflow: clip;
   clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
   border: 1px solid rgba(125, 211, 242, .25);
   border-left: 3px solid #68c9ed;
@@ -645,8 +645,10 @@
 .markdown a { color: #8ed9f4; }
 .markdown code { color: #f0ce83; background: rgba(225, 183, 95, .1); }
 
-.markdown-section > h2.markdown-checklist-heading,
-.note-card__page-heading > h2.markdown-checklist-heading {
+.note-card__text { --note-title-block-start: 0px; }
+
+.note-card__viewport .markdown-note-title--inner,
+.note-card__page-heading > .markdown-note-title--outer {
   position: relative;
   isolation: isolate;
   min-height: 46px;
@@ -666,8 +668,8 @@
   text-transform: uppercase;
 }
 
-.markdown-section > h2.markdown-checklist-heading::before,
-.note-card__page-heading > h2.markdown-checklist-heading::before {
+.note-card__viewport .markdown-note-title--inner::before,
+.note-card__page-heading > .markdown-note-title--outer::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -681,8 +683,8 @@
   pointer-events: none;
 }
 
-.markdown-section > h2.markdown-checklist-heading::after,
-.note-card__page-heading > h2.markdown-checklist-heading::after {
+.note-card__viewport .markdown-note-title--inner::after,
+.note-card__page-heading > .markdown-note-title--outer::after {
   content: "";
   position: absolute;
   z-index: 2;
@@ -697,8 +699,8 @@
   pointer-events: none;
 }
 
-.markdown-section > h2 .markdown-checklist-heading__toggle,
-.note-card__page-heading > h2 .markdown-checklist-heading__toggle {
+.note-card__viewport .markdown-note-title--inner .markdown-checklist-heading__toggle,
+.note-card__page-heading > .markdown-note-title--outer .markdown-checklist-heading__toggle {
   position: relative;
   z-index: 1;
   min-height: 39px;
@@ -706,8 +708,8 @@
   padding: 0 9px 5px 35px;
 }
 
-.markdown-section > h2 .markdown-checklist-heading__title,
-.note-card__page-heading > h2 .markdown-checklist-heading__title {
+.note-card__viewport .markdown-note-title--inner .markdown-checklist-heading__title,
+.note-card__page-heading > .markdown-note-title--outer .markdown-checklist-heading__title {
   max-width: calc(76% - 42px);
   overflow: hidden;
   color: #0d293a;
@@ -716,8 +718,8 @@
   white-space: nowrap;
 }
 
-.markdown-section > h2 .markdown-checklist-progress,
-.note-card__page-heading > h2 .markdown-checklist-progress {
+.note-card__viewport .markdown-note-title--inner .markdown-checklist-progress,
+.note-card__page-heading > .markdown-note-title--outer .markdown-checklist-progress {
   min-width: 64px;
   margin-left: auto;
   padding-left: 14px;
@@ -728,8 +730,8 @@
   text-shadow: 0 0 8px rgba(225, 183, 95, .28);
 }
 
-.markdown-section > h2 .markdown-checklist-progress::before,
-.note-card__page-heading > h2 .markdown-checklist-progress::before {
+.note-card__viewport .markdown-note-title--inner .markdown-checklist-progress::before,
+.note-card__page-heading > .markdown-note-title--outer .markdown-checklist-progress::before {
   content: "";
   display: inline-block;
   width: 6px;
@@ -741,42 +743,35 @@
   pointer-events: none;
 }
 
-.markdown-section > h2.markdown-checklist-heading--complete::before,
-.note-card__page-heading > h2.markdown-checklist-heading--complete::before {
+.note-card__viewport .markdown-note-title--inner.markdown-checklist-heading--complete::before,
+.note-card__page-heading > .markdown-note-title--outer.markdown-checklist-heading--complete::before {
   background: linear-gradient(180deg, #eaf9ef, #9bd6ae 54%, #61aa7c);
 }
 
-.markdown-section > h2.markdown-checklist-heading--complete .markdown-checklist-progress,
-.note-card__page-heading > h2.markdown-checklist-heading--complete .markdown-checklist-progress {
+.note-card__viewport .markdown-note-title--inner.markdown-checklist-heading--complete .markdown-checklist-progress,
+.note-card__page-heading > .markdown-note-title--outer.markdown-checklist-heading--complete .markdown-checklist-progress {
   color: #9bd7ae;
 }
 
-.markdown-section > h2.markdown-checklist-heading--complete .markdown-checklist-progress::before,
-.note-card__page-heading > h2.markdown-checklist-heading--complete .markdown-checklist-progress::before {
+.note-card__viewport .markdown-note-title--inner.markdown-checklist-heading--complete .markdown-checklist-progress::before,
+.note-card__page-heading > .markdown-note-title--outer.markdown-checklist-heading--complete .markdown-checklist-progress::before {
   background: #73b68c;
   box-shadow: 0 0 7px rgba(115, 182, 140, .55);
 }
 
-.note-card__viewport .markdown-section > h2.markdown-checklist-heading {
+.note-card__viewport .markdown-note-title--inner {
+  position: sticky;
   top: 0;
   margin-inline: -13px;
   padding-inline: 6px 8px;
   background: linear-gradient(180deg, #173a50, #061c2d);
 }
 
-.note-card__page-heading {
-  position: fixed;
-  z-index: 49;
-  margin: 0;
-  overflow: visible;
-  background: transparent;
-  filter: drop-shadow(8px 9px 8px rgba(0, 0, 0, .36));
-}
-
-.note-card__page-heading > h2.markdown-checklist-heading {
+.note-card__page-heading > .markdown-note-title--outer {
   margin: 0;
   padding-inline: 6px 8px;
   background: linear-gradient(180deg, #173a50, #061c2d);
+  filter: drop-shadow(8px 9px 8px rgba(0, 0, 0, .36));
 }
 
 .markdown-section > h3.markdown-checklist-heading,
@@ -1006,10 +1001,10 @@
   .game-notes::before { right: 14px; left: 14px; }
   .note-groups { gap: 13px; }
   .notes-list, .note-editors-grid { column-gap: 10px; }
-  .markdown-section > h2.markdown-checklist-heading,
-  .note-card__page-heading > h2.markdown-checklist-heading { font-size: 10px; }
-  .markdown-section > h2 .markdown-checklist-progress,
-  .note-card__page-heading > h2 .markdown-checklist-progress { min-width: 56px; font-size: 10px; }
+  .note-card__viewport .markdown-note-title--inner,
+  .note-card__page-heading > .markdown-note-title--outer { font-size: 10px; }
+  .note-card__viewport .markdown-note-title--inner .markdown-checklist-progress,
+  .note-card__page-heading > .markdown-note-title--outer .markdown-checklist-progress { min-width: 56px; font-size: 10px; }
 }
 
 @media (max-width: 640px) {
@@ -1074,15 +1069,15 @@
     filter: drop-shadow(5px 8px 0 rgba(49, 126, 158, .44)) drop-shadow(5px 14px 12px rgba(0, 0, 0, .38));
   }
   .note-card__content > .markdown { padding-inline: 10px; }
-  .markdown-section > h2.markdown-checklist-heading { margin-inline: -10px; }
-  .markdown-section > h2.markdown-checklist-heading,
-  .note-card__page-heading > h2.markdown-checklist-heading {
+  .note-card__viewport .markdown-note-title--inner { margin-inline: -10px; }
+  .note-card__viewport .markdown-note-title--inner,
+  .note-card__page-heading > .markdown-note-title--outer {
     font-size: 10px;
   }
-  .markdown-section > h2.markdown-checklist-heading::before,
-  .note-card__page-heading > h2.markdown-checklist-heading::before { width: 72%; }
-  .markdown-section > h2 .markdown-checklist-heading__title,
-  .note-card__page-heading > h2 .markdown-checklist-heading__title { max-width: calc(72% - 38px); }
+  .note-card__viewport .markdown-note-title--inner::before,
+  .note-card__page-heading > .markdown-note-title--outer::before { width: 72%; }
+  .note-card__viewport .markdown-note-title--inner .markdown-checklist-heading__title,
+  .note-card__page-heading > .markdown-note-title--outer .markdown-checklist-heading__title { max-width: calc(72% - 38px); }
   .note-group-actions { gap: 5px; }
   .note-group-add-button { min-width: 0; }
 }
@@ -1098,14 +1093,14 @@
   .game-notes::after { left: 8px; }
   .game-notes::before { right: 8px; left: 8px; }
   .note-group:first-child .notes-list > .note-card:first-child .note-card__content > .markdown { padding: 48px 10px 12px; }
-  .markdown-section > h2.markdown-checklist-heading::before,
-  .note-card__page-heading > h2.markdown-checklist-heading::before { width: 69%; }
-  .markdown-section > h2 .markdown-checklist-heading__title,
-  .note-card__page-heading > h2 .markdown-checklist-heading__title { max-width: calc(69% - 36px); }
-  .markdown-section > h2 .markdown-checklist-progress,
-  .note-card__page-heading > h2 .markdown-checklist-progress { min-width: 54px; padding-left: 6px; }
-  .markdown-section > h2 .markdown-checklist-progress::before,
-  .note-card__page-heading > h2 .markdown-checklist-progress::before { margin-right: 5px; }
+  .note-card__viewport .markdown-note-title--inner::before,
+  .note-card__page-heading > .markdown-note-title--outer::before { width: 69%; }
+  .note-card__viewport .markdown-note-title--inner .markdown-checklist-heading__title,
+  .note-card__page-heading > .markdown-note-title--outer .markdown-checklist-heading__title { max-width: calc(69% - 36px); }
+  .note-card__viewport .markdown-note-title--inner .markdown-checklist-progress,
+  .note-card__page-heading > .markdown-note-title--outer .markdown-checklist-progress { min-width: 54px; padding-left: 6px; }
+  .note-card__viewport .markdown-note-title--inner .markdown-checklist-progress::before,
+  .note-card__page-heading > .markdown-note-title--outer .markdown-checklist-progress::before { margin-right: 5px; }
 }
 
 @media (pointer: coarse) {

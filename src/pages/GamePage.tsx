@@ -34,7 +34,6 @@ import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
 import { MonacoNoteEditor } from "../components/MonacoNoteEditor";
-import { PageStickyChecklistHeading } from "../components/PageStickyChecklistHeading";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
@@ -874,8 +873,8 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAsse
   nodeRef?: (node: HTMLElement | null) => void;
   sortable?: boolean;
 }) {
-  const cardRef = useRef<HTMLElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const [firstHeadingPortalTarget, setFirstHeadingPortalTarget] = useState<HTMLDivElement | null>(null);
   const [scrollState, setScrollState] = useState({ scrollable: false, atTop: true, atBottom: true });
   const hasText = Boolean(note.bodyMarkdown.trim());
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
@@ -902,20 +901,15 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAsse
     return () => observer?.disconnect();
   }, [note.bodyMarkdown, note.collapsedChecklistSections, note.doubleHeight]);
 
-  const setCardRef = useCallback((element: HTMLElement | null) => {
-    cardRef.current = element;
-    nodeRef?.(element);
-  }, [nodeRef]);
-
-  return <>
-    <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={setCardRef}>
+  return <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${mediaOnly ? " note-card--media-only" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={nodeRef}>
       <div className="note-card__surface">
         {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} resolveAssetUrl={resolveAssetUrl} /> : null}
         <div className="note-card__text">
+          <div aria-live="off" className="markdown note-card__page-heading" ref={setFirstHeadingPortalTarget} />
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
               <div className="note-card__content">
-                {note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+                {note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
               </div>
             </div>
           </div>
@@ -923,9 +917,7 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAsse
       </div>
       <div className="note-card__actions">{sortable ? <button {...dragAttributes} {...dragListeners} aria-label="Перетащить заметку" className="note-card__drag" disabled={actionsDisabled} ref={dragActivatorRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button> : null}<button aria-label="Редактировать заметку" className="note-card__edit" disabled={actionsDisabled} onClick={onEdit} title="Редактировать заметку" type="button"><Icon name="edit" size={14} /></button></div>
       <NoteDropZones disabled={dropDisabled} indicatorEdge={dropIndicatorEdge} note={note} />
-    </article>
-    <PageStickyChecklistHeading cardRef={cardRef} layoutKey={`${note.bodyMarkdown}\u0000${(note.collapsedChecklistSections ?? []).join("\u0000")}\u0000${taskChangesDisabled}`} viewportRef={viewportRef} />
-  </>;
+    </article>;
 }
 
 function useUnsavedChangesGuard(dirty: boolean) {

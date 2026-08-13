@@ -61,13 +61,12 @@ describe("ordered shelf layout", () => {
 
     const { container } = render(
       <ShelfGrid className="notes-list" layoutKey="visual-mutations">
-        <article data-card="one"><div className="note-card__page-heading-source" /><span className="markdown-checklist-progress">0/1</span><label className="markdown-task-item"><input className="markdown-task-checkbox" type="checkbox" /></label><button className="markdown-checklist-toggle" aria-expanded="true" type="button" /></article>
+        <article data-card="one"><span className="markdown-checklist-progress">0/1</span><label className="markdown-task-item"><input className="markdown-task-checkbox" type="checkbox" /></label><button className="markdown-checklist-toggle" aria-expanded="true" type="button" /></article>
         <article data-card="two" />
       </ShelfGrid>,
     );
     const grid = container.querySelector<HTMLElement>(".notes-list")!;
     const firstCard = grid.children[0] as HTMLElement;
-    const source = firstCard.querySelector<HTMLElement>(".note-card__page-heading-source")!;
     const progress = firstCard.querySelector<HTMLElement>(".markdown-checklist-progress")!;
     const task = firstCard.querySelector<HTMLElement>(".markdown-task-item")!;
     const toggle = firstCard.querySelector<HTMLButtonElement>(".markdown-checklist-toggle")!;
@@ -78,7 +77,6 @@ describe("ordered shelf layout", () => {
     });
     measurements = 0;
 
-    source.classList.remove("note-card__page-heading-source");
     progress.textContent = "1/1";
     task.classList.add("markdown-task-item--checked");
     task.querySelector("input")!.classList.add("markdown-task-checkbox--checked");
@@ -88,8 +86,7 @@ describe("ordered shelf layout", () => {
     });
     expect(measurements).toBe(0);
 
-    source.classList.add("note-card__page-heading-source");
-    source.classList.add("note-card__content-height-changed");
+    firstCard.classList.add("note-card__content-height-changed");
     await act(async () => {
       await Promise.resolve();
       flushFrames();
