@@ -220,6 +220,7 @@ describe("scrollable long note cards", () => {
       if (this.matches(".app-header")) return rect({ top: 0, right: 800, bottom: 48, left: 0 });
       const card = this.matches("article[data-note-id]") ? this : this.closest<HTMLElement>("article[data-note-id]");
       if (this === card) return rect({ top: 40, right: 342, bottom: 360, left: 10 });
+      if (this.matches(".note-card__viewport")) return rect({ top: 40, right: 336, bottom: 360, left: 16 });
       if (this.matches(".markdown-section")) return rect({ top: 46, right: 336, bottom: 360, left: 16 });
       if (this.matches("h2.markdown-checklist-heading")) return rect({ top: 46, right: 336, bottom: 70, left: 16 });
       return rect();
@@ -246,6 +247,79 @@ describe("scrollable long note cards", () => {
     expect(mirror.closest(".app-shell")).toBe(shell);
   });
 
+  it("activates a sticky checklist heading at the note viewport top during inner scrolling", () => {
+    const header = document.createElement("header");
+    header.className = "app-header";
+    document.body.append(header);
+    const flushAnimationFrames = controlAnimationFrames();
+    let headingTop = 226;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this === header) return rect({ top: 0, right: 800, bottom: 48, left: 0 });
+      if (this.matches("article[data-note-id]")) return rect({ top: 220, right: 342, bottom: 520, left: 10 });
+      if (this.matches(".note-card__viewport")) return rect({ top: 220, right: 336, bottom: 500, left: 16 });
+      if (this.matches(".markdown-section")) return rect({ top: headingTop, right: 336, bottom: 500, left: 16 });
+      if (this.matches("h2.markdown-checklist-heading")) return rect({ top: headingTop, right: 336, bottom: headingTop + 24, left: 16 });
+      return rect();
+    });
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Inner-scroll checklist\n- [ ] Pending task",
+      1024,
+    );
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+      const viewport = screen.getByRole("heading", { name: /^Inner-scroll checklist / })
+        .closest<HTMLElement>(".note-card__viewport")!;
+      expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
+
+      headingTop = 210;
+      fireEvent.scroll(viewport);
+      flushAnimationFrames();
+
+      expect(screen.getByTestId("note-page-sticky-heading")).toHaveStyle({
+        left: "16px",
+        top: "220px",
+        width: "320px",
+      });
+    } finally {
+      header.remove();
+    }
+  });
+
+  it("registers and cleans up a direct passive note viewport scroll listener", () => {
+    const addEventListener = vi.spyOn(HTMLElement.prototype, "addEventListener");
+    const removeEventListener = vi.spyOn(HTMLElement.prototype, "removeEventListener");
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Listener checklist\n- [ ] Pending task",
+      1024,
+    );
+
+    const { unmount } = render(
+      <GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />,
+    );
+    const viewport = screen.getByRole("heading", { name: /^Listener checklist / })
+      .closest<HTMLElement>(".note-card__viewport")!;
+    const registrationIndex = addEventListener.mock.calls.findIndex((call, index) => (
+      addEventListener.mock.contexts[index] === viewport
+      && call[0] === "scroll"
+      && typeof call[2] === "object"
+      && call[2]?.passive === true
+    ));
+
+    expect(registrationIndex).toBeGreaterThanOrEqual(0);
+    const directScrollListener = addEventListener.mock.calls[registrationIndex][1];
+
+    unmount();
+
+    expect(removeEventListener.mock.calls.some((call, index) => (
+      removeEventListener.mock.contexts[index] === viewport
+      && call[0] === "scroll"
+      && call[1] === directScrollListener
+    ))).toBe(true);
+  });
+
   it("keeps a page-sticky checklist heading fully visible through the card's last pixel", () => {
     const style = installProductionStyles();
     const header = document.createElement("header");
@@ -259,6 +333,7 @@ describe("scrollable long note cards", () => {
       if (this.matches(`article[data-note-id="22222222-2222-4222-8222-222222222222"]`)) {
         return rect({ top: cardTop, right: 342, bottom: cardBottom, left: 10 });
       }
+      if (this.matches(".note-card__viewport")) return rect({ top: cardTop, right: 336, bottom: cardBottom, left: 16 });
       if (this.matches(".markdown-section")) return rect({ top: cardTop + 6, right: 336, bottom: cardBottom, left: 16 });
       if (this.matches("h2.markdown-checklist-heading")) return rect({ top: cardTop + 6, right: 336, bottom: cardTop + 30, left: 16 });
       return rect();
@@ -277,7 +352,7 @@ describe("scrollable long note cards", () => {
       const originalGridRows = card.style.gridRowEnd;
       expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
 
-      cardTop = 47;
+      cardTop = 41;
       cardBottom = 49;
       fireEvent.scroll(window);
       flushAnimationFrames();
@@ -318,6 +393,7 @@ describe("scrollable long note cards", () => {
       if (this.matches(`article[data-note-id="22222222-2222-4222-8222-222222222222"]`)) {
         return rect({ top: cardTop, right: 342, bottom: cardBottom, left: 10 });
       }
+      if (this.matches(".note-card__viewport")) return rect({ top: cardTop, right: 336, bottom: cardBottom, left: 16 });
       if (this.matches(".markdown-section")) return rect({ top: cardTop + 6, right: 336, bottom: cardBottom, left: 16 });
       if (this.matches("h2.markdown-checklist-heading")) return rect({ top: cardTop + 6, right: 336, bottom: cardTop + 30, left: 16 });
       return rect();
@@ -333,7 +409,7 @@ describe("scrollable long note cards", () => {
       const card = screen.getByRole("heading", { name: /^Repositioned checklist / }).closest<HTMLElement>("article")!;
       expect(screen.queryByTestId("note-page-sticky-heading")).not.toBeInTheDocument();
 
-      cardTop = 47;
+      cardTop = 41;
       cardBottom = 200;
       card.style.gridRowStart = "2";
 
@@ -364,6 +440,11 @@ describe("scrollable long note cards", () => {
       if (this === card && noteId === otherNoteId) return rect({ top: 32, right: 770, bottom: 480, left: 338 });
       const left = noteId === otherNoteId ? 344 : 16;
       const right = noteId === otherNoteId ? 764 : 336;
+      if (this.matches(".note-card__viewport")) {
+        return noteId === otherNoteId
+          ? rect({ top: 32, right, bottom: 480, left })
+          : rect({ top: 40, right, bottom: 520, left });
+      }
       if (this.matches(".markdown-section")) {
         if (this.textContent?.includes("Second checklist")) return rect({ top: secondChecklistSectionTop, right, bottom: 500, left });
         if (this.textContent?.includes("Plain section")) return rect({ top: 40, right, bottom: secondChecklistSectionTop, left });

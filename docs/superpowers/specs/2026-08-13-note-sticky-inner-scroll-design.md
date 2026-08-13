@@ -1,0 +1,3 @@
+# Sticky heading during note inner scroll
+
+Fix sticky checklist headings when a note scrolls internally, especially in Safari. The effective boundary is `max(app header bottom, note viewport top)`. No clone appears before the first `h2` crosses that boundary; after crossing, the current `h2` clone appears at the boundary while the card may remain below the app header. Listen directly to the note viewport's scroll event, while preserving page scroll, resize, portal scope, click/focus forwarding, layout-preserving source visibility, masonry geometry, and final-pixel hiding. Permanent tests use generic fixtures only.

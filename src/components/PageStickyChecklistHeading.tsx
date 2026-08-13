@@ -34,15 +34,19 @@ function snapshotsMatch(left: HeadingSnapshot | null, right: HeadingSnapshot | n
     && left.width === right.width;
 }
 
-function visibleContentBoundary(): number {
-  return Math.max(0, document.querySelector<HTMLElement>(".app-header")?.getBoundingClientRect().bottom ?? 0);
+function visibleContentBoundary(viewport: HTMLElement): number {
+  return Math.max(
+    0,
+    document.querySelector<HTMLElement>(".app-header")?.getBoundingClientRect().bottom ?? 0,
+    viewport.getBoundingClientRect().top,
+  );
 }
 
 function selectHeading(viewport: HTMLElement, boundary: number): HTMLHeadingElement | null {
   const headings = Array.from(viewport.querySelectorAll<HTMLHeadingElement>(
     QUALIFYING_HEADING_SELECTOR,
   ));
-  let selected = headings[0] ?? null;
+  let selected: HTMLHeadingElement | null = null;
   for (const heading of headings) {
     const section = heading.closest<HTMLElement>(".markdown-section");
     if (section && section.getBoundingClientRect().top <= boundary) selected = heading;
@@ -104,9 +108,10 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
         commitSnapshot(null);
         return;
       }
-      const boundary = visibleContentBoundary();
+      const boundary = visibleContentBoundary(viewport);
       const cardRect = card.getBoundingClientRect();
-      if (cardRect.top >= boundary || cardRect.bottom <= boundary) {
+      const viewportRect = viewport.getBoundingClientRect();
+      if (Math.min(cardRect.bottom, viewportRect.bottom) <= boundary) {
         commitSnapshot(null);
         return;
       }
@@ -117,7 +122,8 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
     };
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
     if (cardRef.current) observer?.observe(cardRef.current);
-    if (viewportRef.current) observer?.observe(viewportRef.current);
+    const viewport = viewportRef.current;
+    if (viewport) observer?.observe(viewport);
     const header = document.querySelector<HTMLElement>(".app-header");
     if (header) observer?.observe(header);
     const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(schedule);
@@ -125,6 +131,7 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
       attributeFilter: ["class", "data-shelf-position", "style"],
       attributes: true,
     });
+    viewport?.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
     measure();
@@ -132,6 +139,7 @@ export function PageStickyChecklistHeading({ cardRef, layoutKey, viewportRef }: 
       if (frame) window.cancelAnimationFrame(frame);
       mutationObserver?.disconnect();
       observer?.disconnect();
+      viewport?.removeEventListener("scroll", schedule);
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
     };
