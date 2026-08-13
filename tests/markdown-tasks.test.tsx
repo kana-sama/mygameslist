@@ -1016,7 +1016,7 @@ describe("Markdown tasks", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     await user.type(editor, " More context");
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));

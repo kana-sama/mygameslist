@@ -18,6 +18,22 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["@jsquash/webp", "@jsquash/webp/encode"],
   },
+  build: {
+    rolldownOptions: {
+      preserveEntrySignatures: false,
+      output: {
+        codeSplitting: {
+          includeDependenciesRecursively: false,
+          groups: [
+            { name: "vendor-monaco", test: /[\\/]node_modules[\\/]monaco-editor[\\/]/ },
+            { name: "vendor-framework", test: /[\\/]node_modules[\\/](?:react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+            { name: "vendor-markdown", includeDependenciesRecursively: true, test: /[\\/]node_modules[\\/](?:react-markdown|remark-gfm|remark-parse|remark-rehype|unified|mdast-util-[^\\/]+|micromark[^\\/]*|hast-util-[^\\/]+|vfile[^\\/]*)[\\/]/ },
+            { name: "vendor-tools", test: /[\\/]node_modules[\\/](?:@dnd-kit|diff|yaml)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     globals: true,

@@ -98,7 +98,7 @@ describe("game links in notes", () => {
     render(<ExistingNoteHarness onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const root = editor.closest(".monaco-note-editor");
     expect(root).toHaveAttribute("data-model-key", `note:${NOTE_ID}`);
 
@@ -128,7 +128,7 @@ describe("game links in notes", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const latestBody = "Последняя версия перед файлом";
     const file = new File(["guide"], "guide.pdf", { type: "application/pdf" });
     const drop = new Event("drop", { bubbles: true, cancelable: true });
@@ -142,7 +142,7 @@ describe("game links in notes", () => {
     });
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Файл не помещается"));
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue(latestBody);
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue(latestBody);
   });
 
   it("keeps new-game note models distinct while persisting controlled Markdown", async () => {

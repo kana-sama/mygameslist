@@ -62,7 +62,7 @@ describe("note editor automatic table width", () => {
 
     const readCard = screen.getByText("x").closest<HTMLElement>("article")!;
     await user.click(within(readCard).getByRole("button", { name: "Редактировать заметку" }));
-    const editingCard = screen.getByRole("textbox", { name: "Текст заметки" })
+    const editingCard = (await screen.findByRole("textbox", { name: "Текст заметки" }))
       .closest<HTMLElement>("article")!;
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(730));
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(360));
@@ -83,7 +83,7 @@ describe("note editor automatic table width", () => {
 
     const restoredReadCard = screen.getByText("x").closest<HTMLElement>("article")!;
     await user.click(within(restoredReadCard).getByRole("button", { name: "Редактировать заметку" }));
-    const freshEditingCard = screen.getByRole("textbox", { name: "Текст заметки" })
+    const freshEditingCard = (await screen.findByRole("textbox", { name: "Текст заметки" }))
       .closest<HTMLElement>("article")!;
     expect(freshEditingCard).not.toHaveAttribute("data-shelf-required-width");
   });
@@ -95,7 +95,7 @@ describe("note editor automatic table width", () => {
 
     const readCard = screen.getByText("Prose only").closest<HTMLElement>("article")!;
     await user.click(within(readCard).getByRole("button", { name: "Редактировать заметку" }));
-    const editingCard = screen.getByRole("textbox", { name: "Текст заметки" })
+    const editingCard = (await screen.findByRole("textbox", { name: "Текст заметки" }))
       .closest<HTMLElement>("article")!;
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(0));
 
@@ -110,7 +110,7 @@ describe("note editor automatic table width", () => {
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
 
-    const textbox = screen.getByRole("textbox", { name: "Текст заметки" });
+    const textbox = await screen.findByRole("textbox", { name: "Текст заметки" });
     const editingCard = textbox.closest<HTMLElement>("article")!;
     const host = editingCard.closest<HTMLElement>(".note-editor-sortable")!;
     const modelKey = [...widthReports.keys()].find((key) => key.startsWith("note:"))!;
@@ -118,7 +118,7 @@ describe("note editor automatic table width", () => {
 
     expect(editingCard).toHaveAttribute("data-shelf-required-width", "730");
     expect(editingCard.closest(".note-editor-sortable")).toBe(host);
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBe(textbox);
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toBe(textbox);
   });
 
   it("clears automatic demand on save without persisting it as manual width", async () => {
@@ -129,7 +129,7 @@ describe("note editor automatic table width", () => {
 
     const readCard = screen.getByText("Save me").closest<HTMLElement>("article")!;
     await user.click(within(readCard).getByRole("button", { name: "Редактировать заметку" }));
-    const editingCard = screen.getByRole("textbox", { name: "Текст заметки" })
+    const editingCard = (await screen.findByRole("textbox", { name: "Текст заметки" }))
       .closest<HTMLElement>("article")!;
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(730));
     expect(editingCard).toHaveAttribute("data-shelf-required-width", "730");

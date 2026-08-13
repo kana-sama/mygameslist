@@ -59,7 +59,7 @@ describe("note media gallery", () => {
 
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
 
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
+    const editor = (await screen.findByRole("textbox", { name: "Текст заметки" })).closest<HTMLElement>("article")!;
     const editorGallery = within(editor).getByRole("group", { name: "Галерея из 4 медиа" });
     expect(editorGallery).toHaveClass("note-media-gallery--count-4");
     expect(within(editorGallery).getAllByRole("button", { name: /Удалить изображение/ })).toHaveLength(4);

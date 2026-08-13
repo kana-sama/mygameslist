@@ -343,7 +343,7 @@ describe("scrollable long note cards", () => {
     const card = screen.getByText("Long note").closest<HTMLElement>("article")!;
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
 
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     expect(editor).toHaveValue("Long note");
     expect(editor.closest("article")).toHaveClass("note-card--editing");
     expect(screen.queryByRole("button", { name: "Развернуть заметку" })).not.toBeInTheDocument();
@@ -365,7 +365,7 @@ describe("scrollable long note cards", () => {
 
     await user.click(heightButton);
     await user.click(widthButton);
-    const editorCard = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
+    const editorCard = (await screen.findByRole("textbox", { name: "Текст заметки" })).closest<HTMLElement>("article")!;
     expect(heightButton).toHaveAttribute("aria-pressed", "true");
     expect(widthButton).toHaveAttribute("aria-pressed", "true");
     expect(editorCard).toHaveClass("note-card--double-height", "note-card--double-width");
@@ -417,7 +417,7 @@ describe("scrollable long note cards", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
     let card = screen.getByText("Long note").closest<HTMLElement>("article")!;
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    card = screen.getByRole("textbox", { name: "Текст заметки" }).closest<HTMLElement>("article")!;
+    card = (await screen.findByRole("textbox", { name: "Текст заметки" })).closest<HTMLElement>("article")!;
     expect(flowOrder(card)).toEqual(["attachments", "editor", "footer"]);
   });
 });

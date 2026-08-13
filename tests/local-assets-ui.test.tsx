@@ -81,7 +81,7 @@ describe("local-only storage UI", () => {
     const user = userEvent.setup();
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} storageLocked />);
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     await user.type(editor, "Текст остаётся редактируемым");
     expect(editor).toHaveValue("Текст остаётся редактируемым");
     const drop = new Event("drop", { bubbles: true, cancelable: true });

@@ -177,7 +177,7 @@ describe("anonymous note groups", () => {
     expect(screen.getByRole("button", { name: "Добавить группу после группы 4" })).toBeDisabled();
 
     await user.click(firstAction);
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
   });
 
   it("groups legacy notes together and derives one trailing empty group", () => {
@@ -225,7 +225,7 @@ describe("anonymous note groups", () => {
     expect(document.querySelectorAll(".notes-list")).toHaveLength(0);
 
     await user.click(firstEmpty);
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("data-note-group-rank", "3072");
 
     await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
@@ -271,7 +271,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 1025), note(NOTE_C_ID, 1024, 1026)]} onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     expect(editor.closest(".note-group")).toHaveAttribute("data-note-group-rank", "2048");
     expect([...document.querySelectorAll<HTMLElement>(".note-group")].map((group) => group.dataset.noteGroupRank)).toEqual(["1024", "2048", "3073", "5122"]);
     await user.type(editor, "Вставленная заметка");
@@ -294,7 +294,7 @@ describe("anonymous note groups", () => {
     await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
 
     const insertedGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="2048"]')!;
-    expect(within(insertedGroup).getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect(await within(insertedGroup).findByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
     expect([...document.querySelectorAll<HTMLElement>(".note-group")].map((group) => group.dataset.noteGroupRank)).toEqual(["1024", "2048", "3072"]);
   });
 
@@ -304,7 +304,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={onSave} />);
 
     await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     expect(editor.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
     expect(editor).toHaveFocus();
     await user.type(editor, "Новая заметка");
@@ -365,7 +365,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const lowLevelEditor = editor.closest<HTMLElement>(".monaco-markdown-editor")!;
 
     expect(editor).toHaveFocus();
@@ -428,7 +428,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const group = editor.closest(".note-group")!;
     const groupObservedDefaultPrevented = vi.fn<(prevented: boolean) => void>();
     group.addEventListener("drop", (event) => groupObservedDefaultPrevented(event.defaultPrevented));
@@ -452,7 +452,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={onSave} />);
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
 
-    const firstEditor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const firstEditor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const firstGroup = firstEditor.closest(".note-group")!;
     const groupObservedDefaultPrevented = vi.fn<(prevented: boolean) => void>();
     firstGroup.addEventListener("drop", (event) => groupObservedDefaultPrevented(event.defaultPrevented));

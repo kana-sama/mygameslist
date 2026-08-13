@@ -88,7 +88,7 @@ describe("note image lightbox", () => {
     expect(opener).toHaveFocus();
 
     await user.click(editButton);
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
     expect(screen.getByRole("button", { name: "Открыть изображение «Карта уровня»" })).toBeInTheDocument();
   });
 

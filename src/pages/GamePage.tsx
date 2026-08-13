@@ -33,7 +33,7 @@ import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTr
 import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
-import { MonacoNoteEditor } from "../components/MonacoNoteEditor";
+import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
@@ -717,7 +717,7 @@ function PlainNoteEditor({
   return (
     <article aria-busy={processingImages} className={`note-card note-card--editing${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-required-width={requiredTableWidth || undefined} ref={editorRef}>
       {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => publishNote({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
-      <MonacoNoteEditor
+      <LazyMonacoNoteEditor
         autoFocus={autoFocus}
         excludeGameId={completion.excludeGameId}
         filesDisabled={storageLocked}

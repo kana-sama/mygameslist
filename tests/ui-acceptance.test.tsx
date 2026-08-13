@@ -951,7 +951,7 @@ describe("GamePage", () => {
     await user.click(cards[0] as HTMLElement);
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     await user.click(within(cards[0] as HTMLElement).getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     expect(editor.closest("article")).toBe(notesSection.querySelectorAll(".note-card")[0]);
     expect(editor).toHaveValue("Хорошая игра");
     expect(document.querySelector(".markdown-editor__toolbar")).not.toBeInTheDocument();
@@ -965,7 +965,7 @@ describe("GamePage", () => {
     expect(confirm).not.toHaveBeenCalled();
     await user.click(within(cards[1] as HTMLElement).getByRole("button", { name: "Редактировать заметку" }));
     expect(confirm).toHaveBeenCalledWith("Отменить несохранённые изменения заметки?");
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра — черновик");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра — черновик");
     await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     const restoredCard = notesSection.querySelectorAll(".note-card")[0] as HTMLElement;
@@ -974,7 +974,7 @@ describe("GamePage", () => {
     fireEvent.keyDown(restoredCard, { key: "Enter" });
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     await user.click(within(restoredCard).getByRole("button", { name: "Редактировать заметку" }));
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("Хорошая игра");
   });
 
   it("uses Safari-safe sensors and calculates note drops against rank order", () => {
@@ -1223,7 +1223,7 @@ describe("GamePage", () => {
     expect(Array.from(surface.children).map((child) => child.className)).toEqual(["note-attachments", "note-card__text"]);
 
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    const textarea = screen.getByRole("textbox", { name: "Текст заметки" });
+    const textarea = await screen.findByRole("textbox", { name: "Текст заметки" });
     const editor = textarea.closest<HTMLElement>("article")!;
     expect(editor.children[0]).toHaveClass("note-attachments");
     expect(editor.children[1]).toHaveClass("monaco-note-editor");
@@ -1310,13 +1310,13 @@ describe("GamePage", () => {
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
 
     await user.click(within(screen.getByText("Видео прохождения").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const modelKey = editor.closest(".monaco-note-editor")?.getAttribute("data-model-key");
     await user.click(screen.getByRole("link", { name: "Загрузить видео на YouTube" }));
     await user.keyboard("{Escape}");
 
     expect(screen.queryByRole("textbox", { name: "Ссылка на YouTube" })).not.toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBe(editor);
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toBe(editor);
     expect(editor.closest(".monaco-note-editor")).toHaveAttribute("data-model-key", modelKey);
   });
 
@@ -1383,7 +1383,7 @@ describe("GamePage", () => {
     expect(within(card).getByRole("button", { name: "Перетащить заметку" })).toBeInTheDocument();
 
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
     expect(screen.getByTitle("Видео YouTube")).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1");
   });
 
@@ -1412,7 +1412,7 @@ describe("GamePage", () => {
     await user.click(video);
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Редактировать заметку" }));
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("");
     expect(screen.getByLabelText("Видео «Boss run»")).toBeInTheDocument();
   });
 
@@ -1518,7 +1518,7 @@ describe("GamePage", () => {
     };
     const view = render(<GamePage assets={{}} canAddBlob={canAddBlob} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
     await user.click(within(screen.getByText("Материалы").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const dropped = new File(["drop"], "dropped.MP4", { type: "" });
 
     fireEvent.drop(editor, { dataTransfer: { files: [dropped], items: [], types: ["Files"] } });
@@ -1714,7 +1714,7 @@ describe("GamePage", () => {
     expect(screen.queryByRole("heading", { name: "Заметки" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
-    const noteEditor = within(notesEditor).getByRole("textbox", { name: "Текст заметки" });
+    const noteEditor = await within(notesEditor).findByRole("textbox", { name: "Текст заметки" });
     await user.type(noteEditor, "Секреты [[гайд](https://example.com/ducktales)");
     expect(within(notesEditor).queryByRole("button", { name: "Предпросмотр" })).not.toBeInTheDocument();
     expect(within(notesEditor).queryByRole("button", { name: "Ссылка" })).not.toBeInTheDocument();
@@ -1854,7 +1854,7 @@ describe("GamePage", () => {
     );
 
     await user.click(within(screen.getByText("Старая заметка").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
-    const noteText = screen.getByRole("textbox", { name: "Текст заметки" });
+    const noteText = await screen.findByRole("textbox", { name: "Текст заметки" });
     await user.clear(noteText);
     await user.type(noteText, "Обновлённая заметка");
     view.rerender(
@@ -1867,7 +1867,7 @@ describe("GamePage", () => {
         onSave={onSave}
       />,
     );
-    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toHaveValue("Обновлённая заметка");
+    expect(await screen.findByRole("textbox", { name: "Текст заметки" })).toHaveValue("Обновлённая заметка");
     expect(screen.queryByRole("button", { name: "Ссылка" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Предпросмотр" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
@@ -1902,7 +1902,7 @@ describe("GamePage", () => {
     render(<GamePage assets={{}} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={onSave} />);
 
     await user.click(within(screen.getByText("Старая заметка").closest<HTMLElement>("article")!).getByRole("button", { name: "Редактировать заметку" }));
-    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
     const file = new File(["image"], "secret.png", { type: "image/png" });
     const clipboardData = {
       files: [file],
