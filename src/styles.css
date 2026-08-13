@@ -490,9 +490,12 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-group + .note-group { padding-top: 7px; }
 .note-group.is-over::after { content: ""; position: absolute; z-index: 7; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); pointer-events: none; }
 .note-empty-group { position: relative; min-height: 34px; }
+.note-empty-group--trailing { min-height: 12px; }
 .note-empty-group.is-over { background: rgba(255, 255, 255, .025); }
 .note-empty-group.is-over::before { content: ""; position: absolute; z-index: 7; top: -1px; right: 0; left: 0; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); pointer-events: none; }
 .note-group.is-file-over, .note-empty-group.is-file-over { outline: 1px solid var(--accent); outline-offset: -1px; background: var(--accent-wash); }
+.note-group-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.note-group-actions .note-group-add-slot { margin-top: 0; }
 .note-group-add-slot { position: relative; z-index: 2; min-height: 34px; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
 .note-group-add-button { position: relative; width: auto; min-width: 146px; height: 30px; display: inline-flex; appearance: none; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 4px; color: var(--muted-2); background: var(--bg); box-shadow: 0 0 0 5px var(--bg); cursor: pointer; }
 .note-group-add-button:hover:not(:disabled), .note-group-add-button:focus-visible { border-color: var(--line); color: var(--text); background: var(--surface-2); }
@@ -874,6 +877,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
   .app-header .app-nav__link, .patch-pill { min-width: 44px; min-height: 44px; }
   .note-editor-actions, .note-attachment-remove { opacity: 1; pointer-events: auto; }
   .note-empty-group { min-height: 44px; }
+  .note-empty-group--trailing { min-height: 12px; }
   .note-group-add-slot { min-height: 44px; margin-top: 4px; }
   .note-group-add-button { min-width: 180px; height: 44px; }
   .note-card__actions { min-height: 49px; opacity: 1; pointer-events: auto; }

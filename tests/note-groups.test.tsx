@@ -9,6 +9,7 @@ import {
   groupDraftNotes,
   moveDraftNoteToGroup,
   nextEmptyNoteGroupRank,
+  prepareNoteGroupAfter,
   type EditableNote,
   type GameSaveInput,
 } from "../src/pages/GamePage";
@@ -99,6 +100,42 @@ function fileDragEvent(type: "dragenter" | "dragleave" | "dragover" | "drop", tr
 }
 
 describe("anonymous note groups", () => {
+  it("allocates space for inserted note groups without shifting an available interval", () => {
+    expect(prepareNoteGroupAfter([editable(NOTE_A_ID, 1024, 1024)], 1024).groupRank).toBe(3072);
+
+    const midpointNotes = [editable(NOTE_A_ID, 1024, 1024), editable(NOTE_B_ID, 1024, 3072)];
+    expect(prepareNoteGroupAfter(midpointNotes, 1024)).toEqual({ notes: midpointNotes, groupRank: 2048 });
+
+    const crowded = [
+      editable(NOTE_A_ID, 1024, 1024),
+      editable(NOTE_B_ID, 1024, 1025),
+      editable(NOTE_C_ID, 1024, 1026),
+      editable("55555555-5555-4555-8555-555555555555", 1024, 9000),
+    ];
+    const prepared = prepareNoteGroupAfter(crowded, 1024);
+    expect(prepared.groupRank).toBe(2048);
+    expect(groupDraftNotes(prepared.notes).map((group) => group.groupRank)).toEqual([1024, 3073, 5122, 9000]);
+
+    let intervalNotes = [editable(NOTE_A_ID, 1024, 1024), editable(NOTE_B_ID, 1024, 3072)];
+    let leftRank = 1024;
+    let insertedRank = 0;
+    for (let index = 0; index < 10; index += 1) {
+      const allocated = prepareNoteGroupAfter(intervalNotes, leftRank);
+      insertedRank = allocated.groupRank;
+      intervalNotes = [...allocated.notes, editable(`00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, 1024, insertedRank)];
+      leftRank = insertedRank;
+    }
+    const existingRanks = groupDraftNotes(intervalNotes).map((group) => group.groupRank);
+    const leftInterval = prepareNoteGroupAfter(intervalNotes, 1024);
+    const rightInterval = prepareNoteGroupAfter(intervalNotes, insertedRank);
+    expect(groupDraftNotes(leftInterval.notes).map((group) => group.groupRank)).toEqual(existingRanks);
+    expect(groupDraftNotes(rightInterval.notes).map((group) => group.groupRank)).toEqual(existingRanks);
+    expect(leftInterval.groupRank).toBeGreaterThan(1024);
+    expect(leftInterval.groupRank).toBeLessThan(insertedRank);
+    expect(rightInterval.groupRank).toBeGreaterThan(insertedRank);
+    expect(rightInterval.groupRank).toBeLessThan(3072);
+  });
+
   it("groups legacy notes together and derives one trailing empty group", () => {
     const notes = [
       editable(NOTE_B_ID, 2048),
@@ -111,7 +148,7 @@ describe("anonymous note groups", () => {
       { groupRank: 3072, notes: [notes[2]] },
     ]);
     expect(nextEmptyNoteGroupRank([])).toBe(1024);
-    expect(nextEmptyNoteGroupRank(notes)).toBe(4096);
+    expect(nextEmptyNoteGroupRank(notes)).toBe(5120);
   });
 
   it("reorders inside a group and moves notes between existing or empty groups", () => {
@@ -145,7 +182,7 @@ describe("anonymous note groups", () => {
 
     await user.click(firstEmpty);
     expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+    expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("data-note-group-rank", "3072");
 
     await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
     expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "1024");
@@ -158,11 +195,63 @@ describe("anonymous note groups", () => {
     expect(groups).toHaveLength(2);
     expect(document.querySelectorAll(".notes-list")).toHaveLength(2);
     expect(screen.getAllByRole("group", { name: /Группа заметок/ })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: "Добавить заметку в новую группу" })).toHaveLength(1);
+    expect(screen.queryAllByRole("button", { name: "Добавить заметку в новую группу" })).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Добавить заметку в группу 1" })).toHaveClass("note-group-add-button");
     expect(screen.getByRole("button", { name: "Добавить заметку в группу 2" })).toHaveClass("note-group-add-button");
     expect(groups[0]).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("renders paired note and group actions after existing groups in both modes", async () => {
+    const user = userEvent.setup();
+    const saved = render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 2048)]} onSave={vi.fn()} />);
+
+    let actionRows = document.querySelectorAll(".note-group-actions");
+    expect(actionRows).toHaveLength(2);
+    expect(within(actionRows[0] as HTMLElement).getByRole("button", { name: "Добавить заметку в группу 1" })).toBeInTheDocument();
+    expect(within(actionRows[0] as HTMLElement).getByRole("button", { name: "Добавить группу после группы 1" })).toBeInTheDocument();
+    saved.unmount();
+
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
+    actionRows = document.querySelectorAll(".note-group-actions");
+    expect(actionRows).toHaveLength(2);
+    expect(within(actionRows[0] as HTMLElement).getByRole("button", { name: "Добавить заметку в группу 1" })).toBeInTheDocument();
+    expect(within(actionRows[0] as HTMLElement).getByRole("button", { name: "Добавить группу после группы 1" })).toBeInTheDocument();
+  });
+
+  it("inserts a saved-game group prospectively and discards its shifts on cancellation", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024), note(NOTE_B_ID, 1024, 1025), note(NOTE_C_ID, 1024, 1026)]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
+    const editor = screen.getByRole("textbox", { name: "Текст заметки" });
+    expect(editor.closest(".note-group")).toHaveAttribute("data-note-group-rank", "2048");
+    expect([...document.querySelectorAll<HTMLElement>(".note-group")].map((group) => group.dataset.noteGroupRank)).toEqual(["1024", "2048", "3073", "5122"]);
+    await user.type(editor, "Вставленная заметка");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(groupDraftNotes(onSave.mock.calls[0][0].notes).map((group) => group.groupRank)).toEqual([1024, 2048, 3073, 5122]);
+
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
+    await user.click(screen.getByRole("button", { name: "Отменить редактирование" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect([...document.querySelectorAll<HTMLElement>(".note-group")].map((group) => group.dataset.noteGroupRank)).toEqual(["1024", "1025", "1026"]);
+  });
+
+  it("inserts a new-game group between two local draft groups", async () => {
+    const user = userEvent.setup();
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
+
+    const insertedGroup = document.querySelector<HTMLElement>('.note-group[data-note-group-rank="2048"]')!;
+    expect(within(insertedGroup).getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
+    expect([...document.querySelectorAll<HTMLElement>(".note-group")].map((group) => group.dataset.noteGroupRank)).toEqual(["1024", "2048", "3072"]);
   });
 
   it("creates a note directly inside an existing group", async () => {
@@ -191,7 +280,7 @@ describe("anonymous note groups", () => {
     fireEvent(notesArea, fileDragEvent("dragenter", transfer));
     expect(notesArea).toHaveClass("is-file-dragging");
     expect(notesArea.querySelector(".note-groups")).toHaveClass("is-file-dragging");
-    expect(notesArea.querySelectorAll(".note-group-add-button")).toHaveLength(3);
+    expect(notesArea.querySelectorAll(".note-group-add-button")).toHaveLength(4);
 
     fireEvent(secondGroup, fileDragEvent("dragenter", transfer));
     expect(firstGroup).not.toHaveClass("is-file-over");
@@ -203,15 +292,15 @@ describe("anonymous note groups", () => {
     expect(notesArea).not.toHaveClass("is-file-dragging");
   });
 
-  it("keeps labelled add actions at the end of existing and empty groups", () => {
+  it("keeps labelled add actions together at the end of an existing group", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={vi.fn()} />);
     const group = screen.getByRole("group", { name: "Группа заметок 1" });
     const addButton = screen.getByRole("button", { name: "Добавить заметку в группу 1" });
-    const emptyButton = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+    const addGroupButton = screen.getByRole("button", { name: "Добавить группу после группы 1" });
 
-    expect(group.lastElementChild).toBe(addButton.parentElement);
+    expect(group.lastElementChild).toBe(addButton.parentElement?.parentElement);
     expect(addButton).toHaveTextContent("Добавить заметку");
-    expect(emptyButton).toHaveTextContent("Новая группа");
+    expect(addGroupButton).toHaveTextContent("Добавить группу");
   });
 
   it("focuses a newly added draft note before a new game is saved", async () => {
@@ -270,7 +359,7 @@ describe("anonymous note groups", () => {
 
     const video = await screen.findByLabelText("Видео «clip.mp4»");
     expect(video.closest(".note-group")).toHaveAttribute("data-note-group-rank", "1024");
-    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+    expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("data-note-group-rank", "3072");
   });
 
   it("creates a file note in the second group when its body receives the drop", async () => {
@@ -430,7 +519,7 @@ describe("anonymous note groups", () => {
     render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024)]} onSave={onSave} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
     const handle = within(card).getByRole("button", { name: "Перетащить заметку" });
-    const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+    const empty = screen.getByRole("group", { name: "Новая группа заметок" });
 
     await user.pointer([
       { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
@@ -440,7 +529,7 @@ describe("anonymous note groups", () => {
     ]);
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ clientId: NOTE_A_ID, groupRank: 2048, rank: 1024 });
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ clientId: NOTE_A_ID, groupRank: 3072, rank: 1024 });
   });
 
   it("removes an emptied group after persistence and keeps one new trailing group", async () => {
@@ -456,7 +545,7 @@ describe("anonymous note groups", () => {
     render(<StatefulGamePage initialNotes={[note(NOTE_A_ID, 1024)]} />);
     const card = document.querySelector<HTMLElement>(`[data-note-id="${NOTE_A_ID}"]`)!;
     const handle = within(card).getByRole("button", { name: "Перетащить заметку" });
-    const empty = screen.getByRole("button", { name: "Добавить заметку в новую группу" });
+    const empty = screen.getByRole("group", { name: "Новая группа заметок" });
 
     await user.pointer([
       { keys: "[MouseLeft>]", target: handle, coords: { clientX: 20, clientY: 185 } },
@@ -465,9 +554,9 @@ describe("anonymous note groups", () => {
       { keys: "[/MouseLeft]", target: empty, coords: { clientX: 20, clientY: 235 } },
     ]);
 
-    await waitFor(() => expect(screen.getByRole("group", { name: "Группа заметок 1" })).toHaveAttribute("data-note-group-rank", "2048"));
+    await waitFor(() => expect(screen.getByRole("group", { name: "Группа заметок 1" })).toHaveAttribute("data-note-group-rank", "3072"));
     expect(document.querySelectorAll(".note-group")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "3072");
+    expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("data-note-group-rank", "5120");
   });
 
   it("drags a note into an existing shelf group", async () => {
@@ -585,7 +674,7 @@ describe("anonymous note groups", () => {
     await user.keyboard("[Enter]");
 
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ groupRank: 2048, rank: 1024 });
+    expect(onSave.mock.calls[0][0].notes[0]).toMatchObject({ groupRank: 3072, rank: 1024 });
   });
 
   it("restores keyboard focus after moving a note between shelf groups", async () => {
@@ -606,7 +695,7 @@ describe("anonymous note groups", () => {
 
     await waitFor(() => expect(document.activeElement).toHaveAccessibleName("Перетащить заметку"));
     expect(document.activeElement?.closest(`[data-note-id="${NOTE_A_ID}"]`)).not.toBeNull();
-    expect(document.activeElement?.closest('.note-group[data-note-group-rank="2048"]')).not.toBeNull();
+    expect(document.activeElement?.closest('.note-group[data-note-group-rank="3072"]')).not.toBeNull();
   });
 
   it("groups draft notes with drag and drop before a new game is saved", async () => {
@@ -614,17 +703,17 @@ describe("anonymous note groups", () => {
     const onSave = vi.fn<(input: GameSaveInput) => void>();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       const rank = this.closest<HTMLElement>(".note-group")?.dataset.noteGroupRank;
-      if (this.dataset.noteId) return rank === "2048" ? rect(0, 300, 360, 130) : rect(0, 100, 360, 130);
+      if (this.dataset.noteId) return rank === "3072" ? rect(0, 300, 360, 130) : rect(0, 100, 360, 130);
       if (this.matches('.note-group[data-note-group-rank="1024"]')) return rect(0, 100, 727, 160);
-      if (this.matches('.note-group[data-note-group-rank="2048"]')) return rect(0, 300, 727, 160);
-      if (this.matches(".note-editors-grid")) return rank === "2048" ? rect(0, 300, 727, 140) : rect(0, 100, 727, 140);
+      if (this.matches('.note-group[data-note-group-rank="3072"]')) return rect(0, 300, 727, 160);
+      if (this.matches(".note-editors-grid")) return rank === "3072" ? rect(0, 300, 727, 140) : rect(0, 100, 727, 140);
       if (this.matches(".note-empty-group")) return rect(0, 500, 727, 40);
       if (this.matches(".note-drag-preview")) return rect(0, 0, 360, 90);
       return rect(0, 0, 1024, 768);
     });
     render(<GamePage assets={{}} mode="new" notes={[]} onSave={onSave} />);
     await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
-    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить группу после группы 1" }));
     const editors = [...document.querySelectorAll<HTMLElement>(".note-editor-sortable")];
     const modelKeys = editors.map((editor) => editor.querySelector<HTMLElement>(".monaco-note-editor")!.dataset.modelKey);
     expect(modelKeys).toEqual(editors.map((editor) => `note:${editor.dataset.noteId}`));
@@ -685,7 +774,7 @@ describe("anonymous note groups", () => {
       ["Вторая заметка", 1024],
       ["Первая заметка", 1024],
     ]);
-    expect(screen.getByRole("button", { name: "Добавить заметку в новую группу" })).toHaveAttribute("data-note-group-rank", "2048");
+    expect(screen.getByRole("group", { name: "Новая группа заметок" })).toHaveAttribute("data-note-group-rank", "3072");
   });
 
   it("keeps four persistent hosts in ranked order after a non-adjacent move", async () => {
