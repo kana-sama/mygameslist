@@ -189,6 +189,39 @@ describe("scrollable long note cards", () => {
     expect(nestedHeading).not.toHaveClass("markdown-note-title--inner", "markdown-note-title--outer");
   });
 
+  it("renders a plain first title as two layers with one semantic heading and no controls", () => {
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Plain title",
+      1024,
+    );
+
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+
+    const accessibleHeading = screen.getByRole("heading", { level: 2, name: "Plain title" });
+    const card = accessibleHeading.closest<HTMLElement>("article")!;
+    const titleHeadings = Array.from(card.querySelectorAll<HTMLHeadingElement>("h2"))
+      .filter((heading) => heading.textContent === "Plain title");
+    const innerHeading = card.querySelector<HTMLHeadingElement>(".markdown-note-title--inner");
+    const outerHeading = card.querySelector<HTMLHeadingElement>(
+      ".note-card__page-heading > .markdown-note-title--outer",
+    );
+    const controlSelector = "button, input, select, textarea, [role='button'], [aria-expanded], [tabindex]";
+    const titleControls = titleHeadings.flatMap((heading) => [
+      ...(heading.matches(controlSelector) ? [heading] : []),
+      ...Array.from(heading.querySelectorAll(controlSelector)),
+    ]);
+
+    expect(titleHeadings).toHaveLength(2);
+    expect(screen.getAllByRole("heading", { level: 2, name: "Plain title" })).toHaveLength(1);
+    expect(titleControls).toHaveLength(0);
+    expect(innerHeading).toBe(titleHeadings.find((heading) => heading.classList.contains("markdown-note-title--inner")));
+    expect(innerHeading).toHaveClass("markdown-note-title--inner");
+    expect(innerHeading).toHaveAttribute("aria-hidden", "true");
+    expect(outerHeading).toBe(accessibleHeading);
+    expect(outerHeading).toHaveClass("markdown-note-title--outer");
+  });
+
   it("keeps a top-level heading after ordinary Markdown single-copy and outside the page title layer", () => {
     const note = makeNote(
       "22222222-2222-4222-8222-222222222222",

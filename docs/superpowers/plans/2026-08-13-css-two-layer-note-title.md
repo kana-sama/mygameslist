@@ -77,6 +77,8 @@
 
   Add a separate plain-first-heading fixture to prove progress is not required. Add a preamble fixture such as `Intro paragraph\n\n# Later title` and assert the heading remains one-copy and non-sticky. Render `MarkdownView` directly without a host and assert it still produces one accessible heading, preserving detached Markdown behavior.
 
+  Review correction: render a generic `GamePage` note whose sole body is `# Plain title`; assert exactly two matching DOM `h2` elements, exactly one accessible heading, zero button/control semantics across those copies, and the `.markdown-note-title--inner` / `.markdown-note-title--outer` classes on their respective layers.
+
 - [ ] **Step 2: Write a failing interaction and scroll-stability test**
 
   Click and keyboard-focus the accessible outer collapse button and assert the existing save payload records the first heading's collapse id. Assert the inner button cannot be reached through role queries, has `tabIndex === -1`, and its heading subtree is aria-hidden.

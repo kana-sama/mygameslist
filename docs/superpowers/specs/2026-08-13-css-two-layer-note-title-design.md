@@ -97,6 +97,7 @@ No dependency is added.
 Generic automated coverage must prove:
 
 - a rendered note whose first nonblank block is `#` has two DOM copies but only one accessible heading/control;
+- review correction: a generic rendered `GamePage` note whose sole content is `# Plain title` must explicitly prove two matching DOM `h2` layers, one accessible heading, no button/control semantics in either copy, and the expected inner/outer layer classes;
 - a `#` preceded by ordinary content remains single-copy and non-sticky, so the page layer never overlays the preamble;
 - the outer control changes the same collapse/save state as the previous source control;
 - a later `#` and nested headings are rendered exactly once and are not sticky;
