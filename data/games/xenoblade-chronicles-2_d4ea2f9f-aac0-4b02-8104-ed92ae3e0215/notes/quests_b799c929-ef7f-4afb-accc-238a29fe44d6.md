@@ -2,13 +2,18 @@
 id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
 groupRank: 2048
 rank: 3072
+doubleWidth: true
 doubleHeight: true
 collapsedChecklistSections:
+  - "group:189pmq5-22"
   - "group:1hvh87y-22"
   - "group:1le00f0-26"
   - "group:1lh12x2-2q"
+  - "group:1u4wb88-2s"
+  - "group:1wh0ojq-2p"
   - "heading:12a39n2-19"
   - "heading:14ewmv5-19"
+  - "heading:1e7grcw-19"
   - "heading:1kyaobx-19"
   - "heading:1ufv46v-19"
   - "heading:1uqusto-19"
@@ -16,7 +21,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T21:13:04.000Z"
+updatedAt: "2026-08-13T01:34:54.063Z"
 -->
 # Quests
 
@@ -48,18 +53,18 @@ updatedAt: "2026-08-12T21:13:04.000Z"
 
     - [x] Concerned Carpenter — Siorge · Torigoth Market
     - [x] Paying It Forward — Bowery · Torigoth Market
-    - [ ] Buoy Can't Swim — Sulya · Coolley Lake
-    - [ ] Crane Criminals — Pettle · Saets Lumber Co.; требования: Part of "The Case of the Crane".
+    - [x] Buoy Can't Swim — Sulya · Coolley Lake
+    - [x] Crane Criminals — Pettle · Saets Lumber Co.; требования: Part of "The Case of the Crane".
     - [x] Fresh and Fruity — Twaina · Grodd Residential Zone
     - [x] Knocked About Nopon — Tunini · Plains of Evening Calm
-    - [ ] Repair Torigoth's Crane — Natheus · Saets Lumber Co.; требования: Part of "The Case of the Crane".
-    - [ ] The Case of the Crane — Eyvan · Saets Lumber Co.
-    - [ ] Tora's Secret Stash [Switch 2] — Tora's House; награда: Pretty Core Crystal для получения MOMO.
+    - [x] Repair Torigoth's Crane — Natheus · Saets Lumber Co.; требования: Part of "The Case of the Crane".
+    - [x] The Case of the Crane — Eyvan · Saets Lumber Co.
+    - [x] Tora's Secret Stash [Switch 2] — Tora's House; награда: Pretty Core Crystal для получения MOMO.
 
   - DLC Quests
 
-    - [ ] Passion of the Artisan — Garagorm's Arch
-    - [ ] Nopon of Good Tastes — Galad Residential Zone
+    - [x] Passion of the Artisan — Garagorm's Arch
+    - [x] Nopon of Good Tastes — Galad Residential Zone
 
 ## Chapter 3
 
