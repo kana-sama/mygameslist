@@ -13,7 +13,6 @@ collapsedChecklistSections:
   - "group:19nfoqz-2b"
   - "group:19rgymx-24"
   - "group:1ai755v-25"
-  - "group:1anqzxz-23"
   - "group:1e87cqo-22"
   - "group:1fbk8vu-23"
   - "group:1jd6vhi-21"
@@ -25,7 +24,6 @@ collapsedChecklistSections:
   - "group:1qrpvs6-2f"
   - "group:1s2jysi-2g"
   - "group:1sv1yf5-2h"
-  - "group:1u6x3wm-21"
   - "group:1wl08jy-2a"
   - "group:1y0hbqo-27"
   - "group:1y150gw-23"
@@ -62,7 +60,7 @@ collapsedChecklistSections:
   - "heading:ll5154-1j"
   - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T17:20:31.627Z"
+updatedAt: "2026-08-13T06:02:45.079Z"
 -->
 # Shop Deeds
 
@@ -70,10 +68,10 @@ updatedAt: "2026-08-12T17:20:31.627Z"
 
 - Honeycomb Sweets
 
-  - [ ] Melodious Melon Parfait
+  - [x] Melodious Melon Parfait
   - [x] Cinnopon Roll
-  - [ ] Sparklesugar
-  - [ ] Narcipear Jelly
+  - [x] Sparklesugar
+  - [x] Narcipear Jelly
   - [ ] Fruity Rice Ball — открывается после Merc Mission `Long-Awaited Work`.
   - [ ] **Honeycomb Deeds**
 
@@ -155,9 +153,9 @@ updatedAt: "2026-08-12T17:20:31.627Z"
 
 - Soniarus Music
 
-  - [ ] Torigonda
-  - [ ] Woodgrain Alphorn
-  - [ ] Cedarwood Koto
+  - [x] Torigonda
+  - [x] Woodgrain Alphorn
+  - [x] Cedarwood Koto
   - [ ] Woodboard — открывается после Merc Mission `Raddon Family`.
   - [ ] Coralline Marimba — открывается после Merc Mission `The Water City`.
   - [ ] **Soniarus Deeds**
@@ -188,11 +186,11 @@ updatedAt: "2026-08-12T17:20:31.627Z"
 
 - Tilly Bakery
 
-  - [ ] Ruska Dumplings
-  - [ ] Ruska Noodle Goulash
-  - [ ] Deluxe Ham Toastie
-  - [ ] Beat Paste Paratha
-  - [ ] Cream Orange Paratha
+  - [x] Ruska Dumplings
+  - [x] Ruska Noodle Goulash
+  - [x] Deluxe Ham Toastie
+  - [x] Beat Paste Paratha
+  - [x] Cream Orange Paratha
   - [ ] Ruska Noodle Soup — открывается после Merc Mission `Turf War Protection`.
   - [ ] Lucky Dawn Bread — открывается после начала Blade Quest `Our Daily Bread`; продаётся с 05:00 до 06:59.
   - [ ] **Tilly Deeds**

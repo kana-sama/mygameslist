@@ -21,7 +21,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-13T01:34:54.063Z"
+updatedAt: "2026-08-13T04:48:06.002Z"
 -->
 # Quests
 
@@ -83,8 +83,8 @@ updatedAt: "2026-08-13T01:34:54.063Z"
 
   - Normal Quests
 
-    - [ ] A Young Man's Prize — Eluned · Grodd Residential Zone
-    - [ ] Grow, Little Vegetables! — Nomon · Kloom Farm
+    - [x] A Young Man's Prize — Eluned · Grodd Residential Zone
+    - [x] Grow, Little Vegetables! — Nomon · Kloom Farm
     - [ ] Star-Crossed Lovers — Riannon · Melnath's Shoulder
     - [ ] Go for it, Electra! — Torigoth
     - [ ] Our Daily Bread — Coedwig Inn; требования: Lv. 3 Affinity.

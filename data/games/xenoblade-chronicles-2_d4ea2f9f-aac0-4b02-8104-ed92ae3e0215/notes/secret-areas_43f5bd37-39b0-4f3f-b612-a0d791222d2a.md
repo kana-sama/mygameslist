@@ -4,7 +4,7 @@ groupRank: 2048
 rank: 8192
 doubleHeight: true
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-12T02:28:48.654Z"
+updatedAt: "2026-08-13T01:57:10.059Z"
 -->
 # Secret Areas
 
@@ -24,7 +24,7 @@ updatedAt: "2026-08-12T02:28:48.654Z"
 ## Gormott Province
 
 - [ ] Clear Sky Break — Upper Level - Right; От Nocclia Timber Site идите на север, спуститесь по водной горке в Zeno's Deadbole и нырните в Underground Spring; нужны Lv. 3 Water Mastery и Lv. 3 Fortitude.
-- [ ] Dawnview Grotto — Upper Level - Right; Пройдите через каменный туннель со стороны Tirkin Turf.
+- [x] Dawnview Grotto — Upper Level - Right; Пройдите через каменный туннель со стороны Tirkin Turf.
 
 ## Kingdom of Tantal
 
