@@ -136,6 +136,13 @@ describe("anonymous note groups", () => {
     expect(rightInterval.groupRank).toBeLessThan(3072);
   });
 
+  it("rejects appended note-group ranks beyond the safe integer domain", () => {
+    const lastSafeGroup = [editable(NOTE_A_ID, 1024, Number.MAX_SAFE_INTEGER)];
+
+    expect(() => nextEmptyNoteGroupRank(lastSafeGroup)).toThrow(RangeError);
+    expect(() => prepareNoteGroupAfter(lastSafeGroup, Number.MAX_SAFE_INTEGER)).toThrow(RangeError);
+  });
+
   it("groups legacy notes together and derives one trailing empty group", () => {
     const notes = [
       editable(NOTE_B_ID, 2048),

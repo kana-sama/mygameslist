@@ -103,9 +103,15 @@ export interface PreparedNoteGroup {
   groupRank: number;
 }
 
+function appendNoteGroupRank(groupRank: number): number {
+  const nextRank = groupRank + NOTE_GROUP_RANK_STEP;
+  if (!Number.isSafeInteger(nextRank) || nextRank < 0) throw new RangeError("Невозможно выделить ранг группы заметок");
+  return nextRank;
+}
+
 export function nextEmptyNoteGroupRank(notes: EditableNote[]): number {
   if (!notes.length) return DEFAULT_NOTE_GROUP_RANK;
-  return Math.max(...notes.map(noteGroupRank)) + NOTE_GROUP_RANK_STEP;
+  return appendNoteGroupRank(Math.max(...notes.map(noteGroupRank)));
 }
 
 export function prepareNoteGroupAfter(notes: EditableNote[], leftGroupRank?: number): PreparedNoteGroup {
@@ -114,7 +120,7 @@ export function prepareNoteGroupAfter(notes: EditableNote[], leftGroupRank?: num
 
   const leftRank = leftGroupRank ?? groups.at(-1)!.groupRank;
   const rightGroupIndex = groups.findIndex((group) => group.groupRank > leftRank);
-  if (rightGroupIndex < 0) return { notes, groupRank: leftRank + NOTE_GROUP_RANK_STEP };
+  if (rightGroupIndex < 0) return { notes, groupRank: appendNoteGroupRank(leftRank) };
 
   const rightRank = groups[rightGroupIndex].groupRank;
   if (rightRank - leftRank > 1) return { notes, groupRank: leftRank + Math.floor((rightRank - leftRank) / 2) };
