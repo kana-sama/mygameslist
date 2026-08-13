@@ -494,7 +494,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-empty-group.is-over { background: rgba(255, 255, 255, .025); }
 .note-empty-group.is-over::before { content: ""; position: absolute; z-index: 7; top: -1px; right: 0; left: 0; height: 2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); pointer-events: none; }
 .note-group.is-file-over, .note-empty-group.is-file-over { outline: 1px solid var(--accent); outline-offset: -1px; background: var(--accent-wash); }
-.note-group-actions { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.note-group-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
 .note-group-actions .note-group-add-slot { margin-top: 0; }
 .note-group-add-slot { position: relative; z-index: 2; min-height: 34px; display: flex; align-items: center; justify-content: center; margin-top: 4px; }
 .note-group-add-button { position: relative; width: auto; min-width: 146px; height: 30px; display: inline-flex; appearance: none; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 4px; color: var(--muted-2); background: var(--bg); box-shadow: 0 0 0 5px var(--bg); cursor: pointer; }
@@ -880,6 +880,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
   .note-empty-group--trailing { min-height: 44px; }
   .note-group-add-slot { min-height: 44px; margin-top: 4px; }
   .note-group-add-button { min-width: 180px; height: 44px; }
+  .note-group-actions .note-group-add-slot { min-width: 0; flex: 1 1 0; }
+  .note-group-actions .note-group-add-button { width: 100%; min-width: 0; }
   .note-card__actions { min-height: 49px; opacity: 1; pointer-events: auto; }
   .note-card__actions button { pointer-events: auto; }
   .tier-page .game-card--tier { min-width: 44px; min-height: 44px; }

@@ -109,12 +109,17 @@ describe("anonymous note groups", () => {
     const crowded = [
       editable(NOTE_A_ID, 1024, 1024),
       editable(NOTE_B_ID, 1024, 1025),
+      editable("66666666-6666-4666-8666-666666666666", 2048, 1025),
       editable(NOTE_C_ID, 1024, 1026),
       editable("55555555-5555-4555-8555-555555555555", 1024, 9000),
     ];
     const prepared = prepareNoteGroupAfter(crowded, 1024);
     expect(prepared.groupRank).toBe(2048);
     expect(groupDraftNotes(prepared.notes).map((group) => group.groupRank)).toEqual([1024, 3073, 5122, 9000]);
+    expect(groupDraftNotes(prepared.notes).find((group) => group.groupRank === 3073)?.notes.map((note) => note.clientId)).toEqual([
+      NOTE_B_ID,
+      "66666666-6666-4666-8666-666666666666",
+    ]);
 
     let intervalNotes = [editable(NOTE_A_ID, 1024, 1024), editable(NOTE_B_ID, 1024, 3072)];
     let leftRank = 1024;
@@ -153,6 +158,26 @@ describe("anonymous note groups", () => {
     fireEvent(trailingTarget, fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })])));
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("disables unsafe near-ceiling interior insertion while retaining feasible group actions", async () => {
+    const user = userEvent.setup();
+    const max = Number.MAX_SAFE_INTEGER;
+    render(<GamePage assets={{}} game={game} mode="game" notes={[
+      note(NOTE_A_ID, 1024, max - 2048),
+      note(NOTE_B_ID, 1024, max - 2),
+      note(NOTE_C_ID, 1024, max - 1),
+      note("55555555-5555-4555-8555-555555555555", 1024, max),
+    ]} onSave={vi.fn()} />);
+
+    const firstAction = screen.getByRole("button", { name: "Добавить группу после группы 1" });
+    expect(firstAction).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Добавить группу после группы 2" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить группу после группы 3" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить группу после группы 4" })).toBeDisabled();
+
+    await user.click(firstAction);
+    expect(screen.getByRole("textbox", { name: "Текст заметки" })).toBeInTheDocument();
   });
 
   it("groups legacy notes together and derives one trailing empty group", () => {
