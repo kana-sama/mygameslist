@@ -143,6 +143,18 @@ describe("anonymous note groups", () => {
     expect(() => prepareNoteGroupAfter(lastSafeGroup, Number.MAX_SAFE_INTEGER)).toThrow(RangeError);
   });
 
+  it("renders a final safe-integer group without enabling an invalid trailing group", () => {
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[note(NOTE_A_ID, 1024, Number.MAX_SAFE_INTEGER)]} onSave={onSave} />);
+
+    expect(screen.getByRole("group", { name: "Группа заметок 1" })).toHaveAttribute("data-note-group-rank", String(Number.MAX_SAFE_INTEGER));
+    expect(screen.getByRole("button", { name: "Добавить группу после группы 1" })).toBeDisabled();
+    const trailingTarget = screen.getByRole("group", { name: "Новая группа заметок" });
+    fireEvent(trailingTarget, fileDragEvent("drop", fileTransfer([new File(["guide"], "guide.pdf", { type: "application/pdf" })])));
+    expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("groups legacy notes together and derives one trailing empty group", () => {
     const notes = [
       editable(NOTE_B_ID, 2048),
