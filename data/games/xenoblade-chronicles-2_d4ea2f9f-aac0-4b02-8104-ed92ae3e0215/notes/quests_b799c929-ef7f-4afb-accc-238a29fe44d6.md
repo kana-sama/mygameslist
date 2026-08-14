@@ -21,7 +21,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-13T04:48:06.002Z"
+updatedAt: "2026-08-13T20:23:04.389Z"
 -->
 # Quests
 
@@ -78,14 +78,14 @@ updatedAt: "2026-08-13T04:48:06.002Z"
 
   - Main Quests
 
-    - [ ] Umon's Ship — Umon · Umon's Shipyard
+    - [x] Umon's Ship — Umon · Umon's Shipyard
     - [ ] Stop, Thief! — Torigoth; требования: "The Pickpocket Sets Sail" cutscene viewed.
 
   - Normal Quests
 
     - [x] A Young Man's Prize — Eluned · Grodd Residential Zone
     - [x] Grow, Little Vegetables! — Nomon · Kloom Farm
-    - [ ] Star-Crossed Lovers — Riannon · Melnath's Shoulder
+    - [x] Star-Crossed Lovers — Riannon · Melnath's Shoulder
     - [ ] Go for it, Electra! — Torigoth
     - [ ] Our Daily Bread — Coedwig Inn; требования: Lv. 3 Affinity.
 
