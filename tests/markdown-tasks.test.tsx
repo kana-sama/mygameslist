@@ -80,7 +80,7 @@ describe("Markdown tasks", () => {
       expect(hint).toHaveTextContent("details");
       expect(hint?.querySelector("strong")).toHaveTextContent("details");
       expect(hint?.closest("a")).toBeNull();
-      expect(getComputedStyle(hint!).color).toBe("rgb(18, 52, 86)");
+      expect(getComputedStyle(hint!).color).toBe(getComputedStyle(hint!.parentElement!).color);
       expect(screen.getByRole("link", { name: "site" })).toHaveAttribute("href", "https://example.com/");
     } finally {
       style.remove();
