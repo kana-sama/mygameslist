@@ -65,9 +65,16 @@ describe("note editor automatic table width", () => {
     const editingCard = (await screen.findByRole("textbox", { name: "Текст заметки" }))
       .closest<HTMLElement>("article")!;
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(730));
+    expect(editingCard).toHaveAttribute("data-shelf-required-width", "730");
+    expect(editingCard).toHaveAttribute("data-shelf-current-table-width", "730");
+
     act(() => widthReports.get(`note:${NOTE_ID}`)?.(360));
 
     expect(editingCard).toHaveAttribute("data-shelf-required-width", "730");
+    expect(editingCard).toHaveAttribute("data-shelf-current-table-width", "360");
+    act(() => widthReports.get(`note:${NOTE_ID}`)?.(0));
+    expect(editingCard).toHaveAttribute("data-shelf-required-width", "730");
+    expect(editingCard).not.toHaveAttribute("data-shelf-current-table-width");
     expect(editingCard).toHaveAttribute("data-shelf-column-span", "1");
     const widthButton = within(editingCard).getByRole("button", { name: "Двойная ширина заметки" });
     expect(widthButton).toHaveAttribute("aria-pressed", "false");

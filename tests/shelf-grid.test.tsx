@@ -708,7 +708,42 @@ describe("ordered shelf layout", () => {
     expect(Array.from(grid.children)).toEqual(originalChildren);
   });
 
-  it("keeps an oversized editor anchored in the last column", () => {
+  it("marks residual current-table overflow after keeping an oversized editor anchored in the last column", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1464, height: 300 } as DOMRect;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    const view = render(
+      <ShelfGrid className="notes-list" layoutKey="right-edge" packingFrozen>
+        <article data-note-id="first" />
+        <article data-note-id="second" />
+        <article data-note-id="third" />
+        <article className="note-card--editing" data-note-id="editor" data-shelf-current-table-width="2000" data-shelf-required-width="2000" />
+      </ShelfGrid>,
+    );
+    const editor = view.container.querySelector<HTMLElement>('[data-note-id="editor"]')!;
+
+    expect(editor.style.gridColumnStart).toBe("4");
+    expect(editor.style.gridColumnEnd).toBe("auto");
+    expect(editor).toHaveAttribute("data-shelf-table-overflow", "true");
+
+    view.rerender(
+      <ShelfGrid className="notes-list" layoutKey="right-edge" packingFrozen>
+        <article data-note-id="first" />
+        <article data-note-id="second" />
+        <article data-note-id="third" />
+        <article className="note-card--editing" data-note-id="editor" data-shelf-current-table-width="360" data-shelf-required-width="2000" />
+      </ShelfGrid>,
+    );
+
+    await waitFor(() => expect(editor).not.toHaveAttribute("data-shelf-table-overflow"));
+    expect(editor.style.gridColumnStart).toBe("4");
+    expect(editor.style.gridColumnEnd).toBe("auto");
+  });
+
+  it("does not mark a current table that fits an expanded card's final placement", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
       if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1464, height: 300 } as DOMRect;
@@ -716,17 +751,31 @@ describe("ordered shelf layout", () => {
     });
 
     const { container } = render(
-      <ShelfGrid className="notes-list" layoutKey="right-edge" packingFrozen>
-        <article data-note-id="first" />
-        <article data-note-id="second" />
-        <article data-note-id="third" />
-        <article className="note-card--editing" data-note-id="editor" data-shelf-required-width="2000" />
+      <ShelfGrid className="notes-list" layoutKey="fitting-expanded-editor" packingFrozen>
+        <article className="note-card--editing" data-note-id="editor" data-shelf-current-table-width="720" data-shelf-required-width="720" />
       </ShelfGrid>,
     );
     const editor = container.querySelector<HTMLElement>('[data-note-id="editor"]')!;
 
-    expect(editor.style.gridColumnStart).toBe("4");
-    expect(editor.style.gridColumnEnd).toBe("auto");
+    expect(editor.style.gridColumnEnd).toBe("span 2");
+    expect(editor).not.toHaveAttribute("data-shelf-table-overflow");
+  });
+
+  it("clears stale overflow output when a card is no longer being edited", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1464, height: 300 } as DOMRect;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    const { container } = render(
+      <ShelfGrid className="notes-list" layoutKey="stale-overflow-output" packingFrozen>
+        <article className="note-card" data-note-id="former-editor" data-shelf-table-overflow="true" />
+      </ShelfGrid>,
+    );
+
+    expect(container.querySelector<HTMLElement>("[data-note-id='former-editor']"))
+      .not.toHaveAttribute("data-shelf-table-overflow");
   });
 
   it("restores retained editor growth after a four-to-two-to-four responsive cycle", async () => {

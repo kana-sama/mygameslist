@@ -8,6 +8,7 @@ import {
 import { installMonacoGameLinkCompletion } from "./monacoGameLinkCompletion";
 import { installMonacoMarkdownListEditing } from "./monacoMarkdownListEditing";
 import { installMonacoMarkdownTableTyping } from "./monacoMarkdownTableFormatting";
+import { installMonacoMarkdownTableOverflowWrap } from "./monacoMarkdownTableOverflowWrap";
 import { installMonacoMarkdownTableWidth } from "./monacoMarkdownTableWidth";
 import { installMonacoNoteActions } from "./monacoNoteActions";
 import { useNoteFileTransferCapture } from "./useNoteFileTransferCapture";
@@ -103,6 +104,7 @@ export function MonacoNoteEditor({
           live.current.onRequiredTableWidthChange?.(width);
         },
       }));
+      extensions.push(installMonacoMarkdownTableOverflowWrap(context));
       extensions.push(installMonacoMarkdownListEditing(context));
       extensions.push(installMonacoGameLinkCompletion(context, {
         excludeGameId: live.current.excludeGameId,

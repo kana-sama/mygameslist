@@ -599,6 +599,7 @@ function PlainNoteEditor({
   const [youtubeInputOpen, setYoutubeInputOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const [currentTableWidth, setCurrentTableWidth] = useState(0);
   const [requiredTableWidth, setRequiredTableWidth] = useState(0);
   const youtubeInputId = useId();
   const attachmentPickerId = useId();
@@ -720,13 +721,14 @@ function PlainNoteEditor({
   const updateBodyMarkdown = (bodyMarkdown: string) => {
     publishNote({ ...noteRef.current, bodyMarkdown });
   };
-  const growRequiredTableWidth = useCallback((width: number) => {
-    if (!Number.isFinite(width) || width <= 0) return;
-    setRequiredTableWidth((previous) => Math.max(previous, Math.ceil(width)));
+  const reportTableWidth = useCallback((width: number) => {
+    const currentWidth = Number.isFinite(width) && width > 0 ? Math.ceil(width) : 0;
+    setCurrentTableWidth(currentWidth);
+    setRequiredTableWidth((previous) => Math.max(previous, currentWidth));
   }, []);
 
   return (
-    <article aria-busy={processingImages} className={`note-card note-card--editing${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-required-width={requiredTableWidth || undefined} ref={editorRef}>
+    <article aria-busy={processingImages} className={`note-card note-card--editing${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-current-table-width={currentTableWidth || undefined} data-shelf-required-width={requiredTableWidth || undefined} ref={editorRef}>
       {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => publishNote({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
       <LazyMonacoNoteEditor
         autoFocus={autoFocus}
@@ -738,7 +740,7 @@ function PlainNoteEditor({
         onChange={updateBodyMarkdown}
         onFileFiles={addFileFiles}
         onImageFiles={addImageFiles}
-        onRequiredTableWidthChange={growRequiredTableWidth}
+        onRequiredTableWidthChange={reportTableWidth}
         onSubmit={onSubmit ? () => onSubmit(noteRef.current) : undefined}
         submitDisabled={processingImages}
         value={note.bodyMarkdown}

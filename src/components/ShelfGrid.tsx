@@ -522,6 +522,7 @@ export function ShelfGrid({
       for (const expansion of activeExpansions) {
         shelfLayout = expandShelfLayout(heights, columnCount, shelfLayout, { columnSpans, expansion });
       }
+      const columnWidth = (gridWidth - columnGap * Math.max(0, columnCount - 1)) / columnCount;
 
       cardsRef.current = cards;
       columnSpanSignatureRef.current = columnSpanSignature;
@@ -531,6 +532,28 @@ export function ShelfGrid({
       shelfLayout.placements.forEach((placement) => {
         const card = cards[placement.index];
         if (!card) return;
+        const editingCard = card.matches(".note-card--editing")
+          ? card
+          : card.querySelector<HTMLElement>(".note-card--editing");
+        if (editingCard) {
+          const currentWidthValue = card.dataset.shelfCurrentTableWidth
+            ?? editingCard.dataset.shelfCurrentTableWidth;
+          const currentWidth = currentWidthValue === undefined ? Number.NaN : Number(currentWidthValue);
+          const placementWidth = columnWidth * placement.columnSpan
+            + columnGap * Math.max(0, placement.columnSpan - 1);
+          if (Number.isFinite(currentWidth) && currentWidth > 0 && currentWidth > placementWidth) {
+            editingCard.dataset.shelfTableOverflow = "true";
+          } else {
+            editingCard.removeAttribute("data-shelf-table-overflow");
+          }
+        } else {
+          if (card.matches("[data-shelf-table-overflow]")) {
+            card.removeAttribute("data-shelf-table-overflow");
+          }
+          card.querySelectorAll<HTMLElement>("[data-shelf-table-overflow]").forEach((element) => {
+            element.removeAttribute("data-shelf-table-overflow");
+          });
+        }
         card.style.gridColumnStart = String(placement.column + 1);
         card.style.gridColumnEnd = placement.columnSpan > 1 ? `span ${placement.columnSpan}` : "auto";
         card.style.gridRowStart = String(placement.top + 1);
@@ -552,7 +575,7 @@ export function ShelfGrid({
     const mutationObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver((records) => {
       if (records.some((record) => mutationRequiresShelfLayout(record, grid))) scheduleLayout(false);
     });
-    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-required-width"], attributeOldValue: true, attributes: true, characterData: true, childList: true, subtree: true });
+    mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-current-table-width", "data-shelf-required-width"], attributeOldValue: true, attributes: true, characterData: true, childList: true, subtree: true });
     const handleResize = () => scheduleLayout(true);
     window.addEventListener("resize", handleResize);
     layout(true);
