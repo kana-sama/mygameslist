@@ -172,6 +172,23 @@ afterEach(() => {
 });
 
 describe("route-backed note interaction render isolation", () => {
+  it("keeps an ordinary editor draft authoritative", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const affectedCard = (await screen.findByRole("checkbox", { name: "Отметить: Affected task" })).closest<HTMLElement>("article")!;
+    await user.click(within(affectedCard).getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+
+    await user.clear(editor);
+    await user.type(editor, "Edited through normal editor");
+
+    expect(editor).toHaveValue("Edited through normal editor");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    expect(await screen.findByText("Edited through normal editor")).toBeInTheDocument();
+  });
+
   it("updates one subscribed note and the current diff without redrawing the route, page, or sibling", async () => {
     const user = userEvent.setup();
     render(<App />);

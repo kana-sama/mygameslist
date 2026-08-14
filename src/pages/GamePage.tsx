@@ -856,16 +856,19 @@ function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNote
   const snapshot = noteInteractionSource.useNoteInteractionSnapshot(note.id);
   const [interactionPending, setInteractionPending] = useState(false);
   const [interactionError, setInteractionError] = useState<string | null>(null);
-  const collapsedChecklistSections = snapshot
-    ? snapshot.collapsedChecklistSections
-    : note.collapsedChecklistSections;
-  const currentNote = useMemo<EditableNote>(() => ({
-    ...note,
-    bodyMarkdown: snapshot?.bodyMarkdown ?? note.bodyMarkdown,
-    ...(collapsedChecklistSections === undefined
-      ? { collapsedChecklistSections: undefined }
-      : { collapsedChecklistSections: [...collapsedChecklistSections] }),
-  }), [collapsedChecklistSections, note, snapshot?.bodyMarkdown]);
+  const currentNote = useMemo<EditableNote>(() => {
+    if (props.editing) return note;
+    const collapsedChecklistSections = snapshot
+      ? snapshot.collapsedChecklistSections
+      : note.collapsedChecklistSections;
+    return {
+      ...note,
+      bodyMarkdown: snapshot?.bodyMarkdown ?? note.bodyMarkdown,
+      ...(collapsedChecklistSections === undefined
+        ? { collapsedChecklistSections: undefined }
+        : { collapsedChecklistSections: [...collapsedChecklistSections] }),
+    };
+  }, [note, props.editing, snapshot?.bodyMarkdown, snapshot?.collapsedChecklistSections]);
   const saveInteraction = useCallback(async (draft: EditableNote) => {
     if (interactionPending) return;
     const update: InteractiveNoteFieldUpdate = draft.bodyMarkdown !== currentNote.bodyMarkdown
