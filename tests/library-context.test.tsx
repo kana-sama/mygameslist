@@ -59,7 +59,9 @@ const interactionPersistenceControl = vi.hoisted(() => ({
     | "memory_only"
     | "memory_only_after_write"
     | "durable_after_write"
+    | "durable_stale_after_write"
     | "changed"
+    | "changed_without_lineage"
     | "changed_incompatible"
     | "changed_unreadable"
     | "throw_after_write"
@@ -98,24 +100,55 @@ vi.mock("../src/state/pendingPublication", async (importOriginal) => {
         await interactionPersistenceControl.holdFullJournalInstall;
       }
       const forced = interactionPersistenceControl.forcedFullJournalResults.shift() ?? "actual";
+      const preserveForcedWriteAfterCasRetry = forced === "memory_only_after_write" || forced === "throw_after_write";
+      const writeForcedJournal = (nextJournal: PendingPublicationJournalV3 = args[1]) => {
+        const previousRaw = localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
+        if (previousRaw !== args[2].expectedRaw) {
+          if (preserveForcedWriteAfterCasRetry) interactionPersistenceControl.forcedFullJournalResults.unshift(forced);
+          return { status: "changed" as const, currentRaw: previousRaw };
+        }
+        const currentOrdinaryRaw = localStorage.getItem(PATCH_STORAGE_KEY);
+        if (
+          Object.prototype.hasOwnProperty.call(args[2], "expectedOrdinaryRaw")
+          && currentOrdinaryRaw !== args[2].expectedOrdinaryRaw
+        ) {
+          if (preserveForcedWriteAfterCasRetry) interactionPersistenceControl.forcedFullJournalResults.unshift(forced);
+          return { status: "changed" as const, currentRaw: previousRaw, currentOrdinaryRaw };
+        }
+        const nextRaw = canonicalStringify(nextJournal);
+        const lineage = args[2].replaceRescueLineage?.(previousRaw, nextRaw);
+        if (lineage?.status === "changed") return { status: "changed" as const, currentRaw: previousRaw };
+        if (lineage?.status === "failure") throw lineage.error;
+        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, nextRaw);
+        return { status: "durable" as const, journal: nextJournal, raw: nextRaw };
+      };
       if (forced === "memory_only") {
         return { status: "memory_only" as const, journal: args[1], error: new Error("forced replacement memory-only") };
       }
       if (forced === "memory_only_after_write") {
-        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, canonicalStringify(args[1]));
+        const written = writeForcedJournal();
+        if (written.status === "changed") return written;
         return { status: "memory_only" as const, journal: args[1], error: new Error("forced unconfirmed journal write") };
       }
       if (forced === "durable_after_write") {
+        return writeForcedJournal();
+      }
+      if (forced === "durable_stale_after_write") {
         const raw = canonicalStringify(args[1]);
         localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, raw);
         return { status: "durable" as const, journal: args[1], raw };
       }
       if (forced === "changed") {
-        const currentRaw = localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY);
-        if (currentRaw === null) throw new Error("Expected predecessor journal before forced CAS change");
-        const concurrent = JSON.parse(currentRaw) as PendingPublicationJournalV3;
+        const concurrent = structuredClone(args[1]);
         concurrent.createdAt = "2026-07-16T10:00:00.001Z";
-        const concurrentRaw = JSON.stringify(concurrent);
+        const written = writeForcedJournal(concurrent);
+        if (written.status === "changed") return written;
+        return { status: "changed" as const, currentRaw: written.raw };
+      }
+      if (forced === "changed_without_lineage") {
+        const concurrent = structuredClone(args[1]);
+        concurrent.createdAt = "2026-07-16T10:00:00.001Z";
+        const concurrentRaw = canonicalStringify(concurrent);
         localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, concurrentRaw);
         return { status: "changed" as const, currentRaw: concurrentRaw };
       }
@@ -132,7 +165,8 @@ vi.mock("../src/state/pendingPublication", async (importOriginal) => {
         return { status: "changed" as const, currentRaw: unreadableRaw };
       }
       if (forced === "throw_after_write") {
-        localStorage.setItem(PENDING_PUBLICATION_STORAGE_KEY, canonicalStringify(args[1]));
+        const written = writeForcedJournal();
+        if (written.status === "changed") return written;
         throw new Error("forced installer throw after write");
       }
       return actual.installPendingPublicationJournal(...args);
@@ -1249,7 +1283,7 @@ describe("LibraryProvider interactive note persistence", () => {
     },
     {
       label: "a replacement write whose stale journal cannot be removed",
-      forcedResults: ["durable_after_write", "memory_only"],
+      forcedResults: ["durable_stale_after_write", "memory_only"],
       expectedPublication: /journal|публикац/i,
       expectedJournalStatus: "valid",
       expectedTargetCommitSha: CREATED_COMMIT_SHA,
@@ -1267,6 +1301,14 @@ describe("LibraryProvider interactive note persistence", () => {
       label: "a compatible replacement adopted from another tab",
       forcedResults: ["durable_after_write", "changed", "actual"],
       expectedPublication: "synced",
+      expectedJournalStatus: "valid",
+      expectedTargetCommitSha: CREATED_COMMIT_SHA,
+      preserveRemoval: false,
+    },
+    {
+      label: "a stale rescue lineage",
+      forcedResults: ["durable_after_write", "changed_without_lineage", "actual"],
+      expectedPublication: /journal|публикац/i,
       expectedJournalStatus: "valid",
       expectedTargetCommitSha: CREATED_COMMIT_SHA,
       preserveRemoval: false,

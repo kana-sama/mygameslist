@@ -1586,6 +1586,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           if (refreshed.status === "changed") {
             const concurrent = compatibleStoredJournal();
             if (!concurrent) throw new Error("Другая вкладка изменила публикацию несовместимым journal");
+            if (concurrent.raw === previousRaw) throw new Error("Не удалось обновить совместимый journal публикации");
             installed = concurrent;
             observedSnapshot = null;
             continue;
