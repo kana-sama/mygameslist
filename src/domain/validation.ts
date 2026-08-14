@@ -104,10 +104,11 @@ export function isSafeLink(value: string): boolean {
 export function validateMarkdown(value: string): string[] {
   const errors: string[] = [];
   const withoutCode = value.replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
-  const withoutAutolinks = withoutCode.replace(/<https?:\/\/[^>]+>/gi, "");
+  const withoutHoverHints = withoutCode.replace(/\[[^\]\n]+\]\("[^"\n]*"\)/g, "");
+  const withoutAutolinks = withoutHoverHints.replace(/<https?:\/\/[^>]+>/gi, "");
   if (/<\/?[a-z][^>]*>/i.test(withoutAutolinks) || /<!--/.test(withoutAutolinks)) errors.push("Raw HTML запрещён");
   const linkPattern = /!?\[[^\]]*\]\(\s*(?:<([^>]+)>|([^\s)]+))/g;
-  for (const match of withoutCode.matchAll(linkPattern)) {
+  for (const match of withoutHoverHints.matchAll(linkPattern)) {
     const url = match[1] ?? match[2] ?? "";
     if (!isSafeLink(url)) errors.push(`Небезопасная ссылка: ${url}`);
   }

@@ -65,6 +65,16 @@ describe("library validation", () => {
     expect(validateLibrary(database).issues.some((item) => item.path.endsWith("reviewMarkdown"))).toBe(true);
   });
 
+  it("accepts Markdown hover hints while rejecting unsafe links", () => {
+    const database = empty();
+    database.games[GAME_ID] = game();
+    database.notes[NOTE_ID] = { ...note(), bodyMarkdown: '[hello]("Plain *description*")' };
+    expect(validateLibrary(database).ok).toBe(true);
+
+    database.notes[NOTE_ID] = { ...note(), bodyMarkdown: "[hello](javascript:alert(1))" };
+    expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/bodyMarkdown` }));
+  });
+
   it("accepts platinum as a distinct game status", () => {
     const database = empty();
     database.games[GAME_ID] = { ...game(), status: "platinum" };
