@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +19,7 @@ vi.mock("../src/domain/markdownChecklist", async (importOriginal) => {
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const NOW = "2026-07-17T10:00:00.000Z";
+const productionStyles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
 class ResizeObserverMock {
   observe() {}
@@ -59,6 +62,31 @@ afterEach(() => {
 });
 
 describe("Markdown tasks", () => {
+  it("renders native hover hints without turning them into links", () => {
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    try {
+      const view = render(
+        <div style={{ color: "rgb(18, 52, 86)" }}>
+          <MarkdownView markdown={'Read [**details**]("Plain *text*") and [site](https://example.com)'} />
+        </div>,
+      );
+
+      const hint = view.container.querySelector(".markdown-hover-hint");
+      expect(hint).toBeInstanceOf(HTMLSpanElement);
+      expect(hint).toHaveAttribute("title", "Plain *text*");
+      expect(hint).toHaveTextContent("details");
+      expect(hint?.querySelector("strong")).toHaveTextContent("details");
+      expect(hint?.closest("a")).toBeNull();
+      expect(getComputedStyle(hint!).color).toBe("rgb(18, 52, 86)");
+      expect(screen.getByRole("link", { name: "site" })).toHaveAttribute("href", "https://example.com/");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("reveals spoiler segments independently", async () => {
     const user = userEvent.setup();
     const markdown = "Before ||secret **detail**|| after and ||second||";

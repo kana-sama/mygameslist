@@ -401,6 +401,14 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-table-row--complete > td { color: var(--success); }
 .markdown-table-row--complete > td a, .markdown-table-row--complete > td code { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.markdown-hover-hint {
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: help;
+}
 .markdown-spoiler { border: 0; background: transparent; color: inherit; font: inherit; }
 .markdown-spoiler[data-revealed="false"] { filter: blur(.25em); user-select: none; cursor: pointer; }
 .markdown-spoiler[data-revealed="true"] { filter: none; }

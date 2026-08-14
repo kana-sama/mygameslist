@@ -213,9 +213,21 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     } else if (raw.startsWith("`")) {
       nodes.push(<code key={key}>{renderDecoratedText(raw.slice(1, -1), key, match.index + 1, location)}</code>);
     } else if (raw.startsWith("[")) {
+      const hintMatch = /^\[([^\]]+)\]\("([^"\n]*)"\)$/.exec(raw);
       const linkMatch = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);
       const href = linkMatch ? safeUrl(linkMatch[2]) : null;
-      if (linkMatch && href) {
+      if (hintMatch) {
+        nodes.push(
+          <span className="markdown-hover-hint" key={key} title={hintMatch[2]}>
+            {renderInline(
+              hintMatch[1],
+              `${key}-label`,
+              location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined,
+              forceRevealSpoilers,
+            )}
+          </span>,
+        );
+      } else if (linkMatch && href) {
         const isExternal = /^https?:/i.test(href);
         nodes.push(
           <a
