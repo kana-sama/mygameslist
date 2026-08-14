@@ -186,7 +186,10 @@ describe("route-backed note interaction render isolation", () => {
     expect(editor).toHaveValue("Edited through normal editor");
     await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
 
-    expect(await screen.findByText("Edited through normal editor")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument());
+    expect(screen.getByText("Edited through normal editor")).toBeInTheDocument();
+    expect(renderCounters.fullSaves).toBe(1);
+    expect(renderCounters.interactionSaves).not.toHaveBeenCalled();
   });
 
   it("updates one subscribed note and the current diff without redrawing the route, page, or sibling", async () => {
