@@ -19,7 +19,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-14T05:10:30.057Z"
+updatedAt: "2026-08-14T09:04:15.718Z"
 -->
 # Quests
 
@@ -92,7 +92,7 @@ updatedAt: "2026-08-14T05:10:30.057Z"
   - Normal Quests
 
     - [ ] [True Colors]("Dobran · Commercial District")
-    - [ ] [Would-Be Mercs]("Geross · Plaza of Reprieve")
+    - [x] [Would-Be Mercs]("Geross · Plaza of Reprieve")
     - [ ] [Mysterious Note]("World item · Acid Gullet")
     - [ ] [Gotta Start Somewhere!]("Ragi · Farlaine Central Pools")
     - [ ] [Difficult Decisions]("Jelved · Garfont Town Gate")

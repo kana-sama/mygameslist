@@ -13,6 +13,7 @@ collapsedChecklistSections:
   - "group:19nfoqz-2b"
   - "group:19rgymx-24"
   - "group:1ai755v-25"
+  - "group:1anqzxz-23"
   - "group:1e87cqo-22"
   - "group:1fbk8vu-23"
   - "group:1jd6vhi-21"
@@ -24,6 +25,7 @@ collapsedChecklistSections:
   - "group:1qrpvs6-2f"
   - "group:1s2jysi-2g"
   - "group:1sv1yf5-2h"
+  - "group:1u6x3wm-21"
   - "group:1wl08jy-2a"
   - "group:1y0hbqo-27"
   - "group:1y150gw-23"
@@ -57,10 +59,9 @@ collapsedChecklistSections:
   - "heading:1ejpocg-1j"
   - "heading:1u4gwz0-1c"
   - "heading:g71tso-1e"
-  - "heading:ll5154-1j"
   - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-14T05:05:20.256Z"
+updatedAt: "2026-08-14T09:09:13.082Z"
 -->
 # Shop Deeds
 
@@ -226,13 +227,13 @@ updatedAt: "2026-08-14T05:05:20.256Z"
 
 - Fallone Crafts
 
-  - [ ] Sanar-Knit Headband
-  - [ ] Armu-Skin Gladiator
-  - [ ] Coralweave Towel
-  - [ ] Dazzling Handkerchief
-  - [ ] Gormotti Woodwing
-  - [ ] Sanar-Knit Blanket
-  - [ ] **Fallone Deeds**
+  - [x] Sanar-Knit Headband
+  - [x] Armu-Skin Gladiator
+  - [x] Coralweave Towel
+  - [x] Dazzling Handkerchief
+  - [x] Gormotti Woodwing
+  - [x] Sanar-Knit Blanket
+  - [x] **Fallone Deeds**
 
 - Vibrattio Instruments
 
