@@ -56,12 +56,14 @@ collapsedChecklistSections:
   - "group:uvmet-2a"
   - "group:zbbahv-2b"
   - "group:zuo2j7-23"
+  - "heading:17lrvy2-1d"
   - "heading:1ejpocg-1j"
+  - "heading:1nxkulv-1c"
   - "heading:1u4gwz0-1c"
   - "heading:g71tso-1e"
   - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-14T09:09:13.082Z"
+updatedAt: "2026-08-15T22:51:52.254Z"
 -->
 # Shop Deeds
 
@@ -78,9 +80,9 @@ updatedAt: "2026-08-14T09:09:13.082Z"
 
 - Reedirait Bookstore
 
-  - [ ] Salvaging Made Easy
-  - [ ] Yumyum's Golden Gun
-  - [ ] The Millenarian Titan
+  - [x] Salvaging Made Easy
+  - [x] Yumyum's Golden Gun
+  - [x] The Millenarian Titan
   - [ ] Adventures of Myram — открывается после Merc Mission `Long-Awaited Work`.
   - [ ] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
   - [ ] Tome of Morytha #2 — открывается после Heart-to-Heart `Walking Encyclopedia`.
@@ -246,9 +248,9 @@ updatedAt: "2026-08-14T09:09:13.082Z"
 
 - Vargel Tavern
 
-  - [ ] Black Roast Coffee
-  - [ ] Jenerossi Tea
-  - [ ] Lentil Milkshake
+  - [x] Black Roast Coffee
+  - [x] Jenerossi Tea
+  - [x] Lentil Milkshake
   - [ ] Fizzi Lassi — открывается после Merc Mission `Fad Foods`.
   - [ ] **Vargel Deeds**
 
@@ -264,13 +266,13 @@ updatedAt: "2026-08-14T09:09:13.082Z"
 
 - Hobby Knick-Knacks
 
-  - [ ] Castle Poker
-  - [ ] Gladiator Wrestling
-  - [ ] Coral Reversi
-  - [ ] Dual Line
-  - [ ] Nopopo Yard
-  - [ ] Coral Casino
-  - [ ] **Knick-Knacks Deeds**
+  - [x] Castle Poker
+  - [x] Gladiator Wrestling
+  - [x] Coral Reversi
+  - [x] Dual Line
+  - [x] Nopopo Yard
+  - [x] Coral Casino
+  - [x] **Knick-Knacks Deeds**
 
 - Aquaneze Cosmetics
 
@@ -283,48 +285,48 @@ updatedAt: "2026-08-14T09:09:13.082Z"
 
 - Sprintsy Sweets
 
-  - [ ] Rainbow Parfait
-  - [ ] Blossom Custard
+  - [x] Rainbow Parfait
+  - [x] Blossom Custard
   - [ ] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
   - [ ] **Sprintsy Deeds**
 
 - Volty Butchers
 
-  - [ ] Armu T-Bone Steak
-  - [ ] Mixed Meat Platter
+  - [x] Armu T-Bone Steak
+  - [x] Mixed Meat Platter
   - [ ] Hotplate Fry-Up — открывается после Merc Mission `Bumper Crop`.
   - [ ] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
   - [ ] **Volty Deeds**
 
 - Maluria Antiques
 
-  - [ ] Patron King's Carving
-  - [ ] Final Chorus
+  - [x] Patron King's Carving
+  - [x] Final Chorus
   - [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
   - [ ] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
   - [ ] **Maluria Deeds**
 
 - Ikthus Fishmongers
 
-  - [ ] Dried Sunfish
-  - [ ] Bullybelly Carpaccio
+  - [x] Dried Sunfish
+  - [x] Bullybelly Carpaccio
   - [ ] Steamed Bluegill — открывается после Merc Mission `Fad Foods`.
   - [ ] Whitebait with Seeds — открывается после Merc Mission `Secret Route`.
   - [ ] **Ikthus Deeds**
 
 - Aldomar Books
 
-  - [ ] The Alrestogony
-  - [ ] The Legacy of Selosia
+  - [x] The Alrestogony
+  - [x] The Legacy of Selosia
   - [ ] Masterpieces of Alrest — открывается после Merc Mission `Bumper Crop`.
   - [ ] Addam's Love and War — открывается после Merc Mission `Secret Route`.
   - [ ] **Aldomar Deeds**
 
 - Brad Flatforms
 
-  - [ ] Wrapped Glarna Bake
-  - [ ] Three-Cheese Puran
-  - [ ] Master's Curry
+  - [x] Wrapped Glarna Bake
+  - [x] Three-Cheese Puran
+  - [x] Master's Curry
   - [ ] Glitterspud Puran — открывается после Merc Mission `Fad Foods`.
   - [ ] Hearty Kordeth Puran — открывается после Merc Mission `Secret Route`.
   - [ ] **Brad Deeds**
