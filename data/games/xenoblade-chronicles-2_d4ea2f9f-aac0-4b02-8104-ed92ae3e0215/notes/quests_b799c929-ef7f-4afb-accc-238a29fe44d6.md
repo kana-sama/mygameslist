@@ -19,7 +19,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-14T09:04:15.718Z"
+updatedAt: "2026-08-14T22:28:47.766Z"
 -->
 # Quests
 
@@ -93,7 +93,7 @@ updatedAt: "2026-08-14T09:04:15.718Z"
 
     - [ ] [True Colors]("Dobran · Commercial District")
     - [x] [Would-Be Mercs]("Geross · Plaza of Reprieve")
-    - [ ] [Mysterious Note]("World item · Acid Gullet")
+    - [x] [Mysterious Note]("World item · Acid Gullet")
     - [ ] [Gotta Start Somewhere!]("Ragi · Farlaine Central Pools")
     - [ ] [Difficult Decisions]("Jelved · Garfont Town Gate")
     - [ ] [Follow Your Passion]("Fonsa Myma Port; требования: Lv. 3 Affinity.")
@@ -101,7 +101,7 @@ updatedAt: "2026-08-14T09:04:15.718Z"
   - DLC Quests
 
     - [ ] [M.I.A. Nopon]("Drillbore Bridge")
-    - [ ] [A Smith’s Pastime]("Garfont Village")
+    - [x] [A Smith’s Pastime]("Garfont Village")
     - [ ] [Sunken Boosters]("Gwendle Repair Dock")
 
 ## Chapter 4

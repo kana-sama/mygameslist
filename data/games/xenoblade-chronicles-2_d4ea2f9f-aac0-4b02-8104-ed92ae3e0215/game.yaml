@@ -4,13 +4,14 @@ cover:
   assetId: "86cdd6aef8146fd9745ea482543496adce0840411bfce0163aaaea433caa391e"
   alt: Обложка Xenoblade Chronicles 2
   originalName: "IMAGE 2026-07-17 10:00:53.jpg"
-platforms: []
-tags:
-  - LEGO
+platforms:
+  - Nintendo Switch 2
+  - Nintendo Switch
+tags: []
 status: playing
 placement:
   tierId: s
   rank: 33792
 reviewMarkdown: |2-
 createdAt: "2026-07-17T06:01:20.175Z"
-updatedAt: "2026-08-14T19:39:16.868Z"
+updatedAt: "2026-08-15T11:19:46.739Z"
