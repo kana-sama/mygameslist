@@ -4,30 +4,81 @@ groupRank: 2048
 rank: 1408
 doubleHeight: true
 collapsedChecklistSections:
+  - "group:11h414x-2p"
+  - "group:130w65h-30"
+  - "group:134s3tz-2q"
   - "group:14lzw5m-26"
   - "group:16b70xx-2s"
+  - "group:179e7lp-2t"
+  - "group:185wgxd-2p"
+  - "group:188544d-2r"
   - "group:189pmq5-22"
+  - "group:19ov0l8-2o"
+  - "group:1agu62o-2y"
+  - "group:1d9j5ib-3d"
+  - "group:1der2xn-30"
+  - "group:1dt6lvp-2o"
+  - "group:1hupkpg-2o"
   - "group:1hvh87y-22"
+  - "group:1ilp7y3-2o"
+  - "group:1irzp5i-2q"
   - "group:1kpld0-22"
   - "group:1le00f0-26"
   - "group:1lh12x2-2q"
+  - "group:1m4hslm-2n"
+  - "group:1mxcjw-2p"
+  - "group:1o3jljq-2o"
+  - "group:1pzkyqz-2u"
   - "group:1u4wb88-2s"
   - "group:1uld77f-2w"
+  - "group:1uo1ht2-2r"
+  - "group:1vmwiru-2p"
   - "group:1wh0ojq-2p"
   - "group:1wspjr-2q"
+  - "group:4aimsk-2z"
+  - "group:733ayh-2n"
+  - "group:9opna3-2o"
+  - "group:edrrnd-3c"
   - "group:epcrwv-2s"
+  - "group:ftui9h-3d"
+  - "group:g5vlw5-2o"
+  - "group:hm7ohj-2q"
+  - "group:kw1718-2p"
+  - "group:lxme0x-2m"
+  - "group:m5qwud-2q"
+  - "group:n860yw-2v"
+  - "group:ncugc0-2q"
+  - "group:o436bq-2s"
+  - "group:p2cvc4-2y"
+  - "group:r2fyl5-30"
   - "group:r8eo4b-2p"
+  - "group:rx84ed-2p"
+  - "group:ss5i1k-30"
+  - "group:tthfmr-2o"
+  - "group:usyl4g-2n"
+  - "group:v7ikdr-3b"
+  - "group:vsyx0k-2t"
+  - "group:wowk9r-2q"
+  - "group:y9kyq3-2n"
   - "heading:12a39n2-19"
+  - "heading:12t6nk8-26"
   - "heading:14ewmv5-19"
   - "heading:1e7grcw-19"
   - "heading:1kyaobx-19"
+  - "heading:1lhe293-26"
+  - "heading:1t54tir-26"
   - "heading:1ufv46v-19"
   - "heading:1uqusto-19"
+  - "heading:1v9y6qu-26"
+  - "heading:3ei53v-25"
   - "heading:ax1qo3-1a"
+  - "heading:ch8hlp-26"
+  - "heading:cpmyj5-27"
+  - "heading:cs868i-26"
   - "heading:edy5jf-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-15T23:14:55.525Z"
+updatedAt: "2026-08-17T02:35:53.590Z"
 -->
 # Quests
 
@@ -122,22 +173,22 @@ updatedAt: "2026-08-15T23:14:55.525Z"
 
   - Normal Quests
 
-    - [ ] [A Small War]("Petir · Tretl Windmill Plaza; требования: Part of 'The Militia's Request'.")
-    - [ ] [Diplomatic Tensions]("Gryff · Torigoth Base Entrance; требования: Part of 'The Militia's Request'.")
-    - [ ] [No-Penny Nopon]("Shatoto · Garagorm's Arch; требования: Part of 'The Militia's Request'.")
-    - [ ] [One Step Ahead]("Capher · Traveler's Resting Tree")
-    - [ ] [The Militia's Request]("Notice Board · Torigoth Market")
-    - [ ] [The Missing Order]("Feyla · Grodd Residential Zone; требования: Part of 'The Militia's Request'.")
+    - [x] [One Step Ahead]("Capher · Traveler's Resting Tree")
+    - [x] [The Militia's Request]("Notice Board · Torigoth Market")
+      - [x] [A Small War]("Petir · Tretl Windmill Plaza; требования: Part of 'The Militia's Request'.")
+      - [x] [Diplomatic Tensions]("Gryff · Torigoth Base Entrance; требования: Part of 'The Militia's Request'.")
+      - [x] [No-Penny Nopon]("Shatoto · Garagorm's Arch; требования: Part of 'The Militia's Request'.")
+      - [x] [The Missing Order]("Feyla · Grodd Residential Zone; требования: Part of 'The Militia's Request'.")
 
 - Kingdom of Uraya
 
   - Main Quests
 
-    - [ ] [Vandham's Last Wish]("Yew · Mymoma Playhouse")
+    - [x] [Vandham's Last Wish]("Yew · Mymoma Playhouse")
 
   - Normal Quests
 
-    - [ ] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
+    - [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
     - [ ] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
     - [ ] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
     - [ ] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
