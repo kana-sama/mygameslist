@@ -58,9 +58,8 @@ collapsedChecklistSections:
   - "group:zuo2j7-23"
   - "heading:1ejpocg-1j"
   - "heading:1u4gwz0-1c"
-  - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-17T03:35:40.979Z"
+updatedAt: "2026-08-18T10:36:40.863Z"
 -->
 # Shop Deeds
 
@@ -81,9 +80,9 @@ updatedAt: "2026-08-17T03:35:40.979Z"
   - [x] Yumyum's Golden Gun
   - [x] The Millenarian Titan
   - [x] Adventures of Myram — открывается после Merc Mission `Long-Awaited Work`.
-  - [ ] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
+  - [x] Mumuni the Littlepon — открывается после Merc Mission `New Sounds`.
   - [x] Tome of Morytha #2 — открывается после Heart-to-Heart `Walking Encyclopedia`.
-  - [ ] **Reedirait Deeds**
+  - [x] **Reedirait Deeds**
 
 - Fishy Fishy
 
@@ -104,11 +103,11 @@ updatedAt: "2026-08-17T03:35:40.979Z"
 
 - Strummer Instruments
 
-  - [ ] Roly-Poly Maracas
-  - [ ] Nopolele
-  - [ ] Funky Conga
-  - [ ] Whispercorder
-  - [ ] Casta-Mutes — открывается после Merc Mission `New Sounds`.
+  - [x] Roly-Poly Maracas
+  - [x] Nopolele
+  - [x] Funky Conga
+  - [x] Whispercorder
+  - [x] Casta-Mutes — открывается после Merc Mission `New Sounds`.
   - [ ] Clicky-Clacks — открывается после Merc Mission `Old Routes`.
   - [ ] **Strummer Deeds**
 
@@ -157,15 +156,15 @@ updatedAt: "2026-08-17T03:35:40.979Z"
   - [x] Woodgrain Alphorn
   - [x] Cedarwood Koto
   - [x] Woodboard — открывается после Merc Mission `Raddon Family`.
-  - [ ] Coralline Marimba — открывается после Merc Mission `The Water City`.
-  - [ ] **Soniarus Deeds**
+  - [x] Coralline Marimba — открывается после Merc Mission `The Water City`.
+  - [x] **Soniarus Deeds**
 
 - Tomi Fishmongers
 
-  - [ ] Gormotti Fish Flakes
-  - [ ] Grass-Smoked Salmon
-  - [ ] Bipedal Crab Chili — открывается после Merc Mission `The Water City`.
-  - [ ] **Tomi Deeds**
+  - [x] Gormotti Fish Flakes
+  - [x] Grass-Smoked Salmon
+  - [x] Bipedal Crab Chili — открывается после Merc Mission `The Water City`.
+  - [x] **Tomi Deeds**
 
 - Café Savvy
 
@@ -173,16 +172,16 @@ updatedAt: "2026-08-17T03:35:40.979Z"
   - [x] Gormotti Honeytea
   - [x] Kukurel Springwater
   - [x] Passion Fruit Shake — открывается после Merc Mission `Raddon Family`.
-  - [ ] Victory Smoothie — открывается после Merc Mission `The Water City`.
-  - [ ] **Savvy Deeds**
+  - [x] Victory Smoothie — открывается после Merc Mission `The Water City`.
+  - [x] **Savvy Deeds**
 
 - Cmalaf Artwork
 
   - [x] The Girl on the Hill
   - [x] Black Flower Field
   - [x] Woodcut Print of Bana — открывается после Merc Mission `Turf War Protection`.
-  - [ ] Wood-Carven Queen — открывается после Merc Mission `The Water City`.
-  - [ ] **Cmalaf Deeds**
+  - [x] Wood-Carven Queen — открывается после Merc Mission `The Water City`.
+  - [x] **Cmalaf Deeds**
 
 - Tilly Bakery
 
@@ -332,76 +331,76 @@ updatedAt: "2026-08-17T03:35:40.979Z"
 
 - Bassani Butchers
 
-  - [ ] Meat & Lentil Skewer
-  - [ ] Herbal Tartare Kascha
-  - [ ] Grumbird Casserole
-  - [ ] Estral Quotelettas
-  - [ ] Armu & Bean Stew
-  - [ ] Quoteletta
-  - [ ] **Bassani Deeds**
+  - [x] Meat & Lentil Skewer
+  - [x] Herbal Tartare Kascha
+  - [x] Grumbird Casserole
+  - [x] Estral Quotelettas
+  - [x] Armu & Bean Stew
+  - [x] Quoteletta
+  - [x] **Bassani Deeds**
 
 - Salter Sweets
 
-  - [ ] Steamed Milk Brioche
-  - [ ] Steamed-Gel Ice Cream
-  - [ ] Sweet Lentil Bun
-  - [ ] Sky-Jewel Tart
+  - [x] Steamed Milk Brioche
+  - [x] Steamed-Gel Ice Cream
+  - [x] Sweet Lentil Bun
+  - [x] Sky-Jewel Tart
   - [ ] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
   - [ ] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
   - [ ] **Salter Deeds**
 
 - Haskefell Books
 
-  - [ ] Ardainian Arms Album
-  - [ ] Emperor Ephim's War
-  - [ ] Imperial Secret Escapes
-  - [ ] Les Awfuls
-  - [ ] Love Beyond the Clouds
+  - [x] Ardainian Arms Album
+  - [x] Emperor Ephim's War
+  - [x] Imperial Secret Escapes
+  - [x] Les Awfuls
+  - [x] Love Beyond the Clouds
   - [ ] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
   - [ ] **Haskefell Deeds**
 
 - Elgeschel Hobby Store
 
-  - [ ] Army Field Manual
-  - [ ] Chooby Tubes
-  - [ ] Secret Trials
-  - [ ] Dueling Kingdoms
+  - [x] Army Field Manual
+  - [x] Chooby Tubes
+  - [x] Secret Trials
+  - [x] Dueling Kingdoms
   - [ ] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
   - [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
   - [ ] **Elgeschel Deeds**
 
 - Yafush Antiques
 
-  - [ ] Punk Doll
-  - [ ] Copper Ephim Statue
-  - [ ] Ardainian Bear Carving
-  - [ ] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
+  - [x] Punk Doll
+  - [x] Copper Ephim Statue
+  - [x] Ardainian Bear Carving
+  - [x] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
   - [ ] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
   - [ ] **Yafush Deeds**
 
 - Hanoon Fishmongers
 
-  - [ ] Grilled Salmon in Herbs
-  - [ ] Cloud Sea Crab Sticks
+  - [x] Grilled Salmon in Herbs
+  - [x] Cloud Sea Crab Sticks
   - [ ] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
   - [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
   - [ ] **Hanoon Deeds**
 
 - Griogair's Greens
 
-  - [ ] Dolphin Carrot Sliders
-  - [ ] Campfire Skewers
-  - [ ] Crispy Vegetable Salad — открывается после Merc Mission `Secret Spice`.
+  - [x] Dolphin Carrot Sliders
+  - [x] Campfire Skewers
+  - [x] Crispy Vegetable Salad — открывается после Merc Mission `Secret Spice`.
   - [ ] Steamflake Tabbouleh — открывается после Merc Mission `White and Cold`.
   - [ ] **Griogair Deeds**
 
 - Adelno Music
 
-  - [ ] Pipe Trumpet
-  - [ ] Steamwork Organ
-  - [ ] Army-Issue Violin
-  - [ ] Hammerplate Snare
-  - [ ] Tube Xylophone — открывается после Merc Mission `Secret Spice`.
+  - [x] Pipe Trumpet
+  - [x] Steamwork Organ
+  - [x] Army-Issue Violin
+  - [x] Hammerplate Snare
+  - [x] Tube Xylophone — открывается после Merc Mission `Secret Spice`.
   - [ ] Icicle Marimba — открывается после Merc Mission `White and Cold`.
   - [ ] **Adelno Deeds**
 

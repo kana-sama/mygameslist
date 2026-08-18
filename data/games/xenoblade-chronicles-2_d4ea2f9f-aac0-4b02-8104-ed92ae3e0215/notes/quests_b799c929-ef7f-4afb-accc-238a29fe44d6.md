@@ -10,7 +10,6 @@ collapsedChecklistSections:
   - "group:14lzw5m-26"
   - "group:16b70xx-2s"
   - "group:179e7lp-2t"
-  - "group:185wgxd-2p"
   - "group:188544d-2r"
   - "group:189pmq5-22"
   - "group:19ov0l8-2o"
@@ -27,7 +26,9 @@ collapsedChecklistSections:
   - "group:1lh12x2-2q"
   - "group:1m4hslm-2n"
   - "group:1mxcjw-2p"
+  - "group:1my7cud-26"
   - "group:1o3jljq-2o"
+  - "group:1pot4p4-2s"
   - "group:1pzkyqz-2u"
   - "group:1u4wb88-2s"
   - "group:1uld77f-2w"
@@ -38,7 +39,9 @@ collapsedChecklistSections:
   - "group:4aimsk-2z"
   - "group:733ayh-2n"
   - "group:9opna3-2o"
+  - "group:cda8cd-22"
   - "group:edrrnd-3c"
+  - "group:eewryj-22"
   - "group:epcrwv-2s"
   - "group:ftui9h-3d"
   - "group:g5vlw5-2o"
@@ -48,7 +51,6 @@ collapsedChecklistSections:
   - "group:m5qwud-2q"
   - "group:n860yw-2v"
   - "group:ncugc0-2q"
-  - "group:o436bq-2s"
   - "group:p2cvc4-2y"
   - "group:r2fyl5-30"
   - "group:r8eo4b-2p"
@@ -78,9 +80,16 @@ collapsedChecklistSections:
   - "heading:edy5jf-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-17T02:35:53.590Z"
+updatedAt: "2026-08-18T07:46:18.138Z"
 -->
 # Quests
+
+## Merc Group
+
+- [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
+- [x] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
+- [ ] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
+- [ ] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
 
 ## Chapter 1
 
@@ -163,13 +172,13 @@ updatedAt: "2026-08-17T02:35:53.590Z"
 
   - Normal Quests
 
-    - [ ] [Fame and Family]("Falala · Lemour Inn")
+    - [x] [Fame and Family]("Falala · Lemour Inn")
 
 - Gormott Province
 
   - Main Quests
 
-    - [ ] [Stop, Thief!]("Torigoth; требования: 'The Pickpocket Sets Sail' cutscene viewed.")
+    - [x] [Stop, Thief!]("Torigoth; требования: 'The Pickpocket Sets Sail' cutscene viewed.")
 
   - Normal Quests
 
@@ -188,11 +197,7 @@ updatedAt: "2026-08-17T02:35:53.590Z"
 
   - Normal Quests
 
-    - [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
-    - [ ] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
-    - [ ] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
-    - [ ] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
-    - [ ] [The Titan Scholar]("Pilolo · Fonsa Myma Port; требования: Vandham's Last Wish completed.")
+    - [x] [The Titan Scholar]("Pilolo · Fonsa Myma Port; требования: Vandham's Last Wish completed.")
 
 - Empire of Mor Ardain
 
@@ -204,7 +209,7 @@ updatedAt: "2026-08-17T02:35:53.590Z"
 
     - [ ] [Ecological Survey]("Notice Board · Nharil Central Plaza")
     - [ ] [Hard to Stomach]("Hansatra · Nharil Central Plaza")
-    - [ ] [Road to the Capital]("Pidede · Anangham 2 Dock")
+    - [x] [Road to the Capital]("Pidede · Anangham 2 Dock")
     - [ ] [The Nopon Murals]("Alisdeigh · Beraf Industry Ward")
 
 ## Chapter 5

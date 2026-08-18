@@ -3,8 +3,16 @@ id: "43f5bd37-39b0-4f3f-b612-a0d791222d2a"
 groupRank: 2048
 rank: 1504
 doubleHeight: true
+collapsedChecklistSections:
+  - "heading:1irkbgk-1n"
+  - "heading:6al93y-1h"
+  - "heading:omtvm-1m"
+  - "heading:paw22u-1n"
+  - "heading:xcrsji-1g"
+  - "heading:z2b8uc-1l"
+  - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-14T05:15:39.726Z"
+updatedAt: "2026-08-18T09:27:52.105Z"
 -->
 # Secret Areas
 
@@ -16,14 +24,14 @@ updatedAt: "2026-08-14T05:15:39.726Z"
 ## Empire of Mor Ardain
 
 - [ ] [Bathein Watchtower]("Alba Cavanich; Поднимитесь от Hardhaigh Dock на Lv. 2.")
-- [ ] [Fief of Forgetfulness]("Lower Level; Проход доступен только при Low Tide.")
+- [x] [Fief of Forgetfulness]("Lower Level; Проход доступен только при Low Tide.")
 - [ ] [Old Plumbing Entrance]("Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.")
 - [ ] [Suspended Pathway]("Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.")
 - [ ] [Nopon Pioneers' Spring]("Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.")
 
 ## Gormott Province
 
-- [ ] [Clear Sky Break]("Upper Level - Right; От Nocclia Timber Site идите на север, спуститесь по водной горке в Zeno's Deadbole и нырните в Underground Spring; нужны Lv. 3 Water Mastery и Lv. 3 Fortitude.")
+- [x] [Clear Sky Break]("Upper Level - Right; От Nocclia Timber Site идите на север, спуститесь по водной горке в Zeno's Deadbole и нырните в Underground Spring; нужны Lv. 3 Water Mastery и Lv. 3 Fortitude.")
 - [x] [Dawnview Grotto]("Upper Level - Right; Пройдите через каменный туннель со стороны Tirkin Turf.")
 
 ## Kingdom of Tantal
@@ -33,7 +41,7 @@ updatedAt: "2026-08-14T05:15:39.726Z"
 ## Kingdom of Uraya
 
 - [ ] [Dragon's Whiskers]("Head; Нырните от Cataracts of Rujah.")
-- [ ] [Raqura Aquagardens]("Stomach; Нырните в источник под Ruins of Fountain Park.")
+- [x] [Raqura Aquagardens]("Stomach; Нырните в источник под Ruins of Fountain Park.")
 
 ## Land of Morytha
 
