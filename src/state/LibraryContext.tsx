@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { GameSaveInput, EditableAttachment } from "../pages/GamePage";
+import type { GameSaveInput, EditableAttachment, NoteInteractionSnapshot } from "../pages/GamePage";
 import {
   PATCH_STORAGE_KEY,
   MISSING_VALUE_HASH,
@@ -370,6 +370,7 @@ interface LibraryActions {
   canAddBlob: (byteLength: number) => Promise<string | null>;
   resolveAssetUrl: (assetId: string) => string | null;
   saveGame: (input: GameSaveInput) => Promise<string>;
+  readNoteInteractionSnapshot: (noteId: string) => NoteInteractionSnapshot | undefined;
   saveNoteInteraction: (update: InteractiveNoteFieldUpdate) => Promise<void>;
   deleteGame: (gameId: string) => Promise<void>;
   moveGame: (gameId: string, tierId: TierId, index: number) => Promise<void>;
@@ -1199,6 +1200,16 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     });
   }), [enqueueInteraction, libraryStore, replaceRescueLineage, setLibraryState]);
 
+  const readNoteInteractionSnapshot = useCallback((noteId: string): NoteInteractionSnapshot | undefined => {
+    const note = libraryStore.getSnapshot().effective.notes[noteId];
+    return note ? {
+      bodyMarkdown: note.bodyMarkdown,
+      ...(note.collapsedChecklistSections === undefined
+        ? {}
+        : { collapsedChecklistSections: [...note.collapsedChecklistSections] }),
+    } : undefined;
+  }, [libraryStore]);
+
   const saveGame = useCallback(async (input: GameSaveInput): Promise<string> => {
     const id = input.id ?? crypto.randomUUID();
     const current = stateRef.current;
@@ -1907,6 +1918,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     canAddBlob,
     resolveAssetUrl,
     saveGame,
+    readNoteInteractionSnapshot,
     saveNoteInteraction,
     deleteGame,
     moveGame,
@@ -1932,6 +1944,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     canAddBlob: (...args) => actionsRef.current!.canAddBlob(...args),
     resolveAssetUrl: (...args) => actionsRef.current!.resolveAssetUrl(...args),
     saveGame: (...args) => actionsRef.current!.saveGame(...args),
+    readNoteInteractionSnapshot: (...args) => actionsRef.current!.readNoteInteractionSnapshot(...args),
     saveNoteInteraction: (...args) => actionsRef.current!.saveNoteInteraction(...args),
     deleteGame: (...args) => actionsRef.current!.deleteGame(...args),
     moveGame: (...args) => actionsRef.current!.moveGame(...args),

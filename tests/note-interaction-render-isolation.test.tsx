@@ -192,6 +192,52 @@ describe("route-backed note interaction render isolation", () => {
     expect(renderCounters.interactionSaves).not.toHaveBeenCalled();
   });
 
+  it("preserves inline checklist and collapse interactions when another note is fully saved", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const affectedTask = await screen.findByRole("checkbox", { name: "Отметить: Affected task" });
+    const affectedCard = affectedTask.closest<HTMLElement>("article")!;
+    await user.click(affectedTask);
+    await waitFor(() => expect(affectedTask).toBeChecked());
+
+    const collapse = within(affectedCard).getByRole("button", { name: /^Affected group / });
+    await user.click(collapse);
+    await waitFor(() => expect(collapse).toHaveAttribute("aria-expanded", "false"));
+
+    const siblingTask = screen.getByRole("checkbox", { name: "Отметить: Sibling task" });
+    const siblingCard = siblingTask.closest<HTMLElement>("article")!;
+    await user.click(within(siblingCard).getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    await user.clear(editor);
+    await user.type(editor, "Sibling fully saved");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument());
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Affected task" })).toBeChecked();
+    expect(within(affectedCard).getByRole("button", { name: /^Affected group / })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the note editor from the latest checked Markdown and preserves its draft", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const affectedTask = await screen.findByRole("checkbox", { name: "Отметить: Affected task" });
+    const affectedCard = affectedTask.closest<HTMLElement>("article")!;
+    await user.click(affectedTask);
+    await waitFor(() => expect(affectedTask).toBeChecked());
+
+    await user.click(within(affectedCard).getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    expect((editor as HTMLTextAreaElement).value).toContain("- [x] Affected task");
+    await user.type(editor, "\nEditor addition");
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument());
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Affected task" })).toBeChecked();
+    expect(screen.getByText("Editor addition")).toBeInTheDocument();
+  });
+
   it("updates one subscribed note and the current diff without redrawing the route, page, or sibling", async () => {
     const user = userEvent.setup();
     render(<App />);

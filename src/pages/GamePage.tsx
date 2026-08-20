@@ -447,7 +447,20 @@ export interface NoteInteractionSnapshot {
 
 export interface NoteInteractionSource {
   useNoteInteractionSnapshot: (noteId: string) => NoteInteractionSnapshot | undefined;
+  readNoteInteractionSnapshot: (noteId: string) => NoteInteractionSnapshot | undefined;
   saveNoteInteraction: (update: InteractiveNoteFieldUpdate) => Promise<void>;
+}
+
+function mergeNoteInteractionSnapshot(note: EditableNote, snapshot: NoteInteractionSnapshot | undefined): EditableNote {
+  if (!snapshot) return note;
+  const { collapsedChecklistSections: _staleCollapsedChecklistSections, ...structuralNote } = note;
+  return {
+    ...structuralNote,
+    bodyMarkdown: snapshot.bodyMarkdown,
+    ...(snapshot.collapsedChecklistSections === undefined
+      ? {}
+      : { collapsedChecklistSections: [...snapshot.collapsedChecklistSections] }),
+  };
 }
 
 interface GameLinkCompletionContextValue {
@@ -1277,11 +1290,12 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const globalActionsDisabled = saving || optimisticTaskNote !== null;
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
-  const persist = async (overrides: Partial<GameSaveInput> = {}, { globalSaving = true }: { globalSaving?: boolean } = {}): Promise<boolean> => {
+  const persist = async (overrides: Partial<GameSaveInput> = {}, { globalSaving = true, authoredNoteIds = new Set<string>() }: { globalSaving?: boolean; authoredNoteIds?: ReadonlySet<string> } = {}): Promise<boolean> => {
     if (globalSaving && globalActionsDisabled) return false;
     if (globalSaving) setSaving(true);
     setError(null);
     try {
+      const notes = overrides.notes ?? editableNotes;
       await onSave({
         id: game.id,
         title: overrides.title ?? game.title,
@@ -1293,7 +1307,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
         tierId: overrides.tierId ?? game.placement.tierId,
         reviewMarkdown: "",
         progressItems: overrides.progressItems ?? (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })),
-        notes: overrides.notes ?? editableNotes,
+        notes: noteInteractionSource
+          ? notes.map((note) => note.id && !authoredNoteIds.has(note.id)
+            ? mergeNoteInteractionSnapshot(note, noteInteractionSource.readNoteInteractionSnapshot(note.id))
+            : note)
+          : notes,
       });
       return true;
     } catch (reason) {
@@ -1385,7 +1403,8 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const saveNote = async (draft: EditableNote) => {
     const exists = baseNotes.some((note) => note.clientId === draft.clientId);
     const nextNotes = exists ? baseNotes.map((note) => note.clientId === draft.clientId ? draft : note) : [...baseNotes, draft];
-    if (await persist({ notes: nextNotes })) { setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }
+    const authoredNoteIds = draft.id ? new Set([draft.id]) : undefined;
+    if (await persist({ notes: nextNotes }, { authoredNoteIds })) { setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }
   };
   const saveTaskNote = async (draft: EditableNote) => {
     if (taskSaveInFlight.current || saving || editingField !== null || editingDraft !== null || coverEditing || progressDraft !== null) return;
@@ -1407,7 +1426,10 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const beginNoteEdit = (note: EditableNote) => {
     if (saving || editingDraft?.clientId === note.clientId) return;
     if (noteDirty && !window.confirm("Отменить несохранённые изменения заметки?")) return;
-    setEditingDraftAutoFocus(true); setEditingDraft({ ...note, attachments: [...note.attachments] }); setNoteDirty(false);
+    const currentNote = note.id
+      ? mergeNoteInteractionSnapshot(note, noteInteractionSource?.readNoteInteractionSnapshot(note.id))
+      : note;
+    setEditingDraftAutoFocus(true); setEditingDraft({ ...currentNote, attachments: [...currentNote.attachments] }); setNoteDirty(false);
   };
   const beginNewNote = (groupRank = nextEmptyNoteGroupRank(editableNotes), files: File[] = []) => {
     if (saving || storageLocked && files.length) return;

@@ -611,6 +611,7 @@ interface GameRouteSelection {
   deleteGame: LibraryContextValue["deleteGame"];
   resolveAssetUrl: LibraryContextValue["resolveAssetUrl"];
   saveGame: LibraryContextValue["saveGame"];
+  readNoteInteractionSnapshot: LibraryContextValue["readNoteInteractionSnapshot"];
   saveNoteInteraction: LibraryContextValue["saveNoteInteraction"];
 }
 
@@ -628,6 +629,7 @@ function sameGameRouteSelection(left: GameRouteSelection, right: GameRouteSelect
     && left.deleteGame === right.deleteGame
     && left.resolveAssetUrl === right.resolveAssetUrl
     && left.saveGame === right.saveGame
+    && left.readNoteInteractionSnapshot === right.readNoteInteractionSnapshot
     && left.saveNoteInteraction === right.saveNoteInteraction;
 }
 
@@ -663,13 +665,15 @@ function GameRoute({ mode }: { mode: "new" | "game" }) {
     deleteGame: library.deleteGame,
     resolveAssetUrl: library.resolveAssetUrl,
     saveGame: library.saveGame,
+    readNoteInteractionSnapshot: library.readNoteInteractionSnapshot,
     saveNoteInteraction: library.saveNoteInteraction,
   }), sameGameRouteSelection);
   const { assets, game, gameSuggestions, notes } = selection;
   const noteInteractionSource = useMemo<NoteInteractionSource>(() => ({
     useNoteInteractionSnapshot: useRouteNoteInteractionSnapshot,
+    readNoteInteractionSnapshot: selection.readNoteInteractionSnapshot,
     saveNoteInteraction: selection.saveNoteInteraction,
-  }), [selection.saveNoteInteraction]);
+  }), [selection.readNoteInteractionSnapshot, selection.saveNoteInteraction]);
   const platformSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.platforms))];
   const tagSuggestions = [...new Set(gameSuggestions.flatMap((item) => item.tags))];
 
