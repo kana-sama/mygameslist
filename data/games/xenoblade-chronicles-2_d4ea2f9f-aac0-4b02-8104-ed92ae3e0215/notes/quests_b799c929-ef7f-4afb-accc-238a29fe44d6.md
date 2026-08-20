@@ -9,13 +9,11 @@ collapsedChecklistSections:
   - "group:134s3tz-2q"
   - "group:14lzw5m-26"
   - "group:16b70xx-2s"
-  - "group:179e7lp-2t"
   - "group:188544d-2r"
   - "group:189pmq5-22"
   - "group:19ov0l8-2o"
   - "group:1agu62o-2y"
   - "group:1d9j5ib-3d"
-  - "group:1der2xn-30"
   - "group:1dt6lvp-2o"
   - "group:1hupkpg-2o"
   - "group:1hvh87y-22"
@@ -24,23 +22,24 @@ collapsedChecklistSections:
   - "group:1kpld0-22"
   - "group:1le00f0-26"
   - "group:1lh12x2-2q"
-  - "group:1m4hslm-2n"
-  - "group:1mxcjw-2p"
   - "group:1my7cud-26"
+  - "group:1nv6s8s-22"
   - "group:1o3jljq-2o"
   - "group:1pot4p4-2s"
   - "group:1pzkyqz-2u"
   - "group:1u4wb88-2s"
   - "group:1uld77f-2w"
-  - "group:1uo1ht2-2r"
   - "group:1vmwiru-2p"
   - "group:1wh0ojq-2p"
   - "group:1wspjr-2q"
+  - "group:1ykgtwu-2n"
   - "group:4aimsk-2z"
+  - "group:6k49bw-2w"
   - "group:733ayh-2n"
   - "group:9opna3-2o"
   - "group:cda8cd-22"
-  - "group:edrrnd-3c"
+  - "group:cfhx41-26"
+  - "group:cqg14a-2u"
   - "group:eewryj-22"
   - "group:epcrwv-2s"
   - "group:ftui9h-3d"
@@ -52,6 +51,7 @@ collapsedChecklistSections:
   - "group:n860yw-2v"
   - "group:ncugc0-2q"
   - "group:p2cvc4-2y"
+  - "group:qv89n1-2t"
   - "group:r2fyl5-30"
   - "group:r8eo4b-2p"
   - "group:rx84ed-2p"
@@ -62,12 +62,9 @@ collapsedChecklistSections:
   - "group:vsyx0k-2t"
   - "group:wowk9r-2q"
   - "group:y9kyq3-2n"
-  - "heading:12a39n2-19"
   - "heading:12t6nk8-26"
   - "heading:14ewmv5-19"
   - "heading:1e7grcw-19"
-  - "heading:1kyaobx-19"
-  - "heading:1lhe293-26"
   - "heading:1t54tir-26"
   - "heading:1ufv46v-19"
   - "heading:1uqusto-19"
@@ -78,9 +75,10 @@ collapsedChecklistSections:
   - "heading:cpmyj5-27"
   - "heading:cs868i-26"
   - "heading:edy5jf-19"
+  - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-18T07:46:18.138Z"
+updatedAt: "2026-08-20T06:55:27.078Z"
 -->
 # Quests
 
@@ -88,7 +86,7 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 
 - [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
 - [x] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
-- [ ] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
+- [x] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
 - [ ] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
 
 ## Chapter 1
@@ -203,14 +201,14 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 
   - Main Quests
 
-    - [ ] [Lila's Location]("Jakolo's Inn; требования: 'Working Together with Mòrag' cutscene.")
+    - [x] [Lila's Location]("Jakolo's Inn; требования: 'Working Together with Mòrag' cutscene.")
 
   - Normal Quests
 
-    - [ ] [Ecological Survey]("Notice Board · Nharil Central Plaza")
-    - [ ] [Hard to Stomach]("Hansatra · Nharil Central Plaza")
+    - [x] [Ecological Survey]("Notice Board · Nharil Central Plaza")
+    - [x] [Hard to Stomach]("Hansatra · Nharil Central Plaza")
     - [x] [Road to the Capital]("Pidede · Anangham 2 Dock")
-    - [ ] [The Nopon Murals]("Alisdeigh · Beraf Industry Ward")
+    - [x] [The Nopon Murals]("Alisdeigh · Beraf Industry Ward")
 
 ## Chapter 5
 
@@ -224,11 +222,11 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 
   - Normal Quests
 
-    - [ ] [Sniff out the Spy]("Raloo · Waypoint Market")
+    - [x] [Sniff out the Spy]("Raloo · Waypoint Market")
 
   - DLC Quests
 
-    - [ ] [A Hat Fit for a Lady]("Fonsa Myma Port")
+    - [x] [A Hat Fit for a Lady]("Fonsa Myma Port")
 
 - Empire of Mor Ardain
 
@@ -238,7 +236,7 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 
   - DLC Quests
 
-    - [ ] [Industrial Sort of Tour]("Port Anangham")
+    - [x] [Industrial Sort of Tour]("Port Anangham")
 
 - Indoline Praetorium
 
@@ -447,12 +445,12 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 - Ursula
   - [ ] [Bearing Her Soul]("Torigoth; требования: Ursula; Not Quite Comfortable Yet (H2H).")
 - Vess
-  - [ ] [Tranquility]("Torigoth; задание получения Vess; daytime only.")
+  - [x] [Tranquility]("Torigoth; задание получения Vess; daytime only.")
 
 ### Chapter 5
 
 - Azami
-  - [ ] [All's Fair]("Fonsa Myma; требования: Azami; Surveillance (Merc Mission).")
+  - [x] [All's Fair]("Fonsa Myma; требования: Azami; Surveillance (Merc Mission).")
 - Floren
   - [ ] [Unspoken Suspicion]("Gwenith Paddies; требования: Silver Pendant; Floren Beguiling Charms Lv. 4; prerequisite to Nature Boy.")
 - Newt
@@ -464,7 +462,7 @@ updatedAt: "2026-08-18T07:46:18.138Z"
 - Praxis and Theory
   - [ ] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
 - Poppibuster (DLC)
-  - [ ] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
+  - [x] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
 - Multiblade
   - [ ] [Cleared of All Charges]("Fonsett Island; требования: Perun, Godfrey and Perceval.")
 

@@ -59,7 +59,7 @@ collapsedChecklistSections:
   - "heading:1ejpocg-1j"
   - "heading:1u4gwz0-1c"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-18T10:36:40.863Z"
+updatedAt: "2026-08-18T21:37:23.963Z"
 -->
 # Shop Deeds
 
@@ -356,8 +356,8 @@ updatedAt: "2026-08-18T10:36:40.863Z"
   - [x] Imperial Secret Escapes
   - [x] Les Awfuls
   - [x] Love Beyond the Clouds
-  - [ ] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
-  - [ ] **Haskefell Deeds**
+  - [x] How Wars Profit Nopon — открывается после Merc Mission `Shipyard Security`.
+  - [x] **Haskefell Deeds**
 
 - Elgeschel Hobby Store
 
@@ -365,7 +365,7 @@ updatedAt: "2026-08-18T10:36:40.863Z"
   - [x] Chooby Tubes
   - [x] Secret Trials
   - [x] Dueling Kingdoms
-  - [ ] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
+  - [x] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
   - [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
   - [ ] **Elgeschel Deeds**
 
@@ -382,7 +382,7 @@ updatedAt: "2026-08-18T10:36:40.863Z"
 
   - [x] Grilled Salmon in Herbs
   - [x] Cloud Sea Crab Sticks
-  - [ ] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
+  - [x] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
   - [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
   - [ ] **Hanoon Deeds**
 

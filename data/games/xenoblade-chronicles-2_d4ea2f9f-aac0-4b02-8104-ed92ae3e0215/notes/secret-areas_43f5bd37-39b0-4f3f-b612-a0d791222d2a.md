@@ -7,12 +7,13 @@ collapsedChecklistSections:
   - "heading:1irkbgk-1n"
   - "heading:6al93y-1h"
   - "heading:omtvm-1m"
+  - "heading:oxxgn0-1m"
   - "heading:paw22u-1n"
   - "heading:xcrsji-1g"
   - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-18T09:27:52.105Z"
+updatedAt: "2026-08-18T21:34:28.629Z"
 -->
 # Secret Areas
 
@@ -27,7 +28,7 @@ updatedAt: "2026-08-18T09:27:52.105Z"
 - [x] [Fief of Forgetfulness]("Lower Level; Проход доступен только при Low Tide.")
 - [ ] [Old Plumbing Entrance]("Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.")
 - [ ] [Suspended Pathway]("Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.")
-- [ ] [Nopon Pioneers' Spring]("Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.")
+- [x] [Nopon Pioneers' Spring]("Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.")
 
 ## Gormott Province
 
@@ -40,7 +41,7 @@ updatedAt: "2026-08-18T09:27:52.105Z"
 
 ## Kingdom of Uraya
 
-- [ ] [Dragon's Whiskers]("Head; Нырните от Cataracts of Rujah.")
+- [x] [Dragon's Whiskers]("Head; Нырните от Cataracts of Rujah.")
 - [x] [Raqura Aquagardens]("Stomach; Нырните в источник под Ruins of Fountain Park.")
 
 ## Land of Morytha
