@@ -13,7 +13,9 @@ collapsedChecklistSections:
   - "group:189pmq5-22"
   - "group:19ov0l8-2o"
   - "group:1agu62o-2y"
+  - "group:1blfqgs-26"
   - "group:1d9j5ib-3d"
+  - "group:1der2xn-30"
   - "group:1dt6lvp-2o"
   - "group:1hupkpg-2o"
   - "group:1hvh87y-22"
@@ -33,6 +35,7 @@ collapsedChecklistSections:
   - "group:1wh0ojq-2p"
   - "group:1wspjr-2q"
   - "group:1ykgtwu-2n"
+  - "group:423e1p-2w"
   - "group:4aimsk-2z"
   - "group:6k49bw-2w"
   - "group:733ayh-2n"
@@ -62,6 +65,7 @@ collapsedChecklistSections:
   - "group:vsyx0k-2t"
   - "group:wowk9r-2q"
   - "group:y9kyq3-2n"
+  - "heading:12a39n2-19"
   - "heading:12t6nk8-26"
   - "heading:14ewmv5-19"
   - "heading:1e7grcw-19"
@@ -78,7 +82,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-20T06:55:27.078Z"
+updatedAt: "2026-08-21T08:34:54.374Z"
 -->
 # Quests
 
@@ -232,7 +236,7 @@ updatedAt: "2026-08-20T06:55:27.078Z"
 
   - Normal Quests
 
-    - [ ] [We Meet Again]("Jac · Ayvill Shopping District; получение: Chapter 4; завершение: Chapter 5.")
+    - [x] [We Meet Again]("Jac · Ayvill Shopping District; получение: Chapter 4; завершение: Chapter 5.")
 
   - DLC Quests
 
@@ -460,7 +464,7 @@ updatedAt: "2026-08-20T06:55:27.078Z"
 - Kasandra (Lucky Core Crystal)
   - [ ] [Our Daily Bread]("Coedwig Inn; требования: Kasandra Lv. 3 Affinity; group sets out for Temperantia; rest at Coedwig Inn.")
 - Praxis and Theory
-  - [ ] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
+  - [x] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
 - Poppibuster (DLC)
   - [x] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
 - Multiblade

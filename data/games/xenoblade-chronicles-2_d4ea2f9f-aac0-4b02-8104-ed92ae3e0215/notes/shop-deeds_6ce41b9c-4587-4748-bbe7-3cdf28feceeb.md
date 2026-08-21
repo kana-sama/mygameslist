@@ -59,7 +59,7 @@ collapsedChecklistSections:
   - "heading:1ejpocg-1j"
   - "heading:1u4gwz0-1c"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-18T21:37:23.963Z"
+updatedAt: "2026-08-20T23:06:31.181Z"
 -->
 # Shop Deeds
 
@@ -291,15 +291,15 @@ updatedAt: "2026-08-18T21:37:23.963Z"
   - [x] Armu T-Bone Steak
   - [x] Mixed Meat Platter
   - [x] Hotplate Fry-Up — открывается после Merc Mission `Bumper Crop`.
-  - [ ] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
-  - [ ] **Volty Deeds**
+  - [x] Char-Grilled Grumbird — открывается после Merc Mission `Beneath the Cloud Sea`.
+  - [x] **Volty Deeds**
 
 - Maluria Antiques
 
   - [x] Patron King's Carving
   - [x] Final Chorus
   - [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
-  - [ ] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
+  - [x] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
   - [ ] **Maluria Deeds**
 
 - Ikthus Fishmongers

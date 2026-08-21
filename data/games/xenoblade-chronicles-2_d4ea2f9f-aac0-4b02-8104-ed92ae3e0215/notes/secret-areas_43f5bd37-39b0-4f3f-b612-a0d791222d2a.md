@@ -5,6 +5,7 @@ rank: 1504
 doubleHeight: true
 collapsedChecklistSections:
   - "heading:1irkbgk-1n"
+  - "heading:59c9mk-1q"
   - "heading:6al93y-1h"
   - "heading:omtvm-1m"
   - "heading:oxxgn0-1m"
@@ -13,7 +14,7 @@ collapsedChecklistSections:
   - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-18T21:34:28.629Z"
+updatedAt: "2026-08-21T08:39:13.561Z"
 -->
 # Secret Areas
 
@@ -24,10 +25,10 @@ updatedAt: "2026-08-18T21:34:28.629Z"
 
 ## Empire of Mor Ardain
 
-- [ ] [Bathein Watchtower]("Alba Cavanich; Поднимитесь от Hardhaigh Dock на Lv. 2.")
+- [x] [Bathein Watchtower]("Alba Cavanich; Поднимитесь от Hardhaigh Dock на Lv. 2.")
 - [x] [Fief of Forgetfulness]("Lower Level; Проход доступен только при Low Tide.")
-- [ ] [Old Plumbing Entrance]("Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.")
-- [ ] [Suspended Pathway]("Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.")
+- [x] [Old Plumbing Entrance]("Lower Level; Осмотрите Lower Level и найдите вход в старые трубы.")
+- [x] [Suspended Pathway]("Old Factory; Исследуйте Old Factory и выйдите на подвесной проход.")
 - [x] [Nopon Pioneers' Spring]("Upper Level; Доберитесь со стороны Ruined Laborers' Bridge.")
 
 ## Gormott Province

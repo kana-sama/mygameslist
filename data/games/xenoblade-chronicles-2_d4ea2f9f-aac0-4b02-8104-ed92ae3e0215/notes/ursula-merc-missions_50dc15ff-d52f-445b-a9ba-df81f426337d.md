@@ -2,7 +2,7 @@
 id: "50dc15ff-d52f-445b-a9ba-df81f426337d"
 rank: 4096
 createdAt: "2026-08-20T06:18:43.308Z"
-updatedAt: "2026-08-20T06:42:28.864Z"
+updatedAt: "2026-08-20T23:43:54.066Z"
 -->
 # Ursula Merc Missions
 
@@ -16,8 +16,8 @@ updatedAt: "2026-08-20T06:42:28.864Z"
 - [x] Looks Lesson 1
 - [x] Looks Lesson 2
 - [x] Looks Lesson 3
-- [ ] Looks Lesson 4
-- [ ] Looks Lesson 5
+- [x] Looks Lesson 4
+- [x] Looks Lesson 5
 - [x] Soul Lesson 1
 - [x] Soul Lesson 2
 - [x] Soul Lesson 3
@@ -27,13 +27,13 @@ updatedAt: "2026-08-20T06:42:28.864Z"
 ## Live Events
 
 - [x] Sparkly Costumes
-- [ ] Song Selection
+- [x] Song Selection
 - [ ] Luxury Stage
 - [ ] Rehearsal
 - [x] Nopon Pop Stars
 - [x] Local Pop Star?
-- [ ] Stage Star
-- [ ] Summer Concert
+- [x] Stage Star
+- [x] Summer Concert
 - [ ] Benefit Concert
 
 ## Special Events
@@ -42,5 +42,5 @@ updatedAt: "2026-08-20T06:42:28.864Z"
 - [ ] Invitation from Emperor
 - [ ] Special Concert
 - [ ] Holy Choir
-- [ ] Fashion Show
+- [x] Fashion Show
 - [x] Meet and Greet
