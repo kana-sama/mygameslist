@@ -145,8 +145,30 @@
 }
 
 .game-view-layout {
+  position: relative;
   grid-template-columns: 248px minmax(0, 1fr);
   gap: 26px;
+}
+
+.game-view-layout::before,
+.game-view-layout::after {
+  content: "";
+  grid-column: 2;
+  grid-row: 1;
+  align-self: stretch;
+  pointer-events: none;
+}
+
+.game-view-layout::before {
+  z-index: 0;
+  box-shadow: -13px 25px 25px rgba(0, 0, 0, .4);
+}
+
+.game-view-layout::after {
+  z-index: 0;
+  clip-path: polygon(34px 0, 100% 0, 100% calc(100% - 34px), calc(100% - 34px) 100%, 0 100%, 0 34px);
+  background: rgba(38, 111, 143, .46);
+  transform: translate(13px, 14px);
 }
 
 .game-sidebar {
@@ -408,6 +430,8 @@
 .game-notes {
   position: relative;
   z-index: 1;
+  grid-column: 2;
+  grid-row: 1;
   min-width: 0;
   padding: 86px 22px 26px;
   clip-path: polygon(34px 0, 100% 0, 100% calc(100% - 34px), calc(100% - 34px) 100%, 0 100%, 0 34px);
@@ -417,8 +441,9 @@
     radial-gradient(circle at 88% 74%, rgba(36, 105, 137, .14), transparent 30%),
     repeating-linear-gradient(135deg, rgba(255, 255, 255, .018) 0 1px, transparent 1px 14px),
     linear-gradient(145deg, rgba(14, 50, 72, .97), rgba(4, 19, 32, .985));
-  box-shadow: inset 0 0 0 1px rgba(137, 216, 244, .16), inset 15px 0 34px rgba(75, 160, 194, .07);
-  filter: drop-shadow(13px 14px 0 rgba(38, 111, 143, .46)) drop-shadow(-13px 25px 25px rgba(0, 0, 0, .4));
+  box-shadow:
+    inset 0 0 0 1px rgba(137, 216, 244, .16),
+    inset 15px 0 34px rgba(75, 160, 194, .07);
 }
 
 .game-notes::before {
@@ -469,11 +494,24 @@
 .note-editors-grid { column-gap: 16px; }
 
 .note-card {
-  filter: drop-shadow(8px 9px 0 rgba(34, 101, 132, .38)) drop-shadow(9px 15px 13px rgba(0, 0, 0, .32));
-  transition: filter .16s ease, opacity .16s ease, transform .16s ease;
+  isolation: isolate;
+  box-shadow: 9px 15px 13px rgba(0, 0, 0, .32);
+  transition: box-shadow .16s ease, opacity .16s ease, transform .16s ease;
+}
+
+.note-card:not(.note-card--editing)::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
+  background: rgba(34, 101, 132, .38);
+  transform: translate(8px, 9px);
+  pointer-events: none;
 }
 
 .note-card__surface {
+  z-index: 1;
   isolation: isolate;
   overflow: clip;
   clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 0 100%);
@@ -484,7 +522,9 @@
     radial-gradient(circle at 84% 10%, rgba(117, 205, 236, .13), transparent 24%),
     repeating-linear-gradient(135deg, rgba(255, 255, 255, .018) 0 1px, transparent 1px 11px),
     linear-gradient(115deg, rgba(19, 62, 86, .97), rgba(5, 27, 45, .96) 65%, rgba(3, 20, 34, .98));
-  box-shadow: inset 0 1px rgba(255, 255, 255, .08), inset 0 0 0 1px rgba(125, 211, 242, .08);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, .08),
+    inset 0 0 0 1px rgba(125, 211, 242, .08);
 }
 
 .note-card__surface::before,
@@ -512,9 +552,21 @@
   background: linear-gradient(90deg, rgba(223, 247, 251, .42), rgba(120, 202, 236, .05));
 }
 
-.note-card:not(.note-card--editing):hover,
-.note-card:not(.note-card--editing):focus-within {
-  filter: drop-shadow(9px 11px 0 rgba(49, 126, 158, .5)) drop-shadow(10px 19px 16px rgba(0, 0, 0, .42)) drop-shadow(0 0 15px rgba(120, 202, 236, .13));
+.note-card:not(.note-card--editing):focus-within .note-card__surface,
+.note-card:not(.note-card--editing):hover .note-card__surface {
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, .08),
+    inset 0 0 0 1px rgba(125, 211, 242, .08);
+}
+
+.note-card:not(.note-card--editing):focus-within,
+.note-card:not(.note-card--editing):hover {
+  box-shadow: 10px 19px 16px rgba(0, 0, 0, .42), 0 0 15px rgba(120, 202, 236, .13);
+}
+
+.note-card:not(.note-card--editing):focus-within::before,
+.note-card:not(.note-card--editing):hover::before {
+  background: rgba(49, 126, 158, .5);
 }
 
 .note-card.note-card--sortable.is-dragging:not(.note-card--editing) {
@@ -973,6 +1025,8 @@
 
 .page.game-view-page::before,
 .page.game-view-page::after,
+.game-view-layout::before,
+.game-view-layout::after,
 .game-sidebar h1::after,
 .game-sidebar__cover::before,
 .game-sidebar__cover::after,
@@ -1027,6 +1081,8 @@
   .game-view-layout { grid-template-columns: 1fr; gap: 18px; }
   .game-sidebar {
     position: static;
+    grid-column: 1;
+    grid-row: 1;
     grid-template-columns: 106px minmax(0, 1fr);
     column-gap: 12px;
     padding: 7px 5px 14px;
@@ -1056,9 +1112,26 @@
     margin-top: 12px;
   }
   .game-notes {
+    grid-column: 1;
+    grid-row: 2;
     padding: 73px 10px 18px;
     clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
-    filter: drop-shadow(6px 8px 0 rgba(38, 111, 143, .4)) drop-shadow(0 16px 20px rgba(0, 0, 0, .36));
+    box-shadow:
+      inset 0 0 0 1px rgba(137, 216, 244, .16),
+      inset 15px 0 34px rgba(75, 160, 194, .07);
+  }
+  .game-view-layout::before,
+  .game-view-layout::after {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .game-view-layout::before {
+    box-shadow: 0 16px 20px rgba(0, 0, 0, .36);
+  }
+  .game-view-layout::after {
+    clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+    background: rgba(38, 111, 143, .4);
+    transform: translate(6px, 8px);
   }
   .game-notes::after {
     top: 14px;
@@ -1069,11 +1142,12 @@
   }
   .game-notes::before { top: 59px; right: 10px; left: 10px; }
   .notes-list, .note-editors-grid { grid-template-columns: 1fr; column-gap: 0; }
-  .note-card { filter: drop-shadow(5px 7px 0 rgba(34, 101, 132, .34)) drop-shadow(5px 12px 10px rgba(0, 0, 0, .3)); }
+  .note-card { box-shadow: 5px 12px 10px rgba(0, 0, 0, .3); }
+  .note-card:not(.note-card--editing)::before { background: rgba(34, 101, 132, .34); transform: translate(5px, 7px); }
   .note-card:not(.note-card--editing):hover,
-  .note-card:not(.note-card--editing):focus-within {
-    filter: drop-shadow(5px 8px 0 rgba(49, 126, 158, .44)) drop-shadow(5px 14px 12px rgba(0, 0, 0, .38));
-  }
+  .note-card:not(.note-card--editing):focus-within { box-shadow: 5px 14px 12px rgba(0, 0, 0, .38); }
+  .note-card:not(.note-card--editing):hover::before,
+  .note-card:not(.note-card--editing):focus-within::before { background: rgba(49, 126, 158, .44); }
   .note-card__content > .markdown { padding-inline: 10px; }
   .note-card__viewport .markdown-note-title--inner { margin-inline: -10px; }
   .note-card__viewport .markdown-note-title--inner,
