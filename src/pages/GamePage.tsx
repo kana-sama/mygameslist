@@ -437,6 +437,8 @@ export interface GamePageProps {
   onCancel?: () => void;
   onSave: (input: GameSaveInput) => void | Promise<void>;
   onDelete?: (gameId: string) => void | Promise<void>;
+  customStylesEnabled?: boolean;
+  onToggleCustomStyles?: (gameId: string) => void;
   noteInteractionSource?: NoteInteractionSource;
 }
 
@@ -1258,7 +1260,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
   return createPortal(<PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onAutoFocusConsumed={consumeAutoFocus} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />, host);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, noteInteractionSource }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, customStylesEnabled = true, onToggleCustomStyles, noteInteractionSource }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -1510,7 +1512,17 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
           <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
-          {onDelete ? <div className="game-sidebar__tools"><button aria-label="Удалить игру" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button></div> : null}
+          {onDelete || onToggleCustomStyles ? <div className="game-sidebar__tools">
+            {onToggleCustomStyles ? <button
+              aria-label={customStylesEnabled ? "Отключить кастомные стили" : "Включить кастомные стили"}
+              aria-pressed={!customStylesEnabled}
+              className="game-sidebar__style-toggle"
+              onClick={() => onToggleCustomStyles(game.id)}
+              title={customStylesEnabled ? "Отключить кастомные стили" : "Включить кастомные стили"}
+              type="button"
+            ><Icon name="sparkles" size={15} /></button> : null}
+            {onDelete ? <button aria-label="Удалить игру" className="game-sidebar__delete" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button> : null}
+          </div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
