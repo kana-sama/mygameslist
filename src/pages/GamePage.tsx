@@ -30,7 +30,6 @@ import { GameProgressGrid } from "../components/GameProgressGrid";
 import { reorderProgressItems } from "../domain/progressItems";
 import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
-import { ImageLightbox } from "../components/ImageLightbox";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
 import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
@@ -484,8 +483,6 @@ function useBlobUrl(blob: Blob | undefined): string | null {
 }
 
 function ImageAttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: Extract<EditableAttachment, { type: "image" | "pending-image" }>; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {
-  const openButtonRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
   const asset = attachment.type === "image" ? assets[attachment.assetId] : undefined;
   const pendingUrl = useBlobUrl(attachment.type === "pending-image" ? attachment.image.blob : undefined);
   const url = attachment.type === "image" ? resolveAssetUrl?.(attachment.assetId) ?? getAssetUrl(asset) : pendingUrl;
@@ -494,7 +491,7 @@ function ImageAttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: 
   const dimensions = attachment.type === "image" ? asset : attachment.image;
   const width = dimensions && "width" in dimensions ? dimensions.width : undefined;
   const height = dimensions && "height" in dimensions ? dimensions.height : undefined;
-  return <><div className="note-attachment-shell note-attachment-shell--image"><figure className="note-attachment note-attachment--image"><button aria-haspopup="dialog" aria-label={`Открыть изображение «${alt}»`} className="note-attachment-image-open" onClick={(event) => { event.stopPropagation(); setOpen(true); }} ref={openButtonRef} title="Открыть изображение" type="button"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></button></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>{open ? <ImageLightbox alt={alt} height={height} onClose={() => setOpen(false)} src={url} triggerRef={openButtonRef} width={width} /> : null}</>;
+  return <div className="note-attachment-shell note-attachment-shell--image"><figure className="note-attachment note-attachment--image"><a aria-label={`Открыть изображение «${alt}» в новой вкладке`} className="note-attachment-image-link" href={url} onClick={(event) => event.stopPropagation()} rel="noopener noreferrer" target="_blank" title="Открыть изображение в новой вкладке"><img alt={alt} height={height} loading="lazy" src={url} width={width} /></a></figure>{onRemove ? <button aria-label="Удалить изображение" className="note-attachment-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} title="Удалить изображение" type="button"><Icon name="close" size={14} /></button> : null}</div>;
 }
 
 function AttachmentView({ attachment, assets, resolveAssetUrl, onRemove }: { attachment: EditableAttachment; assets: Record<string, Asset>; resolveAssetUrl?: (assetId: string) => string | null; onRemove?: () => void }) {

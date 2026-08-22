@@ -141,8 +141,7 @@ describe("scrollable long note cards", () => {
     expect(screen.queryByRole("textbox", { name: "Текст заметки" })).not.toBeInTheDocument();
   });
 
-  it("keeps attachments above and outside the scrolling text area", async () => {
-    const user = userEvent.setup();
+  it("keeps attachments above and outside the scrolling text area", () => {
     const assetId = "a".repeat(64);
     const asset: Asset = { id: assetId, kind: "image", mime: "image/webp", width: 720, height: 1280, byteLength: 100, alt: "Tall map", originalName: "map.webp" };
     const note: Note = {
@@ -154,12 +153,12 @@ describe("scrollable long note cards", () => {
 
     const card = screen.getByText("Long text").closest<HTMLElement>("article")!;
     const surface = card.querySelector<HTMLElement>(".note-card__surface")!;
-    const attachment = within(card).getByRole("button", { name: "Открыть изображение «Tall map»" });
+    const attachment = within(card).getByRole("link", { name: "Открыть изображение «Tall map» в новой вкладке" });
     expect(Array.from(surface.children).map((child) => child.className)).toEqual(["note-attachments", "note-card__text"]);
     expect(attachment.closest(".note-card__viewport")).toBeNull();
-
-    await user.click(attachment);
-    expect(screen.getByRole("dialog", { name: "Просмотр изображения: Tall map" })).toBeInTheDocument();
+    expect(attachment).toHaveAttribute("href", "/media/map.webp");
+    expect(attachment).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("keeps task controls focusable and clickable inside the scroll viewport", async () => {

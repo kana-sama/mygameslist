@@ -1479,8 +1479,14 @@ describe("GamePage", () => {
     ];
     fireEvent.change(imageInput, { target: { files: images } });
     await waitFor(() => expect(optimizeNoteImage).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByRole("img", { name: "map" })).toBeInTheDocument());
-    expect(screen.getByRole("img", { name: "boss" })).toBeInTheDocument();
+    const mapImage = await screen.findByRole("img", { name: "map" });
+    const bossImage = screen.getByRole("img", { name: "boss" });
+    for (const image of [mapImage, bossImage]) {
+      const imageLink = image.closest("a")!;
+      expect(imageLink).toHaveAttribute("href", image.getAttribute("src"));
+      expect(imageLink).toHaveAttribute("target", "_blank");
+      expect(imageLink.getAttribute("rel")?.split(/\s+/)).toEqual(expect.arrayContaining(["noopener", "noreferrer"]));
+    }
 
     const files = [
       new File(["guide"], "guide.pdf", { type: "application/pdf" }),
