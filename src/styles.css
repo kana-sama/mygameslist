@@ -363,6 +363,11 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown ul ul, .markdown ul ol, .markdown ol ul, .markdown ol ol { margin-top: .15em; margin-bottom: .15em; padding-inline-start: 18px; border-inline-start: 1px solid var(--line-soft); }
 .markdown h2, .markdown h3, .markdown h4 { margin: 1em 0 .35em; color: var(--text); font-size: 1.08em; line-height: 1.25; }
 .markdown-checklist-heading { display: flex; align-items: baseline; gap: 6px; }
+.markdown h2.markdown-checklist-heading { font-size: 1.32em; font-weight: 700; }
+.markdown h3.markdown-checklist-heading { margin-block-start: 1.55em; padding-block-start: .9em; border-block-start: 1px solid var(--line-soft); font-size: 1.08em; font-weight: 650; }
+.markdown h4.markdown-checklist-heading { box-sizing: border-box; margin-block: 0; margin-inline-start: .5em; padding: .55em 0 .55em .95em; border-inline-start: 1px solid var(--line-soft); font-size: 1em; font-weight: 550; }
+.markdown h4.markdown-checklist-heading + ul, .markdown h4.markdown-checklist-heading + ol { box-sizing: border-box; margin-block: 0; margin-inline-start: .5em; padding-inline-start: .95em; border-inline-start: 1px solid var(--line-soft); }
+.markdown > h4.markdown-checklist-heading + ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > h4.markdown-checklist-heading + ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > h4.markdown-checklist-heading + ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > h4.markdown-checklist-heading + ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))) { padding-inline-start: .95em; }
 .markdown-checklist-heading__title { min-width: 0; flex: 1; }
 .markdown-checklist-group { list-style: none; }
 .markdown-checklist-group__header { display: flex; align-items: baseline; gap: 6px; font-weight: 600; }

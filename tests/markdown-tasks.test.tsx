@@ -62,6 +62,54 @@ afterEach(() => {
 });
 
 describe("Markdown tasks", () => {
+  it("renders a computed-style hierarchy for progress-bearing checklist headings", () => {
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    try {
+      render(
+        <MarkdownView markdown={[
+          "# Root",
+          "- [ ] Root task",
+          "## Group",
+          "- [ ] Group task",
+          "### Subsection",
+          "- Nested group",
+          "  - [ ] Nested task",
+          "# Plain heading",
+          "Plain content",
+        ].join("\n")} />,
+      );
+
+      const root = screen.getByRole("heading", { name: /^Root / });
+      const group = screen.getByRole("heading", { name: /^Group / });
+      const subsection = screen.getByRole("heading", { name: /^Subsection / });
+      const plain = screen.getByRole("heading", { name: "Plain heading" });
+      const subsectionList = subsection.nextElementSibling;
+      const rootSize = Number.parseFloat(getComputedStyle(root).fontSize);
+      const groupSize = Number.parseFloat(getComputedStyle(group).fontSize);
+      const subsectionSize = Number.parseFloat(getComputedStyle(subsection).fontSize);
+      const groupStyle = getComputedStyle(group);
+      const subsectionStyle = getComputedStyle(subsection);
+      const listStyle = getComputedStyle(subsectionList!);
+      const plainStyle = getComputedStyle(plain);
+
+      expect(rootSize).toBeGreaterThan(groupSize);
+      expect(groupSize).toBeGreaterThan(subsectionSize);
+      expect(groupStyle.borderBlockStart).toContain("solid");
+      expect(Number.parseFloat(groupStyle.paddingBlockStart)).toBeGreaterThan(0);
+      expect(Number.parseFloat(groupStyle.marginBlockStart)).toBeGreaterThan(0);
+      expect(subsectionStyle.borderInlineStart).toContain("solid");
+      expect(Number.parseFloat(subsectionStyle.paddingLeft)).toBeGreaterThan(0);
+      expect(listStyle.borderInlineStart).toContain("solid");
+      expect(Number.parseFloat(listStyle.paddingInlineStart)).toBeGreaterThan(0);
+      expect(plainStyle.borderInlineStart).not.toContain("solid");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("renders native hover hints without turning them into links", () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
