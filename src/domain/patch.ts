@@ -140,9 +140,9 @@ export function updateInteractiveNoteField(input: {
   const baseNote = base.notes[update.noteId];
   const baseFieldExists = baseNote !== undefined && hasOwn(baseNote, update.field);
   const baseValue = baseNote?.[update.field];
-  const matchesBase = baseFieldExists
-    ? same(update.value, baseValue)
-    : update.value === undefined;
+  const matchesBase = update.value === undefined
+    ? !baseFieldExists
+    : baseFieldExists && same(update.value, baseValue);
   const createdRoot = patch.operations[rootPath];
   const isLocallyCreatedRoot = createdRoot?.operation === "set"
     && !createdRoot.baseExists
@@ -152,13 +152,9 @@ export function updateInteractiveNoteField(input: {
     throw new Error(`Нельзя изменить заметку с корневой операцией: ${update.noteId}`);
   }
 
-  const nextNote = {
-    ...effectiveNote,
-    ...(update.field === "collapsedChecklistSections" && update.value === undefined
-      ? (() => { const { collapsedChecklistSections: _removed, ...withoutField } = effectiveNote; return withoutField; })()
-      : { [update.field]: clone(update.value) }),
-    updatedAt: changedAt,
-  };
+  const nextNote = update.field === "collapsedChecklistSections" && update.value === undefined
+    ? (() => { const { collapsedChecklistSections: _removed, ...withoutField } = effectiveNote; return { ...withoutField, updatedAt: changedAt }; })()
+    : { ...effectiveNote, [update.field]: clone(update.value), updatedAt: changedAt };
   const nextEffective = {
     ...effective,
     games: {

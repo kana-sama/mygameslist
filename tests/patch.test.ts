@@ -150,6 +150,22 @@ describe("interactive note field patch transition", () => {
     expect(restored.effective.notes[NOTE_A_ID].collapsedChecklistSections).toEqual(["heading:alpha"]);
   });
 
+  it("deletes a saved top-level collapsed heading", () => {
+    const base = database();
+    base.notes[NOTE_A_ID] = { ...base.notes[NOTE_A_ID], collapsedChecklistSections: ["heading:top-level"] };
+
+    const result = update({ base, field: "collapsedChecklistSections", value: undefined, transactionId: "expand-top-level-tx" });
+
+    expect(Object.prototype.hasOwnProperty.call(result.effective.notes[NOTE_A_ID], "collapsedChecklistSections")).toBe(false);
+    expect(result.patch.operations[`/notes/${NOTE_A_ID}/collapsedChecklistSections`]).toEqual({
+      operation: "delete",
+      baseExists: true,
+      baseHash: canonicalHash(["heading:top-level"]),
+      changedAt: CHANGED_AT,
+      transactionId: "expand-top-level-tx",
+    });
+  });
+
   it("replaces a locally created note root operation instead of adding a field operation", () => {
     const base = database();
     const created = note(CREATED_NOTE_ID, "Draft");
