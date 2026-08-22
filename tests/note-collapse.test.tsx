@@ -52,28 +52,29 @@ afterEach(() => {
 });
 
 describe("scrollable long note cards", () => {
-  it("keeps a focused upper note footer above the lower grid item", () => {
+  it("keeps a focused note action panel above sticky headings in adjacent groups", () => {
     const style = installProductionStyles();
     const notes = [
-      makeNote("22222222-2222-4222-8222-222222222222", "Upper note", 1024),
-      makeNote("33333333-3333-4333-8333-333333333333", "Lower note", 2048),
+      { ...makeNote("22222222-2222-4222-8222-222222222222", "Upper note", 1024), groupRank: 1024 },
+      { ...makeNote("33333333-3333-4333-8333-333333333333", "# Lower note", 1024), groupRank: 2048 },
     ];
 
     try {
       render(<GamePage assets={{}} game={game} mode="game" notes={notes} onSave={vi.fn()} />);
       const upperCard = screen.getByText("Upper note").closest<HTMLElement>("article")!;
-      const lowerCard = screen.getByText("Lower note").closest<HTMLElement>("article")!;
-      lowerCard.style.zIndex = "4";
+      const lowerCard = screen.getByRole("heading", { name: "Lower note" }).closest<HTMLElement>("article")!;
+      const upperActions = upperCard.querySelector<HTMLElement>(".note-card__actions")!;
+      const lowerHeading = lowerCard.querySelector<HTMLElement>(".note-card__page-heading")!;
 
       within(upperCard).getByRole("button", { name: "Редактировать заметку" }).focus();
 
-      expect(upperCard.matches(":focus-within")).toBe(true);
-      expect(upperCard.matches(".notes-list > [data-shelf-position]:focus-within")).toBe(true);
-      const priorityRule = Array.from(style.sheet!.cssRules)
+      const competingNoteZIndex = Number(getComputedStyle(lowerHeading).zIndex);
+      const activeCardRule = Array.from(style.sheet!.cssRules)
         .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
-        .find((rule) => rule.selectorText === ".notes-list > [data-shelf-position]:hover, .notes-list > [data-shelf-position]:focus-within");
-      expect(priorityRule?.style.position).toBe("relative");
-      expect(Number(priorityRule?.style.zIndex)).toBeGreaterThan(Number(getComputedStyle(lowerCard).zIndex));
+        .find((rule) => rule.selectorText === ".note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within");
+      expect(upperCard.matches(":focus-within")).toBe(true);
+      expect(Number(activeCardRule?.style.zIndex)).toBeGreaterThan(competingNoteZIndex);
+      expect(Number(getComputedStyle(upperActions).zIndex)).toBeGreaterThan(competingNoteZIndex);
     } finally {
       style.remove();
     }

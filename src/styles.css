@@ -520,8 +520,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card--double-height { --note-text-height: 600px; }
 .note-card:not(.note-card--editing) { overflow: visible; }
 .note-card__surface { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: clip; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
-.note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 4; }
-.notes-list > [data-shelf-position]:hover, .notes-list > [data-shelf-position]:focus-within { position: relative; z-index: 5; }
+.note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 48; }
 .note-card--sortable { touch-action: pan-y; }
 .note-card--sortable.is-dragging { opacity: .28; }
 .note-card--sortable.is-drop-target .note-card__surface { box-shadow: inset 0 0 0 1px var(--accent); }
@@ -559,7 +558,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card__page-heading { position: sticky; z-index: 40; top: var(--app-header-height); align-self: start; box-sizing: border-box; padding-top: var(--note-title-block-start); padding-block-start: var(--note-title-block-start); margin: 0; background: #141518; }
 .note-card__page-heading:empty { display: none; }
 .note-card__page-heading > h2 { box-sizing: border-box; width: 100%; padding-inline: 6px; background: #141518; }
-.note-card__actions { position: absolute; z-index: 3; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.note-card__actions { position: absolute; z-index: 49; top: 100%; right: 0; bottom: auto; left: 0; min-height: 29px; display: flex; align-items: center; gap: 2px; padding: 2px 3px; border: 1px solid var(--line-soft); border-top: 0; border-radius: 0 0 4px 4px; background: rgba(20, 21, 24, .96); opacity: 0; pointer-events: none; transition: opacity .12s; }
 .note-card__actions button { width: 24px; height: 24px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; pointer-events: none; cursor: pointer; }
 .note-card__actions button:hover:not(:disabled), .note-card__actions button:focus-visible { color: var(--text); background: rgba(255, 255, 255, .08); }
 .note-card__actions button:disabled { opacity: .28; cursor: default; }
