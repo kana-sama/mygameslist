@@ -67,6 +67,11 @@ describe("top sidebar layout", () => {
   it("reserves a separate narrow tools track before progress moves below the metadata", () => {
     expect(productionStyles).toMatch(/@media \(max-width: 1019px\) \{[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar \{ grid-template-columns: 112px minmax\(0, 1fr\) 26px; column-gap: 10px; \}[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar__tools \{ grid-column: 3; grid-row: 1 \/ span 2;/);
     expect(productionStyles).toMatch(/@media \(max-width: 500px\) \{[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar \{ grid-template-columns: 96px minmax\(0, 1fr\) 26px; \}/);
-    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1100px\) \{[\s\S]*?grid-template-columns: 160px 320px minmax\(0, 1fr\) 26px; column-gap: 10px;/);
+    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1100px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
+  });
+
+  it("fits five maximum-width progress cells at the compact-wide minimum", () => {
+    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1100px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
+    expect(1020 - 28 - 160 - 284 - 26 - 3 * 8).toBeGreaterThanOrEqual(5 * 96 + 4 * 4);
   });
 });

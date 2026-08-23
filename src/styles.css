@@ -817,7 +817,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 }
 
 @media (min-width: 1020px) and (max-width: 1100px) {
-  .game-view-layout--sidebar-top .game-sidebar { grid-template-columns: 160px 320px minmax(0, 1fr) 26px; column-gap: 10px; }
+  .game-view-layout--sidebar-top .game-sidebar { grid-template-columns: 160px 284px minmax(0, 1fr) 26px; column-gap: 8px; }
 }
 
 @media (max-width: 1019px) {

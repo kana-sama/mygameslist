@@ -31,7 +31,7 @@ Make the top sidebar compact and convenient: keep cover, bounded details, and pr
 - The inline error occupies details column row 3. Progress stays in column 3 across the content rows.
 - The rendered `Изменено` metadata row is absent in both sidebar modes.
 - Under normal no-error wide content, the top panel is no taller than the cover.
-- From `1020px` through `1100px`, top mode uses `160px 320px minmax(0, 1fr) 26px` with `10px` gaps so the normal five progress cells remain on one row.
+- From `1020px` through `1100px`, top mode uses `160px 284px minmax(0, 1fr) 26px` with `8px` gaps. At `1020px`, the `28px` page insets leave `498px` for progress: `1020 - 28 - 160 - 284 - 26 - 3 * 8 = 498`, enough for five `96px` cells and four `4px` gaps (`496px`).
 - At `1019px` and narrower, top mode uses `112px minmax(0, 1fr) 26px`; the dedicated third `26px` tools column prevents action overlap, and progress becomes the full-width row below.
 - At `500px` and narrower, the compact track becomes `96px minmax(0, 1fr) 26px`.
 
