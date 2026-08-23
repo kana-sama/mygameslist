@@ -4,6 +4,27 @@ cover:
   assetId: "86cdd6aef8146fd9745ea482543496adce0840411bfce0163aaaea433caa391e"
   alt: Обложка Xenoblade Chronicles 2
   originalName: "IMAGE 2026-07-17 10:00:53.jpg"
+progressItems:
+  - id: "d87d86c2-ea75-4ab7-bc93-3a38ca5740ad"
+    icon:
+      assetId: "a00455c00c7e3e452ce0f3159abd7655e66fabc3ce3d66cf6b8a65d8c0d3de12"
+      originalName: "clipboard-image.png"
+    noteId: "b799c929-ef7f-4afb-accc-238a29fe44d6"
+  - id: "3428c6c4-959d-4c25-97a1-e6ed28bece57"
+    icon:
+      assetId: "23af631b3855a520c095192fac6aeab8a9937c58f9b48fd744356ea9333f482e"
+      originalName: "clipboard-image.png"
+    noteId: "7cca4283-8332-469d-9b3d-e2ee11539b92"
+  - id: "75ba8c48-4b0b-4845-b825-e45f3cb7c9b0"
+    icon:
+      assetId: "ecd46056178dc7319310c9865dfc7c1acd7ad8db5a946532aa1a7f1319ad1e94"
+      originalName: "clipboard-image.png"
+    noteId: "350c7613-46a6-46ca-8ee0-5457d56f1047"
+  - id: "507c07ef-7405-4907-83f5-37129d31c094"
+    icon:
+      assetId: "862bcaed1fa44419524c14db1495d35f81cd8cad3c2fdc200b7a60a21228ae9f"
+      originalName: "clipboard-image.png"
+    noteId: "f85b6c11-f686-4569-941e-b776e514e768"
 platforms:
   - Nintendo Switch 2
   - Nintendo Switch
@@ -14,4 +35,4 @@ placement:
   rank: 33792
 reviewMarkdown: |2-
 createdAt: "2026-07-17T06:01:20.175Z"
-updatedAt: "2026-08-23T09:37:36.945Z"
+updatedAt: "2026-08-23T22:25:03.885Z"
