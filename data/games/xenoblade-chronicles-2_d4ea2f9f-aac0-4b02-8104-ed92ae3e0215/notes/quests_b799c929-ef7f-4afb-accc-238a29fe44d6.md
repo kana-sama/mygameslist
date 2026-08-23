@@ -8,9 +8,12 @@ collapsedChecklistSections:
   - "group:130w65h-30"
   - "group:134s3tz-2q"
   - "group:14lzw5m-26"
+  - "group:15aixf1-2v"
   - "group:16b70xx-2s"
+  - "group:185wgxd-2p"
   - "group:188544d-2r"
   - "group:189pmq5-22"
+  - "group:198bx7r-28"
   - "group:19ov0l8-2o"
   - "group:1agu62o-2y"
   - "group:1blfqgs-26"
@@ -19,7 +22,6 @@ collapsedChecklistSections:
   - "group:1dt6lvp-2o"
   - "group:1hupkpg-2o"
   - "group:1hvh87y-22"
-  - "group:1ilp7y3-2o"
   - "group:1irzp5i-2q"
   - "group:1kpld0-22"
   - "group:1le00f0-26"
@@ -35,6 +37,7 @@ collapsedChecklistSections:
   - "group:1wh0ojq-2p"
   - "group:1wspjr-2q"
   - "group:1ykgtwu-2n"
+  - "group:41m6fg-25"
   - "group:423e1p-2w"
   - "group:4aimsk-2z"
   - "group:6k49bw-2w"
@@ -65,10 +68,14 @@ collapsedChecklistSections:
   - "group:vsyx0k-2t"
   - "group:wowk9r-2q"
   - "group:y9kyq3-2n"
+  - "group:zlw5he-22"
   - "heading:12a39n2-19"
   - "heading:12t6nk8-26"
   - "heading:14ewmv5-19"
   - "heading:1e7grcw-19"
+  - "heading:1igx2z-1a"
+  - "heading:1kyaobx-19"
+  - "heading:1lsdqvw-26"
   - "heading:1t54tir-26"
   - "heading:1ufv46v-19"
   - "heading:1uqusto-19"
@@ -82,7 +89,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-21T08:34:54.374Z"
+updatedAt: "2026-08-23T03:26:43.838Z"
 -->
 # Quests
 
@@ -91,7 +98,7 @@ updatedAt: "2026-08-21T08:34:54.374Z"
 - [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
 - [x] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
 - [x] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
-- [ ] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
+- [x] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
 
 ## Chapter 1
 
@@ -220,7 +227,7 @@ updatedAt: "2026-08-21T08:34:54.374Z"
 
   - Normal Quests
 
-    - [ ] [Whereabouts Unknown]("Ashe · Torigoth Base Entrance")
+    - [x] [Whereabouts Unknown]("Ashe · Torigoth Base Entrance")
 
 - Kingdom of Uraya
 
@@ -246,16 +253,16 @@ updatedAt: "2026-08-21T08:34:54.374Z"
 
   - Normal Quests
 
-    - [ ] [Mellica the Chorister]("Mellica · Seoris Plaza; требования: rest at Indoline Sanctum Chambers.")
-    - [ ] [Indol's Teachings]("Mololo · Quattor Street; требования: group sets out for Temperantia.")
+    - [x] [Mellica the Chorister]("Mellica · Seoris Plaza; требования: rest at Indoline Sanctum Chambers.")
+    - [x] [Indol's Teachings]("Mololo · Quattor Street; требования: group sets out for Temperantia.")
 
 - Leftherian Archipelago
 
   - Normal Quests
 
-    - [ ] [Maiden Voyage]("Olua · Baldotas Isle")
-    - [ ] [At Wit's End]("Sokoko · Merto Island")
-    - [ ] [Stolen Keepsake]("Dragand · Village Guardian")
+    - [x] [Maiden Voyage]("Olua · Baldotas Isle")
+    - [x] [At Wit's End]("Sokoko · Merto Island")
+    - [x] [Stolen Keepsake]("Dragand · Village Guardian")
 
 ## Chapter 6
 
@@ -447,7 +454,7 @@ updatedAt: "2026-08-21T08:34:54.374Z"
 ### Chapter 4
 
 - Ursula
-  - [ ] [Bearing Her Soul]("Torigoth; требования: Ursula; Not Quite Comfortable Yet (H2H).")
+  - [x] [Bearing Her Soul]("Torigoth; требования: Ursula; Not Quite Comfortable Yet (H2H).")
 - Vess
   - [x] [Tranquility]("Torigoth; задание получения Vess; daytime only.")
 

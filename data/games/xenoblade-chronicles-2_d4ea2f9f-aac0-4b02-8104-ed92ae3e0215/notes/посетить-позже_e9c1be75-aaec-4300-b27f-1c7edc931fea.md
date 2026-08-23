@@ -1,8 +1,9 @@
 <!-- mygameslist-note:v1
 id: "e9c1be75-aaec-4300-b27f-1c7edc931fea"
-rank: 2048
+groupRank: 1536
+rank: 512
 createdAt: "2026-08-15T11:10:49.672Z"
-updatedAt: "2026-08-16T02:10:32.909Z"
+updatedAt: "2026-08-23T04:37:21.689Z"
 -->
 # Посетить позже
 
@@ -12,5 +13,5 @@ updatedAt: "2026-08-16T02:10:32.909Z"
 
 ## Kingdom of Uraya
 - [ ] [Badfella's Cave Fort (lvl 80)]("Tardy Gate")
-- [ ] [Old Quarry (lvl 40)]("Tardy Gate")
-- [ ] [Carolline Sanctum - что-то под водой]("Crown of Sanctuary")
+- [x] [Old Quarry (lvl 40)]("Tardy Gate")
+- [x] [Carolline Sanctum - что-то под водой]("Crown of Sanctuary")

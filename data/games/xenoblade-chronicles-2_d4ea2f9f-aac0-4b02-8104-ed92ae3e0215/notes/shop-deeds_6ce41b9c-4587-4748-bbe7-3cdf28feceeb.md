@@ -56,10 +56,9 @@ collapsedChecklistSections:
   - "group:uvmet-2a"
   - "group:zbbahv-2b"
   - "group:zuo2j7-23"
-  - "heading:1ejpocg-1j"
   - "heading:1u4gwz0-1c"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-20T23:06:31.181Z"
+updatedAt: "2026-08-23T04:26:53.903Z"
 -->
 # Shop Deeds
 
@@ -98,8 +97,8 @@ updatedAt: "2026-08-20T23:06:31.181Z"
   - [x] Sneak-Thief King
   - [x] Tradeway 66
   - [x] Coral Nopon Chess Set — открывается после Merc Mission `Cooking Display`.
-  - [ ] Leftherian Life — открывается после Merc Mission `First Class Freshness!`.
-  - [ ] **Nopox Deeds**
+  - [x] Leftherian Life — открывается после Merc Mission `First Class Freshness!`.
+  - [x] **Nopox Deeds**
 
 - Strummer Instruments
 
@@ -118,8 +117,8 @@ updatedAt: "2026-08-20T23:06:31.181Z"
   - [x] Freshening Gel
   - [x] Curled Eyelashes
   - [x] Bubbly Mani-Pedi Kit
-  - [ ] Full Moon Eyeliner — открывается после Merc Mission `First Class Freshness!`.
-  - [ ] **Cleo Deeds**
+  - [x] Full Moon Eyeliner — открывается после Merc Mission `First Class Freshness!`.
+  - [x] **Cleo Deeds**
 
 - Rumbletum Canteen
 
@@ -204,20 +203,20 @@ updatedAt: "2026-08-20T23:06:31.181Z"
 
 - Cosmetipolitan
 
-  - [ ] Puffoundation
-  - [ ] Treesap Conditioner
-  - [ ] Flurrycomb
-  - [ ] Conch Hairpin — открывается после Merc Mission `Renowned Goods`.
+  - [x] Puffoundation
+  - [x] Treesap Conditioner
+  - [x] Flurrycomb
+  - [x] Conch Hairpin — открывается после Merc Mission `Renowned Goods`.
   - [ ] Sparkly Snow Perfume — открывается после Merc Mission `Farming Tech`.
   - [ ] **Cosmetipolitan Deeds**
 
 - Neuromin Textiles
 
-  - [ ] Puzzletree Pouch
-  - [ ] Torigoth-Weave Mat
-  - [ ] Wood-Dye Waistcloth
-  - [ ] Sun-Dappled Curtains
-  - [ ] Leaf-Weave Cape — открывается после Merc Mission `Renowned Goods`.
+  - [x] Puzzletree Pouch
+  - [x] Torigoth-Weave Mat
+  - [x] Wood-Dye Waistcloth
+  - [x] Sun-Dappled Curtains
+  - [x] Leaf-Weave Cape — открывается после Merc Mission `Renowned Goods`.
   - [ ] Snowflake Scarf — открывается после Merc Mission `Farming Tech`.
   - [ ] **Neuromin Deeds**
 
@@ -276,15 +275,15 @@ updatedAt: "2026-08-20T23:06:31.181Z"
   - [x] Titan-Oil Handcream
   - [x] Golden Mascara
   - [x] Gorgeous Blusher — открывается после Merc Mission `Latest Craze`.
-  - [ ] Fonsett-Rouge Lipgloss — открывается после Merc Mission `Shipping Lanes Closed`.
-  - [ ] **Aquaneze Deeds**
+  - [x] Fonsett-Rouge Lipgloss — открывается после Merc Mission `Shipping Lanes Closed`.
+  - [x] **Aquaneze Deeds**
 
 - Sprintsy Sweets
 
   - [x] Rainbow Parfait
   - [x] Blossom Custard
-  - [ ] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
-  - [ ] **Sprintsy Deeds**
+  - [x] Plumage Peach Jelly — открывается после Merc Mission `Shipping Lanes Closed`.
+  - [x] **Sprintsy Deeds**
 
 - Volty Butchers
 
@@ -298,9 +297,9 @@ updatedAt: "2026-08-20T23:06:31.181Z"
 
   - [x] Patron King's Carving
   - [x] Final Chorus
-  - [ ] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
+  - [x] Singing Maiden Statue — открывается после Merc Mission `Shipping Lanes Closed`.
   - [x] Skywards by Titan — открывается после Merc Mission `Beneath the Cloud Sea`.
-  - [ ] **Maluria Deeds**
+  - [x] **Maluria Deeds**
 
 - Ikthus Fishmongers
 
@@ -345,9 +344,9 @@ updatedAt: "2026-08-20T23:06:31.181Z"
   - [x] Steamed-Gel Ice Cream
   - [x] Sweet Lentil Bun
   - [x] Sky-Jewel Tart
-  - [ ] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
-  - [ ] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
-  - [ ] **Salter Deeds**
+  - [x] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
+  - [x] Hot Ruby Steamed Bun — открывается после Merc Mission `Cold Storage`.
+  - [x] **Salter Deeds**
 
 - Haskefell Books
 
@@ -375,8 +374,8 @@ updatedAt: "2026-08-20T23:06:31.181Z"
   - [x] Copper Ephim Statue
   - [x] Ardainian Bear Carving
   - [x] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
-  - [ ] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
-  - [ ] **Yafush Deeds**
+  - [x] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
+  - [x] **Yafush Deeds**
 
 - Hanoon Fishmongers
 
@@ -408,55 +407,55 @@ updatedAt: "2026-08-20T23:06:31.181Z"
 
 - Coral Leaf Fresh Fish
 
-  - [ ] Broiled Pinfin
-  - [ ] Sautéed Beat Shrimps
-  - [ ] Braised Cloud Sea Shark
-  - [ ] Seared Whitebait
-  - [ ] Smoke-Braised Killifish — открывается после Merc Mission `Merchant Ship`.
-  - [ ] **Coral Leaf Deeds**
+  - [x] Broiled Pinfin
+  - [x] Sautéed Beat Shrimps
+  - [x] Braised Cloud Sea Shark
+  - [x] Seared Whitebait
+  - [x] Smoke-Braised Killifish — открывается после Merc Mission `Merchant Ship`.
+  - [x] **Coral Leaf Deeds**
 
 - Speck Butchers
 
-  - [ ] Pastel Camill
-  - [ ] Albacon Frystack
-  - [ ] Sweet Armu Belly Stew
-  - [ ] Zaproast Power Bowl
-  - [ ] Fragrant Samod Stralu — открывается после Merc Mission `Nopon Cooking`.
-  - [ ] Glarna Stir-Fry — открывается после Merc Mission `Ship Lane Lighting`.
-  - [ ] **Speck Deeds**
+  - [x] Pastel Camill
+  - [x] Albacon Frystack
+  - [x] Sweet Armu Belly Stew
+  - [x] Zaproast Power Bowl
+  - [x] Fragrant Samod Stralu — открывается после Merc Mission `Nopon Cooking`.
+  - [x] Glarna Stir-Fry — открывается после Merc Mission `Ship Lane Lighting`.
+  - [x] **Speck Deeds**
 
 - Future Crafts
 
-  - [ ] Jellyfish Balsam Rug
-  - [ ] Codweave Shop Curtain
-  - [ ] Codweave Safety Blanky
-  - [ ] Silken Stool
-  - [ ] Noponcho — открывается после Merc Mission `Nopon Cooking`.
-  - [ ] Prismatic Headband — открывается после Merc Mission `Ship Lane Lighting`.
-  - [ ] **Future Deeds**
+  - [x] Jellyfish Balsam Rug
+  - [x] Codweave Shop Curtain
+  - [x] Codweave Safety Blanky
+  - [x] Silken Stool
+  - [x] Noponcho — открывается после Merc Mission `Nopon Cooking`.
+  - [x] Prismatic Headband — открывается после Merc Mission `Ship Lane Lighting`.
+  - [x] **Future Deeds**
 
 - Talmye Antiques
 
-  - [ ] Luna Lizard Wreath
-  - [ ] Montecoran Doll
-  - [ ] Steel Pipe Lexos
-  - [ ] Lush Moonbeam Mask
-  - [ ] **Talmye Deeds**
+  - [x] Luna Lizard Wreath
+  - [x] Montecoran Doll
+  - [x] Steel Pipe Lexos
+  - [x] Lush Moonbeam Mask
+  - [x] **Talmye Deeds**
 
 - Corcaja Greengrocers
 
-  - [ ] Lybarian Chowder
-  - [ ] Green Cheese Salad
-  - [ ] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
-  - [ ] Veg & Oyster Aspic
+  - [x] Lybarian Chowder
+  - [x] Green Cheese Salad
+  - [x] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
+  - [x] Veg & Oyster Aspic
   - [ ] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
   - [ ] **Corcaja Deeds**
 
 - Cafe Lutino ※1
 
-  - [ ] Odifa — доступно с Chapter 9.
-  - [ ] Indoline Tea — доступно с Chapter 9.
-  - [ ] Frozen Odifa — доступно с Chapter 9.
+  - [x] Odifa — доступно с Chapter 9.
+  - [x] Indoline Tea — доступно с Chapter 9.
+  - [x] Frozen Odifa — доступно с Chapter 9.
   - [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
   - [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
   - [ ] **Lutino Deeds**
