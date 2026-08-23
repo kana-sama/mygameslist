@@ -365,6 +365,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-heading { display: flex; align-items: baseline; gap: 6px; }
 .markdown h2.markdown-checklist-heading { font-size: 1.32em; font-weight: 700; }
 .markdown h3.markdown-checklist-heading { margin-block-start: 1.55em; padding-block-start: .9em; border-block-start: 1px solid var(--line-soft); font-size: 1.08em; font-weight: 650; }
+.markdown h3.markdown-checklist-heading--collapsed { margin-block-start: .45em; padding-block: .45em; padding-block-start: .45em; padding-block-end: .45em; }
 .markdown h4.markdown-checklist-heading { box-sizing: border-box; margin-block: 0; margin-inline-start: .5em; padding: .55em 0 .55em .95em; border-inline-start: 1px solid var(--line-soft); font-size: 1em; font-weight: 550; }
 .markdown h4.markdown-checklist-heading + ul, .markdown h4.markdown-checklist-heading + ol { box-sizing: border-box; margin-block: 0; margin-inline-start: .5em; padding-inline-start: .95em; border-inline-start: 1px solid var(--line-soft); }
 .markdown > h4.markdown-checklist-heading + ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown > h4.markdown-checklist-heading + ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > h4.markdown-checklist-heading + ul:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))), .markdown-section > h4.markdown-checklist-heading + ol:has(> .markdown-checklist-group):not(:has(> li:not(.markdown-checklist-group):not(.markdown-task-item))) { padding-inline-start: .95em; }
@@ -373,6 +374,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-group__header { display: flex; align-items: baseline; gap: 6px; font-weight: 600; }
 .markdown-checklist-group__title { min-width: 0; flex: 1; }
 .markdown-checklist-heading__toggle { min-width: 0; flex: 1; display: flex; align-items: baseline; gap: 6px; }
+.markdown-checklist-heading__chevron { flex: 0 0 auto; color: inherit; transition: transform 120ms; }
+.markdown-checklist-heading__toggle[aria-expanded="false"] .markdown-checklist-heading__chevron { transform: rotate(-90deg); }
 .markdown-checklist-toggle { width: 100%; appearance: none; padding: 0; border: 0; border-radius: 3px; color: inherit; background: transparent; font: inherit; line-height: inherit; text-align: start; cursor: pointer; }
 .markdown-checklist-toggle:disabled { cursor: default; }
 .markdown-checklist-toggle:focus-visible, .markdown-table-group__header:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

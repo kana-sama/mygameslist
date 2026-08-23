@@ -850,7 +850,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
         const visualDuplicate = variant === "inner";
         const titleLayer = variant === "single" ? "" : ` markdown-note-title--${variant}`;
         const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
-          <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} tabIndex={visualDuplicate ? -1 : undefined} type="button">{progressChildren}</button>
+          <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} tabIndex={visualDuplicate ? -1 : undefined} type="button"><Icon className="markdown-checklist-heading__chevron" name="chevron-down" size={13} />{progressChildren}</button>
         ) : progressChildren;
         const commonProps = {
           "aria-hidden": visualDuplicate || undefined,

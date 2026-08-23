@@ -110,6 +110,80 @@ describe("Markdown tasks", () => {
     }
   });
 
+  it("renders disclosure chevrons only for interactive progress headings and compacts collapsed groups", async () => {
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    const user = userEvent.setup();
+    const markdown = [
+      "# Root",
+      "- [ ] Root task",
+      "## Group",
+      "- [ ] Group task",
+      "- Nested group",
+      "  - [ ] Nested task",
+      "# Plain heading",
+      "Plain content",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+    });
+
+    try {
+      view = render(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+
+      const root = screen.getByRole("heading", { name: "Root Выполнено 0 из 3" });
+      const group = screen.getByRole("heading", { name: "Group Выполнено 0 из 2" });
+      const plain = screen.getByRole("heading", { name: "Plain heading" });
+      const nested = screen.getByRole("button", { name: "Nested group Выполнено 0 из 1" });
+      const expandedGroupMargin = Number.parseFloat(getComputedStyle(group).marginBlockStart);
+      const expandedGroupPadding = Number.parseFloat(getComputedStyle(group).paddingBlockStart);
+
+      for (const heading of [root, group]) {
+        const button = heading.querySelector(".markdown-checklist-heading__toggle")!;
+        const chevrons = button.querySelectorAll(".markdown-checklist-heading__chevron");
+        expect(chevrons).toHaveLength(1);
+        expect(chevrons[0]).toHaveAttribute("aria-hidden", "true");
+        expect(button).toHaveAccessibleName(heading === root ? "Root Выполнено 0 из 3" : "Group Выполнено 0 из 2");
+      }
+      expect(nested.querySelector(".markdown-checklist-heading__chevron")).toBeNull();
+      expect(plain.querySelector(".markdown-checklist-heading__chevron")).toBeNull();
+      expect(group).not.toHaveClass("markdown-checklist-heading--collapsed");
+
+      await user.click(screen.getByRole("button", { name: "Group Выполнено 0 из 2" }));
+
+      const collapsedGroup = screen.getByRole("heading", { name: "Group Выполнено 0 из 2" });
+      const collapsedButton = screen.getByRole("button", { name: "Group Выполнено 0 из 2" });
+      const chevron = collapsedButton.querySelector(".markdown-checklist-heading__chevron")!;
+      const collapsedStyle = getComputedStyle(collapsedGroup);
+      expect(collapsedButton).toHaveAttribute("aria-expanded", "false");
+      expect(collapsedButton.querySelectorAll(".markdown-checklist-heading__chevron")).toHaveLength(1);
+      expect(getComputedStyle(chevron).transform).toBe("rotate(-90deg)");
+      expect(collapsedGroup).toHaveClass("markdown-checklist-heading--collapsed");
+      expect(Number.parseFloat(collapsedStyle.marginBlockStart)).toBeLessThan(expandedGroupMargin);
+      expect(Number.parseFloat(collapsedStyle.paddingBlockStart)).toBeLessThan(expandedGroupPadding);
+      expect(Number.parseFloat(collapsedStyle.paddingBlockEnd)).toBeGreaterThan(0);
+    } finally {
+      style.remove();
+    }
+  });
+
   it("renders native hover hints without turning them into links", () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
