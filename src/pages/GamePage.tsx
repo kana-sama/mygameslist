@@ -36,6 +36,7 @@ import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
+import type { SidebarLayoutMode } from "../state/sidebarLayoutPreference";
 
 export interface PreparedFile {
   clientId: string;
@@ -436,6 +437,8 @@ export interface GamePageProps {
   onCancel?: () => void;
   onSave: (input: GameSaveInput) => void | Promise<void>;
   onDelete?: (gameId: string) => void | Promise<void>;
+  sidebarLayoutMode?: SidebarLayoutMode;
+  onToggleSidebarLayout?: () => void;
   noteInteractionSource?: NoteInteractionSource;
 }
 
@@ -1255,7 +1258,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
   return createPortal(<PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onAutoFocusConsumed={consumeAutoFocus} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />, host);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, noteInteractionSource }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", onToggleSidebarLayout, noteInteractionSource }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -1492,7 +1495,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
 
   return (
     <div className="page game-view-page">
-      <div className="game-view-layout">
+      <div className={`game-view-layout${sidebarLayoutMode === "top" ? " game-view-layout--sidebar-top" : ""}`}>
         <aside aria-label={game.title} className="game-sidebar">
           {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} canAddBlob={canAddBlob} currentPreviewUrl={cover} disabled={storageLocked || globalActionsDisabled} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className={`game-sidebar__cover${game.status === "platinum" ? " cover--platinum" : ""}`} disabled={globalActionsDisabled} onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
           <h1><InlineTextField active={editingField === "title"} ariaLabel="Название" disabled={globalActionsDisabled} triggerAriaLabel={game.title} onBegin={() => !globalActionsDisabled && setEditingField("title")} onCommit={async (title) => {
@@ -1507,8 +1510,16 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
           <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
-          {onDelete ? <div className="game-sidebar__tools">
-            <button aria-label="Удалить игру" className="game-sidebar__delete" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button>
+          {onToggleSidebarLayout || onDelete ? <div className="game-sidebar__tools">
+            {onToggleSidebarLayout ? <button
+              aria-label={sidebarLayoutMode === "top" ? "Вернуть сайдбар слева" : "Переместить сайдбар наверх"}
+              aria-pressed={sidebarLayoutMode === "top"}
+              className="game-sidebar__layout-toggle"
+              onClick={() => onToggleSidebarLayout()}
+              title={sidebarLayoutMode === "top" ? "Вернуть сайдбар слева" : "Переместить сайдбар наверх"}
+              type="button"
+            ><Icon name={sidebarLayoutMode === "top" ? "expand-vertical" : "expand-horizontal"} size={15} /></button> : null}
+            {onDelete ? <button aria-label="Удалить игру" className="game-sidebar__delete" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button> : null}
           </div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>

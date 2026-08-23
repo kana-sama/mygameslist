@@ -215,6 +215,7 @@ async function openDiff(user: ReturnType<typeof userEvent.setup>): Promise<HTMLE
 
 beforeEach(() => {
   window.location.hash = "#/";
+  window.localStorage.clear();
   window.sessionStorage.clear();
 });
 
@@ -224,6 +225,39 @@ afterEach(() => {
 });
 
 describe("App selective diff integration", () => {
+  it("keeps one persisted sidebar layout across games and App remounts", async () => {
+    const user = userEvent.setup();
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Alpha");
+    base.games[GAME_B_ID] = game(GAME_B_ID, "Beta", 2048);
+    libraryHarness.current = libraryValue(base, base);
+    window.location.hash = `#/games/${GAME_A_ID}`;
+
+    const firstMount = render(<App />);
+
+    expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
+    expect(screen.getByRole("button", { name: "Переместить сайдбар наверх" })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(screen.getByRole("button", { name: "Переместить сайдбар наверх" }));
+    expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
+    expect(screen.getByRole("button", { name: "Вернуть сайдбар слева" })).toHaveAttribute("aria-pressed", "true");
+
+    window.location.hash = `#/games/${GAME_B_ID}`;
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Beta" })).toBeInTheDocument());
+    expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
+
+    firstMount.unmount();
+    const secondMount = render(<App />);
+    expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
+
+    await user.click(screen.getByRole("button", { name: "Вернуть сайдбар слева" }));
+    expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
+
+    secondMount.unmount();
+    render(<App />);
+    expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
+  });
+
   it("does not expose a custom-style control on an existing game page", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Styled Game");

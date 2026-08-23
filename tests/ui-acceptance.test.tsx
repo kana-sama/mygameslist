@@ -311,6 +311,31 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
+  it("puts the top-layout toggle before delete with the accessible active state", async () => {
+    const user = userEvent.setup();
+    const onToggleSidebarLayout = vi.fn();
+    render(<GamePage
+      assets={{}}
+      game={makeGame()}
+      mode="game"
+      notes={[]}
+      onDelete={vi.fn()}
+      onSave={vi.fn()}
+      onToggleSidebarLayout={onToggleSidebarLayout}
+      sidebarLayoutMode="top"
+    />);
+
+    expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
+    const tools = document.querySelector(".game-sidebar__tools")!;
+    const layoutButton = screen.getByRole("button", { name: "Вернуть сайдбар слева" });
+    const deleteButton = screen.getByRole("button", { name: "Удалить игру" });
+    expect(layoutButton).toHaveAttribute("aria-pressed", "true");
+    expect(Array.from(tools.querySelectorAll("button"))).toEqual([layoutButton, deleteButton]);
+
+    await user.click(layoutButton);
+    expect(onToggleSidebarLayout.mock.calls).toEqual([[]]);
+  });
+
   it("places the three-column progress grid after metadata and before delete tools", () => {
     const progressNote: Note = {
       id: NOTE_ID,

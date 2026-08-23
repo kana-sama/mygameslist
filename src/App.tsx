@@ -31,6 +31,7 @@ import {
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
 import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
+import { loadSidebarLayoutMode, toggleSidebarLayoutMode, type SidebarLayoutMode } from "./state/sidebarLayoutPreference";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -225,6 +226,7 @@ function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
+  const [sidebarLayoutMode, setSidebarLayoutMode] = useState<SidebarLayoutMode>(loadSidebarLayoutMode);
   const library = useLibrarySelector(identityLibrary, diffOpen ? Object.is : sameLibraryRouteBoundary);
   const [selectionMode, setSelectionMode] = useState(false);
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
@@ -519,7 +521,11 @@ function LibraryRoutes() {
           />}
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
-        <Route path="/games/:id" element={<GameRoute mode="game" />} />
+        <Route path="/games/:id" element={<GameRoute
+          mode="game"
+          onToggleSidebarLayout={() => setSidebarLayoutMode((current) => toggleSidebarLayoutMode(current))}
+          sidebarLayoutMode={sidebarLayoutMode}
+        />} />
         <Route path="*" element={<div className="empty-state empty-state--hero"><h1>Страница не найдена</h1><p>Такого раздела в библиотеке нет.</p><a className="button button--primary" href="#/">Вернуться в тирлист</a></div>} />
       </Routes>
 
@@ -641,8 +647,10 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
   }, sameNoteInteractionSnapshot);
 }
 
-function GameRoute({ mode }: {
+function GameRoute({ mode, onToggleSidebarLayout, sidebarLayoutMode }: {
   mode: "new" | "game";
+  onToggleSidebarLayout?: () => void;
+  sidebarLayoutMode?: SidebarLayoutMode;
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -687,8 +695,10 @@ function GameRoute({ mode }: {
       const gameId = await selection.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
+    onToggleSidebarLayout={onToggleSidebarLayout}
     platformSuggestions={platformSuggestions}
     resolveAssetUrl={selection.resolveAssetUrl}
+    sidebarLayoutMode={sidebarLayoutMode}
     storageLocked={selection.attachmentsBlocked}
     tagSuggestions={tagSuggestions}
   />;

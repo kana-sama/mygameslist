@@ -338,6 +338,16 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-sidebar__tools button, .inline-cover-editor__close { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
 .game-sidebar__tools button:hover:not(:disabled), .inline-cover-editor__close:hover { color: var(--text); background: var(--surface-3); }
 .game-sidebar__tools .game-sidebar__delete:hover:not(:disabled) { color: #dc858c; }
+.game-view-layout.game-view-layout--sidebar-top { grid-template-columns: minmax(0, 1fr); }
+.game-view-layout--sidebar-top .game-sidebar { position: static; display: grid; grid-template-columns: 160px minmax(160px, 1fr) minmax(300px, 420px); column-gap: 12px; align-items: start; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+.game-view-layout--sidebar-top .game-sidebar__cover,
+.game-view-layout--sidebar-top .inline-cover-editor { grid-column: 1; grid-row: 1 / span 4; }
+.game-view-layout--sidebar-top .game-sidebar h1 { grid-column: 2; grid-row: 1; margin-top: 0; }
+.game-view-layout--sidebar-top .game-sidebar__meta { grid-column: 2; grid-row: 2; }
+.game-view-layout--sidebar-top .game-sidebar__tools { grid-column: 2; grid-row: 3; }
+.game-view-layout--sidebar-top .inline-save-error { grid-column: 2; grid-row: 4; }
+.game-view-layout--sidebar-top .game-progress { grid-column: 3; grid-row: 1 / span 4; margin-top: 0; }
+.game-sidebar__tools .game-sidebar__layout-toggle[aria-pressed="true"] { color: var(--accent); background: var(--surface-3); }
 .inline-save-error { margin: 4px 0 0; }
 .inline-cover-editor { position: relative; min-width: 0; padding: 5px; border: 1px solid var(--line-soft); border-radius: 4px; background: var(--surface); }
 .inline-cover-editor__close { position: absolute; z-index: 3; top: 3px; right: 3px; color: #fff; background: rgba(10, 11, 12, .72); }
@@ -822,6 +832,14 @@ button.markdown-table-group__header:disabled { cursor: default; }
   .filter-menu { flex: 0 0 auto; }
   .filter-menu__panel { position: fixed; z-index: 70; top: auto; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); left: 8px; max-height: 50vh; }
   .game-view-layout { grid-template-columns: 220px minmax(0, 1fr); }
+  .game-view-layout--sidebar-top .game-sidebar { grid-template-columns: 112px minmax(0, 1fr); column-gap: 10px; }
+  .game-view-layout--sidebar-top .game-sidebar__cover,
+  .game-view-layout--sidebar-top .inline-cover-editor { grid-column: 1; grid-row: 1 / span 4; }
+  .game-view-layout--sidebar-top .game-sidebar h1 { grid-column: 2; grid-row: 1; margin: 0 0 7px; font-size: 16px; }
+  .game-view-layout--sidebar-top .game-sidebar__meta { grid-column: 2; grid-row: 2; margin-top: 7px; }
+  .game-view-layout--sidebar-top .game-sidebar__tools { grid-column: 2; grid-row: 3; }
+  .game-view-layout--sidebar-top .inline-save-error { grid-column: 2; grid-row: 4; }
+  .game-view-layout--sidebar-top .game-progress { grid-column: 1 / -1; grid-row: auto; margin-top: 9px; }
   .game-form { grid-template-columns: 1fr; }
   .form-card--wide, .form-actions, .form-error { grid-column: auto; }
   .form-card--cover { max-width: 260px; }
@@ -860,6 +878,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
   .game-card--list .game-card__body { padding: 6px 7px; }
   .game-card__tags { display: none; }
   .game-sidebar { grid-template-columns: 96px minmax(0, 1fr); column-gap: 8px; }
+  .game-view-layout--sidebar-top .game-sidebar { grid-template-columns: 96px minmax(0, 1fr); }
   .game-sidebar__meta > div { padding: 4px 0 5px; }
   .notes-list, .note-editors-grid { grid-template-columns: 1fr; }
   .note-editor-actions { flex-wrap: wrap; }
