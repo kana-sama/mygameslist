@@ -342,34 +342,70 @@ function resetCardLayout(card: HTMLElement): void {
   card.removeAttribute("data-shelf-index");
 }
 
-function measureNaturalHeights(grid: HTMLElement, cards: readonly HTMLElement[]): number[] {
-  const gridAlignItems = grid.style.alignItems;
-  const restoredStyles: Array<{ element: HTMLElement; alignSelf: string; height: string }> = [];
-  const measurementElements = new Set<HTMLElement>();
+interface ShelfMeasurement {
+  grid: HTMLElement;
+  dispose: () => void;
+}
 
-  grid.style.alignItems = "start";
-  for (const card of cards) {
-    measurementElements.add(card);
-    const noteCard = card.matches(".note-card") ? card : card.querySelector<HTMLElement>(".note-card");
-    if (noteCard) measurementElements.add(noteCard);
-    const surface = noteCard?.querySelector<HTMLElement>(".note-card__surface");
-    if (surface) measurementElements.add(surface);
-  }
+function shelfCards(grid: HTMLElement): HTMLElement[] {
+  return Array.from(grid.children).filter((child): child is HTMLElement => child instanceof HTMLElement);
+}
 
-  for (const element of measurementElements) {
-    restoredStyles.push({ element, alignSelf: element.style.alignSelf, height: element.style.height });
-    element.style.height = "auto";
-    if (cards.includes(element)) element.style.alignSelf = "start";
-  }
+function prepareMeasurementCard(card: HTMLElement): void {
+  resetCardLayout(card);
+  const noteCard = card.matches(".note-card") ? card : card.querySelector<HTMLElement>(".note-card");
+  const surface = noteCard?.querySelector<HTMLElement>(".note-card__surface");
+  card.style.alignSelf = "start";
+  card.style.height = "auto";
+  if (noteCard) noteCard.style.height = "auto";
+  if (surface) surface.style.height = "auto";
+}
 
+function createShelfMeasurement(grid: HTMLElement, width: number): ShelfMeasurement {
+  const measurementGrid = grid.cloneNode(true) as HTMLElement;
+  measurementGrid.removeAttribute("id");
+  measurementGrid.setAttribute("data-shelf-measuring", "true");
+  measurementGrid.setAttribute("aria-hidden", "true");
+  measurementGrid.inert = true;
+  Object.assign(measurementGrid.style, {
+    position: "fixed",
+    top: "0px",
+    left: "-100000px",
+    width: `${width}px`,
+    height: "auto",
+    visibility: "hidden",
+    pointerEvents: "none",
+    gridAutoRows: "auto",
+    rowGap: `${DEFAULT_ROW_GAP}px`,
+    alignItems: "start",
+  });
+  measurementGrid.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+  measurementGrid.querySelectorAll("iframe, img, audio, video, source").forEach((element) => {
+    element.removeAttribute("src");
+    element.removeAttribute("srcset");
+    element.removeAttribute("poster");
+  });
+  const cards = shelfCards(measurementGrid);
+  cards.forEach((card, index) => {
+    card.dataset.shelfMeasurementIndex = String(index);
+    prepareMeasurementCard(card);
+  });
+  (grid.parentElement ?? document.body).appendChild(measurementGrid);
+  return { grid: measurementGrid, dispose: () => measurementGrid.remove() };
+}
+
+function measureNaturalHeights(grid: HTMLElement, cards: readonly HTMLElement[], gridWidth: number): number[] {
+  const measurement = createShelfMeasurement(grid, gridWidth);
   try {
-    return cards.map((card) => safePixels(card.getBoundingClientRect().height, 1, 1));
-  } finally {
-    grid.style.alignItems = gridAlignItems;
-    for (const { element, alignSelf, height } of restoredStyles) {
-      element.style.alignSelf = alignSelf;
-      element.style.height = height;
+    const clonedCards = shelfCards(measurement.grid);
+    if (clonedCards.length !== cards.length || clonedCards.some(
+      (card, index) => card.dataset.shelfMeasurementIndex !== String(index),
+    )) {
+      throw new Error("Shelf measurement card sequence changed after cloning");
     }
+    return cards.map((_, index) => safePixels(clonedCards[index].getBoundingClientRect().height, 1, 1));
+  } finally {
+    measurement.dispose();
   }
 }
 
@@ -451,17 +487,12 @@ export function ShelfGrid({
       const columnSpanSignature = columnSpans.join(",");
       const spanChanged = columnSpanSignatureRef.current !== columnSpanSignature;
 
-      grid.setAttribute("data-shelf-measuring", "true");
-      grid.style.gridAutoRows = "auto";
-      grid.style.rowGap = `${DEFAULT_ROW_GAP}px`;
-      cards.forEach(resetCardLayout);
-
       const styles = window.getComputedStyle(grid);
       const columnGap = cssPixels(styles.columnGap, DEFAULT_COLUMN_GAP);
       const minimumColumnWidth = cssPixels(styles.getPropertyValue("--note-column-min"), DEFAULT_COLUMN_WIDTH);
       const gridWidth = grid.getBoundingClientRect().width || grid.clientWidth || minimumColumnWidth;
       const columnCount = Math.max(1, Math.floor((gridWidth + columnGap) / (minimumColumnWidth + columnGap)));
-      const heights = measureNaturalHeights(grid, cards);
+      const heights = measureNaturalHeights(grid, cards, gridWidth);
       const packedCardCount = compositionSize(compositionRef.current);
       const childOrderChanged = previousCards.length !== cards.length
         || cards.some((card, index) => card !== previousCards[index]);

@@ -1,4 +1,5 @@
 import { act, render, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildShelfLayout,
@@ -11,6 +12,44 @@ import {
 class ResizeObserverMock {
   observe() {}
   disconnect() {}
+}
+
+class ShelfMeasurementDisconnectingCard extends HTMLElement {
+  connectedCallback() {
+    if (this.parentElement?.hasAttribute("data-shelf-measuring")) this.remove();
+  }
+}
+
+if (!customElements.get("shelf-measurement-disconnecting-card")) {
+  customElements.define("shelf-measurement-disconnecting-card", ShelfMeasurementDisconnectingCard);
+}
+
+const measurementAttachmentSnapshots: Array<{
+  grid: HTMLElement;
+  parent: HTMLElement | null;
+  ids: number;
+  resources: Array<{ src: string | null; srcset: string | null; poster: string | null }>;
+}> = [];
+
+class ShelfMeasurementProbe extends HTMLElement {
+  connectedCallback() {
+    const grid = this.parentElement;
+    if (!grid?.hasAttribute("data-shelf-measuring")) return;
+    measurementAttachmentSnapshots.push({
+      grid,
+      parent: grid.parentElement,
+      ids: grid.querySelectorAll("[id]").length + Number(grid.hasAttribute("id")),
+      resources: Array.from(grid.querySelectorAll("iframe, img, audio, video, source")).map((element) => ({
+        src: element.getAttribute("src"),
+        srcset: element.getAttribute("srcset"),
+        poster: element.getAttribute("poster"),
+      })),
+    });
+  }
+}
+
+if (!customElements.get("shelf-measurement-probe")) {
+  customElements.define("shelf-measurement-probe", ShelfMeasurementProbe);
 }
 
 function expectNoPlacementOverlaps(layout: ShelfLayout): void {
@@ -392,6 +431,178 @@ describe("ordered shelf layout", () => {
     expect(container.querySelector<HTMLElement>(".notes-list")!.style.alignItems).toBe("");
     expect(cards.every((card) => card.style.height === "" && card.style.alignSelf === "")).toBe(true);
     expect(Array.from(container.querySelectorAll<HTMLElement>(".note-card, .note-card__surface")).every((element) => element.style.height === "")).toBe(true);
+  });
+
+  it("measures natural card heights without resetting the live shelf", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", vi.fn((callback: FrameRequestCallback) => {
+      const frame = nextFrame;
+      nextFrame += 1;
+      frames.set(frame, callback);
+      return frame;
+    }));
+    vi.stubGlobal("cancelAnimationFrame", vi.fn((frame: number) => frames.delete(frame)));
+    let liveCard: HTMLElement | null = null;
+    let liveGrid: HTMLElement | null = null;
+    let toggle: HTMLButtonElement | null = null;
+    let initialShelfPosition = "";
+    let initialGridColumnStart = "";
+    let initialGridColumnEnd = "";
+    let initialGridRowStart = "";
+    let initialGridRowEnd = "";
+    let initialHeight = "";
+    let verifySecondMeasurement = false;
+    let measuredCard: HTMLElement | null = null;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      if (this.dataset.naturalHeight) {
+        if (verifySecondMeasurement) {
+          measuredCard = this;
+          expect(measuredCard).not.toBe(liveCard);
+          expect(this.parentElement).toHaveAttribute("data-shelf-measuring", "true");
+          expect(liveGrid).not.toHaveAttribute("data-shelf-measuring");
+          expect(liveCard?.dataset.shelfPosition).toBe(initialShelfPosition);
+          expect(liveCard?.style.gridColumnStart).toBe(initialGridColumnStart);
+          expect(liveCard?.style.gridColumnEnd).toBe(initialGridColumnEnd);
+          expect(liveCard?.style.gridRowStart).toBe(initialGridRowStart);
+          expect(liveCard?.style.gridRowEnd).toBe(initialGridRowEnd);
+          expect(liveCard?.style.height).toBe(initialHeight);
+          expect(document.activeElement).toBe(toggle);
+        }
+        return { width: 360, height: Number(this.dataset.naturalHeight) } as DOMRect;
+      }
+      return { width: 360, height: 300 } as DOMRect;
+    });
+
+    const flushFrames = () => {
+      while (frames.size) {
+        const pending = [...frames.values()];
+        frames.clear();
+        pending.forEach((callback) => callback(0));
+      }
+    };
+
+    const { container } = render(
+      <ShelfGrid className="notes-list" layoutKey="natural-heights">
+        <article className="note-card" data-natural-height="100" data-note-id="card" style={{ height: "100px" }}>
+          <button className="markdown-checklist-toggle" aria-expanded="false" type="button" />
+          <div className="note-card__surface" />
+        </article>
+      </ShelfGrid>,
+    );
+
+    liveGrid = container.querySelector<HTMLElement>(".notes-list")!;
+    liveCard = liveGrid.children[0] as HTMLElement;
+    toggle = liveCard.querySelector<HTMLButtonElement>(".markdown-checklist-toggle")!;
+    initialShelfPosition = liveCard.dataset.shelfPosition!;
+    initialGridColumnStart = liveCard.style.gridColumnStart;
+    initialGridColumnEnd = liveCard.style.gridColumnEnd;
+    initialGridRowStart = liveCard.style.gridRowStart;
+    initialGridRowEnd = liveCard.style.gridRowEnd;
+    initialHeight = liveCard.style.height;
+    expect([
+      initialShelfPosition,
+      initialGridColumnStart,
+      initialGridColumnEnd,
+      initialGridRowStart,
+      initialGridRowEnd,
+      initialHeight,
+    ]).toEqual([
+      "single", "1", "auto", "1", "span 100", "100px",
+    ]);
+
+    toggle.focus();
+    liveCard.dataset.naturalHeight = "275";
+    verifySecondMeasurement = true;
+    toggle.setAttribute("aria-expanded", "true");
+    await act(async () => {
+      await Promise.resolve();
+      flushFrames();
+    });
+
+    expect(measuredCard).not.toBeNull();
+    expect(document.activeElement).toBe(toggle);
+    expect(liveCard.style.gridRowEnd).toBe("span 275");
+  });
+
+  it("rejects a measurement clone whose connected card sequence differs from the live shelf", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    expect(() => render(
+      <ShelfGrid className="notes-list" layoutKey="measurement-cardinality">
+        {createElement("shelf-measurement-disconnecting-card", { "data-note-id": "generic-card" })}
+      </ShelfGrid>,
+    )).toThrow("Shelf measurement card sequence changed after cloning");
+    expect(document.querySelectorAll("[data-shelf-measuring]")).toHaveLength(0);
+  });
+
+  it("sanitizes the offscreen clone before attachment and removes it after measurement", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    measurementAttachmentSnapshots.length = 0;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    const { container } = render(
+      <div className="measurement-parent">
+        <ShelfGrid className="notes-list" layoutKey="measurement-sanitization">
+          {createElement("shelf-measurement-probe", { "data-note-id": "generic-card", id: "live-card" },
+            createElement("img", { id: "live-image", src: "/image.png", srcSet: "/image-2x.png 2x" }),
+            createElement("video", { id: "live-video", src: "/video.mp4", poster: "/poster.png" }),
+            createElement("source", { id: "live-source", src: "/audio.mp3", srcSet: "/audio-2x.mp3 2x" }),
+            createElement("iframe", { id: "live-frame", src: "/frame.html" }),
+          )}
+        </ShelfGrid>
+      </div>,
+    );
+
+    const liveGrid = container.querySelector<HTMLElement>(".notes-list")!;
+    expect(measurementAttachmentSnapshots).toHaveLength(1);
+    const [snapshot] = measurementAttachmentSnapshots;
+    expect(snapshot.parent).toBe(liveGrid.parentElement);
+    expect(snapshot.grid).not.toBe(liveGrid);
+    expect(snapshot.grid).toHaveAttribute("data-shelf-measuring", "true");
+    expect(snapshot.grid).toHaveAttribute("aria-hidden", "true");
+    expect(snapshot.grid.inert).toBe(true);
+    expect(snapshot.grid.style).toMatchObject({
+      position: "fixed",
+      left: "-100000px",
+      width: "1100px",
+      visibility: "hidden",
+      pointerEvents: "none",
+      gridAutoRows: "auto",
+    });
+    expect(snapshot.ids).toBe(0);
+    expect(snapshot.resources).toEqual([
+      { src: null, srcset: null, poster: null },
+      { src: null, srcset: null, poster: null },
+      { src: null, srcset: null, poster: null },
+      { src: null, srcset: null, poster: null },
+    ]);
+    expect(document.querySelectorAll("[data-shelf-measuring]")).toHaveLength(0);
+  });
+
+  it("removes the offscreen clone when natural-height measurement throws", () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if ((this as HTMLElement).classList.contains("notes-list")) return { width: 1100, height: 300 } as DOMRect;
+      if (this.parentElement?.hasAttribute("data-shelf-measuring")) throw new Error("synthetic measurement failure");
+      return { width: 360, height: 100 } as DOMRect;
+    });
+
+    expect(() => render(
+      <ShelfGrid className="notes-list" layoutKey="measurement-throw-cleanup">
+        <article data-note-id="generic-card" />
+      </ShelfGrid>,
+    )).toThrow("synthetic measurement failure");
+    expect(document.querySelectorAll("[data-shelf-measuring]")).toHaveLength(0);
   });
 
   it("keeps the same card nodes while a frozen composition changes height, then repacks once thawed", () => {
