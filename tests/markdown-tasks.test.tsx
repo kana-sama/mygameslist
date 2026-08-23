@@ -110,6 +110,46 @@ describe("Markdown tasks", () => {
     }
   });
 
+  it("keeps completed subsection paint and divider rules in the shared production stylesheet", () => {
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    try {
+      const rules = [...style.sheet!.cssRules].filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule);
+      const ruleFor = (selector: string): CSSStyleRule => {
+        const rule = rules.find((candidate) => candidate.selectorText === selector);
+        expect(rule).toBeDefined();
+        return rule!;
+      };
+      const subsection = ruleFor(".markdown-checklist-subsection");
+      const dividerRules = rules.filter((rule) => rule.selectorText === ".markdown-checklist-subsection::before");
+      const divider = ruleFor(".markdown-checklist-subsection::before");
+      const heading = ruleFor(".markdown-checklist-subsection > h3.markdown-checklist-heading");
+      const completed = ruleFor(".markdown-checklist-subsection--complete");
+      const completedGap = ruleFor(".markdown-checklist-subsection--complete::after");
+      const adjacentCompleted = ruleFor(".markdown-checklist-subsection--complete + .markdown-checklist-subsection--complete::before");
+      const markdownContent = ruleFor(".note-card__content > .markdown");
+      const fullBleed = ruleFor(".note-card__content > .markdown .markdown-checklist-subsection");
+
+      expect(completed.style.background).toBe("var(--success-wash)");
+      expect(markdownContent.style.getPropertyValue("--markdown-content-inline-padding").trim()).toBe("6px");
+      expect(fullBleed.style.marginInline).toBe("calc(-1 * var(--markdown-content-inline-padding))");
+      expect(fullBleed.style.paddingInline).toBe("var(--markdown-content-inline-padding)");
+      expect(dividerRules).toHaveLength(1);
+      expect(subsection.style.getPropertyValue("--markdown-checklist-subsection-line-width").trim()).toBe("1px");
+      expect(subsection.style.getPropertyValue("--markdown-checklist-subsection-line").trim()).toBe("var(--line-soft)");
+      expect(divider.style.borderBlockStart).toBe("var(--markdown-checklist-subsection-line-width) solid var(--markdown-checklist-subsection-line)");
+      expect(heading.style.borderBlockStartColor).toBe("transparent");
+      expect(completedGap.style.border).toBe("");
+      expect(completedGap.style.borderBlockStart).toBe("");
+      expect(subsection.style.getPropertyValue("--markdown-checklist-subsection-adjacent-complete-line").trim()).toBe("color-mix(in srgb,var(--line-soft) 92%,var(--text))");
+      expect(adjacentCompleted.style.borderBlockStartColor).toBe("var(--markdown-checklist-subsection-adjacent-complete-line)");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("renders collapsed heading state as a sibling without changing heading rhythm", async () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
@@ -881,6 +921,168 @@ describe("Markdown tasks", () => {
     expect(other.querySelector(".markdown-checklist-progress")).toHaveTextContent("1/1");
     expect(other).toHaveClass("markdown-checklist-heading--complete");
     expect(empty.querySelector(".markdown-checklist-progress")).toBeNull();
+  });
+
+  it("wraps completed and incomplete checklist subsections at their heading boundaries", () => {
+    const markdown = [
+      "# Root",
+      "## Complete alpha",
+      "Alpha detail.",
+      "- [x] Alpha task",
+      "## Complete beta",
+      "Beta detail.",
+      "- [x] Beta task",
+      "## Incomplete parent",
+      "Parent detail.",
+      "- [ ] Parent task",
+      "### Complete child",
+      "Complete child detail.",
+      "- [x] Child task",
+      "### Incomplete child",
+      "Incomplete child detail.",
+      "- [ ] Other child task",
+      "### Plain nested",
+      "Plain nested detail.",
+      "- Plain nested item",
+      "## Plain sibling",
+      "Plain sibling detail.",
+      "- Plain sibling item",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const completeAlpha = screen.getByRole("heading", { name: "Complete alpha Выполнено 1 из 1" });
+    const completeBeta = screen.getByRole("heading", { name: "Complete beta Выполнено 1 из 1" });
+    const incompleteParent = screen.getByRole("heading", { name: "Incomplete parent Выполнено 1 из 3" });
+    const completeChild = screen.getByRole("heading", { name: "Complete child Выполнено 1 из 1" });
+    const incompleteChild = screen.getByRole("heading", { name: "Incomplete child Выполнено 0 из 1" });
+    const plainNested = screen.getByRole("heading", { name: "Plain nested" });
+    const plainSibling = screen.getByRole("heading", { name: "Plain sibling" });
+    const completeAlphaWrapper = completeAlpha.closest<HTMLElement>(".markdown-checklist-subsection");
+    const completeBetaWrapper = completeBeta.closest<HTMLElement>(".markdown-checklist-subsection");
+    const incompleteParentWrapper = incompleteParent.closest<HTMLElement>(".markdown-checklist-subsection");
+    const completeChildWrapper = completeChild.closest<HTMLElement>(".markdown-checklist-subsection");
+    const incompleteChildWrapper = incompleteChild.closest<HTMLElement>(".markdown-checklist-subsection");
+
+    expect(completeAlphaWrapper).toHaveClass("markdown-checklist-subsection--complete");
+    expect(completeBetaWrapper).toHaveClass("markdown-checklist-subsection--complete");
+    expect(incompleteParentWrapper).not.toHaveClass("markdown-checklist-subsection--complete");
+    expect(completeChildWrapper).toHaveClass("markdown-checklist-subsection--complete");
+    expect(incompleteChildWrapper).not.toHaveClass("markdown-checklist-subsection--complete");
+    expect(plainNested.closest(".markdown-checklist-subsection")).toBe(incompleteParentWrapper);
+    expect(plainNested.parentElement).toBe(incompleteParentWrapper);
+    expect(plainSibling.closest(".markdown-checklist-subsection")).toBeNull();
+    expect(completeAlphaWrapper?.parentElement).toBe(completeBetaWrapper?.parentElement);
+    expect(completeBetaWrapper?.parentElement).toBe(incompleteParentWrapper?.parentElement);
+    expect([...completeAlphaWrapper!.parentElement!.children].filter((child) => child.classList.contains("markdown-checklist-subsection"))).toEqual([
+      completeAlphaWrapper,
+      completeBetaWrapper,
+      incompleteParentWrapper,
+    ]);
+    expect(completeChildWrapper?.parentElement).toBe(incompleteParentWrapper);
+    expect(incompleteChildWrapper?.parentElement).toBe(incompleteParentWrapper);
+    expect([...incompleteParentWrapper!.children].filter((child) => child.classList.contains("markdown-checklist-subsection"))).toEqual([
+      completeChildWrapper,
+      incompleteChildWrapper,
+    ]);
+    const alphaParagraph = screen.getByText("Alpha detail.").closest("p");
+    const betaParagraph = screen.getByText("Beta detail.").closest("p");
+    const parentParagraph = screen.getByText("Parent detail.").closest("p");
+    const completeChildParagraph = screen.getByText("Complete child detail.").closest("p");
+    const incompleteChildParagraph = screen.getByText("Incomplete child detail.").closest("p");
+    const plainNestedParagraph = screen.getByText("Plain nested detail.").closest("p");
+    const alphaList = screen.getByText("Alpha task").closest("ul");
+    const betaList = screen.getByText("Beta task").closest("ul");
+    const parentList = screen.getByText("Parent task").closest("ul");
+    const completeChildList = screen.getByText("Child task").closest("ul");
+    const incompleteChildList = screen.getByText("Other child task").closest("ul");
+    const plainNestedList = screen.getByText("Plain nested item").closest("ul");
+    for (const [content, owner] of [
+      [alphaParagraph, completeAlphaWrapper],
+      [alphaList, completeAlphaWrapper],
+      [betaParagraph, completeBetaWrapper],
+      [betaList, completeBetaWrapper],
+      [parentParagraph, incompleteParentWrapper],
+      [parentList, incompleteParentWrapper],
+      [plainNestedParagraph, incompleteParentWrapper],
+      [plainNestedList, incompleteParentWrapper],
+      [completeChildParagraph, completeChildWrapper],
+      [completeChildList, completeChildWrapper],
+      [incompleteChildParagraph, incompleteChildWrapper],
+      [incompleteChildList, incompleteChildWrapper],
+    ]) expect(content?.parentElement).toBe(owner);
+    expect(completeBetaWrapper).not.toContain(alphaParagraph);
+    expect(completeAlphaWrapper).not.toContain(betaList);
+    expect(completeChildWrapper).not.toContain(parentParagraph);
+    expect(incompleteChildWrapper).not.toContain(plainNestedList);
+  });
+
+  it("updates a subsection completion wrapper when its last checkbox changes", async () => {
+    const user = userEvent.setup();
+    let markdown = "# Root\n## Route\n- [x] Done\n- [ ] Pending";
+    let view: ReturnType<typeof render>;
+    const onTaskChange = vi.fn((nextMarkdown: string) => {
+      markdown = nextMarkdown;
+      view.rerender(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+    });
+    view = render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    const initialRoute = screen.getByRole("heading", { name: "Route Выполнено 1 из 2" });
+    expect(initialRoute.tagName).toBe("H3");
+    expect(initialRoute.closest(".markdown-checklist-subsection")).not.toHaveClass("markdown-checklist-subsection--complete");
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Pending" }));
+
+    expect(onTaskChange).toHaveBeenCalledWith("# Root\n## Route\n- [x] Done\n- [x] Pending");
+    const completedRoute = screen.getByRole("heading", { name: "Route Выполнено 2 из 2" });
+    const completedRouteWrapper = completedRoute.closest<HTMLElement>(".markdown-checklist-subsection");
+    expect(completedRoute.tagName).toBe("H3");
+    expect(completedRouteWrapper).toHaveClass("markdown-checklist-subsection--complete");
+    expect(completedRouteWrapper?.parentElement).toHaveClass("markdown-section");
+    expect(completedRouteWrapper?.querySelector(":scope > h3")).toBe(completedRoute);
+  });
+
+  it("keeps a collapsed subsection wrapper without creating wrappers for hidden descendants", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "# Root",
+      "## Collapsed route",
+      "### Hidden first",
+      "- [x] First task",
+      "### Hidden second",
+      "- [x] Second task",
+      "## Visible sibling",
+      "- [ ] Pending task",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+    });
+    view = render(
+      <MarkdownView
+        collapsedChecklistSections={collapsed}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Collapsed route Выполнено 2 из 2" }));
+
+    const collapsedRoute = screen.getByRole("heading", { name: "Collapsed route Выполнено 2 из 2" });
+    const collapsedRouteWrapper = collapsedRoute.closest<HTMLElement>(".markdown-checklist-subsection");
+    expect(collapsedRouteWrapper).toHaveClass("markdown-checklist-subsection--complete");
+    expect(collapsedRouteWrapper?.querySelectorAll(".markdown-checklist-subsection")).toHaveLength(0);
+    expect(view.container.querySelectorAll(".markdown-checklist-subsection")).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: /Hidden first|Hidden second/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Visible sibling Выполнено 0 из 1" }).closest(".markdown-checklist-subsection")).toBeInTheDocument();
   });
 
   it("shows independent totals for checklist groups at every nested list depth", () => {

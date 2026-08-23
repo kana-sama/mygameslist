@@ -589,7 +589,7 @@
   filter: drop-shadow(12px 18px 18px rgba(0, 0, 0, .5)) drop-shadow(0 0 15px rgba(120, 202, 236, .18));
 }
 
-.note-card__content > .markdown { padding: 11px 13px 14px; }
+.note-card__content > .markdown { --markdown-content-inline-padding: 13px; padding: 11px 13px 14px; }
 
 .note-card__viewport {
   scrollbar-color: #5caed0 rgba(4, 19, 31, .46);
@@ -842,8 +842,14 @@
   filter: drop-shadow(8px 9px 8px rgba(0, 0, 0, .36));
 }
 
+.markdown-checklist-subsection {
+  --markdown-checklist-subsection-gap: 12px;
+}
+
 .markdown-section > h3.markdown-checklist-heading,
-.markdown-section > h4.markdown-checklist-heading {
+.markdown-section > h4.markdown-checklist-heading,
+.markdown-checklist-subsection > h3.markdown-checklist-heading,
+.markdown-checklist-subsection > h4.markdown-checklist-heading {
   min-height: 31px;
   align-items: center;
   gap: 8px;
@@ -859,7 +865,8 @@
   text-transform: uppercase;
 }
 
-.markdown-section > h4.markdown-checklist-heading {
+.markdown-section > h4.markdown-checklist-heading,
+.markdown-checklist-subsection > h4.markdown-checklist-heading {
   min-height: 27px;
   margin-left: 8px;
   color: #a9d8e8;
@@ -868,7 +875,9 @@
 }
 
 .markdown-section > h3.markdown-checklist-heading--complete,
-.markdown-section > h4.markdown-checklist-heading--complete {
+.markdown-section > h4.markdown-checklist-heading--complete,
+.markdown-checklist-subsection > h3.markdown-checklist-heading--complete,
+.markdown-checklist-subsection > h4.markdown-checklist-heading--complete {
   color: #9bd3ac;
   background: linear-gradient(100deg, rgba(30, 79, 58, .5), rgba(5, 30, 31, .34));
 }
@@ -1160,7 +1169,7 @@
   .note-card:not(.note-card--editing):focus-within { box-shadow: 5px 14px 12px rgba(0, 0, 0, .38); }
   .note-card:not(.note-card--editing):hover::before,
   .note-card:not(.note-card--editing):focus-within::before { background: rgba(49, 126, 158, .44); }
-  .note-card__content > .markdown { padding-inline: 10px; }
+  .note-card__content > .markdown { --markdown-content-inline-padding: 10px; padding-inline: 10px; }
   .note-card__viewport .markdown-note-title--inner { margin-inline: -10px; }
   .note-card__viewport .markdown-note-title--inner,
   .note-card__page-heading > .markdown-note-title--outer {

@@ -895,8 +895,30 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const content: ReactNode[] = [];
   let sectionStartIndex: number | null = null;
   let sectionChildren: ReactNode[] = [];
+  const subsectionStack: Array<{ children: ReactNode[]; complete: boolean; depth: number; startIndex: number }> = [];
+  const appendSectionChild = (child: ReactNode): void => {
+    const parent = subsectionStack.at(-1);
+    if (parent) parent.children.push(child);
+    else sectionChildren.push(child);
+  };
+  const closeSubsection = (): void => {
+    const subsection = subsectionStack.pop();
+    if (!subsection) return;
+    appendSectionChild(
+      <div
+        className={`markdown-checklist-subsection${subsection.depth >= 3 ? " markdown-checklist-subsection--nested" : ""}${subsection.complete ? " markdown-checklist-subsection--complete" : ""}`}
+        key={`subsection-${subsection.startIndex}`}
+      >
+        {subsection.children}
+      </div>,
+    );
+  };
+  const closeSubsectionsAtOrBelow = (depth: number): void => {
+    while (subsectionStack.length > 0 && subsectionStack.at(-1)!.depth >= depth) closeSubsection();
+  };
   const flushSection = (): void => {
     if (sectionStartIndex === null) return;
+    closeSubsectionsAtOrBelow(0);
     content.push(<div className="markdown-section" key={`section-${sectionStartIndex}`}>{sectionChildren}</div>);
   };
   blocks.forEach((block, index) => {
@@ -906,8 +928,21 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       sectionChildren = [];
     }
     const rendered = renderBlock(block, index);
+    if (rendered !== null && sectionStartIndex !== null && block.type === "heading" && (block.depth ?? 0) >= 2) {
+      const depth = block.depth ?? 0;
+      closeSubsectionsAtOrBelow(depth);
+      const progress = block.checklistProgress;
+      if (progress) {
+        subsectionStack.push({
+          children: [],
+          complete: !progress.open && progress.checked === progress.total,
+          depth,
+          startIndex: index,
+        });
+      }
+    }
     if (sectionStartIndex === null) content.push(rendered);
-    else sectionChildren.push(rendered);
+    else appendSectionChild(rendered);
   });
   flushSection();
 
