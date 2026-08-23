@@ -546,6 +546,18 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     onCollapsedChecklistSectionsChange([...next].sort());
   };
 
+  const collapsedHeadingItemCount = (headingIndex: number, headingDepth: number, progress: ChecklistProgress): number => {
+    let childHeadingCount = 0;
+    for (let index = headingIndex + 1; index < blocks.length; index += 1) {
+      const candidate = blocks[index];
+      if (candidate.type !== "heading") continue;
+      const candidateDepth = candidate.depth ?? 0;
+      if (candidateDepth <= headingDepth) break;
+      if (candidateDepth === headingDepth + 1 && candidate.checklistProgress) childHeadingCount += 1;
+    }
+    return childHeadingCount || progress.total;
+  };
+
   const renderList = (block: MarkdownBlock, key: string): ReactNode => {
     const Tag = block.type === "list" ? "ul" : "ol";
     return (
@@ -846,11 +858,12 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       if (collapsed) hiddenHeadingDepth = block.depth ?? 0;
       const headingClassName = progress ? `markdown-checklist-heading${!progress.open && progress.checked === progress.total ? " markdown-checklist-heading--complete" : ""}${collapsed ? " markdown-checklist-heading--collapsed" : ""}` : undefined;
       const progressChildren = progress ? <><span className="markdown-checklist-heading__title">{children}</span>{" "}<ChecklistProgressView progress={progress} /></> : children;
+      const collapsedItemCount = collapsed && progress ? collapsedHeadingItemCount(index, block.depth ?? 0, progress) : 0;
       const renderHeading = (variant: "inner" | "outer" | "single", headingKey: string): ReactNode => {
         const visualDuplicate = variant === "inner";
         const titleLayer = variant === "single" ? "" : ` markdown-note-title--${variant}`;
         const headingChildren = progress && collapseId && onCollapsedChecklistSectionsChange ? (
-          <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} tabIndex={visualDuplicate ? -1 : undefined} type="button"><Icon className="markdown-checklist-heading__chevron" name="chevron-down" size={13} />{progressChildren}</button>
+          <button aria-expanded={!collapsed} className="markdown-checklist-heading__toggle markdown-checklist-toggle" disabled={taskChangesDisabled} onClick={() => toggleChecklistSection(collapseId)} tabIndex={visualDuplicate ? -1 : undefined} type="button">{progressChildren}</button>
         ) : progressChildren;
         const commonProps = {
           "aria-hidden": visualDuplicate || undefined,
@@ -858,9 +871,18 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           "data-checklist-section-id": progress ? collapseId : undefined,
           inert: visualDuplicate || undefined,
         };
-        if (block.depth === 1) return <h2 key={headingKey} {...commonProps}>{headingChildren}</h2>;
-        if (block.depth === 2) return <h3 key={headingKey} {...commonProps}>{headingChildren}</h3>;
-        return <h4 key={headingKey} {...commonProps}>{headingChildren}</h4>;
+        const heading = block.depth === 1
+          ? <h2 {...commonProps}>{headingChildren}</h2>
+          : block.depth === 2
+            ? <h3 {...commonProps}>{headingChildren}</h3>
+            : <h4 {...commonProps}>{headingChildren}</h4>;
+        const collapsedStateClassName = `markdown-checklist-heading__collapsed-state${block.depth && block.depth >= 3 ? " markdown-checklist-heading__collapsed-state--nested" : ""}${visualDuplicate ? " markdown-checklist-heading__collapsed-state--placeholder" : ""}`;
+        return (
+          <Fragment key={headingKey}>
+            {heading}
+            {collapsed && progress && collapseId && onCollapsedChecklistSectionsChange ? <div aria-hidden="true" className={collapsedStateClassName}>Свернуто · {collapsedItemCount} пунктов внутри</div> : null}
+          </Fragment>
+        );
       };
       if (index === firstTopLevelHeadingIndex && firstHeadingPortalTarget) {
         return <Fragment key={key}>{renderHeading("inner", `${key}-inner`)}{createPortal(renderHeading("outer", `${key}-outer`), firstHeadingPortalTarget)}</Fragment>;

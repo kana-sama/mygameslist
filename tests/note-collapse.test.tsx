@@ -277,38 +277,61 @@ describe("scrollable long note cards", () => {
   });
 
   it("uses the accessible outer title control for collapse without scroll-time replacement", async () => {
-    const user = userEvent.setup();
-    const onSave = vi.fn();
-    const note = makeNote(
-      "22222222-2222-4222-8222-222222222222",
-      "# Primary route\n- [ ] Root task\n\nLong content\n\nLong content",
-      1024,
-    );
+    const style = installProductionStyles();
+    try {
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+      const note = makeNote(
+        "22222222-2222-4222-8222-222222222222",
+        "# Primary route\n- [ ] Root task\n\nLong content\n\nLong content",
+        1024,
+      );
 
-    render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={onSave} />);
 
-    const card = screen.getByRole("heading", { name: /^Primary route / }).closest<HTMLElement>("article")!;
-    const viewport = card.querySelector<HTMLElement>(".note-card__viewport")!;
-    const innerHeading = card.querySelector<HTMLHeadingElement>(".markdown-note-title--inner")!;
-    const outerHeading = card.querySelector<HTMLHeadingElement>(".markdown-note-title--outer")!;
-    const outerButton = within(outerHeading).getByRole("button", { name: /^Primary route / });
-    const innerButton = innerHeading.querySelector<HTMLButtonElement>("button")!;
-    outerButton.focus();
-    expect(outerButton).toHaveFocus();
-    expect(innerButton.tabIndex).toBe(-1);
-    expect(innerHeading).toHaveAttribute("aria-hidden", "true");
-    expect(within(innerHeading).queryByRole("button")).toBeNull();
-    await user.click(outerButton);
-    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    expect(onSave.mock.calls[0][0].notes[0].collapsedChecklistSections).toEqual([outerHeading.dataset.checklistSectionId]);
+      const card = screen.getByRole("heading", { name: /^Primary route / }).closest<HTMLElement>("article")!;
+      const viewport = card.querySelector<HTMLElement>(".note-card__viewport")!;
+      const innerHeading = card.querySelector<HTMLHeadingElement>(".markdown-note-title--inner")!;
+      const outerHeading = card.querySelector<HTMLHeadingElement>(".markdown-note-title--outer")!;
+      const pageHeading = card.querySelector<HTMLElement>(".note-card__page-heading")!;
+      const outerButton = within(outerHeading).getByRole("button", { name: /^Primary route / });
+      const innerButton = innerHeading.querySelector<HTMLButtonElement>("button")!;
+      outerButton.focus();
+      expect(outerButton).toHaveFocus();
+      expect(innerButton.tabIndex).toBe(-1);
+      expect(innerHeading).toHaveAttribute("aria-hidden", "true");
+      expect(within(innerHeading).queryByRole("button")).toBeNull();
+      await user.click(outerButton);
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0][0].notes[0].collapsedChecklistSections).toEqual([outerHeading.dataset.checklistSectionId]);
 
-    const before = [innerHeading, outerHeading].map((heading) => ({ className: heading.className, style: heading.getAttribute("style") }));
+      const outerState = pageHeading.querySelector<HTMLElement>(".markdown-checklist-heading__collapsed-state")!;
+      const innerState = innerHeading.nextElementSibling as HTMLElement;
+      expect(outerState).toHaveTextContent("Свернуто · 1 пунктов внутри");
+      expect(outerState).not.toHaveClass("markdown-checklist-heading__collapsed-state--placeholder");
+      expect(outerState.previousElementSibling).toBe(outerHeading);
+      expect(innerState).toHaveClass(
+        "markdown-checklist-heading__collapsed-state",
+        "markdown-checklist-heading__collapsed-state--placeholder",
+      );
+      expect(innerState.previousElementSibling).toBe(innerHeading);
+      const stateBlocks = Array.from(card.querySelectorAll<HTMLElement>(".markdown-checklist-heading__collapsed-state"));
+      expect(stateBlocks).toHaveLength(2);
+      expect(getComputedStyle(outerState).visibility).toBe("visible");
+      expect(getComputedStyle(innerState).visibility).toBe("hidden");
+      expect(stateBlocks.filter((state) => getComputedStyle(state).visibility !== "hidden")).toEqual([outerState]);
+      expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
 
-    fireEvent.scroll(viewport);
-    fireEvent.scroll(window);
-    expect([innerHeading, outerHeading].every((heading) => heading.isConnected)).toBe(true);
-    expect([innerHeading, outerHeading].map((heading) => ({ className: heading.className, style: heading.getAttribute("style") }))).toEqual(before);
-    expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
+      const before = [innerHeading, outerHeading].map((heading) => ({ className: heading.className, style: heading.getAttribute("style") }));
+
+      fireEvent.scroll(viewport);
+      fireEvent.scroll(window);
+      expect([innerHeading, outerHeading].every((heading) => heading.isConnected)).toBe(true);
+      expect([innerHeading, outerHeading].map((heading) => ({ className: heading.className, style: heading.getAttribute("style") }))).toEqual(before);
+      expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
+    } finally {
+      style.remove();
+    }
   });
 
   it("uses the CSS grid and sticky layer contract without reserving a second title row", () => {

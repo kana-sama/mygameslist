@@ -110,19 +110,23 @@ describe("Markdown tasks", () => {
     }
   });
 
-  it("renders disclosure chevrons only for interactive progress headings and compacts collapsed groups", async () => {
+  it("renders collapsed heading state as a sibling without changing heading rhythm", async () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
     document.head.append(style);
 
     const user = userEvent.setup();
     const markdown = [
-      "# Root",
-      "- [ ] Root task",
-      "## Group",
-      "- [ ] Group task",
-      "- Nested group",
-      "  - [ ] Nested task",
+      "# Quests",
+      "## Chapter 2",
+      "### MOMO",
+      "- [x] Tora's Secret Stash",
+      "## Chapter 4",
+      "### Ursula",
+      "#### Normal Quests",
+      "- [ ] Bearing Her Soul",
+      "### Vess",
+      "- [x] Tranquility",
       "# Plain heading",
       "Plain content",
     ].join("\n");
@@ -148,37 +152,64 @@ describe("Markdown tasks", () => {
         />,
       );
 
-      const root = screen.getByRole("heading", { name: "Root Выполнено 0 из 3" });
-      const group = screen.getByRole("heading", { name: "Group Выполнено 0 из 2" });
+      const markdownRoot = view.container.querySelector<HTMLElement>(".markdown")!;
+      const chapter4 = screen.getByRole("heading", { name: "Chapter 4 Выполнено 1 из 2" });
       const plain = screen.getByRole("heading", { name: "Plain heading" });
-      const nested = screen.getByRole("button", { name: "Nested group Выполнено 0 из 1" });
-      const expandedGroupMargin = Number.parseFloat(getComputedStyle(group).marginBlockStart);
-      const expandedGroupPadding = Number.parseFloat(getComputedStyle(group).paddingBlockStart);
+      const expandedGroupMargin = Number.parseFloat(getComputedStyle(chapter4).marginBlockStart);
+      const expandedGroupPadding = Number.parseFloat(getComputedStyle(chapter4).paddingBlockStart);
 
-      for (const heading of [root, group]) {
-        const button = heading.querySelector(".markdown-checklist-heading__toggle")!;
-        const chevrons = button.querySelectorAll(".markdown-checklist-heading__chevron");
-        expect(chevrons).toHaveLength(1);
-        expect(chevrons[0]).toHaveAttribute("aria-hidden", "true");
-        expect(button).toHaveAccessibleName(heading === root ? "Root Выполнено 0 из 3" : "Group Выполнено 0 из 2");
-      }
-      expect(nested.querySelector(".markdown-checklist-heading__chevron")).toBeNull();
+      expect(view.container.querySelector(".markdown-checklist-heading__chevron")).toBeNull();
       expect(plain.querySelector(".markdown-checklist-heading__chevron")).toBeNull();
-      expect(group).not.toHaveClass("markdown-checklist-heading--collapsed");
+      expect(chapter4).not.toHaveClass("markdown-checklist-heading--collapsed");
 
-      await user.click(screen.getByRole("button", { name: "Group Выполнено 0 из 2" }));
+      await user.click(screen.getByRole("button", { name: "Chapter 4 Выполнено 1 из 2" }));
 
-      const collapsedGroup = screen.getByRole("heading", { name: "Group Выполнено 0 из 2" });
-      const collapsedButton = screen.getByRole("button", { name: "Group Выполнено 0 из 2" });
-      const chevron = collapsedButton.querySelector(".markdown-checklist-heading__chevron")!;
-      const collapsedStyle = getComputedStyle(collapsedGroup);
+      const collapsedGroup = screen.getByRole("heading", { name: "Chapter 4 Выполнено 1 из 2" });
+      const collapsedButton = screen.getByRole("button", { name: "Chapter 4 Выполнено 1 из 2" });
+      const collapsedState = collapsedGroup.nextElementSibling as HTMLElement;
+      expect(collapsedState).not.toBeNull();
+      const collapsedHeadingStyle = getComputedStyle(collapsedGroup);
+      const collapsedStateStyle = getComputedStyle(collapsedState);
       expect(collapsedButton).toHaveAttribute("aria-expanded", "false");
-      expect(collapsedButton.querySelectorAll(".markdown-checklist-heading__chevron")).toHaveLength(1);
-      expect(getComputedStyle(chevron).transform).toBe("rotate(-90deg)");
+      expect(collapsedButton).toHaveAccessibleName("Chapter 4 Выполнено 1 из 2");
       expect(collapsedGroup).toHaveClass("markdown-checklist-heading--collapsed");
-      expect(Number.parseFloat(collapsedStyle.marginBlockStart)).toBeLessThan(expandedGroupMargin);
-      expect(Number.parseFloat(collapsedStyle.paddingBlockStart)).toBeLessThan(expandedGroupPadding);
-      expect(Number.parseFloat(collapsedStyle.paddingBlockEnd)).toBeGreaterThan(0);
+      expect(collapsedState).toHaveClass("markdown-checklist-heading__collapsed-state");
+      expect(collapsedState).toHaveAttribute("aria-hidden", "true");
+      expect(collapsedState).toHaveTextContent("Свернуто · 2 пунктов внутри");
+      expect(collapsedGroup).not.toContainElement(collapsedState);
+      expect(collapsedState.previousElementSibling).toBe(collapsedGroup);
+      expect(collapsedStateStyle.fontSize).toBe(getComputedStyle(markdownRoot).fontSize);
+      expect(collapsedStateStyle.fontWeight).toBe(getComputedStyle(markdownRoot).fontWeight);
+      expect(collapsedStateStyle.lineHeight).toBe(getComputedStyle(markdownRoot).lineHeight);
+      expect(collapsedStateStyle.color).toBe("var(--muted)");
+      expect(Number.parseFloat(collapsedStateStyle.marginBlockStart)).toBe(-0.25);
+      expect(Number.parseFloat(collapsedStateStyle.marginBlockEnd)).toBe(0.5);
+      expect(Number.parseFloat(collapsedHeadingStyle.marginBlockStart)).toBe(expandedGroupMargin);
+      expect(Number.parseFloat(collapsedHeadingStyle.paddingBlockStart)).toBe(expandedGroupPadding);
+
+      const collapsedStateMarginEnd = Number.parseFloat(collapsedStateStyle.marginBlockEnd);
+      await user.click(collapsedButton);
+
+      const vess = screen.getByRole("heading", { name: "Vess Выполнено 1 из 1" });
+      const vessList = vess.nextElementSibling as HTMLElement;
+      expect(Number.parseFloat(getComputedStyle(vessList).marginBlockEnd)).toBe(collapsedStateMarginEnd);
+
+      await user.click(screen.getByRole("button", { name: "Ursula Выполнено 0 из 1" }));
+
+      const collapsedUrsula = screen.getByRole("heading", { name: "Ursula Выполнено 0 из 1" });
+      const nestedState = collapsedUrsula.nextElementSibling as HTMLElement;
+      const nestedStateStyle = getComputedStyle(nestedState);
+      expect(nestedState).toHaveTextContent("Свернуто · 1 пунктов внутри");
+      expect(nestedState).toHaveClass("markdown-checklist-heading__collapsed-state--nested");
+      expect(nestedStateStyle.borderInlineStart).toBe("1px solid var(--line-soft)");
+      expect(Number.parseFloat(nestedStateStyle.marginInlineStart)).toBe(0.5);
+      expect(Number.parseFloat(nestedStateStyle.paddingInlineStart)).toBe(0.95);
+
+      await user.click(screen.getByRole("button", { name: "Ursula Выполнено 0 из 1" }));
+      await user.click(screen.getByRole("button", { name: "Vess Выполнено 1 из 1" }));
+
+      const collapsedVess = screen.getByRole("heading", { name: "Vess Выполнено 1 из 1" });
+      expect(collapsedVess.nextElementSibling).toHaveTextContent("Свернуто · 1 пунктов внутри");
     } finally {
       style.remove();
     }
