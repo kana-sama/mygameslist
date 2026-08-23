@@ -508,7 +508,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-rendered-markdown .markdown-table-scroll { margin: .25em 0; }
 .markdown-diff-rendered-markdown .markdown-table th, .markdown-diff-rendered-markdown .markdown-table td { padding: 2px 4px; }
 
-.notes-list, .note-editors-grid { --note-column-min: 360px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--note-column-min), 100%), 1fr)); grid-auto-rows: 1px; column-gap: 8px; row-gap: 0; align-items: stretch; }
+.notes-list, .note-editors-grid { --note-column-min: 350px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--note-column-min), 100%), 1fr)); grid-auto-rows: 1px; column-gap: 8px; row-gap: 0; align-items: stretch; }
 .game-notes { min-width: 0; }
 .note-groups { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .note-group { position: relative; min-width: 0; }
