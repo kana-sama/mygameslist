@@ -14,7 +14,7 @@ collapsedChecklistSections:
   - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-21T08:39:13.561Z"
+updatedAt: "2026-08-23T09:00:04.260Z"
 -->
 # Secret Areas
 
@@ -55,8 +55,8 @@ updatedAt: "2026-08-21T08:39:13.561Z"
 
 ## Temperantia
 
-- [ ] [Profaned Place]("Central Plain; Область находится рядом с Tyrannotitan Kurodil.")
-- [ ] [Lost Capital Judicium]("Ruins of Judicium; Исследуйте Ruins of Judicium до открытия столицы.")
+- [x] [Profaned Place]("Central Plain; Область находится рядом с Tyrannotitan Kurodil.")
+- [x] [Lost Capital Judicium]("Ruins of Judicium; Исследуйте Ruins of Judicium до открытия столицы.")
 
 ## World Tree
 

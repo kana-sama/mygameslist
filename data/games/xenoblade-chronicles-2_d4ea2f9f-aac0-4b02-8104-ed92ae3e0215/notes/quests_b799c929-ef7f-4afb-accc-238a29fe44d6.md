@@ -29,6 +29,7 @@ collapsedChecklistSections:
   - "group:1my7cud-26"
   - "group:1nv6s8s-22"
   - "group:1o3jljq-2o"
+  - "group:1oi7jab-1x"
   - "group:1pot4p4-2s"
   - "group:1pzkyqz-2u"
   - "group:1u4wb88-2s"
@@ -78,7 +79,6 @@ collapsedChecklistSections:
   - "heading:1lsdqvw-26"
   - "heading:1t54tir-26"
   - "heading:1ufv46v-19"
-  - "heading:1uqusto-19"
   - "heading:1v9y6qu-26"
   - "heading:3ei53v-25"
   - "heading:ax1qo3-1a"
@@ -89,7 +89,7 @@ collapsedChecklistSections:
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-23T03:26:43.838Z"
+updatedAt: "2026-08-23T09:16:04.074Z"
 -->
 # Quests
 
@@ -276,7 +276,7 @@ updatedAt: "2026-08-23T03:26:43.838Z"
 
   - Normal Quests
 
-    - [ ] [Judicium's Legacy]("Ismet · Ardainian Garrison")
+    - [x] [Judicium's Legacy]("Ismet · Ardainian Garrison")
 
 - Indoline Praetorium
 
