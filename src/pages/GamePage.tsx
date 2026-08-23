@@ -35,7 +35,7 @@ import { MarkdownView } from "../components/Markdown";
 import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
-import { formatBytes, formatRelativeDate, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
+import { formatBytes, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
 import type { SidebarLayoutMode } from "../state/sidebarLayoutPreference";
 
 export interface PreparedFile {
@@ -1507,7 +1507,6 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div className="game-sidebar__meta-short"><dt>Тир</dt><dd><InlineSelectField active={editingField === "tier"} ariaLabel="Тир" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tier")} onCommit={(tierId) => persist({ tierId })} onEnd={() => setEditingField((field) => field === "tier" ? null : field)} options={TIER_IDS} value={game.placement.tierId}><b className={`tier-badge tier-badge--${game.placement.tierId}`}>{TIER_LABELS[game.placement.tierId]}</b></InlineSelectField></dd></div>
             <div><dt>Платформы</dt><dd><InlineValuesField active={editingField === "platforms"} ariaLabel="Платформы" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("platforms")} onCommit={(platforms) => persist({ platforms })} onEnd={() => setEditingField((field) => field === "platforms" ? null : field)} suggestions={platformSuggestions} values={game.platforms}>{game.platforms.length ? game.platforms.join(" · ") : "Не указаны"}</InlineValuesField></dd></div>
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
-            <div><dt>Изменено</dt><dd>{formatRelativeDate(game.updatedAt)}</dd></div>
           </dl>
           <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
           {onToggleSidebarLayout || onDelete ? <div className="game-sidebar__tools">

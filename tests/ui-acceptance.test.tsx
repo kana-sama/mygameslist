@@ -939,7 +939,7 @@ describe("GamePage", () => {
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("ПлатформыNES");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("platformer");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).not.toHaveTextContent("#platformer");
-    expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("Изменено");
+    expect(sidebar.querySelector("dl.game-sidebar__meta")).not.toHaveTextContent("Изменено");
     const shortMetadata = sidebar.querySelectorAll(".game-sidebar__meta-short");
     expect(shortMetadata).toHaveLength(2);
     expect(shortMetadata[0]).toHaveTextContent("СтатусИграю");
