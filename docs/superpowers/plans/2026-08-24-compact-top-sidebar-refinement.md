@@ -18,7 +18,8 @@
 - Top-mode progress uses exactly `repeat(auto-fit, minmax(88px, 96px))` and start justification.
 - Cover is column 1 across rows 1–2; vertical tools use the far-right auto column across those rows; inline errors are details column row 3. Progress stays adjacent to details and has all unused space before the far-right tools.
 - Remove the rendered `Изменено` metadata row globally. Under normal no-error wide content, the panel is no taller than the cover.
-- At `720px` and narrower, tools remain vertically at the right of details where practical and progress occupies the full-width following row; `500px` retains the `96px` cover column.
+- Top-mode titles truncate visibly to one line without changing their accessible name or inline editing behavior.
+- From 1020–1100px, use `160px 320px minmax(0, 1fr) 26px` with 10px gaps so five normal progress cells stay on one row. At `1019px` and narrower, use `112px minmax(0, 1fr) 26px`, with the dedicated third tools column and progress in the full-width following row; `500px` uses `96px minmax(0, 1fr) 26px`.
 - Persistence, controls, side mode, progress card dimensions, note layout, and shared interaction styles do not change.
 - Use Jujutsu exclusively; finalize this correction as exactly one descendant commit, then create a fresh working-copy change with `jj new`.
 - Follow strict TDD and record actual RED/GREEN output in the ignored task report.
@@ -81,7 +82,7 @@ In `src/styles.css`:
 .game-view-layout--sidebar-top .game-progress__grid { grid-template-columns: repeat(auto-fit, minmax(88px, 96px)); justify-content: start; }
 ```
 
-Update the `@media (max-width: 720px)` top-mode rules so the cover remains in column 1, vertical tools sit at the right of details, inline errors occupy column 2 row 3, and progress occupies columns 1 through -1 at row 4. Keep the existing `112px` and `96px` responsive cover-column widths. Remove the rendered `Изменено` metadata row.
+Add the `1020px`–`1100px` compact-wide adjustment and update `@media (max-width: 1019px)` top-mode rules so the cover remains in column 1, a dedicated third 26px column holds vertical tools, inline errors occupy column 2 row 3, and progress occupies columns 1 through -1 at row 4. Keep the `112px` and `96px` responsive cover-column widths, append the 26px tools track, and remove the rendered `Изменено` metadata row.
 
 In `DESIGN.md`, extend the game-page layout paragraph with the compact top-mode contract: bounded details, left-packed auto-fit progress, far-right vertical controls, and unused space between them.
 

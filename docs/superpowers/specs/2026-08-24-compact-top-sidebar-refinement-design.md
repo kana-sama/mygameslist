@@ -27,11 +27,13 @@ Make the top sidebar compact and convenient: keep cover, bounded details, and pr
 - The progress grid uses `repeat(auto-fit, minmax(88px, 96px))` with start justification so every row contains as many stable compact cells as fit before wrapping.
 - The cover occupies column 1 across the title and metadata rows (`grid-row: 1 / span 2`).
 - `.game-sidebar__tools` occupies the `auto` far-right column across rows 1–2 and stacks its existing layout/delete controls vertically.
+- The title remains one visual line in top mode: its trigger clips with an ellipsis while retaining its full accessible name and edit control.
 - The inline error occupies details column row 3. Progress stays in column 3 across the content rows.
 - The rendered `Изменено` metadata row is absent in both sidebar modes.
 - Under normal no-error wide content, the top panel is no taller than the cover.
-- At `720px` and narrower, the existing compact two-column sidebar remains, tools stay vertically at the right of the details area where practical, and progress becomes the full-width row below. The top-mode auto-fit progress grid remains active.
-- At `500px` and narrower, the existing `96px` cover column remains.
+- From `1020px` through `1100px`, top mode uses `160px 320px minmax(0, 1fr) 26px` with `10px` gaps so the normal five progress cells remain on one row.
+- At `1019px` and narrower, top mode uses `112px minmax(0, 1fr) 26px`; the dedicated third `26px` tools column prevents action overlap, and progress becomes the full-width row below.
+- At `500px` and narrower, the compact track becomes `96px minmax(0, 1fr) 26px`.
 
 ## Non-Goals
 
@@ -42,6 +44,7 @@ Make the top sidebar compact and convenient: keep cover, bounded details, and pr
 
 - Computed desktop styles expose the exact four compact tracks and non-stretched details maximum.
 - The cover computes to column 1 across the title and metadata rows; the vertical tools compute to the far-right auto column across those rows.
+- The top-mode title trigger computes to a single truncated line, without changing its accessible name.
 - The game metadata does not render `Изменено`.
 - Top-mode progress computes an auto-fit `88px`–`96px` grid with start justification.
 - The existing persistent mode and control tests remain green.
