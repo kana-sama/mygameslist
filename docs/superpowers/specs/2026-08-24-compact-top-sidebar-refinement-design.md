@@ -27,11 +27,12 @@ Make the top sidebar compact and convenient: keep cover, bounded details, and pr
 - The progress grid uses `repeat(auto-fit, minmax(88px, 96px))` with start justification so every row contains as many stable compact cells as fit before wrapping.
 - The cover occupies column 1 across the title and metadata rows (`grid-row: 1 / span 2`).
 - `.game-sidebar__tools` occupies the `auto` far-right column across rows 1–2 and stacks its existing layout/delete controls vertically.
-- The title remains one visual line in top mode: its trigger clips with an ellipsis while retaining its full accessible name and edit control.
+- The title remains one visual line in top mode: its trigger clips with an ellipsis while retaining its full accessible name and edit control. The heading itself remains overflow-visible so the trigger's global focus outline and offset are not clipped.
 - The inline error occupies details column row 3. Progress stays in column 3 across the content rows.
 - The rendered `Изменено` metadata row is absent in both sidebar modes.
 - Under normal no-error wide content, the top panel is no taller than the cover.
-- From `1020px` through `1100px`, top mode uses `160px 284px minmax(0, 1fr) 26px` with `8px` gaps. At `1020px`, the `28px` page insets leave `498px` for progress: `1020 - 28 - 160 - 284 - 26 - 3 * 8 = 498`, enough for five `96px` cells and four `4px` gaps (`496px`).
+- From `1020px` through `1105px`, top mode uses `160px 284px minmax(0, 1fr) 26px` with `8px` gaps. At `1020px`, the `28px` page insets leave `498px` for progress: `1020 - 28 - 160 - 284 - 26 - 3 * 8 = 498`, enough for five `96px` cells and four `4px` gaps (`496px`); at `1105px`, that compact rule leaves `583px`. The base `160px minmax(320px, 360px) minmax(0, 1fr) auto` rule starts at `1106px`, where its `12px` gaps leave exactly `496px`: `1106 - 28 - 160 - 360 - 26 - 3 * 12 = 496`.
+- In wide top mode, details use a `4px` top margin to retain the cover-height panel budget.
 - At `1019px` and narrower, top mode uses `112px minmax(0, 1fr) 26px`; the dedicated third `26px` tools column prevents action overlap, and progress becomes the full-width row below.
 - At `500px` and narrower, the compact track becomes `96px minmax(0, 1fr) 26px`.
 

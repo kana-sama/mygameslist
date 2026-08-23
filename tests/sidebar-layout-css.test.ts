@@ -48,12 +48,14 @@ describe("top sidebar layout", () => {
     expect(getComputedStyle(cover).gridColumn).toBe("1");
     expect(getComputedStyle(cover).gridRow).toBe("1 / span 2");
     expect(getComputedStyle(title).minWidth).toBe("0px");
-    expect(getComputedStyle(title).overflow).toBe("hidden");
+    expect(getComputedStyle(title).overflow).not.toBe("hidden");
     expect(getComputedStyle(title).whiteSpace).toBe("nowrap");
+    expect(getComputedStyle(titleTrigger).display).toBe("block");
     expect(getComputedStyle(titleTrigger).overflow).toBe("hidden");
     expect(getComputedStyle(titleTrigger).textOverflow).toBe("ellipsis");
     expect(getComputedStyle(titleTrigger).whiteSpace).toBe("nowrap");
     expect(getComputedStyle(metadata).gridColumn).toBe("2");
+    expect(getComputedStyle(metadata).marginTop).toBe("4px");
     expect(getComputedStyle(progress).gridColumn).toBe("3");
     expect(getComputedStyle(progressGrid).gridTemplateColumns).toBe("repeat(auto-fit, minmax(88px, 96px))");
     expect(getComputedStyle(progressGrid).justifyContent).toBe("start");
@@ -67,11 +69,13 @@ describe("top sidebar layout", () => {
   it("reserves a separate narrow tools track before progress moves below the metadata", () => {
     expect(productionStyles).toMatch(/@media \(max-width: 1019px\) \{[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar \{ grid-template-columns: 112px minmax\(0, 1fr\) 26px; column-gap: 10px; \}[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar__tools \{ grid-column: 3; grid-row: 1 \/ span 2;/);
     expect(productionStyles).toMatch(/@media \(max-width: 500px\) \{[\s\S]*?\.game-view-layout--sidebar-top \.game-sidebar \{ grid-template-columns: 96px minmax\(0, 1fr\) 26px; \}/);
-    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1100px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
+    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1105px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
   });
 
-  it("fits five maximum-width progress cells at the compact-wide minimum", () => {
-    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1100px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
+  it("fits five maximum-width progress cells through the compact-wide boundary", () => {
+    expect(productionStyles).toMatch(/@media \(min-width: 1020px\) and \(max-width: 1105px\) \{[\s\S]*?grid-template-columns: 160px 284px minmax\(0, 1fr\) 26px; column-gap: 8px;/);
     expect(1020 - 28 - 160 - 284 - 26 - 3 * 8).toBeGreaterThanOrEqual(5 * 96 + 4 * 4);
+    expect(1105 - 28 - 160 - 284 - 26 - 3 * 8).toBeGreaterThan(5 * 96 + 4 * 4);
+    expect(1106 - 28 - 160 - 360 - 26 - 3 * 12).toBe(5 * 96 + 4 * 4);
   });
 });
