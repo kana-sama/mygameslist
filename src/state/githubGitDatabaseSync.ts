@@ -158,7 +158,6 @@ interface ValidatedRemoteSource {
   projection: SourceProjection;
   blobShaByPath: ReadonlyMap<string, string>;
   blobShaByAssetId: ReadonlyMap<string, string>;
-  optionalGameStylesByGameId: ReadonlyMap<string, { path: string; blobSha: string }>;
 }
 
 interface PreparedLocalAsset {
@@ -753,18 +752,12 @@ export class GitHubGitDatabaseSyncClient {
       }
       blobShaByAssetId.set(leaf.assetId, blobSha);
     }
-    const optionalGameStylesByGameId = new Map<string, { path: string; blobSha: string }>();
-    for (const [gameId, stylesheet] of inventory.optionalGameStylesByGameId) {
-      if (!stylesheet.blobSha) invalidResponse(`Trusted Git blob is missing for ${stylesheet.path}`);
-      optionalGameStylesByGameId.set(gameId, { path: stylesheet.path, blobSha: stylesheet.blobSha });
-    }
     return {
       headSha,
       treeSha,
       projection,
       blobShaByPath: inventory.blobShasByPath,
       blobShaByAssetId,
-      optionalGameStylesByGameId,
     };
   }
 
@@ -1057,27 +1050,6 @@ export class GitHubGitDatabaseSyncClient {
           sha: null,
         });
       }
-    }
-    for (const gameId of affected) {
-      const oldStylesheet = remote.optionalGameStylesByGameId.get(gameId);
-      if (!oldStylesheet) continue;
-      const desiredBundle = finalProjection.gameBundles.get(gameId);
-      const desiredPath = desiredBundle ? `${desiredBundle.directoryPath}/styles.css` : null;
-      if (desiredPath === oldStylesheet.path) continue;
-      if (desiredPath) {
-        mutationByPath.set(desiredPath, {
-          path: desiredPath,
-          mode: "100644",
-          type: "blob",
-          sha: oldStylesheet.blobSha,
-        });
-      }
-      mutationByPath.set(oldStylesheet.path, {
-        path: oldStylesheet.path,
-        mode: "100644",
-        type: "blob",
-        sha: null,
-      });
     }
     const treeMutations = [...mutationByPath.values()]
       .sort((left, right) => compareText(left.path, right.path));

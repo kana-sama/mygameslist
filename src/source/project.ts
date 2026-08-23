@@ -240,12 +240,6 @@ function requiredInventory(projection: SourceProjection): Map<string, "file" | "
   return required;
 }
 
-function optionalOpaqueInventory(projection: SourceProjection): Map<string, string> {
-  return new Map(
-    [...projection.gameBundles.values()].map((bundle) => [`${bundle.directoryPath}/styles.css`, bundle.gameId]),
-  );
-}
-
 function validateGitEntry(entry: SourceTreeEntry, objectIdLength: number | undefined): number {
   if (!entry.git) throw new Error(`Git metadata is missing for ${entry.path}`);
   const expectedMode = entry.kind === "directory" ? "040000" : "100644";
@@ -266,7 +260,6 @@ export function validateProjectedSourceInventory(
   entries: readonly SourceTreeEntry[],
 ): ValidatedSourceInventory {
   const required = requiredInventory(projection);
-  const optionalOpaque = optionalOpaqueInventory(projection);
   for (const entry of entries) assertSafeInventoryPath(entry.path);
   const actual = new Map<string, SourceTreeEntry>();
   const casePaths = new Map<string, string>();
@@ -285,7 +278,7 @@ export function validateProjectedSourceInventory(
     if (entry.kind !== "file" && entry.kind !== "directory") {
       throw new Error(`Unsupported source inventory entry kind ${entry.kind} at ${entry.path}`);
     }
-    const expectedKind = required.get(entry.path) ?? (optionalOpaque.has(entry.path) ? "file" : undefined);
+    const expectedKind = required.get(entry.path);
     if (expectedKind === undefined) throw new Error(`Unexpected source inventory entry ${entry.path}`);
     if (entry.kind !== expectedKind) throw new Error(`Wrong source inventory kind for ${entry.path}`);
     if (hasGitMetadata) objectIdLength = validateGitEntry(entry, objectIdLength);
@@ -299,16 +292,10 @@ export function validateProjectedSourceInventory(
   if (hasGitMetadata) {
     for (const leaf of projection.leaves) blobShasByPath.set(leaf.path, actual.get(leaf.path)!.git!.objectId);
   }
-  const optionalGameStylesByGameId = new Map<string, { path: string; blobSha: string | null }>();
-  for (const [path, gameId] of optionalOpaque) {
-    const entry = actual.get(path);
-    if (entry) optionalGameStylesByGameId.set(gameId, { path, blobSha: entry.git?.objectId ?? null });
-  }
   const assetOccurrences = [...projection.gameBundles.values()].flatMap((bundle) => bundle.assetOccurrences);
   return {
     entries: [...actual.values()].sort((left, right) => compareText(left.path, right.path)),
     blobShasByPath,
-    optionalGameStylesByGameId,
     assetOccurrences,
   };
 }

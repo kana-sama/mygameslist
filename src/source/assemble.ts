@@ -110,7 +110,7 @@ function validateStructuralTree(allEntries: readonly SourceTreeEntry[]): Structu
       continue;
     }
     if (parts.length === 4) {
-      const allowed = entry.kind === "file" && (parts[3] === "game.yaml" || parts[3] === "styles.css")
+      const allowed = entry.kind === "file" && parts[3] === "game.yaml"
         || entry.kind === "directory" && (parts[3] === "notes" || parts[3] === "assets");
       if (!allowed) fail(`unknown game source entry ${entry.path}`);
       continue;

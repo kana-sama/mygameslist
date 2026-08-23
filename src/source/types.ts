@@ -171,10 +171,6 @@ export interface SourceProjection {
 export interface ValidatedSourceInventory {
   entries: readonly SourceTreeEntry[];
   blobShasByPath: ReadonlyMap<string, GitObjectId>;
-  optionalGameStylesByGameId: ReadonlyMap<string, {
-    path: string;
-    blobSha: GitObjectId | null;
-  }>;
   assetOccurrences: readonly SourceAssetOccurrence[];
 }
 

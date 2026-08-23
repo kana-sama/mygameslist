@@ -159,7 +159,7 @@ describe("projected source inventory validation", () => {
     expect(result.blobShasByPath.get(GAME_A_YAML_PATH)).toMatch(/^[0-9a-f]{40}$/);
   });
 
-  it("accepts an optional opaque root game stylesheet without projecting it", async () => {
+  it("rejects a root game stylesheet as an unexpected inventory entry", async () => {
     const projection = await projectSourceTree(fixtureDatabase());
     const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
     const entries = [
@@ -171,15 +171,7 @@ describe("projected source inventory validation", () => {
       },
     ];
 
-    const inventory = validateProjectedSourceInventory(projection, entries);
-
-    expect(inventory.entries).toContainEqual(entries.at(-1));
-    expect(inventory.blobShasByPath.has(stylesheetPath)).toBe(false);
-    expect(inventory.optionalGameStylesByGameId.get(GAME_A_ID)).toEqual({
-      path: stylesheetPath,
-      blobSha: "b".repeat(40),
-    });
-    expect(projection.leaves.some((leaf) => leaf.path === stylesheetPath)).toBe(false);
+    expect(() => validateProjectedSourceInventory(projection, entries)).toThrow(`Unexpected source inventory entry ${stylesheetPath}`);
   });
 
   it.each([
@@ -229,18 +221,14 @@ describe("source assembly", () => {
     expect(reader.reads.filter((path) => path === IMAGE_A_PATH || path === IMAGE_B_PATH)).toHaveLength(2);
   });
 
-  it("accepts an opaque root game stylesheet without reading it into runtime data", async () => {
+  it("rejects a root game stylesheet as an unknown source entry", async () => {
     const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
     const entries = [...projectedEntries(), { kind: "file" as const, path: stylesheetPath }];
     const files = projectedFiles();
     files.set(stylesheetPath, new Uint8Array([0xff, 0xfe]));
     const reader = new MemorySourceTreeReader(entries, files);
 
-    const assembled = await assembleSourceTree(reader, { sourceCommitSha: null });
-    const expected = await normalizePublishedLibrary(fixtureDatabase());
-
-    expect(assembled.database).toEqual(expected);
-    expect(reader.reads).not.toContain(stylesheetPath);
+    await expect(assembleSourceTree(reader, { sourceCommitSha: null })).rejects.toThrow(`unknown game source entry ${stylesheetPath}`);
   });
 
   it.each([

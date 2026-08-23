@@ -125,7 +125,6 @@ async function remoteRepository(
   options: {
     objectIdLength?: ObjectIdLength;
     assetBytes?: ReadonlyMap<string, Uint8Array>;
-    gameStyles?: ReadonlyMap<string, string>;
     unrelatedEntries?: readonly GitTreeEntry[];
   } = {},
 ): Promise<RemoteRepository> {
@@ -153,18 +152,7 @@ async function remoteRepository(
     blobBytesBySha.set(blobSha, bytes.slice());
     return { path: leaf.path, mode: "100644", type: "blob", sha: blobSha };
   });
-  const styleEntries = [...(options.gameStyles ?? new Map())]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([gameId, css]): GitTreeEntry => {
-      const bundle = projection.gameBundles.get(gameId);
-      if (!bundle) throw new Error(`Missing fixture game bundle ${gameId}`);
-      const path = `${bundle.directoryPath}/styles.css`;
-      const blobSha = contentObjectId(`style:${gameId}:${css}`, objectIdLength);
-      blobShaByPath.set(path, blobSha);
-      blobBytesBySha.set(blobSha, new TextEncoder().encode(css));
-      return { path, mode: "100644", type: "blob", sha: blobSha };
-    });
-  const allFiles = [...projection.leaves, ...styleEntries];
+  const allFiles = projection.leaves;
   const directoryEntries = projectedDirectories(allFiles).map((path): GitTreeEntry => ({
     path,
     mode: "040000",
@@ -178,7 +166,7 @@ async function remoteRepository(
     treeSha: objectId("2", objectIdLength),
     targetTreeSha: objectId("5", objectIdLength),
     targetCommitSha: objectId("6", objectIdLength),
-    entries: [...directoryEntries, ...fileEntries, ...styleEntries, ...(options.unrelatedEntries ?? [])]
+    entries: [...directoryEntries, ...fileEntries, ...(options.unrelatedEntries ?? [])]
       .sort((left, right) => left.path.localeCompare(right.path)),
     blobShaByPath,
     blobBytesBySha,
@@ -694,10 +682,7 @@ describe("strict GitHub source-tree publication", () => {
 
   it("moves an entire renamed game folder and reuses unchanged note and binary Git blobs", async () => {
     const base = await canonicalFixture();
-    const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
-    const repository = await remoteRepository(base, {
-      gameStyles: new Map([[GAME_A_ID, ".fixture-card { color: teal; }"]]),
-    });
+    const repository = await remoteRepository(base);
     const api = apiMock(repository);
     const stages: GitHubSyncStage[] = [];
     const commitMessage = vi.fn((_before: LibraryDatabase, after: LibraryDatabase) => `Update ${after.games[GAME_A_ID].title}`);
@@ -736,9 +721,6 @@ describe("strict GitHub source-tree publication", () => {
         expect(created?.sha).toBe(repository.blobShaByPath.get(leaf.path));
       }
     }
-    const movedStylesheetPath = `${movedDirectory}/styles.css`;
-    expect(mutations.get(stylesheetPath)?.sha).toBeNull();
-    expect(mutations.get(movedStylesheetPath)?.sha).toBe(repository.blobShaByPath.get(stylesheetPath));
     expect(mutations.get("data/manifest.yaml")?.sha).toMatch(/^[0-9a-f]{40}$/);
     expect(treeMutationEntries(api).every((entry) => entry.mode === "100644" && entry.type === "blob")).toBe(true);
     const commit = api.requests.find((request) => request.method === "POST" && request.url.pathname.endsWith("/git/commits"));
@@ -749,27 +731,6 @@ describe("strict GitHub source-tree publication", () => {
     });
     const ref = api.requests.find((request) => request.method === "PATCH");
     expect(ref?.body).toEqual({ sha: repository.targetCommitSha, force: false });
-    const assembly = await assembleSourceTree(
-      sourceTreeReaderAfterPublication(repository, api),
-      { sourceCommitSha: repository.targetCommitSha },
-    );
-    expect(assembly.database).toEqual(result.database);
-  });
-
-  it("leaves an unaffected game's opaque stylesheet untouched in the base tree", async () => {
-    const base = await canonicalFixture();
-    const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
-    const repository = await remoteRepository(base, {
-      gameStyles: new Map([[GAME_A_ID, ".fixture-card { color: teal; }"]]),
-    });
-    const api = apiMock(repository);
-    const patch = patchTo(base, (database) => {
-      database.games[GAME_B_ID].title = "Beta Revised";
-    }, "rename-unrelated-game");
-
-    const result = await client(api.fetch).publishSourceTree(publicationOptions(base, patch));
-
-    expect(treeMutationEntries(api).some((entry) => entry.path === stylesheetPath)).toBe(false);
     const assembly = await assembleSourceTree(
       sourceTreeReaderAfterPublication(repository, api),
       { sourceCommitSha: repository.targetCommitSha },
@@ -823,10 +784,7 @@ describe("strict GitHub source-tree publication", () => {
 
   it("deletes one game bundle without collecting another game's shared asset", async () => {
     const base = await canonicalFixture();
-    const stylesheetPath = `${GAME_A_DIRECTORY}/styles.css`;
-    const repository = await remoteRepository(base, {
-      gameStyles: new Map([[GAME_A_ID, ".fixture-card { color: teal; }"]]),
-    });
+    const repository = await remoteRepository(base);
     const api = apiMock(repository);
     const patch = patchTo(base, (database) => {
       delete database.games[GAME_A_ID];
@@ -840,11 +798,7 @@ describe("strict GitHub source-tree publication", () => {
     expect(result.database.games).not.toHaveProperty(GAME_A_ID);
     expect(result.database.games).toHaveProperty(GAME_B_ID);
     expect(result.database.assets).toHaveProperty(IMAGE_ID);
-    const expected = [
-      ...repository.projection.gameBundles.get(GAME_A_ID)!.leaves.map((leaf) => leaf.path),
-      stylesheetPath,
-    ]
-      .sort();
+    const expected = repository.projection.gameBundles.get(GAME_A_ID)!.leaves.map((leaf) => leaf.path).sort();
     const deletions = treeMutationEntries(api)
       .filter((entry) => entry.sha === null)
       .map((entry) => entry.path)

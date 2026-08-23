@@ -224,27 +224,15 @@ afterEach(() => {
 });
 
 describe("App selective diff integration", () => {
-  it("keeps a per-game custom-style toggle local to this browser", async () => {
-    const user = userEvent.setup();
+  it("does not expose a custom-style control on an existing game page", () => {
     const base = database();
     base.games[GAME_A_ID] = game(GAME_A_ID, "Styled Game");
     libraryHarness.current = libraryValue(base, base);
     window.location.hash = `#/games/${GAME_A_ID}`;
 
-    const first = render(<App />);
-    const shell = first.container.querySelector(".app-shell");
-    expect(shell).toHaveAttribute("id", GAME_A_ID);
+    render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Отключить кастомные стили" }));
-    expect(shell).not.toHaveAttribute("id");
-    expect(screen.getByRole("button", { name: "Включить кастомные стили" })).toHaveAttribute("aria-pressed", "true");
-
-    first.unmount();
-    const second = render(<App />);
-    expect(second.container.querySelector(".app-shell")).not.toHaveAttribute("id");
-
-    await user.click(screen.getByRole("button", { name: "Включить кастомные стили" }));
-    expect(second.container.querySelector(".app-shell")).toHaveAttribute("id", GAME_A_ID);
+    expect(screen.queryByRole("button", { name: /кастомные стили/i })).not.toBeInTheDocument();
   });
 
   it("maps v3 waiting state to a blocked target link and forwards recovery actions", async () => {

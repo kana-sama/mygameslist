@@ -22,7 +22,6 @@ export interface StorageSummary {
 
 export interface AppShellProps {
   children: ReactNode;
-  gameId?: string;
   games?: Game[];
   route: AppRoute;
   storage: StorageSummary;
@@ -98,7 +97,6 @@ export function LocalChangesIndicator({ storage, onOpenDiff }: Pick<AppShellProp
 
 export function AppShell({
   children,
-  gameId,
   games = [],
   route,
   storage,
@@ -108,7 +106,7 @@ export function AppShell({
   localChangesIndicator,
 }: AppShellProps) {
   return (
-    <div className="app-shell" data-route={route} id={gameId}>
+    <div className="app-shell" data-route={route}>
       <a className="skip-link" href="#main-content">К основному содержимому</a>
       <header className="app-header">
         <nav aria-label="Основная навигация" className="app-nav app-nav--desktop">

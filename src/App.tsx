@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HashRouter,
-  matchRoutes,
   Route,
   Routes,
   useLocation,
@@ -32,7 +31,6 @@ import {
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
 import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
-import { loadDisabledGameStyleIds, toggleDisabledGameStyleId } from "./state/gameStylePreferences";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -64,14 +62,6 @@ function routeKind(pathname: string): AppRoute {
   if (pathname === "/games") return "catalog";
   if (pathname === "/games/new") return "new";
   return "game";
-}
-
-export function activeGameIdForRoute(pathname: string, games: Readonly<Record<string, { id: string }>>): string | undefined {
-  const gameId = matchRoutes([
-    { path: "/games/new" },
-    { path: "/games/:id" },
-  ], pathname)?.at(-1)?.params.id;
-  return gameId ? games[gameId]?.id : undefined;
 }
 
 function entityName(
@@ -239,7 +229,6 @@ function LibraryRoutes() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
-  const [disabledGameStyleIds, setDisabledGameStyleIds] = useState(loadDisabledGameStyleIds);
   const githubPatRef = useRef<string | null>(null);
   const [githubPatPersistence, setGitHubPatPersistence] = useState<GitHubPatPersistence | null>(null);
   const [githubSyncState, setGitHubSyncState] = useState<{
@@ -261,9 +250,6 @@ function LibraryRoutes() {
   }, []);
 
   const games = useMemo(() => Object.values(library.effective.games), [library.effective.games]);
-  const routeGameId = activeGameIdForRoute(location.pathname, library.effective.games);
-  const customStylesEnabled = routeGameId ? !disabledGameStyleIds.has(routeGameId) : true;
-  const gameId = customStylesEnabled ? routeGameId : undefined;
   const operationEntries = useMemo(() => Object.entries(library.patch.operations), [library.patch.operations]);
   const review = useMemo(
     () => buildChangeReview(library.base, library.effective, library.patch),
@@ -491,7 +477,6 @@ function LibraryRoutes() {
 
   return (
     <AppShell
-      gameId={gameId}
       games={games}
       localChangesIndicator={<SubscribedLocalChangesIndicator actionError={actionError} onOpenDiff={openDiff} />}
       onNavigate={navigateHref}
@@ -534,11 +519,7 @@ function LibraryRoutes() {
           />}
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
-        <Route path="/games/:id" element={<GameRoute
-          customStylesEnabled={customStylesEnabled}
-          mode="game"
-          onToggleCustomStyles={(gameId) => setDisabledGameStyleIds((current) => toggleDisabledGameStyleId(current, gameId))}
-        />} />
+        <Route path="/games/:id" element={<GameRoute mode="game" />} />
         <Route path="*" element={<div className="empty-state empty-state--hero"><h1>Страница не найдена</h1><p>Такого раздела в библиотеке нет.</p><a className="button button--primary" href="#/">Вернуться в тирлист</a></div>} />
       </Routes>
 
@@ -660,10 +641,8 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
   }, sameNoteInteractionSnapshot);
 }
 
-function GameRoute({ customStylesEnabled = true, mode, onToggleCustomStyles }: {
-  customStylesEnabled?: boolean;
+function GameRoute({ mode }: {
   mode: "new" | "game";
-  onToggleCustomStyles?: (gameId: string) => void;
 }) {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -708,12 +687,10 @@ function GameRoute({ customStylesEnabled = true, mode, onToggleCustomStyles }: {
       const gameId = await selection.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
-    onToggleCustomStyles={game ? onToggleCustomStyles : undefined}
     platformSuggestions={platformSuggestions}
     resolveAssetUrl={selection.resolveAssetUrl}
     storageLocked={selection.attachmentsBlocked}
     tagSuggestions={tagSuggestions}
-    customStylesEnabled={customStylesEnabled}
   />;
 }
 

@@ -337,7 +337,6 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-sidebar__tools { display: flex; justify-content: flex-end; gap: 1px; padding-top: 4px; }
 .game-sidebar__tools button, .inline-cover-editor__close { width: 26px; height: 26px; display: grid; appearance: none; padding: 0; border: 0; border-radius: 3px; place-items: center; color: var(--muted); background: transparent; cursor: pointer; }
 .game-sidebar__tools button:hover:not(:disabled), .inline-cover-editor__close:hover { color: var(--text); background: var(--surface-3); }
-.game-sidebar__tools .game-sidebar__style-toggle[aria-pressed="true"] { color: var(--accent); background: var(--surface-3); }
 .game-sidebar__tools .game-sidebar__delete:hover:not(:disabled) { color: #dc858c; }
 .inline-save-error { margin: 4px 0 0; }
 .inline-cover-editor { position: relative; min-width: 0; padding: 5px; border: 1px solid var(--line-soft); border-radius: 4px; background: var(--surface); }

@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import { gameStylesPlugin } from "./scripts/game-styles-plugin";
 import { librarySourcePlugin } from "./scripts/vite-library-source-plugin";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
@@ -12,7 +11,6 @@ export default defineConfig({
   base: "./",
   plugins: [
     librarySourcePlugin({ sourceRoot: resolve(projectRoot, "data") }),
-    gameStylesPlugin({ gamesRoot: resolve(projectRoot, "data/games") }),
     react(),
   ],
   optimizeDeps: {
