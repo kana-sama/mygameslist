@@ -36,6 +36,7 @@ import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
+import { installNoteWheelGestureRouting } from "../components/noteWheelGesture";
 import type { SidebarLayoutMode } from "../state/sidebarLayoutPreference";
 
 export interface PreparedFile {
@@ -962,6 +963,12 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAsse
   const [scrollState, setScrollState] = useState({ scrollable: false, atTop: true, atBottom: true });
   const hasText = Boolean(note.bodyMarkdown.trim());
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    return installNoteWheelGestureRouting(viewport);
+  }, []);
 
   const updateScrollState = () => {
     const viewport = viewportRef.current;
