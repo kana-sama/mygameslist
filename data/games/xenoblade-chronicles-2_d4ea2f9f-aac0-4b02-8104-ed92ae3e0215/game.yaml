@@ -28,11 +28,12 @@ progressItems:
 platforms:
   - Nintendo Switch 2
   - Nintendo Switch
-tags: []
+tags:
+  - xeno
 status: playing
 placement:
   tierId: s
   rank: 33792
 reviewMarkdown: |2-
 createdAt: "2026-07-17T06:01:20.175Z"
-updatedAt: "2026-08-23T22:25:03.885Z"
+updatedAt: "2026-08-23T23:37:51.480Z"

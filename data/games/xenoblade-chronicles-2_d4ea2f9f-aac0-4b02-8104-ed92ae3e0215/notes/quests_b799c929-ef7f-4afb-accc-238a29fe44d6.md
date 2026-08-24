@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
 groupRank: 2048
-rank: 1408
+rank: 512
 doubleHeight: true
 collapsedChecklistSections:
   - "heading:12a39n2-19"
@@ -24,7 +24,7 @@ collapsedChecklistSections:
   - "heading:t3gat5-19"
   - "heading:ulgaky-1x"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-23T10:51:57.471Z"
+updatedAt: "2026-08-23T23:35:18.335Z"
 -->
 # Quests
 
