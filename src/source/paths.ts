@@ -101,7 +101,7 @@ function stripBlockMarkers(value: string): string {
     previous = candidate;
     candidate = candidate.replace(/^[ \t]{0,3}>[ \t]?/u, "");
     candidate = candidate.replace(/^[ \t]{0,3}(?:[-+*]|\d{1,9}[.)])[ \t]+/u, "");
-    candidate = candidate.replace(/^[ \t]{0,3}\[[ xX]\][ \t]+/u, "");
+    candidate = candidate.replace(/^[ \t]{0,3}\[[ xX-]\][ \t]+/u, "");
   }
   return candidate.replace(/^[ \t]{0,3}/u, "");
 }

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { hasMarkdownTasks, insertMarkdownOpenChecklistItem, MarkdownView, setMarkdownTaskChecked, setMarkdownTaskItemText } from "../src/components/Markdown";
+import { hasMarkdownTasks, insertMarkdownOpenChecklistItem, MarkdownView, setMarkdownTaskChecked, setMarkdownTaskItemText, setMarkdownTaskState } from "../src/components/Markdown";
 import { parseMarkdownBlocks } from "../src/domain/markdownChecklist";
 import type { Game, Note } from "../src/domain/types";
 import { GamePage, type GameSaveInput } from "../src/pages/GamePage";
@@ -539,6 +539,82 @@ describe("Markdown tasks", () => {
     );
     expect(setMarkdownTaskChecked(markdown, 0, true)).toBe(markdown);
     expect(setMarkdownTaskChecked(markdown, 99, true)).toBe(markdown);
+  });
+
+  it("parses indeterminate list and table tasks as counted non-complete work", () => {
+    const markdown = [
+      "- [-] List task",
+      "| Name | Done |",
+      "| --- | --- |",
+      "| Table task | [-] |",
+    ].join("\n");
+    const blocks = parseMarkdownBlocks(markdown);
+
+    expect(blocks[0]?.items?.[0]).toMatchObject({ taskState: "indeterminate" });
+    expect(blocks[1]?.table?.sections[0].rows[0]?.cells[1]).toMatchObject({ taskState: "indeterminate" });
+    expect(blocks[0]?.checklistProgress).toEqual({ checked: 0, open: false, total: 1 });
+    expect(blocks[1]?.checklistProgress).toEqual({ checked: 0, open: false, total: 1 });
+  });
+
+  it("does not mistake an indeterminate ellipsis task for the unchecked add-item marker", () => {
+    const item = parseMarkdownBlocks("- [-] ...")[0]?.items?.[0];
+
+    expect(item).toMatchObject({ openMarker: false, taskState: "indeterminate" });
+    expect(item?.checklistProgress).toEqual({ checked: 0, open: false, total: 1 });
+  });
+
+  it("renders indeterminate list and table tasks as accessible mixed controls", () => {
+    const view = render(<MarkdownView markdown={[
+      "- [-] List task",
+      "| Name | Done |",
+      "| --- | --- |",
+      "| Table task | [-] |",
+    ].join("\n")} onTaskChange={vi.fn()} />);
+
+    const listControl = screen.getByRole("checkbox", { name: "Отметить: List task" });
+    const tableControl = screen.getByRole("checkbox", { name: "Отметить: Table task — Done" });
+    expect(listControl).toHaveAttribute("aria-checked", "mixed");
+    expect(listControl).toHaveClass("markdown-task-checkbox--indeterminate");
+    expect(listControl.closest("li")).toHaveClass("markdown-task-item--indeterminate");
+    expect(tableControl).toHaveAttribute("aria-checked", "mixed");
+    expect(tableControl.closest("td")).toHaveAttribute("data-checklist-indeterminate", "true");
+    expect(view.container.querySelectorAll(".markdown-task-checkbox--indeterminate")).toHaveLength(2);
+  });
+
+  it("uses Command-click for indeterminate persistence while ordinary clicks keep binary transitions", async () => {
+    const user = userEvent.setup();
+    const onTaskChange = vi.fn();
+    const markdown = "- [ ] Open\n- [x] Done\n- [-] Mixed";
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Open" }), { metaKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Снять отметку: Done" }), { metaKey: true });
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Mixed" }));
+
+    expect(onTaskChange).toHaveBeenNthCalledWith(1, "- [-] Open\n- [x] Done\n- [-] Mixed");
+    expect(onTaskChange).toHaveBeenNthCalledWith(2, "- [ ] Open\n- [-] Done\n- [-] Mixed");
+    expect(onTaskChange).toHaveBeenNthCalledWith(3, "- [ ] Open\n- [x] Done\n- [x] Mixed");
+    expect(setMarkdownTaskState("Heading\r\n- [ ] First\r\n- [x] Second", 2, "indeterminate")).toBe(
+      "Heading\r\n- [ ] First\r\n- [-] Second",
+    );
+  });
+
+  it("uses Command-click to persist indeterminate table cells without toggling adjacent source", () => {
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "| Name | First | Second |",
+      "| --- | --- | --- |",
+      "| Tower | [ ] | [x] |",
+    ].join("\n");
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Tower — First" }), { metaKey: true });
+
+    expect(onTaskChange).toHaveBeenCalledWith([
+      "| Name | First | Second |",
+      "| --- | --- | --- |",
+      "| Tower | [-] | [x] |",
+    ].join("\n"));
   });
 
   it("preserves nested unordered and ordered list structure", () => {

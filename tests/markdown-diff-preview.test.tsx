@@ -644,6 +644,36 @@ describe("compact Markdown diff preview", () => {
     ).toBe(true);
   });
 
+  it("renders an indeterminate checklist diff state as a disabled mixed checkbox", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          "- [ ] Внешний коридор (картина слева)",
+          "- [-] Внешний коридор (картина слева)",
+        )}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    const before = within(modified).getByRole("checkbox", { name: "Было не отмечено" });
+    const after = within(modified).getByRole("checkbox", { name: "Стало частично отмечено" });
+    expect(before).toBeDisabled();
+    expect(after).toBeDisabled();
+    expect(after).toHaveAttribute("aria-checked", "mixed");
+    expect(after).toHaveClass("markdown-task-checkbox--indeterminate");
+  });
+
+  it.each([
+    ["| Task | Note |\n| --- | --- |\n| [ ] A | stable |", "| Task | Note |\n| --- | --- |\n| [-] A | stable |"],
+    ["| Task |\n| --- |\n| [ ] |", "| Task |\n| --- |\n| [-] |"],
+  ])("renders paired mixed controls for a first-column or marker-only table task", (before, after) => {
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByRole("checkbox", { name: "Было не отмечено" })).toBeDisabled();
+    expect(within(modified).getByRole("checkbox", { name: "Стало частично отмечено" })).toHaveAttribute("aria-checked", "mixed");
+  });
+
   it("keeps a checklist state and text change in one yellow row", () => {
     render(
       <MarkdownDiffPreview

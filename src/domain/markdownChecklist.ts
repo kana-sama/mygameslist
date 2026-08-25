@@ -22,6 +22,8 @@ export interface ChecklistProgress {
   total: number;
 }
 
+export type MarkdownTaskState = "unchecked" | "checked" | "indeterminate";
+
 export interface MarkdownListItem {
   value: string;
   firstLineValue: string;
@@ -31,6 +33,7 @@ export interface MarkdownListItem {
   sourceTextEnd: number;
   sourceTextStart: number;
   taskChecked?: boolean;
+  taskState?: MarkdownTaskState;
   taskSourceColumn?: number;
   children: MarkdownBlock[];
   checklistProgress?: ChecklistProgress;
@@ -46,6 +49,7 @@ export interface MarkdownTableCell {
   sourceLine?: number;
   sourceValue?: string;
   taskChecked?: boolean;
+  taskState?: MarkdownTaskState;
   taskSourceColumn?: number;
 }
 
@@ -86,7 +90,12 @@ export type NoteChecklistResolution =
   | { status: "ok"; checked: number; total: number }
   | { status: "error" };
 
-const TASK_MARKER = /^\[([ xX])\](?:[ \t]+|$)/;
+const TASK_MARKER = /^\[([ xX-])\](?:[ \t]+|$)/;
+
+function markdownTaskState(marker: string): MarkdownTaskState {
+  if (marker === "-") return "indeterminate";
+  return marker.toLowerCase() === "x" ? "checked" : "unchecked";
+}
 
 interface ParsedListLine {
   indent: number;
@@ -167,7 +176,8 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
       sourceLineStart: sourceLines[index].start,
       sourceTextEnd: sourceLines[index].start + sourceLines[index].content.length,
       sourceTextStart,
-      taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+      taskChecked: task ? markdownTaskState(task[1]) === "checked" : undefined,
+      taskState: task ? markdownTaskState(task[1]) : undefined,
       taskSourceColumn: task ? line.valueColumn : undefined,
       children: [],
       sourceLocations: [{ sourceColumn: sourceTextStart - sourceLines[index].start, sourceLine }],
@@ -212,7 +222,7 @@ function parseList(sourceLines: readonly MarkdownSourceLine[], startIndex: numbe
   }
 
   const lastItem = block.items?.at(-1);
-  if (lastItem?.taskChecked === false && lastItem.value.trim() === "...") lastItem.openMarker = true;
+  if (lastItem?.taskState === "unchecked" && lastItem.value.trim() === "...") lastItem.openMarker = true;
 
   return { block, nextIndex: index };
 }
@@ -291,7 +301,8 @@ function parseTableRow(parsedCells: readonly ParsedTableCell[], columnCount: num
       sourceLine,
       sourceValue: taskSource ? cell.sourceText.slice(taskSource[0].length) : cell.sourceText,
       value: task ? cell.value.slice(task[0].length) : cell.value,
-      taskChecked: task ? task[1].toLowerCase() === "x" : undefined,
+      taskChecked: task ? markdownTaskState(task[1]) === "checked" : undefined,
+      taskState: task ? markdownTaskState(task[1]) : undefined,
       taskSourceColumn: task ? cell.sourceColumn : undefined,
     };
   });
@@ -371,9 +382,9 @@ export function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
 
   const blockProgress = (block.items ?? []).reduce<ChecklistProgress>((progress, item) => {
     const itemProgress: ChecklistProgress = { checked: 0, open: item.openMarker, total: 0 };
-    if (item.taskChecked !== undefined && !item.openMarker) {
+    if (item.taskState !== undefined && !item.openMarker) {
       itemProgress.total += 1;
-      if (item.taskChecked) itemProgress.checked += 1;
+      if (item.taskState === "checked") itemProgress.checked += 1;
     }
     for (const child of item.children) {
       const childProgress = getChecklistProgress(child);
@@ -394,9 +405,9 @@ export function getChecklistProgress(block: MarkdownBlock): ChecklistProgress {
 function getTableRowsProgress(rows: readonly MarkdownTableRow[]): ChecklistProgress {
   return rows.reduce<ChecklistProgress>((progress, row) => {
     for (const cell of row.cells) {
-      if (cell.taskChecked === undefined) continue;
+      if (cell.taskState === undefined) continue;
       progress.total += 1;
-      if (cell.taskChecked) progress.checked += 1;
+      if (cell.taskState === "checked") progress.checked += 1;
     }
     return progress;
   }, { checked: 0, open: false, total: 0 });
@@ -434,10 +445,10 @@ function nextCollapsePath(base: string, occurrences: Map<string, number>): strin
 
 function annotateChecklistGroupIds(block: MarkdownBlock, parentPath: string, occurrences: Map<string, number>): void {
   for (const item of block.items ?? []) {
-    const kind = item.taskChecked === undefined ? "item" : "task";
+    const kind = item.taskState === undefined ? "item" : "task";
     const base = `${parentPath}\u0000${block.type}\u0000${kind}\u0000${normalizedCollapsePathPart(item.value)}`;
     const itemPath = nextCollapsePath(base, occurrences);
-    if (item.taskChecked === undefined && item.checklistProgress) {
+    if (item.taskState === undefined && item.checklistProgress) {
       item.collapseId = `group:${hashCollapsePath(itemPath)}`;
     }
     for (const child of item.children) annotateChecklistGroupIds(child, itemPath, occurrences);

@@ -69,7 +69,7 @@ function parseListLine(line: string): ParsedListLine | null {
   const marker = numberText === null ? match[4] : `${numberText}${delimiter}`;
   const separator = match[5] ?? "";
   const payload = match[6] ?? "";
-  const task = /^(\[[ xX]\])(?:(?:([ \t]+)(.*))|$)$/.exec(payload);
+  const task = /^(\[[ xX-]\])(?:(?:([ \t]+)(.*))|$)$/.exec(payload);
   const taskMarker = task?.[1] ?? null;
   const taskSeparator = task?.[2] ?? "";
   const body = task ? task[3] ?? "" : payload;

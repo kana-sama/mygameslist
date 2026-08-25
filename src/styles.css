@@ -427,6 +427,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-table-cell--right > .markdown-table-task { justify-content: flex-end; }
 .markdown-table-task--only { justify-content: center; }
 .markdown-table td[data-checklist-checked="true"], .markdown-table th[data-checklist-column-complete="true"], .markdown-table td[data-checklist-column-complete="true"], .markdown-table-row--complete > td { background: var(--success-wash); }
+.markdown-table td[data-checklist-indeterminate="true"] { background: rgba(214, 167, 43, .14); }
 .markdown-table-row--complete > td { color: var(--success); }
 .markdown-table-row--complete > td a, .markdown-table-row--complete > td code { color: inherit; }
 .markdown a { color: var(--accent-strong); text-decoration-thickness: 1px; text-underline-offset: 2px; }
@@ -451,6 +452,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-task-control { width: 16px; height: 18px; display: grid; flex: 0 0 auto; place-items: center; cursor: pointer; }
 .markdown-task-checkbox { width: 14px; height: 14px; margin: 0; accent-color: #6e91aa; cursor: pointer; }
 .markdown-task-checkbox:checked { accent-color: var(--success); }
+.markdown-task-checkbox--indeterminate { accent-color: #d6a72b; }
 .markdown-task-checkbox:disabled { cursor: default; }
 .markdown-task-control:has(.markdown-task-checkbox:disabled) { cursor: default; }
 .markdown-task-content { min-width: 0; flex: 1; }
@@ -466,6 +468,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-open-checklist-add:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .markdown-task-item--checked > .markdown-task-row > .markdown-task-content { color: var(--success); }
 .markdown-task-item--checked > .markdown-task-row > .markdown-task-content a { color: inherit; }
+.markdown-task-item--indeterminate > .markdown-task-row > .markdown-task-content { color: #d6a72b; }
+.markdown-task-item--indeterminate > .markdown-task-row > .markdown-task-content a { color: inherit; }
 .markdown-empty { margin: 0; color: var(--muted-2); font-size: 11px; font-style: italic; }
 .markdown-diff-preview {
   --diff-added-bg: rgba(72, 139, 98, .14);

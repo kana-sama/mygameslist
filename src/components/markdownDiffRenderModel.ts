@@ -12,6 +12,7 @@ import {
   markdownVisibleSourceRanges,
 } from "./markdownInlineSyntax";
 import { scanMarkdownTableLine } from "./markdownTableSyntax";
+import type { MarkdownTaskState } from "../domain/markdownChecklist";
 
 export type RenderedSideLabel = "Добавлено" | "Удалено";
 
@@ -28,8 +29,8 @@ export interface RenderedTaskChange {
   id: string;
   sourceLine: number;
   sourceColumn?: number;
-  beforeChecked: boolean;
-  afterChecked: boolean;
+  beforeState: MarkdownTaskState;
+  afterState: MarkdownTaskState;
 }
 
 export interface RenderedRowChange {
@@ -315,17 +316,17 @@ function inlineChangesForText(
 }
 
 interface ParsedListPrefix {
-  checked?: boolean;
+  state?: MarkdownTaskState;
   contentStart: number;
   structuralKey: string;
   taskColumn?: number;
 }
 
 function parsedListPrefix(value: string): ParsedListPrefix | null {
-  const match = /^(\s*(?:[-*+]|\d+[.)])[ \t]+)(?:\[([ xX])\]([ \t]+|$))?/u.exec(value);
+  const match = /^(\s*(?:[-*+]|\d+[.)])[ \t]+)(?:\[([ xX-])\]([ \t]+|$))?/u.exec(value);
   if (!match) return null;
   return {
-    checked: match[2] === undefined ? undefined : match[2].toLowerCase() === "x",
+    state: match[2] === undefined ? undefined : match[2] === "-" ? "indeterminate" : match[2].toLowerCase() === "x" ? "checked" : "unchecked",
     contentStart: match[0].length,
     structuralKey: `${match[1]}${match[2] === undefined ? "" : `[]${match[3]}`}`,
     taskColumn: match[2] === undefined ? undefined : match[1].length,
@@ -333,15 +334,15 @@ function parsedListPrefix(value: string): ParsedListPrefix | null {
 }
 
 interface ParsedTaskPrefix {
-  checked?: boolean;
+  state?: MarkdownTaskState;
   contentStart: number;
   taskColumn?: number;
 }
 
 function parsedTaskPrefix(value: string): ParsedTaskPrefix {
-  const match = /^\[([ xX])\]([ \t]+|$)/u.exec(value);
+  const match = /^\[([ xX-])\]([ \t]+|$)/u.exec(value);
   return match ? {
-    checked: match[1].toLowerCase() === "x",
+    state: match[1] === "-" ? "indeterminate" : match[1].toLowerCase() === "x" ? "checked" : "unchecked",
     contentStart: match[0].length,
     taskColumn: 0,
   } : { contentStart: 0 };
@@ -369,7 +370,7 @@ function renderChangesForTableRow(
     if (beforeCell.sourceText !== beforeCell.value || afterCell.sourceText !== afterCell.value) return null;
     const beforePrefix = parsedTaskPrefix(beforeCell.sourceText);
     const afterPrefix = parsedTaskPrefix(afterCell.sourceText);
-    if ((beforePrefix.checked === undefined) !== (afterPrefix.checked === undefined)) return null;
+    if ((beforePrefix.state === undefined) !== (afterPrefix.state === undefined)) return null;
     const cellInlineChanges = inlineChangesForText(
       beforeCell.sourceText.slice(beforePrefix.contentStart),
       afterCell.sourceText.slice(afterPrefix.contentStart),
@@ -380,13 +381,13 @@ function renderChangesForTableRow(
     if (!cellInlineChanges) return null;
     inlineChanges.push(...cellInlineChanges);
     if (
-      beforePrefix.checked !== undefined
-      && afterPrefix.checked !== undefined
-      && beforePrefix.checked !== afterPrefix.checked
+      beforePrefix.state !== undefined
+      && afterPrefix.state !== undefined
+      && beforePrefix.state !== afterPrefix.state
     ) {
       taskChanges.push({
-        afterChecked: afterPrefix.checked,
-        beforeChecked: beforePrefix.checked,
+        afterState: afterPrefix.state,
+        beforeState: beforePrefix.state,
         id: `${idPrefix}:cell:${index}:task`,
         sourceColumn: afterCell.sourceColumn + (afterPrefix.taskColumn ?? 0),
         sourceLine,
@@ -443,13 +444,13 @@ function renderChangesForLine(
   if (!inlineChanges) return null;
   const taskChanges: RenderedTaskChange[] = [];
   if (
-    beforePrefix.checked !== undefined
-    && afterPrefix.checked !== undefined
-    && beforePrefix.checked !== afterPrefix.checked
+    beforePrefix.state !== undefined
+    && afterPrefix.state !== undefined
+    && beforePrefix.state !== afterPrefix.state
   ) {
     taskChanges.push({
-      afterChecked: afterPrefix.checked,
-      beforeChecked: beforePrefix.checked,
+      afterState: afterPrefix.state,
+      beforeState: beforePrefix.state,
       id: `${idPrefix}:task`,
       sourceColumn: afterPrefix.taskColumn,
       sourceLine,

@@ -3,6 +3,8 @@ import { diffArrays, diffWordsWithSpace } from "diff";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
+import type { MarkdownTaskState } from "./markdownChecklist";
+import { scanMarkdownTableLine } from "../components/markdownTableSyntax";
 
 export type SourceDiffKind = "context" | "added" | "removed";
 
@@ -194,18 +196,22 @@ function visibleText(node: PositionedNode): string {
 }
 
 function listItemKey(node: PositionedNode): string | null {
-  const normalized = normalizeVisibleText(
-    visibleText(node).replace(/^\s*\[[ xX]\]\s*/u, ""),
-  );
-  return normalized ? `listItem:${normalized}` : null;
+  const value = visibleText(node);
+  const normalized = normalizeVisibleText(value.replace(/^\s*\[[ xX-]\](?:[ \t]+|$)/u, ""));
+  if (normalized) return `listItem:${normalized}`;
+  return /^\s*\[[ xX-]\](?:[ \t]+|$)/u.test(value) ? "listItem:task" : null;
 }
 
 function tableRowKey(node: PositionedNode): string | null {
+  let markerOnlyTask = false;
   for (const cell of node.children ?? []) {
-    const normalized = normalizeVisibleText(visibleText(cell));
+    const value = visibleText(cell);
+    const task = /^\s*\[[ xX-]\](?:[ \t]+|$)/u.test(value);
+    const normalized = normalizeVisibleText(value.replace(/^\s*\[[ xX-]\](?:[ \t]+|$)/u, ""));
     if (normalized) return `tableRow:${normalized}`;
+    markerOnlyTask ||= task;
   }
-  return null;
+  return markerOnlyTask ? "tableRow:task-only" : null;
 }
 
 function anchorKey(node: PositionedNode): string | null {
@@ -510,7 +516,7 @@ function exceedsProduct(left: number, right: number, maximum: number): boolean {
 }
 
 function semanticPairText(value: string): string {
-  return value.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX]\]\s*)+/u, "");
+  return value.replace(/^\s*(?:[-*+] |\d+[.)] |\[[ xX-]\]\s*)+/u, "");
 }
 
 function pairSimilarity(before: string, after: string): number {
@@ -533,14 +539,13 @@ function safeToPair(
   afterIndex: StructuralIndex,
   ambiguous: ReadonlySet<string>,
 ): boolean {
-  if (!mayPair(beforeLine.value, afterLine.value)) return false;
   const beforeStructure = beforeLine.beforeLine
     ? beforeIndex.lines.get(beforeLine.beforeLine)
     : undefined;
   const afterStructure = afterLine.afterLine ? afterIndex.lines.get(afterLine.afterLine) : undefined;
 
   if (!beforeStructure || !afterStructure) {
-    return !beforeStructure && !afterStructure;
+    return !beforeStructure && !afterStructure && mayPair(beforeLine.value, afterLine.value);
   }
   if (
     beforeStructure.type !== afterStructure.type ||
@@ -565,6 +570,12 @@ function safeToPair(
   if (isAmbiguous(beforeStructure) || isAmbiguous(afterStructure)) {
     return false;
   }
+
+  const taskOnlyPair =
+    (beforeStructure.type === "listItem" || beforeStructure.type === "tableRow")
+    && (beforeStructure.key === "listItem:task" || beforeStructure.key === "tableRow:task-only")
+    && beforeStructure.key === afterStructure.key;
+  if (!taskOnlyPair && !mayPair(beforeLine.value, afterLine.value)) return false;
 
   if (beforeStructure.type === "heading") {
     return beforeStructure.depth === afterStructure.depth;
@@ -755,8 +766,12 @@ function annotatePairs(
     const eligiblePairProducts = removed.flatMap((left) => {
       const leftLength = semanticPairText(left.line.value).length;
       return added
-        .map((right) => leftLength * semanticPairText(right.line.value).length)
-        .filter((product) => product > 0 && product <= MAX_SEMANTIC_PAIR_CHARACTER_PRODUCT);
+        .map((right) => {
+          const product = leftLength * semanticPairText(right.line.value).length;
+          if (product > 0 && product <= MAX_SEMANTIC_PAIR_CHARACTER_PRODUCT) return product;
+          return safeToPair(left.line, right.line, before, after, ambiguous) ? 1 : 0;
+        })
+        .filter((product) => product > 0);
     });
     if (!eligiblePairProducts.length) continue;
     const runPairWork = 4 * removed.length * added.length * Math.max(...eligiblePairProducts);
@@ -1189,7 +1204,7 @@ export function createMarkdownDiff(before: string, after: string): MarkdownDiffM
 function stripMarkdownPunctuation(value: string): string {
   return value
     .replace(/^\s{0,3}(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/u, "")
-    .replace(/^\[[ xX]\]\s*/u, "")
+    .replace(/^\[[ xX-]\]\s*/u, "")
     .replace(/!?(?:\[([^\]]*)\])\([^)]*\)/gu, "$1")
     .replace(/[*_~`#>|]/gu, "")
     .trim();
@@ -1222,10 +1237,22 @@ export function deriveMarkdownTitle(markdown: string): string {
   return "Заметка без заголовка";
 }
 
-function taskState(markdown: string): boolean | null {
-  const match = markdown.match(/^\s*(?:[-*+] |\d+[.)] )\[([ xX])\]\s+/u);
-  if (!match) return null;
-  return match[1].toLowerCase() === "x";
+function taskStateFromMarker(marker: string): MarkdownTaskState {
+  return marker === "-" ? "indeterminate" : marker.toLowerCase() === "x" ? "checked" : "unchecked";
+}
+
+function listTaskState(markdown: string): MarkdownTaskState | null {
+  const match = markdown.match(/^\s*(?:[-*+]|\d+[.)])[ \t]+\[([ xX-])\](?:[ \t]+|$)/u);
+  return match ? taskStateFromMarker(match[1]) : null;
+}
+
+function tableTaskStates(markdown: string): Map<number, MarkdownTaskState> {
+  const table = scanMarkdownTableLine(markdown);
+  if (!table) return new Map();
+  return new Map(table.cells.flatMap((cell, index) => {
+    const match = cell.sourceText.match(/^\[([ xX-])\](?:[ \t]+|$)/u);
+    return match ? [[index, taskStateFromMarker(match[1])] as const] : [];
+  }));
 }
 
 function russianCount(count: number, one: string, few: string, many: string): string {
@@ -1273,14 +1300,35 @@ function headingSummary(lines: readonly SourceDiffLine[]): string | null {
 export function summarizeMarkdownDiff(model: MarkdownDiffModel): string {
   let marked = 0;
   let unmarked = 0;
+  let partiallyMarked = 0;
+  let partialMarkRemoved = 0;
+  let checkedToIndeterminate = 0;
+  let indeterminateToChecked = 0;
   for (const fragment of model.fragments) {
     if (fragment.kind !== "modified" || !fragment.before || !fragment.after) continue;
-    const beforeState = taskState(fragment.before.markdown);
-    const afterState = taskState(fragment.after.markdown);
-    if (beforeState === false && afterState === true) marked += 1;
-    if (beforeState === true && afterState === false) unmarked += 1;
+    const transitions: Array<readonly [MarkdownTaskState, MarkdownTaskState]> = [];
+    if (fragment.blockType === "listItem") {
+      const beforeState = listTaskState(fragment.before.markdown);
+      const afterState = listTaskState(fragment.after.markdown);
+      if (beforeState && afterState) transitions.push([beforeState, afterState]);
+    } else if (fragment.blockType === "tableRow") {
+      const beforeStates = tableTaskStates(fragment.before.markdown);
+      const afterStates = tableTaskStates(fragment.after.markdown);
+      for (const [column, beforeState] of beforeStates) {
+        const afterState = afterStates.get(column);
+        if (afterState) transitions.push([beforeState, afterState]);
+      }
+    }
+    for (const [beforeState, afterState] of transitions) {
+      if (beforeState === "unchecked" && afterState === "checked") marked += 1;
+      if (beforeState === "checked" && afterState === "unchecked") unmarked += 1;
+      if (beforeState === "unchecked" && afterState === "indeterminate") partiallyMarked += 1;
+      if (beforeState === "indeterminate" && afterState === "unchecked") partialMarkRemoved += 1;
+      if (beforeState === "checked" && afterState === "indeterminate") checkedToIndeterminate += 1;
+      if (beforeState === "indeterminate" && afterState === "checked") indeterminateToChecked += 1;
+    }
   }
-  if (marked || unmarked) {
+  if (marked || unmarked || partiallyMarked || partialMarkRemoved || checkedToIndeterminate || indeterminateToChecked) {
     const clauses: string[] = [];
     if (marked) clauses.push(`Отмечено ${russianCount(marked, "пункт", "пункта", "пунктов")}`);
     if (unmarked) {
@@ -1288,6 +1336,10 @@ export function summarizeMarkdownDiff(model: MarkdownDiffModel): string {
         `Снята отметка с ${russianCount(unmarked, "пункта", "пунктов", "пунктов")}`,
       );
     }
+    if (partiallyMarked) clauses.push(`Частично отмечено ${russianCount(partiallyMarked, "пункт", "пункта", "пунктов")}`);
+    if (partialMarkRemoved) clauses.push(`Снята частичная отметка с ${russianCount(partialMarkRemoved, "пункта", "пунктов", "пунктов")}`);
+    if (checkedToIndeterminate) clauses.push(`Отмечено частично вместо выполненного ${russianCount(checkedToIndeterminate, "пункт", "пункта", "пунктов")}`);
+    if (indeterminateToChecked) clauses.push(`Выполнено вместо частично отмеченного ${russianCount(indeterminateToChecked, "пункт", "пункта", "пунктов")}`);
     return clauses.join("; ");
   }
 

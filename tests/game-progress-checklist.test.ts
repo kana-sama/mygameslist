@@ -16,6 +16,18 @@ describe("resolveNoteChecklistProgress", () => {
     expect(resolveNoteChecklistProgress(markdown)).toEqual(expected);
   });
 
+  it("counts indeterminate tasks without treating any affected aggregation as complete", () => {
+    expect(resolveNoteChecklistProgress([
+      "# Chapter",
+      "- Group",
+      "  - [x] Finished",
+      "  - [-] In progress",
+      "| Name | First | Second |",
+      "| --- | --- | --- |",
+      "| Table row | [x] | [-] |",
+    ].join("\n"))).toEqual({ status: "ok", checked: 2, total: 4 });
+  });
+
   it("extracts the first visible heading for editor options", () => {
     expect(firstMarkdownHeading("Intro\n\n# **Gold Bricks**\n- [ ] One"))
       .toBe("Gold Bricks");

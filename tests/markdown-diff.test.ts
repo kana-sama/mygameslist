@@ -418,6 +418,72 @@ describe("exact Markdown source diff", () => {
     ).toMatch(/Отмечен 1 пункт|раздел/);
   });
 
+  it.each([
+    ["[ ]", "[x]", "Отмечено 1 пункт"],
+    ["[x]", "[ ]", "Снята отметка с 1 пункта"],
+    ["[ ]", "[-]", "Частично отмечено 1 пункт"],
+    ["[-]", "[ ]", "Снята частичная отметка с 1 пункта"],
+    ["[x]", "[-]", "Отмечено частично вместо выполненного 1 пункт"],
+    ["[-]", "[x]", "Выполнено вместо частично отмеченного 1 пункт"],
+  ])("summarizes the ordered task transition %s → %s", (beforeMarker, afterMarker, summary) => {
+    expect(summarizeMarkdownDiff(createMarkdownDiff(`- ${beforeMarker} A`, `- ${afterMarker} A`))).toBe(summary);
+  });
+
+  it("summarizes an indeterminate table-cell transition as task progress", () => {
+    const before = "| Name | Done |\n| --- | --- |\n| Tower | [-] |";
+    const after = "| Name | Done |\n| --- | --- |\n| Tower | [x] |";
+
+    expect(summarizeMarkdownDiff(createMarkdownDiff(before, after))).toBe(
+      "Выполнено вместо частично отмеченного 1 пункт",
+    );
+  });
+
+  it.each([
+    ["| Task | Note |\n| --- | --- |\n| [ ] A | stable |", "| Task | Note |\n| --- | --- |\n| [-] A | stable |"],
+    ["| Task |\n| --- |\n| [ ] |", "| Task |\n| --- |\n| [-] |"],
+  ])("pairs a first-column or marker-only table task as one modified row", (before, after) => {
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.fragments.filter((fragment) => fragment.blockType === "tableRow" && fragment.kind === "modified")).toHaveLength(1);
+    expect(summarizeMarkdownDiff(model)).toBe("Частично отмечено 1 пункт");
+  });
+
+  it.each([
+    ["[ ]", "[x]", "Отмечено 1 пункт"],
+    ["[x]", "[-]", "Отмечено частично вместо выполненного 1 пункт"],
+    ["[-]", "[ ]", "Снята частичная отметка с 1 пункта"],
+  ])("pairs a marker-only list transition %s → %s", (beforeMarker, afterMarker, summary) => {
+    const model = createMarkdownDiff(`- ${beforeMarker}`, `- ${afterMarker}`);
+
+    expect(model.fragments).toContainEqual(expect.objectContaining({ blockType: "listItem", kind: "modified" }));
+    expect(summarizeMarkdownDiff(model)).toBe(summary);
+  });
+
+  it("recognizes tab-separated list task markers when pairing a transition", () => {
+    const model = createMarkdownDiff("-\t[ ] Tab task", "-\t[-] Tab task");
+
+    expect(model.fragments).toContainEqual(expect.objectContaining({ blockType: "listItem", kind: "modified" }));
+    expect(summarizeMarkdownDiff(model)).toBe("Частично отмечено 1 пункт");
+  });
+
+  it("counts only same-column task transitions in multi-task table rows", () => {
+    const before = "| Name | A | B |\n| --- | --- | --- |\n| Row | [ ] First | [x] Second |";
+    const after = "| Name | A | B |\n| --- | --- | --- |\n| Row | [x] First | [x] Second |";
+
+    expect(summarizeMarkdownDiff(createMarkdownDiff(before, after))).toBe("Отмечено 1 пункт");
+  });
+
+  it("does not summarize pipe-delimited prose or moved table tasks as in-place transitions", () => {
+    const prose = createMarkdownDiff("Alpha | [ ] prose", "Alpha | [-] prose");
+    const moved = createMarkdownDiff(
+      "| Name | A | B |\n| --- | --- | --- |\n| Row | [ ] One | text |",
+      "| Name | A | B |\n| --- | --- | --- |\n| Row | text | [x] One |",
+    );
+
+    expect(summarizeMarkdownDiff(prose)).toBe("Изменено 1 фрагмент текста");
+    expect(summarizeMarkdownDiff(moved)).not.toMatch(/Отмечено|Выполнено|частично/u);
+  });
+
   it("keeps all inserted Замки lines before one context ellipsis", () => {
     const model = createMarkdownDiff(LEGO_LOCKS_BEFORE, LEGO_LOCKS_AFTER);
     const inserted = model.lines.filter((line) => line.kind === "added").map((line) => line.value);
