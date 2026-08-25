@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import { librarySourcePlugin } from "./scripts/vite-library-source-plugin";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    exclude: [...configDefaults.exclude, ".superpowers/**"],
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
   },
