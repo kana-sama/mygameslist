@@ -10,28 +10,35 @@ const emptySnapshot: CompletedChecklistFilterSnapshot = {
   hiddenSectionCollapseIds: new Set(),
 };
 
-function listItemCanHide(item: MarkdownListItem, hiddenListItemStructuralIds: Set<string>): boolean {
-  const childResults = item.children.map((block) => blockChecklistItemsCanHide(block, hiddenListItemStructuralIds));
-  const childrenCanHide = childResults.every(Boolean);
-  const canHide = item.taskState === "checked" && childrenCanHide;
+interface ChecklistHideAnalysis {
+  canHide: boolean;
+  containsChecklist: boolean;
+}
+
+function listItemChecklistHideAnalysis(item: MarkdownListItem, hiddenListItemStructuralIds: Set<string>): ChecklistHideAnalysis {
+  const childResults = item.children.map((block) => blockChecklistHideAnalysis(block, hiddenListItemStructuralIds));
+  const childrenCanHide = childResults.every((result) => result.canHide);
+  const containsChecklist = item.taskState !== undefined || childResults.some((result) => result.containsChecklist);
+  const canHide = item.taskState !== undefined
+    ? item.taskState === "checked" && childrenCanHide
+    : item.children.length > 0 && childrenCanHide && containsChecklist;
   if (canHide && item.structuralId) hiddenListItemStructuralIds.add(item.structuralId);
-  return canHide;
+  return { canHide, containsChecklist };
 }
 
-function blockChecklistItemsCanHide(block: MarkdownBlock, hiddenListItemStructuralIds: Set<string>): boolean {
-  if (block.type !== "list" && block.type !== "ordered-list") return false;
-  const itemResults = (block.items ?? []).map((item) => listItemCanHide(item, hiddenListItemStructuralIds));
-  return itemResults.every(Boolean);
-}
-
-function blockContainsChecklist(block: MarkdownBlock): boolean {
-  return (block.type === "list" || block.type === "ordered-list")
-    && (block.items ?? []).some((item) => item.taskState !== undefined || item.children.some(blockContainsChecklist));
+function blockChecklistHideAnalysis(block: MarkdownBlock, hiddenListItemStructuralIds: Set<string>): ChecklistHideAnalysis {
+  if (block.type !== "list" && block.type !== "ordered-list") return { canHide: false, containsChecklist: false };
+  const items = block.items ?? [];
+  const itemResults = items.map((item) => listItemChecklistHideAnalysis(item, hiddenListItemStructuralIds));
+  return {
+    canHide: items.length > 0 && itemResults.every((result) => result.canHide),
+    containsChecklist: itemResults.some((result) => result.containsChecklist),
+  };
 }
 
 export function createCompletedChecklistFilterSnapshot(blocks: readonly MarkdownBlock[]): CompletedChecklistFilterSnapshot {
   const hiddenListItemStructuralIds = new Set<string>();
-  for (const block of blocks) blockChecklistItemsCanHide(block, hiddenListItemStructuralIds);
+  for (const block of blocks) blockChecklistHideAnalysis(block, hiddenListItemStructuralIds);
 
   const hiddenSectionCollapseIds = new Set<string>();
   const sectionEnd = (headingIndex: number): number => {
@@ -60,8 +67,9 @@ export function createCompletedChecklistFilterSnapshot(blocks: readonly Markdown
         index = childEnd;
         continue;
       }
-      if (!blockChecklistItemsCanHide(block, hiddenListItemStructuralIds)) return false;
-      containsChecklist ||= blockContainsChecklist(block);
+      const analysis = blockChecklistHideAnalysis(block, hiddenListItemStructuralIds);
+      if (!analysis.canHide) return false;
+      containsChecklist ||= analysis.containsChecklist;
       index += 1;
     }
     if (!containsChecklist) return false;

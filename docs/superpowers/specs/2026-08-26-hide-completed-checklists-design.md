@@ -25,7 +25,8 @@ Add a global client-side game-page filter that hides completed Markdown list che
 
 - Filter Markdown list checklist items only. Markdown tables, including their checkbox cells, rows, groups, progress, and styling, remain unchanged in this version.
 - Hide a checked list item when hiding it cannot conceal an incomplete or indeterminate descendant. An incomplete or indeterminate descendant keeps its checked ancestor branch visible until the descendant is also complete.
-- Unchecked items, indeterminate items, open checklist markers, ordinary list items, and their non-checklist content remain visible.
+- Unchecked items, indeterminate items, open checklist markers, ordinary leaf list items, and list items whose descendants include ordinary content remain visible.
+- A non-task list item is a structural checklist-group label when it has at least one checklist descendant and every child block is recursively checklist-only. Hide that label with its descendants when the entire descendant checklist subtree is hideable. This lets completed grouped checklists disappear without treating a standalone ordinary list item as a checklist.
 - Preserve authored order, nesting, checkbox behavior, edit behavior, progress totals, spoilers, links, and existing collapse state. Filtering changes rendering only and never writes note content or `collapsedChecklistSections`.
 - After each rendered list checklist from which at least one item is hidden, append one quiet summary line with the exact text `Скрыто N пунктов`. The line uses the approved option A treatment: small muted text aligned with list content, without an icon, pill, border, or click behavior.
 - Count the items hidden from that rendered checklist. A checked ancestor retained for an incomplete descendant is visible and is not counted as hidden.
@@ -35,7 +36,7 @@ Add a global client-side game-page filter that hides completed Markdown list che
 - The first level-one Markdown heading remains the note title and is never hidden by this filter.
 - A checklist section begins at a checklist-bearing heading of depth two or greater and continues until the next heading of the same or shallower depth.
 - Hide a section heading and its checklist content when the snapshot leaves no visible checklist item in that section and the section contains no ordinary Markdown content.
-- Any paragraph, quote, code block, rule, non-checklist list content, or table keeps its section visible. Completed list checklist content inside that visible section is still filtered, leaving the ordinary content and applicable `Скрыто N пунктов` summaries.
+- Any paragraph, quote, code block, rule, ordinary leaf or mixed-content list item, or table keeps its section visible. A structural checklist-group label does not count as ordinary content for this rule. Completed list checklist content inside a visible section is still filtered, leaving the ordinary content and applicable `Скрыто N пунктов` summaries.
 - A table counts as ordinary content because table filtering is out of scope.
 - Nested section ownership follows heading depth. If hidden child sections belong to a visible parent, append one quiet summary at the end of that parent's child-section sequence with the exact text `Скрыто N секций`.
 - If hidden depth-two sections belong directly to the note title, append the section summary at the end of that note-title section. Count only the direct hidden sibling sections; a hidden parent represents its hidden subtree once.

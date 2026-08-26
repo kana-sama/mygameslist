@@ -78,6 +78,81 @@ describe("Markdown tasks", () => {
       expect(screen.getByText("Скрыто 2 пунктов")).toBeInTheDocument();
     });
 
+    it("hides completed structural checklist groups", () => {
+      // Restoring `item.taskState === "checked"` as the only hideable-item
+      // condition makes Complete city and its completed structural groups reappear.
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Shop checklist",
+        "## Complete city",
+        "- Store one",
+        "  - [x] Deed one",
+        "  - [x] Deed two",
+        "- Store two",
+        "  - [x] Deed three",
+        "## Mixed city",
+        "- Complete store",
+        "  - [x] Finished",
+        "- Open store",
+        "  - [x] Finished prerequisite",
+        "  - [ ] Remaining",
+        "## Reference city",
+        "- Ordinary reference",
+        "- [x] Finished row",
+      ].join("\n")} />);
+
+      expect(screen.queryByRole("heading", { name: /Complete city/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("Store one")).not.toBeInTheDocument();
+      expect(screen.queryByText("Store two")).not.toBeInTheDocument();
+      expect(screen.queryByText("Deed one")).not.toBeInTheDocument();
+      expect(screen.queryByText("Deed two")).not.toBeInTheDocument();
+      expect(screen.queryByText("Deed three")).not.toBeInTheDocument();
+      const titleSection = screen.getByRole("heading", { name: /Shop checklist/ }).closest(".markdown-section");
+      expect(titleSection).not.toBeNull();
+      expect(titleSection!.querySelectorAll(":scope > .markdown-checklist-hidden-sections")).toHaveLength(1);
+      expect(titleSection!.lastElementChild).toHaveClass("markdown-checklist-hidden-sections");
+      expect(titleSection!.lastElementChild).toHaveTextContent("Скрыто 1 секций");
+
+      const mixedHeading = screen.getByRole("heading", { name: /Mixed city/ });
+      expect(mixedHeading).toBeInTheDocument();
+      expect(screen.queryByText("Complete store")).not.toBeInTheDocument();
+      expect(screen.getByText("Open store")).toBeInTheDocument();
+      expect(screen.getByText("Remaining")).toBeInTheDocument();
+      const mixedSection = mixedHeading.closest(".markdown-checklist-subsection");
+      expect(mixedSection).not.toBeNull();
+      const directHiddenItemSummaries = mixedSection!.querySelectorAll(":scope > ul > li.markdown-checklist-hidden-count");
+      expect(directHiddenItemSummaries).toHaveLength(1);
+      expect(directHiddenItemSummaries[0]).toHaveTextContent("Скрыто 1 пунктов");
+
+      expect(screen.getByRole("heading", { name: /Reference city/ })).toBeInTheDocument();
+      expect(screen.getByText("Ordinary reference")).toBeInTheDocument();
+      expect(screen.queryByText("Finished row")).not.toBeInTheDocument();
+    });
+
+    it("keeps non-checked task parents and their sections visible", () => {
+      // Treating every non-checked item as a structural label hides unchecked
+      // and indeterminate task parents whose children happen to be complete.
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Task boundary checklist",
+        "## Unchecked parent city",
+        "- [ ] Unchecked parent",
+        "  - [x] Checked child",
+        "## Indeterminate parent city",
+        "- [-] Indeterminate parent",
+        "  - [x] Checked child",
+        "## Checked incomplete city",
+        "- [x] Checked ancestor",
+        "  - [ ] Remaining descendant",
+      ].join("\n")} />);
+
+      expect(screen.getByRole("heading", { name: /Unchecked parent city/ })).toBeInTheDocument();
+      expect(screen.getByText("Unchecked parent")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Indeterminate parent city/ })).toBeInTheDocument();
+      expect(screen.getByText("Indeterminate parent")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Checked incomplete city/ })).toBeInTheDocument();
+      expect(screen.getByText("Checked ancestor")).toBeInTheDocument();
+      expect(screen.getByText("Remaining descendant")).toBeInTheDocument();
+    });
+
     it("holds the snapshot until its revision changes", () => {
       const initial = "- [ ] First\n- [ ] Second";
       const checked = "- [x] First\n- [ ] Second";
