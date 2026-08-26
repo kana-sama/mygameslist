@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KeyboardCode, KeyboardSensor, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { rectSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
@@ -107,6 +107,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -311,8 +312,9 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
-  it("puts the top-layout toggle before delete with the accessible active state", async () => {
+  it("puts the completed-checklist and top-layout toggles before delete with accessible active states", async () => {
     const user = userEvent.setup();
+    const onToggleCompletedChecklistFilter = vi.fn();
     const onToggleSidebarLayout = vi.fn();
     render(<GamePage
       assets={{}}
@@ -321,19 +323,296 @@ describe("GamePage", () => {
       notes={[]}
       onDelete={vi.fn()}
       onSave={vi.fn()}
+      completedChecklistFilterEnabled
+      onToggleCompletedChecklistFilter={onToggleCompletedChecklistFilter}
       onToggleSidebarLayout={onToggleSidebarLayout}
       sidebarLayoutMode="top"
     />);
 
     expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
     const tools = document.querySelector(".game-sidebar__tools")!;
+    const filterButton = screen.getByRole("button", { name: "Показывать выполненные пункты" });
     const layoutButton = screen.getByRole("button", { name: "Вернуть сайдбар слева" });
     const deleteButton = screen.getByRole("button", { name: "Удалить игру" });
+    expect(filterButton).toHaveAttribute("aria-pressed", "true");
     expect(layoutButton).toHaveAttribute("aria-pressed", "true");
-    expect(Array.from(tools.querySelectorAll("button"))).toEqual([layoutButton, deleteButton]);
+    expect(Array.from(tools.querySelectorAll("button"))).toEqual([filterButton, layoutButton, deleteButton]);
 
+    await user.click(filterButton);
     await user.click(layoutButton);
+    expect(onToggleCompletedChecklistFilter.mock.calls).toEqual([[]]);
     expect(onToggleSidebarLayout.mock.calls).toEqual([[]]);
+  });
+
+  it("immediately filters completed checklist items when the inactive control becomes active", () => {
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] Finished\n- [ ] Open", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [enabled, setEnabled] = useState(false);
+      return <GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} onToggleCompletedChecklistFilter={() => setEnabled((current) => !current)} />;
+    }
+    render(<Harness />);
+
+    const inactive = screen.getByRole("button", { name: "Скрывать выполненные пункты" });
+    expect(inactive).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Finished")).toBeInTheDocument();
+
+    fireEvent.click(inactive);
+
+    expect(screen.getByRole("button", { name: "Показывать выполненные пункты" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("Finished")).not.toBeInTheDocument();
+    expect(screen.getByText("Скрыто 1 пунктов")).toBeInTheDocument();
+  });
+
+  it("refreshes the completed-checklist snapshot one minute after the latest task change", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [notes, setNotes] = useState([note]);
+      return <GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={(input) => setNotes(input.notes as Note[])} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Отметить: Second" })).not.toBeDisabled();
+    act(() => { vi.advanceTimersByTime(59_999); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Second" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(59_998); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+    expect(screen.queryByText("Second")).not.toBeInTheDocument();
+    expect(screen.getByText("Скрыто 2 пунктов")).toBeInTheDocument();
+  });
+
+  it("keeps a newly checked row visible across note edit and cancel until the refresh deadline", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [notes, setNotes] = useState([note]);
+      return <GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={(input) => setNotes(input.notes as Note[])} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отменить редактирование" }));
+    act(() => { vi.advanceTimersByTime(59_999); });
+
+    expect(screen.getByText("First")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+  });
+
+  it("cancels a pending filter refresh when the filter is disabled", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [notes, setNotes] = useState([note]);
+      const [enabled, setEnabled] = useState(true);
+      return <><button onClick={() => setEnabled(false)} type="button">Disable filter</button><GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={(input) => setNotes(input.notes as Note[])} /></>;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Disable filter" }));
+    act(() => { vi.advanceTimersByTime(60_000); });
+
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(screen.getByText("Second")).toBeInTheDocument();
+    expect(screen.queryByText(/Скрыто/)).not.toBeInTheDocument();
+  });
+
+  it("does not schedule a connected checkbox refresh after the filter is disabled during its save", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    let resolveSave: (() => void) | undefined;
+    const saveResolution = new Promise<void>((resolve) => { resolveSave = resolve; });
+    function Harness() {
+      const [enabled, setEnabled] = useState(true);
+      const [snapshot, setSnapshot] = useState({ bodyMarkdown: note.bodyMarkdown, collapsedChecklistSections: undefined as readonly string[] | undefined });
+      const noteInteractionSource = {
+        useNoteInteractionSnapshot: () => snapshot,
+        readNoteInteractionSnapshot: () => snapshot,
+        saveNoteInteraction: async (update: { field: "bodyMarkdown" | "collapsedChecklistSections"; value: string | readonly string[] | undefined }) => {
+          await saveResolution;
+          setSnapshot((current) => update.field === "bodyMarkdown"
+            ? { ...current, bodyMarkdown: update.value as string }
+            : { ...current, collapsedChecklistSections: update.value as readonly string[] | undefined });
+        },
+      };
+      return <><button onClick={() => setEnabled(false)} type="button">Disable filter</button><GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} /></>;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.click(screen.getByRole("button", { name: "Disable filter" }));
+    await act(async () => {
+      resolveSave?.();
+      await saveResolution;
+      await Promise.resolve();
+    });
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not schedule an old connected checkbox refresh after disable and re-enable during its save", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    let resolveSave: (() => void) | undefined;
+    const saveResolution = new Promise<void>((resolve) => { resolveSave = resolve; });
+    function Harness() {
+      const [enabled, setEnabled] = useState(true);
+      const [snapshot, setSnapshot] = useState({ bodyMarkdown: note.bodyMarkdown, collapsedChecklistSections: undefined as readonly string[] | undefined });
+      const noteInteractionSource = {
+        useNoteInteractionSnapshot: () => snapshot,
+        readNoteInteractionSnapshot: () => snapshot,
+        saveNoteInteraction: async (update: { field: "bodyMarkdown" | "collapsedChecklistSections"; value: string | readonly string[] | undefined }) => {
+          await saveResolution;
+          setSnapshot((current) => update.field === "bodyMarkdown"
+            ? { ...current, bodyMarkdown: update.value as string }
+            : { ...current, collapsedChecklistSections: update.value as readonly string[] | undefined });
+        },
+      };
+      return <GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} onToggleCompletedChecklistFilter={() => setEnabled((current) => !current)} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); });
+    fireEvent.click(screen.getByRole("button", { name: "Показывать выполненные пункты" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скрывать выполненные пункты" }));
+    await act(async () => {
+      resolveSave?.();
+      await saveResolution;
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not schedule a connected checkbox refresh after the game page unmounts during its save", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    let resolveSave: (() => void) | undefined;
+    const saveResolution = new Promise<void>((resolve) => { resolveSave = resolve; });
+    const snapshot = { bodyMarkdown: note.bodyMarkdown, collapsedChecklistSections: undefined as readonly string[] | undefined };
+    const noteInteractionSource = {
+      useNoteInteractionSnapshot: () => snapshot,
+      readNoteInteractionSnapshot: () => snapshot,
+      saveNoteInteraction: async () => { await saveResolution; },
+    };
+    const { unmount } = render(<GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); });
+    unmount();
+    await act(async () => {
+      resolveSave?.();
+      await saveResolution;
+      await Promise.resolve();
+    });
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("refreshes connected note checkboxes after a minute", async () => {
+    vi.useFakeTimers();
+    const note: Note = {
+      id: NOTE_ID,
+      gameId: DUCK_ID,
+      bodyMarkdown: "- [ ] First\n- [ ] Second",
+      attachments: [],
+      rank: 1024,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    function Harness() {
+      const [snapshot, setSnapshot] = useState({ bodyMarkdown: note.bodyMarkdown, collapsedChecklistSections: undefined as readonly string[] | undefined });
+      const noteInteractionSource = {
+        useNoteInteractionSnapshot: () => snapshot,
+        readNoteInteractionSnapshot: () => snapshot,
+        saveNoteInteraction: async (update: { field: "bodyMarkdown" | "collapsedChecklistSections"; value: string | readonly string[] | undefined }) => {
+          setSnapshot((current) => update.field === "bodyMarkdown"
+            ? { ...current, bodyMarkdown: update.value as string }
+            : { ...current, collapsedChecklistSections: update.value as readonly string[] | undefined });
+        },
+      };
+      return <GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(60_000); });
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+  });
+
+  it("does not reset a checkbox refresh for text edits or added checklist items", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second\n- [ ] ...", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [notes, setNotes] = useState([note]);
+      return <GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={(input) => setNotes(input.notes as Note[])} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(20_000); });
+
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать пункт: Second" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Текст пункта: Second" }), { target: { value: "Edited second" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Текст пункта: Second" }), { key: "Enter" });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(20_000); });
+
+    fireEvent.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), { target: { value: "Added" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), { key: "Enter" });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(19_999); });
+    expect(screen.getByText("First")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(1); });
+
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+  });
+
+  it("does not reset a checkbox refresh when a checklist section is collapsed", async () => {
+    vi.useFakeTimers();
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "# Root\n## Section\n- [ ] First", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [notes, setNotes] = useState([note]);
+      return <GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={notes} onSave={(input) => setNotes(input.notes as Note[])} />;
+    }
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(30_000); });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Root/ }));
+      await Promise.resolve();
+    });
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    act(() => { vi.advanceTimersByTime(30_000); });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Root/ }));
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
   });
 
   it("places the three-column progress grid after metadata and before delete tools", () => {

@@ -18,6 +18,14 @@ import {
 } from "../domain/markdownChecklist";
 import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
+import {
+  completedChecklistHiddenItemCount,
+  completedChecklistItemIsHidden,
+  completedChecklistSectionIsHidden,
+  createCompletedChecklistFilterSnapshot,
+  emptyCompletedChecklistFilterSnapshot,
+  type CompletedChecklistFilterSnapshot,
+} from "./markdownCompletedChecklistFilter";
 import type {
   RenderedInlineChange,
   RenderedRowChange,
@@ -365,6 +373,9 @@ export function setMarkdownTaskItemText(markdown: string, sourceLine: number, va
 
 export interface MarkdownViewProps {
   markdown: string;
+  completedChecklistFilterEnabled?: boolean;
+  completedChecklistFilterRevision?: number;
+  completedChecklistFilterSnapshot?: CompletedChecklistFilterSnapshot;
   className?: string;
   firstHeadingPortalTarget?: Element | null;
   collapsedChecklistSections?: readonly string[];
@@ -373,6 +384,7 @@ export interface MarkdownViewProps {
   emptyText?: string;
   onCollapsedChecklistSectionsChange?: (sections: string[]) => void;
   onTaskChange?: (markdown: string) => void;
+  onTaskCheckboxChange?: (markdown: string) => void;
   rowChanges?: readonly RenderedRowChange[];
   taskChanges?: readonly RenderedTaskChange[];
   taskChangesDisabled?: boolean;
@@ -525,13 +537,26 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], decorations, firstHeadingPortalTarget, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
+function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, decorations, firstHeadingPortalTarget, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, onTaskCheckboxChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
+  const latestBlocksRef = useRef(blocks);
+  latestBlocksRef.current = blocks;
+  const completedChecklistFilterSnapshot = useMemo(
+    () => providedCompletedChecklistFilterSnapshot ?? (completedChecklistFilterEnabled
+      ? createCompletedChecklistFilterSnapshot(latestBlocksRef.current)
+      : emptyCompletedChecklistFilterSnapshot()),
+    [completedChecklistFilterEnabled, completedChecklistFilterRevision, providedCompletedChecklistFilterSnapshot],
+  );
   const indeterminateSubsectionIndexes = useMemo(() => directIndeterminateSubsectionIndexes(blocks), [blocks]);
   const firstTopLevelHeadingIndex = blocks[0]?.type === "heading" && blocks[0].depth === 1 ? 0 : -1;
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
   const taskTextEditingAvailable = Boolean(onTaskChange);
+  const taskCheckboxChangesAvailable = Boolean(onTaskChange || onTaskCheckboxChange);
+  const saveCheckboxChange = (nextMarkdown: string) => {
+    if (onTaskCheckboxChange) onTaskCheckboxChange(nextMarkdown);
+    else onTaskChange?.(nextMarkdown);
+  };
   const taskChangeAt = (sourceLine: number, sourceColumn?: number): RenderedTaskChange | undefined =>
     taskChanges.find((change) =>
       change.sourceLine === sourceLine
@@ -625,10 +650,14 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
 
   const renderList = (block: MarkdownBlock, key: string): ReactNode => {
     const Tag = block.type === "list" ? "ul" : "ol";
+    const hiddenItemCount = completedChecklistFilterEnabled
+      ? completedChecklistHiddenItemCount(completedChecklistFilterSnapshot, block)
+      : 0;
     return (
       <Tag key={key}>
         {block.items?.map((item, itemIndex) => {
           const itemKey = `${key}-${item.sourceLine}-${itemIndex}`;
+          if (completedChecklistFilterEnabled && completedChecklistItemIsHidden(completedChecklistFilterSnapshot, item)) return null;
           const children = item.children.map((child, childIndex) => renderList(child, `${itemKey}-child-${childIndex}`));
           if (item.openMarker) {
             if (!taskTextEditingAvailable) return null;
@@ -706,12 +735,12 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                       aria-disabled={taskChangesDisabled || undefined}
                       aria-label={`${taskStateLabel(item.taskState)}: ${taskLabel}`}
                       className="markdown-task-checkbox"
-                      disabled={!onTaskChange || activeTaskEditor !== null}
+                      disabled={!taskCheckboxChangesAvailable || activeTaskEditor !== null}
                       onChange={(event) => {
                         if (taskChangesDisabled) return;
                         if ((event.nativeEvent as MouseEvent).metaKey) return;
                         const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, event.currentTarget.checked ? "checked" : "unchecked");
-                        if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                        if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -719,7 +748,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                         if (event.metaKey && !taskChangesDisabled) {
                           event.preventDefault();
                           const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, "indeterminate");
-                          if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                          if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                         }
                       }}
                       state={item.taskState}
@@ -764,6 +793,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             </li>
           );
         })}
+        {hiddenItemCount ? <li aria-live="off" className="markdown-checklist-hidden-count">Скрыто {hiddenItemCount} пунктов</li> : null}
       </Tag>
     );
   };
@@ -808,13 +838,13 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                         aria-disabled={taskChangesDisabled || undefined}
                         aria-label={`${taskStateLabel(cell.taskState)}: ${taskLabel}`}
                         className="markdown-task-checkbox"
-                        disabled={!onTaskChange || activeTaskEditor !== null}
+                        disabled={!taskCheckboxChangesAvailable || activeTaskEditor !== null}
                         onChange={(event) => {
                           if (taskChangesDisabled) return;
                           if ((event.nativeEvent as MouseEvent).metaKey) return;
                           if (cell.taskSourceColumn === undefined) return;
                           const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked ? "checked" : "unchecked");
-                          if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                          if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                         }}
                         onClick={(event) => {
                           event.stopPropagation();
@@ -822,7 +852,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                           if (event.metaKey && !taskChangesDisabled && cell.taskSourceColumn !== undefined) {
                             event.preventDefault();
                             const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, "indeterminate");
-                            if (nextMarkdown !== markdown) onTaskChange?.(nextMarkdown);
+                            if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                           }
                         }}
                         state={cell.taskState}
@@ -906,15 +936,24 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   };
 
   let hiddenHeadingDepth: number | null = null;
+  let filteredHeadingDepth: number | null = null;
   const renderBlock = (block: MarkdownBlock, index: number): ReactNode => {
     const key = `${block.type}-${index}`;
     if (block.type === "heading") {
       const depth = block.depth ?? 0;
+      if (filteredHeadingDepth !== null) {
+        if (depth > filteredHeadingDepth) return null;
+        filteredHeadingDepth = null;
+      }
+      if (completedChecklistFilterEnabled && completedChecklistSectionIsHidden(completedChecklistFilterSnapshot, block)) {
+        filteredHeadingDepth = depth;
+        return null;
+      }
       if (hiddenHeadingDepth !== null) {
         if (depth > hiddenHeadingDepth) return null;
         hiddenHeadingDepth = null;
       }
-    } else if (hiddenHeadingDepth !== null) {
+    } else if (hiddenHeadingDepth !== null || filteredHeadingDepth !== null) {
       return null;
     }
     if (block.type === "code") return <pre key={key}><code>{block.value}</code></pre>;
@@ -971,7 +1010,8 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const content: ReactNode[] = [];
   let sectionStartIndex: number | null = null;
   let sectionChildren: ReactNode[] = [];
-  const subsectionStack: Array<{ children: ReactNode[]; complete: boolean; depth: number; indeterminate: boolean; startIndex: number }> = [];
+  let hiddenSectionCount = 0;
+  const subsectionStack: Array<{ children: ReactNode[]; complete: boolean; depth: number; hiddenSectionCount: number; indeterminate: boolean; startIndex: number }> = [];
   const appendSectionChild = (child: ReactNode): void => {
     const parent = subsectionStack.at(-1);
     if (parent) parent.children.push(child);
@@ -980,6 +1020,9 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const closeSubsection = (): void => {
     const subsection = subsectionStack.pop();
     if (!subsection) return;
+    if (subsection.hiddenSectionCount) {
+      subsection.children.push(<div aria-live="off" className="markdown-checklist-hidden-sections" key={`hidden-sections-${subsection.startIndex}`}>Скрыто {subsection.hiddenSectionCount} секций</div>);
+    }
     appendSectionChild(
       <div
         className={`markdown-checklist-subsection${subsection.depth >= 3 ? " markdown-checklist-subsection--nested" : ""}${subsection.complete ? " markdown-checklist-subsection--complete" : ""}${subsection.indeterminate ? " markdown-checklist-subsection--indeterminate" : ""}`}
@@ -995,6 +1038,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const flushSection = (): void => {
     if (sectionStartIndex === null) return;
     closeSubsectionsAtOrBelow(0);
+    if (hiddenSectionCount) sectionChildren.push(<div aria-live="off" className="markdown-checklist-hidden-sections" key={`hidden-sections-${sectionStartIndex}`}>Скрыто {hiddenSectionCount} секций</div>);
     content.push(<div className="markdown-section" key={`section-${sectionStartIndex}`}>{sectionChildren}</div>);
   };
   blocks.forEach((block, index) => {
@@ -1002,20 +1046,31 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       flushSection();
       sectionStartIndex = index;
       sectionChildren = [];
+      hiddenSectionCount = 0;
     }
+    const hiddenByFilteredAncestor = block.type === "heading"
+      && filteredHeadingDepth !== null
+      && (block.depth ?? 0) > filteredHeadingDepth;
     const rendered = renderBlock(block, index);
-    if (rendered !== null && sectionStartIndex !== null && block.type === "heading" && (block.depth ?? 0) >= 2) {
+    if (sectionStartIndex !== null && block.type === "heading" && (block.depth ?? 0) >= 2) {
       const depth = block.depth ?? 0;
       closeSubsectionsAtOrBelow(depth);
+      if (completedChecklistFilterEnabled && !hiddenByFilteredAncestor && completedChecklistSectionIsHidden(completedChecklistFilterSnapshot, block)) {
+        const parent = subsectionStack.at(-1);
+        if (parent) parent.hiddenSectionCount += 1;
+        else hiddenSectionCount += 1;
+      } else if (rendered !== null) {
       const progress = block.checklistProgress;
       if (progress) {
         subsectionStack.push({
           children: [],
           complete: !progress.open && progress.checked === progress.total,
           depth,
+          hiddenSectionCount: 0,
           indeterminate: indeterminateSubsectionIndexes.has(index),
           startIndex: index,
         });
+      }
       }
     }
     if (sectionStartIndex === null) content.push(rendered);
@@ -1033,6 +1088,9 @@ function sameStrings(left: readonly string[] | undefined, right: readonly string
 const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => (
   previous.markdown === next.markdown
   && previous.className === next.className
+  && previous.completedChecklistFilterEnabled === next.completedChecklistFilterEnabled
+  && previous.completedChecklistFilterRevision === next.completedChecklistFilterRevision
+  && previous.completedChecklistFilterSnapshot === next.completedChecklistFilterSnapshot
   && previous.firstHeadingPortalTarget === next.firstHeadingPortalTarget
   && previous.emptyText === next.emptyText
   && sameStrings(previous.collapsedChecklistSections, next.collapsedChecklistSections)
@@ -1042,16 +1100,22 @@ const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => 
   && previous.taskChanges === next.taskChanges
   && previous.taskChangesDisabled === next.taskChangesDisabled
   && previous.onTaskChange === next.onTaskChange
+  && previous.onTaskCheckboxChange === next.onTaskCheckboxChange
   && previous.onCollapsedChecklistSectionsChange === next.onCollapsedChecklistSectionsChange
 ));
 
-export function MarkdownView({ onTaskChange, onCollapsedChecklistSectionsChange, ...renderProps }: MarkdownViewProps) {
+export function MarkdownView({ onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, ...renderProps }: MarkdownViewProps) {
   const taskChangeRef = useRef(onTaskChange);
+  const taskCheckboxChangeRef = useRef(onTaskCheckboxChange);
   const collapsedSectionsChangeRef = useRef(onCollapsedChecklistSectionsChange);
   taskChangeRef.current = onTaskChange;
+  taskCheckboxChangeRef.current = onTaskCheckboxChange;
   collapsedSectionsChangeRef.current = onCollapsedChecklistSectionsChange;
   const stableTaskChange = useCallback((markdown: string) => {
     taskChangeRef.current?.(markdown);
+  }, []);
+  const stableTaskCheckboxChange = useCallback((markdown: string) => {
+    taskCheckboxChangeRef.current?.(markdown);
   }, []);
   const stableCollapsedSectionsChange = useCallback((sections: string[]) => {
     collapsedSectionsChangeRef.current?.(sections);
@@ -1062,6 +1126,7 @@ export function MarkdownView({ onTaskChange, onCollapsedChecklistSectionsChange,
       {...renderProps}
       onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange ? stableCollapsedSectionsChange : undefined}
       onTaskChange={onTaskChange ? stableTaskChange : undefined}
+      onTaskCheckboxChange={onTaskCheckboxChange ? stableTaskCheckboxChange : undefined}
     />
   );
 }

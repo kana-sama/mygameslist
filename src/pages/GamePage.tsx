@@ -32,6 +32,8 @@ import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
+import { createCompletedChecklistFilterSnapshot, emptyCompletedChecklistFilterSnapshot, type CompletedChecklistFilterSnapshot } from "../components/markdownCompletedChecklistFilter";
+import { parseMarkdownBlocks } from "../domain/markdownChecklist";
 import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
@@ -440,6 +442,8 @@ export interface GamePageProps {
   onDelete?: (gameId: string) => void | Promise<void>;
   sidebarLayoutMode?: SidebarLayoutMode;
   onToggleSidebarLayout?: () => void;
+  completedChecklistFilterEnabled?: boolean;
+  onToggleCompletedChecklistFilter?: () => void;
   noteInteractionSource?: NoteInteractionSource;
 }
 
@@ -848,27 +852,45 @@ interface InlineNoteCardProps {
   onEdit: () => void;
   onChange: (note: EditableNote) => void;
   onSave: (note: EditableNote) => void;
-  onTaskSave: (note: EditableNote) => void | Promise<void>;
+  onTaskSave: (note: EditableNote, reason?: "checkbox" | "checkbox-saved") => void | Promise<void>;
   onCancel: () => void;
   onDelete: () => void;
   onMove: (targetIndex: number) => void;
   taskError?: string | null;
+  completedChecklistFilterEnabled?: boolean;
+  completedChecklistFilterGeneration?: number;
+  completedChecklistFilterRevision?: number;
 }
 
-function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsDisabled, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove, taskError }: InlineNoteCardProps) {
+function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsDisabled, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove, taskError, completedChecklistFilterEnabled, completedChecklistFilterGeneration = 0, completedChecklistFilterRevision = 0 }: InlineNoteCardProps) {
+  const completedChecklistFilterSnapshotCache = useRef<{ epoch: string; snapshot: CompletedChecklistFilterSnapshot } | null>(null);
+  const completedChecklistFilterEpoch = `${completedChecklistFilterGeneration}:${completedChecklistFilterRevision}`;
+  if (completedChecklistFilterEnabled && !editing && completedChecklistFilterSnapshotCache.current?.epoch !== completedChecklistFilterEpoch) {
+    completedChecklistFilterSnapshotCache.current = {
+      epoch: completedChecklistFilterEpoch,
+      snapshot: createCompletedChecklistFilterSnapshot(parseMarkdownBlocks(note.bodyMarkdown)),
+    };
+  }
+  const completedChecklistFilterSnapshot = completedChecklistFilterEnabled
+    && completedChecklistFilterSnapshotCache.current?.epoch === completedChecklistFilterEpoch
+    ? completedChecklistFilterSnapshotCache.current.snapshot
+    : emptyCompletedChecklistFilterSnapshot();
   const saveCollapsedChecklistSections = useCallback((collapsedChecklistSections: string[]) => {
     void onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined });
   }, [note, onTaskSave]);
   const saveBodyMarkdown = useCallback((bodyMarkdown: string) => {
     void onTaskSave({ ...note, bodyMarkdown });
   }, [note, onTaskSave]);
+  const saveCheckboxBodyMarkdown = useCallback((bodyMarkdown: string) => {
+    void onTaskSave({ ...note, bodyMarkdown }, "checkbox");
+  }, [note, onTaskSave]);
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
-  return <SortableNoteCard actionsDisabled={actionsDisabled} assets={assets} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onTaskChange={saveBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
+  return <SortableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onTaskChange={saveBodyMarkdown} onTaskCheckboxChange={saveCheckboxBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
 }
 
 function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNoteCardProps & { noteInteractionSource: NoteInteractionSource; note: EditableNote & { id: string } }) {
-  const { note } = props;
+  const { note, onTaskSave: notifyTaskSave } = props;
   const snapshot = noteInteractionSource.useNoteInteractionSnapshot(note.id);
   const [interactionPending, setInteractionPending] = useState(false);
   const [interactionError, setInteractionError] = useState<string | null>(null);
@@ -885,7 +907,7 @@ function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNote
         : { collapsedChecklistSections: [...collapsedChecklistSections] }),
     };
   }, [note, props.editing, snapshot?.bodyMarkdown, snapshot?.collapsedChecklistSections]);
-  const saveInteraction = useCallback(async (draft: EditableNote) => {
+  const saveInteraction = useCallback(async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved") => {
     if (interactionPending) return;
     const update: InteractiveNoteFieldUpdate = draft.bodyMarkdown !== currentNote.bodyMarkdown
       ? { noteId: note.id, field: "bodyMarkdown", value: draft.bodyMarkdown }
@@ -898,12 +920,13 @@ function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNote
     setInteractionError(null);
     try {
       await noteInteractionSource.saveNoteInteraction(update);
+      if (reason === "checkbox") void notifyTaskSave(draft, "checkbox-saved");
     } catch (reason) {
       setInteractionError(reason instanceof Error ? reason.message : "Не удалось сохранить изменение заметки");
     } finally {
       setInteractionPending(false);
     }
-  }, [currentNote.bodyMarkdown, interactionPending, note.id, noteInteractionSource]);
+  }, [currentNote.bodyMarkdown, interactionPending, note.id, noteInteractionSource, notifyTaskSave]);
 
   return <InlineNoteCard {...props} note={currentNote} onTaskSave={saveInteraction} saving={props.saving || interactionPending} taskError={interactionError} />;
 }
@@ -914,15 +937,19 @@ function InlineNoteCardBoundary({ noteInteractionSource, ...props }: InlineNoteC
     : <InlineNoteCard {...props} />;
 }
 
-function SortableNoteCard({ note, assets, actionsDisabled, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, taskError }: {
+function SortableNoteCard({ note, assets, actionsDisabled, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, disabled, dropIndicatorEdge, resolveAssetUrl, onEdit, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, taskError }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   actionsDisabled: boolean;
+  completedChecklistFilterEnabled?: boolean;
+  completedChecklistFilterRevision?: number;
+  completedChecklistFilterSnapshot: CompletedChecklistFilterSnapshot;
   disabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
+  onTaskCheckboxChange: (markdown: string) => void;
   onCollapsedChecklistSectionsChange: (sections: string[]) => void;
   taskChangesDisabled: boolean;
   taskError?: string | null;
@@ -935,16 +962,20 @@ function SortableNoteCard({ note, assets, actionsDisabled, disabled, dropIndicat
     disabled,
   });
 
-  return <ScrollableNoteCard actionsDisabled={actionsDisabled} assets={assets} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onTaskChange={onTaskChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} taskError={taskError} />;
+  return <ScrollableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} taskError={taskError} />;
 }
 
-function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAssetUrl, onEdit, onTaskChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false, taskError }: {
+function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, resolveAssetUrl, onEdit, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false, taskError }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   actionsDisabled?: boolean;
+  completedChecklistFilterEnabled?: boolean;
+  completedChecklistFilterRevision?: number;
+  completedChecklistFilterSnapshot: CompletedChecklistFilterSnapshot;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
   onTaskChange: (markdown: string) => void;
+  onTaskCheckboxChange: (markdown: string) => void;
   onCollapsedChecklistSectionsChange: (sections: string[]) => void;
   taskChangesDisabled: boolean;
   dragActivatorRef?: (node: HTMLElement | null) => void;
@@ -1000,7 +1031,7 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, resolveAsse
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
               <div className="note-card__content">
-                {note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onTaskChange={onTaskChange} taskChangesDisabled={taskChangesDisabled} /> : null}
+                {note.bodyMarkdown.trim() ? <MarkdownView completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} taskChangesDisabled={taskChangesDisabled} /> : null}
               </div>
             </div>
           </div>
@@ -1265,7 +1296,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
   return createPortal(<PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onAutoFocusConsumed={consumeAutoFocus} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />, host);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", onToggleSidebarLayout, noteInteractionSource }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", onToggleSidebarLayout, completedChecklistFilterEnabled = false, onToggleCompletedChecklistFilter, noteInteractionSource }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -1278,6 +1309,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [saving, setSaving] = useState(false);
   const [optimisticTaskNote, setOptimisticTaskNote] = useState<EditableNote | null>(null);
   const [taskSaveNoteId, setTaskSaveNoteId] = useState<string | null>(null);
+  const [completedChecklistFilterRevision, setCompletedChecklistFilterRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [noteDropIndicator, setNoteDropIndicator] = useState<{ clientId: string; edge: NoteDropEdge } | null>(null);
@@ -1286,6 +1318,17 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const progressTrigger = useRef<HTMLElement | null>(null);
   const progressPageMounted = useRef(true);
   const taskSaveInFlight = useRef(false);
+  const completedChecklistFilterTimeout = useRef<number | null>(null);
+  const completedChecklistFilterPageMounted = useRef(true);
+  const completedChecklistFilterEnabledRef = useRef(completedChecklistFilterEnabled);
+  const previousCompletedChecklistFilterEnabledRef = useRef(completedChecklistFilterEnabled);
+  const completedChecklistFilterGenerationRef = useRef(0);
+  if (previousCompletedChecklistFilterEnabledRef.current !== completedChecklistFilterEnabled) {
+    previousCompletedChecklistFilterEnabledRef.current = completedChecklistFilterEnabled;
+    completedChecklistFilterGenerationRef.current += 1;
+  }
+  const completedChecklistFilterGeneration = completedChecklistFilterGenerationRef.current;
+  completedChecklistFilterEnabledRef.current = completedChecklistFilterEnabled;
   const initialNoteFiles = useRef(new Map<string, File[]>());
   const noteFileDrag = useNoteFileDragReveal();
   const noteSensors = useSensors(
@@ -1352,6 +1395,18 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     };
   }, []);
   useEffect(() => {
+    if (completedChecklistFilterEnabled || completedChecklistFilterTimeout.current === null) return;
+    window.clearTimeout(completedChecklistFilterTimeout.current);
+    completedChecklistFilterTimeout.current = null;
+  }, [completedChecklistFilterEnabled]);
+  useEffect(() => {
+    completedChecklistFilterPageMounted.current = true;
+    return () => {
+      completedChecklistFilterPageMounted.current = false;
+      if (completedChecklistFilterTimeout.current !== null) window.clearTimeout(completedChecklistFilterTimeout.current);
+    };
+  }, []);
+  useEffect(() => {
     if (!restoreProgressDeleteFocus || saving || progressDraft !== null) return;
     setRestoreProgressDeleteFocus(false);
     requestAnimationFrame(focusProgressAfterDelete);
@@ -1413,14 +1468,30 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     const authoredNoteIds = draft.id ? new Set([draft.id]) : undefined;
     if (await persist({ notes: nextNotes }, { authoredNoteIds })) { setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }
   };
-  const saveTaskNote = async (draft: EditableNote) => {
+  const scheduleCompletedChecklistFilterRefresh = useCallback((generation: number) => {
+    if (!completedChecklistFilterPageMounted.current || !completedChecklistFilterEnabledRef.current || completedChecklistFilterGenerationRef.current !== generation) return;
+    if (completedChecklistFilterTimeout.current !== null) window.clearTimeout(completedChecklistFilterTimeout.current);
+    completedChecklistFilterTimeout.current = window.setTimeout(() => {
+      completedChecklistFilterTimeout.current = null;
+      if (!completedChecklistFilterPageMounted.current || !completedChecklistFilterEnabledRef.current || completedChecklistFilterGenerationRef.current !== generation) return;
+      setCompletedChecklistFilterRevision((current) => current + 1);
+    }, 60_000);
+  }, []);
+  const saveTaskNote = async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved") => {
+    if (reason === "checkbox-saved") {
+      scheduleCompletedChecklistFilterRefresh(completedChecklistFilterGeneration);
+      return;
+    }
     if (taskSaveInFlight.current || saving || editingField !== null || editingDraft !== null || coverEditing || progressDraft !== null) return;
     taskSaveInFlight.current = true;
     setOptimisticTaskNote(draft);
     setTaskSaveNoteId(draft.clientId);
     try {
       const nextNotes = visibleNotes.map((note) => note.clientId === draft.clientId ? draft : note);
-      if (!await persist({ notes: nextNotes }, { globalSaving: false })) setOptimisticTaskNote(null);
+      const saved = await persist({ notes: nextNotes }, { globalSaving: false });
+      if (!saved) {
+        setOptimisticTaskNote(null);
+      } else if (reason === "checkbox") scheduleCompletedChecklistFilterRefresh(completedChecklistFilterGeneration);
     } finally {
       taskSaveInFlight.current = false;
       setTaskSaveNoteId(null);
@@ -1516,7 +1587,15 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
           </dl>
           <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
-          {onToggleSidebarLayout || onDelete ? <div className="game-sidebar__tools">
+          {onToggleCompletedChecklistFilter || onToggleSidebarLayout || onDelete ? <div className="game-sidebar__tools">
+            {onToggleCompletedChecklistFilter ? <button
+              aria-label={completedChecklistFilterEnabled ? "Показывать выполненные пункты" : "Скрывать выполненные пункты"}
+              aria-pressed={completedChecklistFilterEnabled}
+              className="game-sidebar__completed-checklist-filter-toggle"
+              onClick={() => onToggleCompletedChecklistFilter()}
+              title={completedChecklistFilterEnabled ? "Показывать выполненные пункты" : "Скрывать выполненные пункты"}
+              type="button"
+            ><Icon name="eye-off" size={15} /></button> : null}
             {onToggleSidebarLayout ? <button
               aria-label={sidebarLayoutMode === "top" ? "Вернуть сайдбар слева" : "Переместить сайдбар наверх"}
               aria-pressed={sidebarLayoutMode === "top"}
@@ -1530,7 +1609,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
-          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCardBoundary actionsDisabled={globalActionsDisabled} assets={assets} canAddBlob={canAddBlob} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} key={note.clientId} note={note} noteInteractionSource={noteInteractionSource} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving || taskSaveNoteId === note.clientId} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><div className="note-group-actions"><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /><NoteGroupAddButton disabled={sortingDisabled || !groupInsertAvailable[groupIndex]} label={`Добавить группу после группы ${groupIndex + 1}`} onCreate={() => beginNewGroupAfter(group.groupRank)} text="Добавить группу" /></div></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled || !trailingGroupAvailable} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} showCreate={!noteGroups.length} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
+          <DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCardBoundary actionsDisabled={globalActionsDisabled} assets={assets} canAddBlob={canAddBlob} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterGeneration={completedChecklistFilterGeneration} completedChecklistFilterRevision={completedChecklistFilterRevision} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} key={note.clientId} note={note} noteInteractionSource={noteInteractionSource} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving || taskSaveNoteId === note.clientId} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><div className="note-group-actions"><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /><NoteGroupAddButton disabled={sortingDisabled || !groupInsertAvailable[groupIndex]} label={`Добавить группу после группы ${groupIndex + 1}`} onCreate={() => beginNewGroupAfter(group.groupRank)} text="Добавить группу" /></div></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled || !trailingGroupAvailable} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} showCreate={!noteGroups.length} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext>
         </section>
       </div>
       {progressDraft ? <GameProgressItemDialog assets={assets} canAddBlob={canAddBlob} gameId={game.id} item={progressDraft} notes={notes} onCancel={closeProgressEditor} onDelete={editableProgressItems.some((item) => item.id === progressDraft.id) ? deleteProgressItem : undefined} onSave={saveProgressItem} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} /> : null}

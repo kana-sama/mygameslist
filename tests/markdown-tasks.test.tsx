@@ -62,6 +62,140 @@ afterEach(() => {
 });
 
 describe("Markdown tasks", () => {
+  describe("completed checklist filter", () => {
+    it("hides checked flat-list items and reports their count", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "- [x] Done one",
+        "- [ ] Open",
+        "- [-] Mixed",
+        "- [x] Done two",
+      ].join("\n")} />);
+
+      expect(screen.queryByText("Done one")).not.toBeInTheDocument();
+      expect(screen.queryByText("Done two")).not.toBeInTheDocument();
+      expect(screen.getByText("Open")).toBeInTheDocument();
+      expect(screen.getByText("Mixed")).toBeInTheDocument();
+      expect(screen.getByText("Скрыто 2 пунктов")).toBeInTheDocument();
+    });
+
+    it("holds the snapshot until its revision changes", () => {
+      const initial = "- [ ] First\n- [ ] Second";
+      const checked = "- [x] First\n- [ ] Second";
+      const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} />);
+
+      view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={checked} />);
+      expect(screen.getByText("First")).toBeInTheDocument();
+      expect(screen.queryByText(/Скрыто/)).not.toBeInTheDocument();
+
+      view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={checked} />);
+      expect(screen.queryByText("First")).not.toBeInTheDocument();
+      expect(screen.getByText("Скрыто 1 пунктов")).toBeInTheDocument();
+    });
+
+    it("keeps hidden items and sections mapped after inserting an item before them at the same revision", () => {
+      const initial = [
+        "# Root",
+        "- [ ] ...",
+        "## Mixed",
+        "Context stays",
+        "- [x] Hidden row",
+        "## Finished section",
+        "- [x] Finished row",
+      ].join("\n");
+      const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} onTaskChange={vi.fn()} />);
+      const inserted = insertMarkdownOpenChecklistItem(initial, 1, "Inserted row");
+
+      view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={inserted} onTaskChange={vi.fn()} />);
+
+      expect(screen.getByText("Inserted row")).toBeInTheDocument();
+      expect(screen.queryByText("Hidden row")).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Finished section/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("Finished row")).not.toBeInTheDocument();
+    });
+
+    it("keeps a checked parent with visible nested work and hides a completed branch", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "- [x] Keep parent",
+        "  - [ ] Nested open",
+        "  - [x] Nested done beside open work",
+        "- [x] Hide parent",
+        "  - [x] Nested done",
+      ].join("\n")} />);
+
+      expect(screen.getByText("Keep parent")).toBeInTheDocument();
+      expect(screen.getByText("Nested open")).toBeInTheDocument();
+      expect(screen.queryByText("Nested done beside open work")).not.toBeInTheDocument();
+      expect(screen.queryByText("Hide parent")).not.toBeInTheDocument();
+      expect(screen.queryByText("Nested done")).not.toBeInTheDocument();
+    });
+
+    it("hides completed depth-two checklist sections and reports them to their level-one parent", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Root",
+        "## Done one",
+        "- [x] Finish one",
+        "## Done two",
+        "- [x] Finish two",
+        "## Mixed",
+        "- [ ] Continue",
+      ].join("\n")} />);
+
+      expect(screen.queryByRole("heading", { name: /Done one/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Done two/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Mixed/ })).toBeInTheDocument();
+      expect(screen.getByText("Скрыто 2 секций")).toBeInTheDocument();
+    });
+
+    it("counts only the topmost hidden completed section", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Root",
+        "## Finished parent",
+        "- [x] Parent work",
+        "### Finished child",
+        "- [x] Child work",
+      ].join("\n")} />);
+
+      expect(screen.queryByRole("heading", { name: /Finished parent/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Finished child/ })).not.toBeInTheDocument();
+      expect(screen.getByText("Скрыто 1 секций")).toBeInTheDocument();
+      expect(screen.queryByText("Скрыто 2 секций")).not.toBeInTheDocument();
+    });
+
+    it("keeps a completed section with a paragraph while hiding its completed rows", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Root",
+        "## Complete context",
+        "Context stays",
+        "- [x] Finished",
+      ].join("\n")} />);
+
+      expect(screen.getByRole("heading", { name: /Complete context/ })).toBeInTheDocument();
+      expect(screen.getByText("Context stays")).toBeInTheDocument();
+      expect(screen.queryByText("Finished")).not.toBeInTheDocument();
+      expect(screen.getByText("Скрыто 1 пунктов")).toBeInTheDocument();
+    });
+
+    it("keeps completed Markdown tables without filter summaries", () => {
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "| Stage | Task |",
+        "| --- | --- |",
+        "| End | [x] Finished |",
+      ].join("\n")} />);
+
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.getByText("Finished")).toBeInTheDocument();
+      expect(screen.queryByText(/Скрыто/)).not.toBeInTheDocument();
+    });
+
+    it("renders every item and no summaries when disabled", () => {
+      render(<MarkdownView completedChecklistFilterEnabled={false} markdown={"- [x] Finished\n- [ ] Open"} />);
+
+      expect(screen.getByText("Finished")).toBeInTheDocument();
+      expect(screen.getByText("Open")).toBeInTheDocument();
+      expect(screen.queryByText(/Скрыто/)).not.toBeInTheDocument();
+    });
+  });
+
   it("renders a computed-style hierarchy for progress-bearing checklist headings", () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;

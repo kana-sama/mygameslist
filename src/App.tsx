@@ -32,6 +32,7 @@ import {
 import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
 import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
 import { loadSidebarLayoutMode, toggleSidebarLayoutMode, type SidebarLayoutMode } from "./state/sidebarLayoutPreference";
+import { loadCompletedChecklistFilterEnabled, toggleCompletedChecklistFilterEnabled } from "./state/completedChecklistFilterPreference";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -227,6 +228,7 @@ function LibraryRoutes() {
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
   const [sidebarLayoutMode, setSidebarLayoutMode] = useState<SidebarLayoutMode>(loadSidebarLayoutMode);
+  const [completedChecklistFilterEnabled, setCompletedChecklistFilterEnabled] = useState(loadCompletedChecklistFilterEnabled);
   const library = useLibrarySelector(identityLibrary, diffOpen ? Object.is : sameLibraryRouteBoundary);
   const [selectionMode, setSelectionMode] = useState(false);
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
@@ -522,7 +524,9 @@ function LibraryRoutes() {
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
         <Route path="/games/:id" element={<GameRoute
+          completedChecklistFilterEnabled={completedChecklistFilterEnabled}
           mode="game"
+          onToggleCompletedChecklistFilter={() => setCompletedChecklistFilterEnabled((current) => toggleCompletedChecklistFilterEnabled(current))}
           onToggleSidebarLayout={() => setSidebarLayoutMode((current) => toggleSidebarLayoutMode(current))}
           sidebarLayoutMode={sidebarLayoutMode}
         />} />
@@ -647,8 +651,10 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
   }, sameNoteInteractionSnapshot);
 }
 
-function GameRoute({ mode, onToggleSidebarLayout, sidebarLayoutMode }: {
+function GameRoute({ mode, completedChecklistFilterEnabled, onToggleCompletedChecklistFilter, onToggleSidebarLayout, sidebarLayoutMode }: {
   mode: "new" | "game";
+  completedChecklistFilterEnabled?: boolean;
+  onToggleCompletedChecklistFilter?: () => void;
   onToggleSidebarLayout?: () => void;
   sidebarLayoutMode?: SidebarLayoutMode;
 }) {
@@ -683,6 +689,7 @@ function GameRoute({ mode, onToggleSidebarLayout, sidebarLayoutMode }: {
   return <GamePage
     assets={assets}
     canAddBlob={selection.canAddBlob}
+    completedChecklistFilterEnabled={completedChecklistFilterEnabled}
     game={game}
     gameSuggestions={gameSuggestions}
     key={game?.id ?? "new"}
@@ -695,6 +702,7 @@ function GameRoute({ mode, onToggleSidebarLayout, sidebarLayoutMode }: {
       const gameId = await selection.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
+    onToggleCompletedChecklistFilter={onToggleCompletedChecklistFilter}
     onToggleSidebarLayout={onToggleSidebarLayout}
     platformSuggestions={platformSuggestions}
     resolveAssetUrl={selection.resolveAssetUrl}

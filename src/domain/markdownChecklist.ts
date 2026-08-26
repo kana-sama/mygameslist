@@ -38,6 +38,7 @@ export interface MarkdownListItem {
   children: MarkdownBlock[];
   checklistProgress?: ChecklistProgress;
   collapseId?: string;
+  structuralId?: string;
   sourceLocations: MarkdownTextLocation[];
 }
 
@@ -448,6 +449,7 @@ function annotateChecklistGroupIds(block: MarkdownBlock, parentPath: string, occ
     const kind = item.taskState === undefined ? "item" : "task";
     const base = `${parentPath}\u0000${block.type}\u0000${kind}\u0000${normalizedCollapsePathPart(item.value)}`;
     const itemPath = nextCollapsePath(base, occurrences);
+    item.structuralId = `list-item:${hashCollapsePath(itemPath)}`;
     if (item.taskState === undefined && item.checklistProgress) {
       item.collapseId = `group:${hashCollapsePath(itemPath)}`;
     }
