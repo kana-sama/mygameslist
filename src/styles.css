@@ -494,6 +494,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-preview__toolbar { min-height: 28px; display: flex; align-items: center; justify-content: flex-end; padding: 3px 5px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
 .markdown-checklist-hidden-count { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; list-style: none; }
 .markdown-checklist-hidden-sections { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.markdown-checklist-hidden-sections--nested { box-sizing: border-box; margin-inline-start: .5em; padding-inline-start: .95em; border-inline-start: 1px solid var(--line-soft); }
 .markdown-diff-preview__mode, .markdown-diff-preview__expand { min-height: 24px; padding: 2px 6px; border: 0; border-radius: 3px; color: var(--accent-strong); background: transparent; font-size: 10px; cursor: pointer; }
 .markdown-diff-preview__mode:hover, .markdown-diff-preview__expand:hover { color: var(--text); background: var(--surface-3); }
 .markdown-diff-preview__mode:focus-visible, .markdown-diff-preview__expand:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 1px; }

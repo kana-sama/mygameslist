@@ -221,6 +221,46 @@ describe("Markdown tasks", () => {
       expect(screen.getByText("Скрыто 2 секций")).toBeInTheDocument();
     });
 
+    it("nests hidden section summaries with their visible subsection owner", () => {
+      // Removing the nested modifier from subsection-owned summaries makes
+      // title-owned and subsection-owned summaries share one presentation class.
+      render(<MarkdownView completedChecklistFilterEnabled markdown={[
+        "# Root",
+        "## Finished root section",
+        "- [x] Root finished",
+        "## Visible parent",
+        "- [ ] Parent work",
+        "### Finished child one",
+        "- [x] Child one finished",
+        "### Finished child two",
+        "- [x] Child two finished",
+        "### Visible child",
+        "- [ ] Child work",
+      ].join("\n")} />);
+
+      expect(screen.queryByRole("heading", { name: /Finished root section/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Finished child one/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Finished child two/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Visible parent/ })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Visible child/ })).toBeInTheDocument();
+
+      const rootSection = screen.getByRole("heading", { name: /^Root/ }).closest(".markdown-section");
+      expect(rootSection).not.toBeNull();
+      const rootSummary = rootSection!.querySelector(":scope > .markdown-checklist-hidden-sections");
+      expect(rootSummary).not.toBeNull();
+      expect(rootSummary).toHaveTextContent("Скрыто 1 секций");
+      expect(rootSummary).not.toHaveClass("markdown-checklist-hidden-sections--nested");
+      expect(rootSection!.lastElementChild).toBe(rootSummary);
+
+      const parentSubsection = screen.getByRole("heading", { name: /Visible parent/ }).closest(".markdown-checklist-subsection");
+      expect(parentSubsection).not.toBeNull();
+      const nestedSummary = parentSubsection!.querySelector(":scope > .markdown-checklist-hidden-sections");
+      expect(nestedSummary).not.toBeNull();
+      expect(nestedSummary).toHaveTextContent("Скрыто 2 секций");
+      expect(nestedSummary).toHaveClass("markdown-checklist-hidden-sections--nested");
+      expect(parentSubsection!.lastElementChild).toBe(nestedSummary);
+    });
+
     it("counts only the topmost hidden completed section", () => {
       render(<MarkdownView completedChecklistFilterEnabled markdown={[
         "# Root",
@@ -338,6 +378,7 @@ describe("Markdown tasks", () => {
       const completed = ruleFor(".markdown-checklist-subsection--complete");
       const completedGap = ruleFor(".markdown-checklist-subsection--complete::after");
       const adjacentCompleted = ruleFor(".markdown-checklist-subsection--complete + .markdown-checklist-subsection--complete::before");
+      const nestedHiddenSections = ruleFor(".markdown-checklist-hidden-sections--nested");
       const markdownContent = ruleFor(".note-card__content > .markdown");
       const fullBleed = ruleFor(".note-card__content > .markdown .markdown-checklist-subsection");
 
@@ -354,6 +395,10 @@ describe("Markdown tasks", () => {
       expect(completedGap.style.borderBlockStart).toBe("");
       expect(subsection.style.getPropertyValue("--markdown-checklist-subsection-adjacent-complete-line").trim()).toBe("color-mix(in srgb,var(--line-soft) 92%,var(--text))");
       expect(adjacentCompleted.style.borderBlockStartColor).toBe("var(--markdown-checklist-subsection-adjacent-complete-line)");
+      expect(nestedHiddenSections.style.boxSizing).toBe("border-box");
+      expect(nestedHiddenSections.style.marginInlineStart).toBe("0.5em");
+      expect(nestedHiddenSections.style.paddingInlineStart).toBe("0.95em");
+      expect(nestedHiddenSections.style.borderInlineStart).toBe("1px solid var(--line-soft)");
     } finally {
       style.remove();
     }

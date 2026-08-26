@@ -39,6 +39,7 @@ Add a global client-side game-page filter that hides completed Markdown list che
 - Any paragraph, quote, code block, rule, ordinary leaf or mixed-content list item, or table keeps its section visible. A structural checklist-group label does not count as ordinary content for this rule. Completed list checklist content inside a visible section is still filtered, leaving the ordinary content and applicable `Скрыто N пунктов` summaries.
 - A table counts as ordinary content because table filtering is out of scope.
 - Nested section ownership follows heading depth. If hidden child sections belong to a visible parent, append one quiet summary at the end of that parent's child-section sequence with the exact text `Скрыто N секций`.
+- Preserve that ownership visually: a summary owned by a visible subsection uses the same nested inset and vertical guide as the child headings it replaces, while a summary owned directly by the note title remains at the outer content level.
 - If hidden depth-two sections belong directly to the note title, append the section summary at the end of that note-title section. Count only the direct hidden sibling sections; a hidden parent represents its hidden subtree once.
 - The section summary uses the same approved quiet option A treatment and is non-interactive.
 

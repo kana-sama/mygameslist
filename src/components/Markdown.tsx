@@ -1021,7 +1021,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     const subsection = subsectionStack.pop();
     if (!subsection) return;
     if (subsection.hiddenSectionCount) {
-      subsection.children.push(<div aria-live="off" className="markdown-checklist-hidden-sections" key={`hidden-sections-${subsection.startIndex}`}>Скрыто {subsection.hiddenSectionCount} секций</div>);
+      subsection.children.push(<div aria-live="off" className="markdown-checklist-hidden-sections markdown-checklist-hidden-sections--nested" key={`hidden-sections-${subsection.startIndex}`}>Скрыто {subsection.hiddenSectionCount} секций</div>);
     }
     appendSectionChild(
       <div
