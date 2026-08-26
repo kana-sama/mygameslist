@@ -6,6 +6,7 @@ doubleHeight: true
 collapsedChecklistSections:
   - "heading:12a39n2-19"
   - "heading:12t6nk8-26"
+  - "heading:14365u5-22"
   - "heading:14ewmv5-19"
   - "heading:1e7grcw-19"
   - "heading:1igx2z-1a"
@@ -16,15 +17,19 @@ collapsedChecklistSections:
   - "heading:1ufv46v-19"
   - "heading:1v9y6qu-26"
   - "heading:3ei53v-25"
+  - "heading:5wmxml-25"
   - "heading:ax1qo3-1a"
+  - "heading:bobxz7-26"
   - "heading:ch8hlp-26"
   - "heading:cpmyj5-27"
   - "heading:edy5jf-19"
+  - "heading:ihv88v-1x"
   - "heading:lqp86a-19"
   - "heading:t3gat5-19"
+  - "heading:tt4web-1x"
   - "heading:ulgaky-1x"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-23T23:35:18.335Z"
+updatedAt: "2026-08-26T10:25:50.225Z"
 -->
 # Quests
 
@@ -139,29 +144,29 @@ updatedAt: "2026-08-23T23:35:18.335Z"
 ## Chapter 6
 
 ### Main Quests
-- [ ] [Bana the Schemer]("Mòrag · Goetuis Port")
+- [x] [Bana the Schemer]("Mòrag · Goetuis Port")
 
 ### Gormott Province
-- [ ] [Umon Bounces Back]("Umon · Residential Area")
+- [x] [Umon Bounces Back]("Umon · Residential Area")
 
 ### Temperantia
 - [x] [Judicium's Legacy]("Ismet · Ardainian Garrison")
 
 ### Indoline Praetorium
-- [ ] [A Ripe New Frontier]("Snififi · Goetuis Port; требования: Chapter 6 started.")
+- [x] [A Ripe New Frontier]("Snififi · Goetuis Port; требования: Chapter 6 started.")
 
 ### Empire of Mor Ardain
-- [ ] [Insurgent Investigations]("Stulc · Hardhaigh Palace; требования: We Meet Again completed.")
-  - [ ] [Defeat Wiggins]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
-  - [ ] [Defeat Bhianc]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
-  - [ ] [Defeat Arrodh]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
+- [x] [Insurgent Investigations]("Stulc · Hardhaigh Palace; требования: We Meet Again completed.")
+  - [x] [Defeat Wiggins]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
+  - [x] [Defeat Bhianc]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
+  - [x] [Defeat Arrodh]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
 
 ### Leftherian Archipelago
-- [ ] [Beneath the Aurora]("Rigitte Harbor")
+- [-] [Beneath the Aurora]("Rigitte Harbor")
 
 ### Kingdom of Tantal
 - [ ] [The Lost Turtle]("Lucarion · Theosoir Rear Gate")
-- [ ] [Cannadea's Troubles]("Cannadea · Elmos Square")
+- [-] [Cannadea's Troubles]("Cannadea · Elmos Square")
 - [ ] [The Writer's Assistant]("Mesulia · Lumos Pillar")
 
 ## Chapter 7
@@ -182,9 +187,7 @@ updatedAt: "2026-08-23T23:35:18.335Z"
 
 ### Argentum Trade Guild
 - [ ] [Bana's Secret Treasure]("Niranira · Bana's Bedroom")
-
-### Gormott Province
-- [ ] [Tirkin Suppression]("Soldier · Torigoth Relay Base; требования: Part of 'Bana's Secret Treasure'.")
+  - [ ] [Tirkin Suppression]("Soldier · Torigoth Relay Base; требования: Part of 'Bana's Secret Treasure'.")
 
 ## Chapter 8
 
@@ -198,7 +201,7 @@ updatedAt: "2026-08-23T23:35:18.335Z"
 - [ ] [Timeworn Machine]("Old Machine · Great Wall Tunnel No. 8")
 
 ### Argentum Trade Guild
-- [ ] [Uncover the Truth]("Notice Board · Central Exchange; получение: Chapter 5; завершение: Chapter 8.")
+- [-] [Uncover the Truth]("Notice Board · Central Exchange; получение: Chapter 5; завершение: Chapter 8.")
 
 ### Gormott Province
 - [ ] [The Riddle on the Wall]("Erebos · Tretl Windmill Plaza; требования: Mysterious Note completed; получение: Chapter 7; завершение: Chapter 8.")
@@ -245,51 +248,51 @@ updatedAt: "2026-08-23T23:35:18.335Z"
 
 ### Chapter 5
 - [x] [All's Fair]("Fonsa Myma; требования: Azami; Surveillance (Merc Mission).")
-- [ ] [Unspoken Suspicion]("Gwenith Paddies; требования: Silver Pendant; Floren Beguiling Charms Lv. 4; prerequisite to Nature Boy.")
-- [ ] [Newt Recruits]("Torigoth Relay Base; требования: Newt; group sets out for Temperantia.")
-- [ ] [Failure and Success]("Nharil Central Plaza; требования: Perceval Lv. 3 Affinity.")
-- [ ] [Our Daily Bread]("Coedwig Inn; требования: Kasandra Lv. 3 Affinity; group sets out for Temperantia; rest at Coedwig Inn.")
+- [x] [Unspoken Suspicion]("Gwenith Paddies; требования: Silver Pendant; Floren Beguiling Charms Lv. 4; prerequisite to Nature Boy.")
+- [x] [Newt Recruits]("Torigoth Relay Base; требования: Newt; group sets out for Temperantia.")
+- [-] [Failure and Success]("Nharil Central Plaza; требования: Perceval Lv. 3 Affinity.")
+- [x] [Our Daily Bread]("Coedwig Inn; требования: Kasandra Lv. 3 Affinity; group sets out for Temperantia; rest at Coedwig Inn.")
 - [x] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
 - [x] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
-- [ ] [Cleared of All Charges]("Fonsett Island; требования: Perun, Godfrey and Perceval.")
+- [-] [Cleared of All Charges]("Fonsett Island; требования: Perun, Godfrey and Perceval.")
 
 ### Chapter 6
-- [ ] [Hero of the Nopon]("Rumbletum Canteen; получение: Chapter 5; требования: Boreas's Food Stashes full.")
-- [ ] [Lost Kingdom]("Midorl Bridge; получение: Chapter 5; требования: Dagas Lv. 5 Affinity; group sets out for Temperantia.")
-- [ ] [Dagas's Past: Gormott]("Alba Cavanich; часть Lost Kingdom.")
-- [ ] [Dagas's Past: Folktales]("Fonsa Myma; часть Lost Kingdom.")
-- [ ] [Dagas's Past: Leftheria]("Central Exchange; часть Lost Kingdom.")
-- [ ] [Dagas's Past: Tantal]("Theosoir; часть Lost Kingdom.")
+- [x] [Hero of the Nopon]("Rumbletum Canteen; получение: Chapter 5; требования: Boreas's Food Stashes full.")
+- [-] [Lost Kingdom]("Midorl Bridge; получение: Chapter 5; требования: Dagas Lv. 5 Affinity; group sets out for Temperantia.")
+  - [x] [Dagas's Past: Gormott]("Alba Cavanich; часть Lost Kingdom.")
+  - [ ] [Dagas's Past: Folktales]("Fonsa Myma; часть Lost Kingdom.")
+  - [x] [Dagas's Past: Leftheria]("Central Exchange; часть Lost Kingdom.")
+  - [ ] [Dagas's Past: Tantal]("Theosoir; часть Lost Kingdom.")
 - [ ] [Fly in the Ointment]("Theosoir; требования: Dahlia; group sets out for Great Pillar Passage.")
-- [ ] [Go for it, Electra!]("Torigoth; получение: Chapter 3; требования: Electra.")
-- [ ] [Birds of a Feather]("Goldmouth Wheelhouse; получение: Chapter 5; требования: Finch Lv. 5 Affinity; Bird's-Eye View (H2H).")
-- [ ] [Flames of Justice]("Fonsa Myma; требования: Godfrey Lv. 4 Affinity; Justice Blizzard Lv. 3.")
+- [-] [Go for it, Electra!]("Torigoth; получение: Chapter 3; требования: Electra.")
+- [-] [Birds of a Feather]("Goldmouth Wheelhouse; получение: Chapter 5; требования: Finch Lv. 5 Affinity; Bird's-Eye View (H2H).")
+- [-] [Flames of Justice]("Fonsa Myma; требования: Godfrey Lv. 4 Affinity; Justice Blizzard Lv. 3.")
 - [ ] [Girl Power-Off]("Theosoir; требования: Kora; Girl Power (H2H); Lv. 5 Affinity.")
-- [ ] [A Phonex Tale]("Fonsett Village; получение: Chapter 5; требования: Nim Lv. 3 Key Affinity; Phonex Linguistics Lv. 1.")
-- [ ] [Eternal Spirit]("Central Exchange; требования: Perun Chivalry Lv. 2.")
-- [ ] [A Real Challenge]("Goldmouth Res. Dist.; требования: Tantal reached; Zenobia sent on 'We Need To Talk!' Merc Mission.")
+- [x] [A Phonex Tale]("Fonsett Village; получение: Chapter 5; требования: Nim Lv. 3 Key Affinity; Phonex Linguistics Lv. 1.")
+- [-] [Eternal Spirit]("Central Exchange; требования: Perun Chivalry Lv. 2.")
+- [-] [A Real Challenge]("Goldmouth Res. Dist.; требования: Tantal reached; Zenobia sent on 'We Need To Talk!' Merc Mission.")
 - [ ] [Tender-Hearted Beast]("Theospiti Temple Ruins; требования: Wulfric.")
-- [ ] [The Home of the Soul (Switch 2)]("Stone Gate Ruins; требования: Tora's Secret Stash completed; MOMO Key Affinity Lv. 4 в обоих режимах; Tantal reached.")
+- [-] [The Home of the Soul (Switch 2)]("Stone Gate Ruins; требования: Tora's Secret Stash completed; MOMO Key Affinity Lv. 4 в обоих режимах; Tantal reached.")
 
 ### Chapter 7
 - [ ] [Fool's Gold]("Little Garden of Tradition; получение: Chapter 6; требования: Sheba Lv. 5 Affinity; all Drivers in party; 1 million G saved.")
 - [ ] [Blade-Sharp Memory]("Royal Guard Barracks; требования: Crystal Clear; Praxis Lv. 4 Affinity.")
-- [ ] [Pest Control 1]("Garagorm's Arch; часть Blade-Sharp Memory.")
-- [ ] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
-- [ ] [Pest Control 3]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [ ] [Pest Control 1]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [ ] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [ ] [Pest Control 3]("Garagorm's Arch; часть Blade-Sharp Memory.")
 - [ ] [Making Love Source]("DLC · Lemour Inn; требования: Poppi QT; sleep at the inn.")
 
 ### Chapter 8
 - [ ] [Precious Yearnings]("Fonsa Myma; получение: Chapter 5; требования: Agate in party; group sets out for Temperantia.")
 - [ ] [Limits of Awareness]("Goldmouth Warehouse; получение: Chapter 6; требования: Adenine's Books completed.")
 - [ ] [Adenine's Password]("Goldmouth Warehouse; требования: Limits of Awareness; fail password entry once.")
-- [ ] [Nature Boy]("Gwenith Paddies; получение: Chapter 5; требования: Unspoken Suspicion completed.")
+- [-] [Nature Boy]("Gwenith Paddies; получение: Chapter 5; требования: Unspoken Suspicion completed.")
 - [ ] [The Ties That Bind]("Nharil Central Plaza; требования: Vale Lv. 5 Affinity; Chapter 8 started.")
 - [ ] [The Calm and the Storm]("Royal Audience Hall; требования: Infernal Guldo defeated; Herald Lv. 5 Affinity.")
 - [ ] [Theory and Praxis]("Fonsa Myma; требования: Theory, Praxis, Rough Diamond (H2H), все основные персонажи.")
-- [ ] [Family vs. Fiends]("Fonsa Myma; часть Theory and Praxis.")
-- [ ] [Jeline and Shaun]("Fonsa Myma; часть Theory and Praxis.")
-- [ ] [Boys and Bullies]("Fonsa Myma; часть Theory and Praxis.")
+  - [ ] [Family vs. Fiends]("Fonsa Myma; часть Theory and Praxis.")
+  - [ ] [Jeline and Shaun]("Fonsa Myma; часть Theory and Praxis.")
+  - [ ] [Boys and Bullies]("Fonsa Myma; часть Theory and Praxis.")
 - [ ] [Corvin's Approach]("Royal Audience Hall; требования: Chapter 7 completed; Corvin Lv. 5 Affinity; Light Mastery Lv. 4.")
 - [ ] [Powered-Up Poppi]("Tora's House; требования: Infernal Guldo defeated; Growing Up (H2H).")
 - [ ] [The Trendy Patissier]("Commercial District; требования: Boreas, Gorg; Follow Your Passion completed.")
