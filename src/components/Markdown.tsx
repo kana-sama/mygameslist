@@ -442,6 +442,39 @@ function ChecklistProgressView({ progress }: { progress: ChecklistProgress }) {
   );
 }
 
+function blockContainsIndeterminateTask(block: MarkdownBlock): boolean {
+  if (block.type === "list" || block.type === "ordered-list") {
+    return (block.items ?? []).some((item) =>
+      item.taskState === "indeterminate" || item.children.some(blockContainsIndeterminateTask),
+    );
+  }
+  if (block.type === "table") {
+    return (block.table?.sections ?? []).some((section) =>
+      section.rows.some((row) => row.cells.some((cell) => cell.taskState === "indeterminate")),
+    );
+  }
+  return false;
+}
+
+function directIndeterminateSubsectionIndexes(blocks: readonly MarkdownBlock[]): Set<number> {
+  const indexes = new Set<number>();
+  for (let headingIndex = 0; headingIndex < blocks.length; headingIndex += 1) {
+    const heading = blocks[headingIndex];
+    if (heading.type !== "heading" || !heading.checklistProgress || (heading.depth ?? 0) < 2) continue;
+    for (let blockIndex = headingIndex + 1; blockIndex < blocks.length; blockIndex += 1) {
+      const block = blocks[blockIndex];
+      if (block.type === "heading") {
+        break;
+      }
+      if (blockContainsIndeterminateTask(block)) {
+        indexes.add(headingIndex);
+        break;
+      }
+    }
+  }
+  return indexes;
+}
+
 function taskStateLabel(state: MarkdownTaskState): string {
   return state === "checked" ? "Снять отметку" : "Отметить";
 }
@@ -494,6 +527,7 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
 
 function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], decorations, firstHeadingPortalTarget, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onTaskChange, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
+  const indeterminateSubsectionIndexes = useMemo(() => directIndeterminateSubsectionIndexes(blocks), [blocks]);
   const firstTopLevelHeadingIndex = blocks[0]?.type === "heading" && blocks[0].depth === 1 ? 0 : -1;
   const collapseDomIdPrefix = useId();
   const [activeTaskEditor, setActiveTaskEditor] = useState<ActiveMarkdownTaskEditor | null>(null);
@@ -749,10 +783,11 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     const renderTableRow = (row: MarkdownTableRow, rowIndex: number, rowKey: string): ReactNode => {
       const progress = getTableRowProgress(row);
       const rowComplete = progress.total > 0 && progress.checked === progress.total;
+      const rowIndeterminate = row.cells.some((cell) => cell.taskState === "indeterminate");
       const rowLabel = row.cells.map((cell) => markdownTaskLabel(cell.sourceValue ?? cell.value, false)).find(Boolean);
       const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
       return (
-        <tr className={rowComplete ? "markdown-table-row--complete" : undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}>
+        <tr className={`${rowComplete ? "markdown-table-row--complete" : ""}${rowIndeterminate ? " markdown-table-row--indeterminate" : ""}`.trim() || undefined} key={`${rowKey}-row-${row.sourceLine}`} {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}>
           {row.cells.map((cell, cellIndex) => {
             const cellKey = `${rowKey}-row-${row.sourceLine}-cell-${cellIndex}`;
             const inlineSource = cell.sourceValue ?? cell.value;
@@ -936,7 +971,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   const content: ReactNode[] = [];
   let sectionStartIndex: number | null = null;
   let sectionChildren: ReactNode[] = [];
-  const subsectionStack: Array<{ children: ReactNode[]; complete: boolean; depth: number; startIndex: number }> = [];
+  const subsectionStack: Array<{ children: ReactNode[]; complete: boolean; depth: number; indeterminate: boolean; startIndex: number }> = [];
   const appendSectionChild = (child: ReactNode): void => {
     const parent = subsectionStack.at(-1);
     if (parent) parent.children.push(child);
@@ -947,7 +982,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     if (!subsection) return;
     appendSectionChild(
       <div
-        className={`markdown-checklist-subsection${subsection.depth >= 3 ? " markdown-checklist-subsection--nested" : ""}${subsection.complete ? " markdown-checklist-subsection--complete" : ""}`}
+        className={`markdown-checklist-subsection${subsection.depth >= 3 ? " markdown-checklist-subsection--nested" : ""}${subsection.complete ? " markdown-checklist-subsection--complete" : ""}${subsection.indeterminate ? " markdown-checklist-subsection--indeterminate" : ""}`}
         key={`subsection-${subsection.startIndex}`}
       >
         {subsection.children}
@@ -978,6 +1013,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
           children: [],
           complete: !progress.open && progress.checked === progress.total,
           depth,
+          indeterminate: indeterminateSubsectionIndexes.has(index),
           startIndex: index,
         });
       }

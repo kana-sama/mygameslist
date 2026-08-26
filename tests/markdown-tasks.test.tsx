@@ -952,6 +952,183 @@ describe("Markdown tasks", () => {
     expect(screen.getByRole("checkbox", { name: "Снять отметку: Finish — Main" }).closest("td")).toHaveAttribute("data-checklist-column-complete", "true");
   });
 
+  it("marks a mixed table row yellow while preserving a checked cell's green over the row aggregate", () => {
+    const markdown = [
+      "| Stage | Own | Mixed | Note |",
+      "| --- | --- | --- | --- |",
+      "| Mixed | [x] | [-] | Local note |",
+      "| Other | [x] | [ ] | [x] |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const ownCheckedCell = screen.getByRole("checkbox", { name: "Снять отметку: Mixed — Own" }).closest("td")!;
+    const completedColumnCell = screen.getByText("Local note").closest("td")!;
+    const mixedCell = screen.getByRole("checkbox", { name: "Отметить: Mixed — Mixed" }).closest("td")!;
+    const mixedRow = completedColumnCell.closest("tr")!;
+
+    expect(mixedRow).toHaveClass("markdown-table-row--indeterminate");
+    expect(ownCheckedCell).toHaveAttribute("data-checklist-checked", "true");
+    expect(ownCheckedCell).toHaveAttribute("data-checklist-column-complete", "true");
+    expect(completedColumnCell).toHaveAttribute("data-checklist-column-complete", "true");
+    expect(completedColumnCell).not.toHaveAttribute("data-checklist-checked");
+    expect(mixedCell).toHaveAttribute("data-checklist-indeterminate", "true");
+
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+    try {
+      const rules = [...style.sheet!.cssRules].filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule);
+      const warningRow = rules.find((rule) => rule.selectorText === ".markdown-table .markdown-table-row--indeterminate > td");
+      const checkedOverride = rules.find((rule) => rule.selectorText === ".markdown-table .markdown-table-row--indeterminate > td[data-checklist-checked=\"true\"]");
+      const completedColumn = rules.find((rule) => rule.selectorText.includes('td[data-checklist-column-complete="true"]'));
+
+      expect(warningRow).toBeDefined();
+      expect(warningRow!.style.background).toBe("rgba(214, 167, 43, 0.14)");
+      expect(warningRow!.style.color).toBe("rgb(214, 167, 43)");
+      expect(checkedOverride).toBeDefined();
+      expect(checkedOverride!.style.background).toBe("var(--success-wash)");
+      expect(rules.indexOf(completedColumn!)).toBeLessThan(rules.indexOf(warningRow!));
+      expect(rules.indexOf(warningRow!)).toBeLessThan(rules.indexOf(checkedOverride!));
+      expect(getComputedStyle(ownCheckedCell).background).toBe("var(--success-wash)");
+      expect(getComputedStyle(completedColumnCell).background).toBe("rgba(214, 167, 43, 0.14)");
+      expect(getComputedStyle(mixedCell).background).toBe("rgba(214, 167, 43, 0.14)");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("keeps inline links and code warning yellow in indeterminate rows and headings without recoloring subsection body content", () => {
+    const markdown = [
+      "# Root",
+      "## [Mixed heading](https://example.com/heading) `Heading code`",
+      "Body [body link](https://example.com/body) `Body code`",
+      "- [-] Direct mixed task",
+      "| Stage | Detail |",
+      "| --- | --- |",
+      "| Mixed row | [-] [Row link](https://example.com/row) `Row code` |",
+    ].join("\n");
+
+    render(<MarkdownView markdown={markdown} />);
+
+    const heading = screen.getByRole("heading", { name: /Mixed heading Heading code/ });
+    const row = screen.getByText("Mixed row").closest("tr")!;
+    const headingLink = screen.getByRole("link", { name: "Mixed heading" });
+    const rowLink = screen.getByRole("link", { name: "Row link" });
+    const bodyLink = screen.getByRole("link", { name: "body link" });
+    const headingCode = screen.getByText("Heading code");
+    const rowCode = screen.getByText("Row code");
+    const bodyCode = screen.getByText("Body code");
+
+    expect(row).toHaveClass("markdown-table-row--indeterminate");
+    expect(heading.closest(".markdown-checklist-subsection")).toHaveClass("markdown-checklist-subsection--indeterminate");
+
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+    try {
+      for (const element of [headingLink, rowLink, headingCode, rowCode]) {
+        expect(getComputedStyle(element).color).toBe("rgb(214, 167, 43)");
+      }
+      expect(getComputedStyle(bodyLink).color).toBe("var(--accent-strong)");
+      expect(getComputedStyle(bodyCode).color).toBe("rgb(203, 217, 227)");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("keeps a mixed child local until a direct parent task becomes indeterminate", () => {
+    const initialMarkdown = [
+      "# Root",
+      "## Parent",
+      "- [ ] Parent task",
+      "### Complete child",
+      "- [x] Complete task",
+      "### Mixed child",
+      "- [-] Mixed task",
+    ].join("\n");
+    const directParentMixedMarkdown = initialMarkdown.replace("- [ ] Parent task", "- [-] Parent task");
+    const view = render(<MarkdownView markdown={initialMarkdown} />);
+
+    const parent = screen.getByRole("heading", { name: "Parent Выполнено 1 из 3" }).closest<HTMLElement>(".markdown-checklist-subsection")!;
+    const completeChild = screen.getByRole("heading", { name: "Complete child Выполнено 1 из 1" }).closest<HTMLElement>(".markdown-checklist-subsection")!;
+    const mixedChild = screen.getByRole("heading", { name: "Mixed child Выполнено 0 из 1" }).closest<HTMLElement>(".markdown-checklist-subsection")!;
+
+    expect(parent).not.toHaveClass("markdown-checklist-subsection--indeterminate");
+    expect(completeChild).toHaveClass("markdown-checklist-subsection--complete");
+    expect(completeChild).not.toHaveClass("markdown-checklist-subsection--indeterminate");
+    expect(mixedChild).toHaveClass("markdown-checklist-subsection--indeterminate");
+    expect(mixedChild).not.toHaveClass("markdown-checklist-subsection--complete");
+
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+    try {
+      const rules = [...style.sheet!.cssRules].filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule);
+      const warningSubsection = rules.find((rule) => rule.selectorText === ".markdown-checklist-subsection--indeterminate");
+      const warningGap = rules.find((rule) => rule.selectorText === ".markdown-checklist-subsection--indeterminate::after");
+      const warningHeading = rules.find((rule) => rule.selectorText === ".markdown-checklist-subsection--indeterminate > .markdown-checklist-heading");
+      const warningProgress = rules.find((rule) => rule.selectorText === ".markdown-checklist-subsection--indeterminate > .markdown-checklist-heading .markdown-checklist-progress");
+
+      expect(warningSubsection).toBeDefined();
+      expect(warningSubsection!.style.background).toBe("rgba(214, 167, 43, 0.14)");
+      expect(warningSubsection!.style.color).toBe("");
+      expect(warningGap).toBeDefined();
+      expect(warningGap!.style.height).toBe("var(--markdown-checklist-subsection-gap)");
+      expect(warningGap!.style.background).toBe("rgba(214, 167, 43, 0.14)");
+      expect(warningHeading).toBeDefined();
+      expect(warningHeading!.style.color).toBe("rgb(214, 167, 43)");
+      expect(warningProgress).toBeDefined();
+      expect(warningProgress!.style.color).toBe("inherit");
+    } finally {
+      style.remove();
+    }
+
+    view.rerender(<MarkdownView markdown={directParentMixedMarkdown} />);
+
+    expect(screen.getByRole("heading", { name: "Parent Выполнено 1 из 3" }).closest(".markdown-checklist-subsection")).toHaveClass("markdown-checklist-subsection--indeterminate");
+    expect(screen.getByRole("heading", { name: "Complete child Выполнено 1 из 1" }).closest(".markdown-checklist-subsection")).toHaveClass("markdown-checklist-subsection--complete");
+    expect(screen.getByRole("heading", { name: "Mixed child Выполнено 0 из 1" }).closest(".markdown-checklist-subsection")).toHaveClass("markdown-checklist-subsection--indeterminate");
+  });
+
+  it("keeps a collapsed subsection yellow when its hidden source block is indeterminate", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "# Root",
+      "## Collapsed mixed route",
+      "- [-] Local mixed task",
+      "### Hidden child",
+      "- [x] Hidden complete task",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+    });
+    view = render(
+      <MarkdownView
+        collapsedChecklistSections={collapsed}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Collapsed mixed route Выполнено 1 из 2" }));
+
+    const route = screen.getByRole("heading", { name: "Collapsed mixed route Выполнено 1 из 2" });
+    const subsection = route.closest<HTMLElement>(".markdown-checklist-subsection")!;
+    expect(subsection).toHaveClass("markdown-checklist-subsection--indeterminate");
+    expect(subsection.querySelectorAll(".markdown-checklist-subsection")).toHaveLength(0);
+    expect(screen.queryByRole("heading", { name: /Hidden child/ })).not.toBeInTheDocument();
+  });
+
   it("aggregates every checklist in a heading section without crossing sibling boundaries", () => {
     const markdown = [
       "- [x] Unscoped task",
