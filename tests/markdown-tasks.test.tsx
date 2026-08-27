@@ -828,11 +828,10 @@ describe("Markdown tasks", () => {
         const completeNestedSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
         expect(completeRootSummary).not.toBeNull();
         expect(completeNestedSummary).not.toBeNull();
-        const completeOffsetRule = [...style.sheet!.cssRules]
-          .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText.includes(".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections"));
-        expect(completeOffsetRule?.style.marginTop).toBe("calc(var(--markdown-checklist-subsection-gap) + 8px)");
-        expect(completeRootSummary!.matches(".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections")).toBe(true);
-        expect(completeNestedSummary!.matches(".markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections")).toBe(true);
+        expect(getComputedStyle(completeRootSummary!).marginTop).toBe("1.674em");
+        expect(getComputedStyle(completeRootSummary!).paddingTop).toBe("8px");
+        expect(getComputedStyle(completeNestedSummary!).marginTop).toBe("0.5em");
+        expect(getComputedStyle(completeNestedSummary!).paddingTop).toBe("8px");
 
         cleanup();
         const indeterminateView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
@@ -849,11 +848,10 @@ describe("Markdown tasks", () => {
         const indeterminateNestedSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
         expect(indeterminateRootSummary).not.toBeNull();
         expect(indeterminateNestedSummary).not.toBeNull();
-        const indeterminateOffsetRule = [...style.sheet!.cssRules]
-          .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText.includes(".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections"));
-        expect(indeterminateOffsetRule?.style.marginTop).toBe("calc(var(--markdown-checklist-subsection-gap) + 8px)");
-        expect(indeterminateRootSummary!.matches(".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections")).toBe(true);
-        expect(indeterminateNestedSummary!.matches(".markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections")).toBe(true);
+        expect(getComputedStyle(indeterminateRootSummary!).marginTop).toBe("1.674em");
+        expect(getComputedStyle(indeterminateRootSummary!).paddingTop).toBe("8px");
+        expect(getComputedStyle(indeterminateNestedSummary!).marginTop).toBe("0.5em");
+        expect(getComputedStyle(indeterminateNestedSummary!).paddingTop).toBe("8px");
 
         cleanup();
         const unpaintedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
