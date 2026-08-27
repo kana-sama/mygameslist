@@ -5,41 +5,14 @@ rank: 512
 doubleHeight: true
 collapsedChecklistSections:
   - "heading:12a39n2-19"
-  - "heading:12t6nk8-26"
-  - "heading:14365u5-22"
-  - "heading:14ewmv5-19"
-  - "heading:1e7grcw-19"
-  - "heading:1igx2z-1a"
-  - "heading:1kyaobx-19"
-  - "heading:1lsdqvw-26"
-  - "heading:1s6iuas-26"
-  - "heading:1t54tir-26"
+  - "heading:16oz515-18"
   - "heading:1ufv46v-19"
-  - "heading:1v9y6qu-26"
-  - "heading:3ei53v-25"
-  - "heading:5wmxml-25"
   - "heading:ax1qo3-1a"
-  - "heading:bobxz7-26"
-  - "heading:ch8hlp-26"
-  - "heading:cpmyj5-27"
-  - "heading:edy5jf-19"
-  - "heading:ihv88v-1x"
-  - "heading:lqp86a-19"
   - "heading:t3gat5-19"
-  - "heading:tt4web-1x"
-  - "heading:ulgaky-1x"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-26T10:25:50.225Z"
+updatedAt: "2026-08-27T23:28:49.935Z"
 -->
 # Quests
-
-## Merc Group
-
-- [x] [Vandham's Other Ask]("Yew · Mercenary HQ")
-- [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
-- [x] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
-- [x] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
-- [x] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
 
 ## Chapter 1
 
@@ -50,6 +23,7 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [x] [Cargo Escort]("Ysolde · Central Exchange")
 - [x] [Hide and Seek]("Aft · Bower Lounge")
 - [x] [Better Late Than Never]("Gegebi · Bower Lounge")
+
 
 ## Chapter 2
 
@@ -69,6 +43,10 @@ updatedAt: "2026-08-26T10:25:50.225Z"
   - [x] [Repair Torigoth's Crane]("Natheus · Saets Lumber Co.; требования: Part of 'The Case of the Crane'.")
 - [x] [Passion of the Artisan]("Garagorm's Arch")
 - [x] [Nopon of Good Tastes]("Galad Residential Zone")
+
+### Blade-Related Quests
+- [x] [Tora's Secret Stash (Switch 2)]("Tora's House; награда: Pretty Core Crystal для получения MOMO.")
+
 
 ## Chapter 3
 
@@ -92,12 +70,20 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [x] [A Smith’s Pastime]("Garfont Village")
 - [x] [Sunken Boosters]("Gwendle Repair Dock")
 
+
 ## Chapter 4
 
 ### Main Quests
 - [x] [Stop, Thief!]("Torigoth; требования: 'The Pickpocket Sets Sail' cutscene viewed.")
 - [x] [Vandham's Last Wish]("Yew · Mymoma Playhouse")
 - [x] [Lila's Location]("Jakolo's Inn; требования: 'Working Together with Mòrag' cutscene.")
+
+### Merc Group Quests
+- [x] [Vandham's Other Ask]("Yew · Mercenary HQ")
+- [x] [The Supply Situation]("Yew · Mercenary HQ; требования: Merc Lv. 1 Rank Up.")
+- [x] [A Test of Strength]("Yew · Mercenary HQ; требования: Merc Lv. 2 Rank Up.")
+- [x] [Leadership Qualities]("Yew · Mercenary HQ; требования: Merc Lv. 3 Rank Up.")
+- [x] [Marvelous Mercenaries]("Yew · Mercenary HQ; требования: Merc Lv. 4 Rank Up.")
 
 ### Argentum Trade Guild
 - [x] [Fame and Family]("Falala · Lemour Inn")
@@ -118,6 +104,11 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [x] [Hard to Stomach]("Hansatra · Nharil Central Plaza")
 - [x] [Road to the Capital]("Pidede · Anangham 2 Dock")
 - [x] [The Nopon Murals]("Alisdeigh · Beraf Industry Ward")
+
+### Blade-Related Quests
+- [x] [Bearing Her Soul]("Torigoth; требования: Ursula; Not Quite Comfortable Yet (H2H).")
+- [x] [Tranquility]("Torigoth; задание получения Vess; daytime only.")
+
 
 ## Chapter 5
 
@@ -141,6 +132,17 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [x] [At Wit's End]("Sokoko · Merto Island")
 - [x] [Stolen Keepsake]("Dragand · Village Guardian")
 
+### Blade-Related Quests
+- [x] [All's Fair]("Fonsa Myma; требования: Azami; Surveillance (Merc Mission).")
+- [x] [Unspoken Suspicion]("Gwenith Paddies; требования: Silver Pendant; Floren Beguiling Charms Lv. 4; prerequisite to Nature Boy.")
+- [x] [Newt Recruits]("Torigoth Relay Base; требования: Newt; group sets out for Temperantia.")
+- [x] [Failure and Success]("Nharil Central Plaza; требования: Perceval Lv. 3 Affinity.")
+- [x] [Our Daily Bread]("Coedwig Inn; требования: Kasandra Lv. 3 Affinity; group sets out for Temperantia; rest at Coedwig Inn.")
+- [x] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
+- [x] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
+- [x] [Cleared of All Charges]("Fonsett Island; требования: Perun, Godfrey and Perceval.")
+
+
 ## Chapter 6
 
 ### Main Quests
@@ -162,12 +164,31 @@ updatedAt: "2026-08-26T10:25:50.225Z"
   - [x] [Defeat Arrodh]("Stulc · Hardhaigh Palace; требования: Part of 'Insurgent Investigations'.")
 
 ### Leftherian Archipelago
-- [-] [Beneath the Aurora]("Rigitte Harbor")
+- [x] [Beneath the Aurora]("Rigitte Harbor")
 
 ### Kingdom of Tantal
-- [ ] [The Lost Turtle]("Lucarion · Theosoir Rear Gate")
-- [-] [Cannadea's Troubles]("Cannadea · Elmos Square")
-- [ ] [The Writer's Assistant]("Mesulia · Lumos Pillar")
+- [x] [The Lost Turtle]("Lucarion · Theosoir Rear Gate")
+- [x] [Cannadea's Troubles]("Cannadea · Elmos Square")
+- [x] [The Writer's Assistant]("Mesulia · Lumos Pillar")
+
+### Blade-Related Quests
+- [x] [Hero of the Nopon]("Rumbletum Canteen; получение: Chapter 5; требования: Boreas's Food Stashes full.")
+- [x] [Lost Kingdom]("Midorl Bridge; получение: Chapter 5; требования: Dagas Lv. 5 Affinity; group sets out for Temperantia.")
+  - [x] [Dagas's Past: Gormott]("Alba Cavanich; часть Lost Kingdom.")
+  - [x] [Dagas's Past: Folktales]("Fonsa Myma; часть Lost Kingdom.")
+  - [x] [Dagas's Past: Leftheria]("Central Exchange; часть Lost Kingdom.")
+  - [x] [Dagas's Past: Tantal]("Theosoir; часть Lost Kingdom.")
+- [x] [Fly in the Ointment]("Theosoir; требования: Dahlia; group sets out for Great Pillar Passage.")
+- [x] [Go for it, Electra!]("Torigoth; получение: Chapter 3; требования: Electra.")
+- [x] [Birds of a Feather]("Goldmouth Wheelhouse; получение: Chapter 5; требования: Finch Lv. 5 Affinity; Bird's-Eye View (H2H).")
+- [x] [Flames of Justice]("Fonsa Myma; требования: Godfrey Lv. 4 Affinity; Justice Blizzard Lv. 3.")
+- [x] [Girl Power-Off]("Theosoir; требования: Kora; Girl Power (H2H); Lv. 5 Affinity.")
+- [x] [A Phonex Tale]("Fonsett Village; получение: Chapter 5; требования: Nim Lv. 3 Key Affinity; Phonex Linguistics Lv. 1.")
+- [x] [Eternal Spirit]("Central Exchange; требования: Perun Chivalry Lv. 2.")
+- [x] [A Real Challenge]("Goldmouth Res. Dist.; требования: Tantal reached; Zenobia sent on 'We Need To Talk!' Merc Mission.")
+- [x] [Tender-Hearted Beast]("Theospiti Temple Ruins; требования: Wulfric.")
+- [x] [The Home of the Soul (Switch 2)]("Stone Gate Ruins; требования: Tora's Secret Stash completed; MOMO Key Affinity Lv. 4 в обоих режимах; Tantal reached.")
+
 
 ## Chapter 7
 
@@ -189,6 +210,15 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [ ] [Bana's Secret Treasure]("Niranira · Bana's Bedroom")
   - [ ] [Tirkin Suppression]("Soldier · Torigoth Relay Base; требования: Part of 'Bana's Secret Treasure'.")
 
+### Blade-Related Quests
+- [ ] [Fool's Gold]("Little Garden of Tradition; получение: Chapter 6; требования: Sheba Lv. 5 Affinity; all Drivers in party; 1 million G saved.")
+- [ ] [Blade-Sharp Memory]("Royal Guard Barracks; требования: Crystal Clear; Praxis Lv. 4 Affinity.")
+  - [ ] [Pest Control 1]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [ ] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [ ] [Pest Control 3]("Garagorm's Arch; часть Blade-Sharp Memory.")
+- [ ] [Making Love Source]("DLC · Lemour Inn; требования: Poppi QT; sleep at the inn.")
+
+
 ## Chapter 8
 
 ### Kingdom of Uraya
@@ -207,6 +237,22 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 - [ ] [The Riddle on the Wall]("Erebos · Tretl Windmill Plaza; требования: Mysterious Note completed; получение: Chapter 7; завершение: Chapter 8.")
 - [ ] [Upgrades and Tinkering]("Tora's House")
 
+### Blade-Related Quests
+- [-] [Precious Yearnings]("Fonsa Myma; получение: Chapter 5; требования: Agate in party; group sets out for Temperantia.")
+- [ ] [Limits of Awareness]("Goldmouth Warehouse; получение: Chapter 6; требования: Adenine's Books completed.")
+- [ ] [Adenine's Password]("Goldmouth Warehouse; требования: Limits of Awareness; fail password entry once.")
+- [-] [Nature Boy]("Gwenith Paddies; получение: Chapter 5; требования: Unspoken Suspicion completed.")
+- [ ] [The Ties That Bind]("Nharil Central Plaza; требования: Vale Lv. 5 Affinity; Chapter 8 started.")
+- [ ] [The Calm and the Storm]("Royal Audience Hall; требования: Infernal Guldo defeated; Herald Lv. 5 Affinity.")
+- [ ] [Theory and Praxis]("Fonsa Myma; требования: Theory, Praxis, Rough Diamond (H2H), все основные персонажи.")
+  - [ ] [Family vs. Fiends]("Fonsa Myma; часть Theory and Praxis.")
+  - [ ] [Jeline and Shaun]("Fonsa Myma; часть Theory and Praxis.")
+  - [ ] [Boys and Bullies]("Fonsa Myma; часть Theory and Praxis.")
+- [ ] [Corvin's Approach]("Royal Audience Hall; требования: Chapter 7 completed; Corvin Lv. 5 Affinity; Light Mastery Lv. 4.")
+- [ ] [Powered-Up Poppi]("Tora's House; требования: Infernal Guldo defeated; Growing Up (H2H).")
+- [ ] [The Trendy Patissier]("Commercial District; требования: Boreas, Gorg; Follow Your Passion completed.")
+
+
 ## Chapter 9
 
 ### Gormott Province
@@ -217,6 +263,11 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 
 ### Empire of Mor Ardain
 - [ ] [World Tree Disaster]("Aki · Port Anangham; требования: events at 7th Perimeter Skyport completed.")
+
+### Blade-Related Quests
+- [-] [Follow Your Passion]("Fonsa Myma Port; получение: Chapter 6; требования: Sweet Strategy (H2H).")
+- [ ] [Farewell, Good Friend]("Ayvill Shopping District; требования: Aegaeon; Insurgent Investigations completed.")
+
 
 ## Chapter 10
 
@@ -237,71 +288,7 @@ updatedAt: "2026-08-26T10:25:50.225Z"
 ### Empire of Mor Ardain
 - [ ] [The Lone Watchman]("Hardhaigh Dock, Lv. 2")
 
-## Blade-Related Quests
-
-### Chapter 2
-- [x] [Tora's Secret Stash (Switch 2)]("Tora's House; награда: Pretty Core Crystal для получения MOMO.")
-
-### Chapter 4
-- [x] [Bearing Her Soul]("Torigoth; требования: Ursula; Not Quite Comfortable Yet (H2H).")
-- [x] [Tranquility]("Torigoth; задание получения Vess; daytime only.")
-
-### Chapter 5
-- [x] [All's Fair]("Fonsa Myma; требования: Azami; Surveillance (Merc Mission).")
-- [x] [Unspoken Suspicion]("Gwenith Paddies; требования: Silver Pendant; Floren Beguiling Charms Lv. 4; prerequisite to Nature Boy.")
-- [x] [Newt Recruits]("Torigoth Relay Base; требования: Newt; group sets out for Temperantia.")
-- [-] [Failure and Success]("Nharil Central Plaza; требования: Perceval Lv. 3 Affinity.")
-- [x] [Our Daily Bread]("Coedwig Inn; требования: Kasandra Lv. 3 Affinity; group sets out for Temperantia; rest at Coedwig Inn.")
-- [x] [Crystal Clear]("Torigoth; требования: 10 Core Crystals; Core Crystal Hunters information; награда: Praxis's Core Crystal.")
-- [x] [Shiny New Power]("Tora's House; требования: Tora, Nia and Mòrag in party; задание получения Poppibuster.")
-- [-] [Cleared of All Charges]("Fonsett Island; требования: Perun, Godfrey and Perceval.")
-
-### Chapter 6
-- [x] [Hero of the Nopon]("Rumbletum Canteen; получение: Chapter 5; требования: Boreas's Food Stashes full.")
-- [-] [Lost Kingdom]("Midorl Bridge; получение: Chapter 5; требования: Dagas Lv. 5 Affinity; group sets out for Temperantia.")
-  - [x] [Dagas's Past: Gormott]("Alba Cavanich; часть Lost Kingdom.")
-  - [ ] [Dagas's Past: Folktales]("Fonsa Myma; часть Lost Kingdom.")
-  - [x] [Dagas's Past: Leftheria]("Central Exchange; часть Lost Kingdom.")
-  - [ ] [Dagas's Past: Tantal]("Theosoir; часть Lost Kingdom.")
-- [ ] [Fly in the Ointment]("Theosoir; требования: Dahlia; group sets out for Great Pillar Passage.")
-- [-] [Go for it, Electra!]("Torigoth; получение: Chapter 3; требования: Electra.")
-- [-] [Birds of a Feather]("Goldmouth Wheelhouse; получение: Chapter 5; требования: Finch Lv. 5 Affinity; Bird's-Eye View (H2H).")
-- [-] [Flames of Justice]("Fonsa Myma; требования: Godfrey Lv. 4 Affinity; Justice Blizzard Lv. 3.")
-- [ ] [Girl Power-Off]("Theosoir; требования: Kora; Girl Power (H2H); Lv. 5 Affinity.")
-- [x] [A Phonex Tale]("Fonsett Village; получение: Chapter 5; требования: Nim Lv. 3 Key Affinity; Phonex Linguistics Lv. 1.")
-- [-] [Eternal Spirit]("Central Exchange; требования: Perun Chivalry Lv. 2.")
-- [-] [A Real Challenge]("Goldmouth Res. Dist.; требования: Tantal reached; Zenobia sent on 'We Need To Talk!' Merc Mission.")
-- [ ] [Tender-Hearted Beast]("Theospiti Temple Ruins; требования: Wulfric.")
-- [-] [The Home of the Soul (Switch 2)]("Stone Gate Ruins; требования: Tora's Secret Stash completed; MOMO Key Affinity Lv. 4 в обоих режимах; Tantal reached.")
-
-### Chapter 7
-- [ ] [Fool's Gold]("Little Garden of Tradition; получение: Chapter 6; требования: Sheba Lv. 5 Affinity; all Drivers in party; 1 million G saved.")
-- [ ] [Blade-Sharp Memory]("Royal Guard Barracks; требования: Crystal Clear; Praxis Lv. 4 Affinity.")
-  - [ ] [Pest Control 1]("Garagorm's Arch; часть Blade-Sharp Memory.")
-  - [ ] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
-  - [ ] [Pest Control 3]("Garagorm's Arch; часть Blade-Sharp Memory.")
-- [ ] [Making Love Source]("DLC · Lemour Inn; требования: Poppi QT; sleep at the inn.")
-
-### Chapter 8
-- [ ] [Precious Yearnings]("Fonsa Myma; получение: Chapter 5; требования: Agate in party; group sets out for Temperantia.")
-- [ ] [Limits of Awareness]("Goldmouth Warehouse; получение: Chapter 6; требования: Adenine's Books completed.")
-- [ ] [Adenine's Password]("Goldmouth Warehouse; требования: Limits of Awareness; fail password entry once.")
-- [-] [Nature Boy]("Gwenith Paddies; получение: Chapter 5; требования: Unspoken Suspicion completed.")
-- [ ] [The Ties That Bind]("Nharil Central Plaza; требования: Vale Lv. 5 Affinity; Chapter 8 started.")
-- [ ] [The Calm and the Storm]("Royal Audience Hall; требования: Infernal Guldo defeated; Herald Lv. 5 Affinity.")
-- [ ] [Theory and Praxis]("Fonsa Myma; требования: Theory, Praxis, Rough Diamond (H2H), все основные персонажи.")
-  - [ ] [Family vs. Fiends]("Fonsa Myma; часть Theory and Praxis.")
-  - [ ] [Jeline and Shaun]("Fonsa Myma; часть Theory and Praxis.")
-  - [ ] [Boys and Bullies]("Fonsa Myma; часть Theory and Praxis.")
-- [ ] [Corvin's Approach]("Royal Audience Hall; требования: Chapter 7 completed; Corvin Lv. 5 Affinity; Light Mastery Lv. 4.")
-- [ ] [Powered-Up Poppi]("Tora's House; требования: Infernal Guldo defeated; Growing Up (H2H).")
-- [ ] [The Trendy Patissier]("Commercial District; требования: Boreas, Gorg; Follow Your Passion completed.")
-
-### Chapter 9
-- [ ] [Follow Your Passion]("Fonsa Myma Port; получение: Chapter 6; требования: Sweet Strategy (H2H).")
-- [ ] [Farewell, Good Friend]("Ayvill Shopping District; требования: Aegaeon; Insurgent Investigations completed.")
-
-### Chapter 10
+### Blade-Related Quests
 - [ ] [Most Awful News?!]("DLC · Theosoir; требования: Finch Birdbrain Lv. 3.")
 - [ ] [Artificial Intelligence]("7th Perimeter Skyport; требования: KOS-MOS Lv. 4 Key Affinity.")
 - [ ] [Bright Spark]("Fonsett Village; требования: Crossette and Pyra in party; Crossette Lv. 5 Affinity; Ardent Cooking Lv. 4.")
@@ -312,5 +299,6 @@ updatedAt: "2026-08-26T10:25:50.225Z"
   - [ ] [Search for Alec]("Part of Hot Spring Bonanza · Geothermal Plant Lobby.")
   - [ ] [Search for Sarrac]("Part of Hot Spring Bonanza · Geothermal Plant Lobby.")
 
-### Postgame
+
+## Postgame
 - [ ] [Lingering Resentment]("Olethro Ruins; требования: main story completed; T-elos obtained.")

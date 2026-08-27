@@ -3,7 +3,7 @@ id: "e9c1be75-aaec-4300-b27f-1c7edc931fea"
 groupRank: 1536
 rank: 512
 createdAt: "2026-08-15T11:10:49.672Z"
-updatedAt: "2026-08-23T06:25:39.719Z"
+updatedAt: "2026-08-27T09:30:36.290Z"
 -->
 # Посетить позже
 
@@ -18,3 +18,6 @@ updatedAt: "2026-08-23T06:25:39.719Z"
 
 ## Temperantia
 - [ ] Jagron's Citadel (lvl 90)
+
+## Kingdom of Tantal
+- [ ] Zalmor's Crevice (lvl 80) - щель с сундуком

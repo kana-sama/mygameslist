@@ -14,7 +14,10 @@ collapsedChecklistSections:
   - "group:19rgymx-24"
   - "group:1ai755v-25"
   - "group:1anqzxz-23"
+  - "group:1bbdlf7-27"
   - "group:1e87cqo-22"
+  - "group:1fbk8vu-23"
+  - "group:1jd6vhi-21"
   - "group:1jttmdt-26"
   - "group:1kpm5v2-27"
   - "group:1kyus8l-2a"
@@ -37,6 +40,7 @@ collapsedChecklistSections:
   - "group:mj0rd8-2a"
   - "group:mm9jvm-25"
   - "group:mz9gs3-23"
+  - "group:nwjzde-21"
   - "group:o78768-29"
   - "group:p8q836-27"
   - "group:p96tgm-23"
@@ -50,18 +54,16 @@ collapsedChecklistSections:
   - "group:tr63c7-27"
   - "group:u2uy0m-1z"
   - "group:uoy8yy-29"
-  - "group:uvmet-2a"
   - "group:zbbahv-2b"
   - "group:zuo2j7-23"
   - "heading:17lrvy2-1d"
   - "heading:1ejpocg-1j"
-  - "heading:1nxkulv-1c"
   - "heading:1u4gwz0-1c"
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
   - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-26T11:51:25.675Z"
+updatedAt: "2026-08-27T09:30:59.874Z"
 -->
 # Shop Deeds
 
@@ -249,7 +251,7 @@ updatedAt: "2026-08-26T11:51:25.675Z"
   - [x] Black Roast Coffee
   - [x] Jenerossi Tea
   - [x] Lentil Milkshake
-  - [x] Fizzi Lassi — открывается после Merc Mission `Fad Foods`.
+  - [x] Fizzy Lassi — открывается после Merc Mission `Fad Foods`.
   - [x] **Vargel Deeds**
 
 - Sadecott Groceries
@@ -267,7 +269,7 @@ updatedAt: "2026-08-26T11:51:25.675Z"
   - [x] Castle Poker
   - [x] Gladiator Wrestling
   - [x] Coral Reversi
-  - [x] Dual Line
+  - [x] Duel Line
   - [x] Nopopo Yard
   - [x] Coral Casino
   - [x] **Knick-Knacks Deeds**
@@ -344,7 +346,7 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 - Salter Sweets
 
   - [x] Steamed Milk Brioche
-  - [x] Steamed-Gel Ice Cream
+  - [x] Steam-Gel Ice Cream
   - [x] Sweet Lentil Bun
   - [x] Sky-Jewel Tart
   - [x] Odifa Gelée Tart — открывается после Merc Mission `Shipping Lane Safety`.
@@ -354,7 +356,7 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 - Haskefell Books
 
   - [x] Ardainian Arms Album
-  - [x] Emperor Ephim's War
+  - [x] Emperor Ephem's War
   - [x] Imperial Secret Escapes
   - [x] Les Awfuls
   - [x] Love Beyond the Clouds
@@ -374,7 +376,7 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 - Yafush Antiques
 
   - [x] Punk Doll
-  - [x] Copper Ephim Statue
+  - [x] Copper Ephem Statue
   - [x] Ardainian Bear Carving
   - [x] Felmeri Fairy Statue — открывается после Merc Mission `Secret Spice`.
   - [x] Conch Music Box — открывается после Merc Mission `Shipping Lane Safety`.
@@ -449,16 +451,16 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 
   - [x] Lybarian Chowder
   - [x] Green Cheese Salad
-  - [x] Vegetable Mille-Feuille — открывается после Merc Mission `Nopon Cooking`.
-  - [x] Veg & Oyster Aspic
-  - [-] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
-  - [-] **Corcaja Deeds**
+  - [x] Vegetable Mille-Feuille
+  - [x] Veg & Oyster Aspic — открывается после Merc Mission `Nopon Cooking`.
+  - [x] Snowbaby Potato Salad — открывается после Merc Mission `Sinking Storehouse?`.
+  - [x] **Corcaja Deeds**
 
-- Cafe Lutino ※1
+- Cafe Lutino
 
-  - [x] Odifa — доступно с Chapter 9.
-  - [x] Indoline Tea — доступно с Chapter 9.
-  - [x] Frozen Odifa — доступно с Chapter 9.
+  - [x] Odifa
+  - [x] Indoline Tea
+  - [x] Frozen Odifa
   - [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
   - [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
   - [ ] **Lutino Deeds**
@@ -467,57 +469,57 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 
 - Lectica Vegetables
 
-  - [ ] Steamed Veg Stralu
-  - [ ] Addam's Embercakes
-  - [ ] Prickly Snopickle
-  - [ ] Snowy Dudleya Gelée
-  - [ ] Vinaigrette Ice Cabbage — открывается после Merc Mission `Weathered Ship`.
-  - [ ] **Lectica Deeds**
+  - [x] Steamed Veg Stralu
+  - [x] Addam's Embercakes
+  - [x] Prickly Snowpickle
+  - [x] Snowy Dudleya Gelée
+  - [x] Vinaigrette Ice Cabbage — открывается после Merc Mission `Weathered Ship`.
+  - [x] **Lectica Deeds**
 
 - Placks Patisserie
 
-  - [ ] Airy Snowflake Sherbet
-  - [ ] Thawing Mille-Feuille
-  - [ ] Baked Narcipear
-  - [ ] Sno-Bake Cheesecake
-  - [ ] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
+  - [x] Airy Snowflake Sherbet
+  - [x] Thawing Mille-Feuille
+  - [x] Baked Narcipear
+  - [x] Sno-Bake Cheesecake
+  - [x] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
   - [ ] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
   - [ ] **Placks Deeds**
 
 - Platini Deli
 
-  - [-] Tantalese Spicy Sausage
-  - [-] Genbu Carpaccio
-  - [-] Armu Milk Yogurt
-  - [ ] Grumbird Cordon Bleu — открывается после Merc Mission `Beat the Heat`.
-  - [-] Samod Stralu — открывается после Merc Mission `Frozen Door`.
+  - [x] Fondant Rice Cake
+  - [x] Tantalese Porridge
+  - [x] Fried Octomayo
+  - [x] Poached Fruit Samod — открывается после Merc Mission `Frozen Door`.
+  - [ ] Grumbird Rice Bowl — открывается после Merc Mission `Beat the Heat`.
   - [ ] **Platini Deeds**
 
 - Tatraty Fish
 
-  - [-] Aromalocaris Sauté
-  - [-] Abyssturgeon Medallion
-  - [-] Bagna Oyster Roll — открывается после Merc Mission `Frozen Door`.
-  - [ ] Whitebait-Samod Hotpot — открывается после Merc Mission `Cuisine Researcher`.
-  - [ ] **Tatraty Deeds**
+  - [x] Aromalocaris Sauté
+  - [x] Abyssturgeon Medallion
+  - [x] Bagna Oyster Roll — открывается после Merc Mission `Frozen Door`.
+  - [x] Whitebait-Samod Hotpot — открывается после Merc Mission `Cuisine Researcher`.
+  - [x] **Tatraty Deeds**
 
 - Biblio Paulio
 
-  - [ ] Prideful Walking
-  - [ ] The Armu Who Loved
-  - [ ] Witness the Crustip
-  - [ ] The Annals of Addam
-  - [ ] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
+  - [x] Prideful Walking
+  - [x] The Armu Who Loved
+  - [x] Witness the Crustip
+  - [x] The Annals of Addam
+  - [x] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
   - [ ] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
   - [ ] **Paulio Deeds**
 
 - Boldarde Textiles
 
-  - [ ] Tantalese Velvet
-  - [ ] Snowflake-Weave Sole
-  - [ ] Genbu-Weave Cloth
-  - [ ] Heatstripe
-  - [ ] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
+  - [x] Tantalese Velvet
+  - [x] Snowflake-Weave Sole
+  - [x] Genbu-Weave Cloth
+  - [x] Heatstripe
+  - [x] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
   - [ ] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
   - [ ] **Boldarde Deeds**
 
@@ -532,17 +534,17 @@ updatedAt: "2026-08-26T11:51:25.675Z"
 
 - Hobby Trappers
 
-  - [-] Don't Feed the Armu
-  - [-] Bluff Knight
-  - [-] Money-Bye-Bye
-  - [-] Smack-A-Nopon — открывается после Merc Mission `Frozen Door`.
-  - [ ] Jeweled Billiard Balls — открывается после Merc Mission `Cuisine Researcher`.
-  - [ ] **Trappers Deeds**
+  - [x] Don't Feed the Armu
+  - [x] Bluff Knight
+  - [x] Money-Bye-Bye
+  - [x] Smack-A-Nopon — открывается после Merc Mission `Frozen Door`.
+  - [x] Jeweled Billiard Balls — открывается после Merc Mission `Cuisine Researcher`.
+  - [x] **Trappers Deeds**
 
 - Memoria Art
 
-  - [ ] [The Girl on the Hill]("ch 8")
-  - [ ] [Final Chorus]("ch 8")
+  - [ ] The Girl on the Hill — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
+  - [ ] Final Chorus — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
   - [x] Ancient King's Portrait
   - [x] Snow-Crystal Vase
   - [x] Portrait of Ger the Hero

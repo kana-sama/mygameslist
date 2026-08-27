@@ -14,7 +14,7 @@ collapsedChecklistSections:
   - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-23T09:00:04.260Z"
+updatedAt: "2026-08-26T14:38:33.559Z"
 -->
 # Secret Areas
 
@@ -38,7 +38,7 @@ updatedAt: "2026-08-23T09:00:04.260Z"
 
 ## Kingdom of Tantal
 
-- [ ] [Airborne Throne]("Upper Level; Исследуйте Upper Level и доберитесь до парящего трона.")
+- [x] [Airborne Throne]("Upper Level; Исследуйте Upper Level и доберитесь до парящего трона.")
 
 ## Kingdom of Uraya
 
