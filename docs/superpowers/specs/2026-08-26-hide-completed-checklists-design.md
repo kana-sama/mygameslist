@@ -19,12 +19,12 @@ Add a global client-side game-page filter that hides completed Markdown list che
 - The game page owns one explicit active-note identity independently of the filter. A pointer action anywhere inside a note or keyboard focus entering a note makes that note active. Pointer movement and pointer exit alone do not change activity. A pointer action or keyboard focus outside the active note clears it or transfers activity to another note.
 - The active note always uses its existing one-pixel border in the accent color, whether the completed-checklist filter is enabled or disabled. Activity has no filtering effect while the filter is disabled.
 - A successfully saved checklist checkbox change marks only its note's completed-content snapshot as pending. Clicking a hidden-content summary marks the same note pending through the same refresh mechanism.
-- Pending work never starts a timer while its note is active. When activity leaves that note, start a 5,000 ms note-owned debounce. Returning to the note with a pointer or focus action before expiry cancels the timer while keeping the pending work; the next departure starts a fresh 5,000 ms debounce.
-- If an asynchronous checkbox save finishes after activity already left its note, start the note's 5,000 ms debounce when that successful save finishes.
-- When the debounce expires, refresh only that note's completed-content snapshot from the latest Markdown and clear its temporary hidden-content reveals. Other notes retain their own snapshots and timers.
-- Scrolling, pointer movement, hover, editing, layout changes, and other activity inside the same note do not start or reset the debounce.
-- Disabling the filter immediately shows all content, cancels all filter refresh timers, and clears pending filter work and temporary reveals without clearing the independent active-note identity. Re-enabling immediately builds fresh snapshots.
-- Leaving the game page cancels its pending timers. The next game builds its own immediate snapshots from current content.
+- Pending work remains unchanged while its note is active. The first pointer action or keyboard focus outside that note refreshes only that note's completed-content snapshot synchronously, with no debounce and no functional timeout. The resulting visual transition starts in the same interaction turn.
+- If an asynchronous checkbox save finishes after activity already left its note, refresh that note synchronously when the successful save finishes.
+- A refresh clears that note's temporary hidden-content reveals. Other notes retain their own snapshots and pending state.
+- Scrolling, pointer movement, hover, editing, layout changes, and other activity inside the same note do not refresh the snapshot.
+- Disabling the filter immediately shows all content and clears pending filter work and temporary reveals without clearing the independent active-note identity. Re-enabling immediately builds fresh snapshots.
+- Leaving the game page clears pending work. The next game builds its own immediate snapshots from current content.
 
 ## List filtering
 
@@ -50,6 +50,17 @@ Add a global client-side game-page filter that hides completed Markdown list che
 - The section summary is a quiet text button using the same approved option A treatment and interactive hover/focus behavior as the list summary.
 - Clicking `Скрыто N секций` temporarily reveals only the direct hidden sibling sections counted by that exact summary. Checked items inside those sections remain filtered behind their own `Скрыто N пунктов` buttons; the section click never expands the whole descendant checklist subtree.
 
+## Motion
+
+- Apply motion to completed Markdown list rows and checklist sections only. Markdown tables, note editors, diff/review rendering, and drag previews do not participate.
+- A logical filter refresh is immediate. Motion is a visual handoff lasting 280 ms; it never reintroduces a debounce or delays the start after note activity leaves.
+- When rows become hidden, each disappearing row keeps its full inline width while moving vertically into the exact `Скрыто N пунктов` summary that owns it, fading and collapsing on the vertical axis as the remaining rows smoothly move into their final positions. Do not scale the row horizontally and do not draw a point, marker, trail, or other destination decoration.
+- When sections become hidden, each disappearing section (heading plus its rendered checklist body) uses the same full-width vertical motion into the exact `Скрыто N секций` summary owned by its hierarchy level. Nested and root summaries remain separate destinations.
+- Clicking a hidden-items or hidden-sections summary plays the reverse relationship: the minimum content owned by that summary emerges from that same summary line while surrounding content smoothly makes room.
+- Content that is logically hidden becomes non-interactive and absent from the accessibility tree immediately even if a visual exit replica is still finishing. Temporary visual replicas must be inert, `aria-hidden`, pointer-transparent, and must not duplicate DOM IDs.
+- Motion uses a fast, readable ease-out/ease-in curve and is interruptible: a new filter/reveal transition cancels obsolete animations and replicas, then converges on the newest logical state without stale nodes.
+- When `prefers-reduced-motion: reduce` matches, skip the visual handoff and present the new logical state immediately.
+
 ## Scope boundaries
 
 - Apply the filter to normal note cards on the game page. Note editors, Markdown diff/review rendering, and drag previews retain their current unfiltered behavior.
@@ -60,5 +71,6 @@ Add a global client-side game-page filter that hides completed Markdown list che
 
 - Preference tests cover exact persistence, removal on disable, default behavior, and storage failures.
 - Markdown component tests cover immediate filtering, stable snapshots across Markdown changes, refresh revisions, unchecked and indeterminate items, nested incomplete descendants, interactive item counts with exact list ownership, interactive section counts with exact nesting ownership and minimum reveal, hidden sibling sections, visible sections with ordinary content, level-one title preservation, and unchanged tables.
-- Game-page tests cover toolbar order, active accessibility, immediate enabling, independent active-note styling with the filter on and off, activation by pointer and keyboard focus, no refresh while the changed note remains active, a note-only refresh exactly 5,000 ms after activity leaves, cancellation and restart when activity returns, successful saves that settle after departure, reveal clicks using the same debounce, cancellation when disabled, and the global toggle callback.
+- Motion tests cover owner-specific row and section destinations, full-width vertical-only keyframes, smooth FLIP movement for surviving content, reverse reveal motion, inert visual exit replicas, interruption cleanup, initial-mount behavior, and reduced-motion behavior without asserting browser implementation details.
+- Game-page tests cover toolbar order, active accessibility, immediate enabling, independent active-note styling with the filter on and off, activation by pointer and keyboard focus, no refresh while the changed note remains active, synchronous note-only refresh when activity leaves, successful saves that settle after departure, reveal clicks using the same zero-delay refresh path, clearing pending work when disabled, and the global toggle callback.
 - Focused tests, the complete test suite, and the production build must pass with pristine output before the feature is finalized.

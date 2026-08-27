@@ -364,6 +364,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .section-icon { width: 28px; height: 28px; display: grid; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); background: var(--surface-2); }
 .section-icon svg { width: 14px; height: 14px; }
 .markdown { color: #d1d2d5; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.markdown[data-completed-checklist-motion-enabled="true"] { position: relative; }
+.markdown .markdown-completed-checklist-motion-replica { position: absolute; z-index: 2; pointer-events: none; }
 .markdown > :first-child, .markdown > .markdown-section:first-child > :first-child { margin-top: 0; }
 .markdown > :last-child, .markdown > .markdown-section:last-child > :last-child { margin-bottom: 0; }
 .markdown p, .markdown ul, .markdown ol { margin-top: .55em; margin-bottom: .55em; }
@@ -455,6 +457,9 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown pre code { padding: 0; background: none; }
 .markdown blockquote { margin-left: 0; padding-left: 9px; border-left: 2px solid #5a7488; color: var(--muted); }
 .markdown hr { border: 0; border-top: 1px solid var(--line); }
+@media (prefers-reduced-motion: reduce) {
+  .markdown .markdown-completed-checklist-motion-replica { display: none !important; }
+}
 .markdown-task-item { list-style: none; }
 .markdown-task-row { display: flex; align-items: flex-start; gap: 5px; }
 .markdown-task-control { width: 16px; height: 18px; display: grid; flex: 0 0 auto; place-items: center; cursor: pointer; }

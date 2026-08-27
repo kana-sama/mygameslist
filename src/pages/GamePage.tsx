@@ -1355,9 +1355,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const taskSaveInFlight = useRef(false);
   const activeInteractionNoteIdRef = useRef<string | null>(null);
   const completedChecklistFilterPendingNoteIds = useRef(new Set<string>());
-  const completedChecklistFilterTimeouts = useRef(new Map<string, number>());
   const completedChecklistFilterKnownNoteIds = useRef(new Set(editableNotes.map((note) => note.clientId)));
-  const completedChecklistFilterPageMounted = useRef(true);
   const completedChecklistFilterEnabledRef = useRef(completedChecklistFilterEnabled);
   const previousCompletedChecklistFilterEnabledRef = useRef(completedChecklistFilterEnabled);
   const completedChecklistFilterGenerationRef = useRef(0);
@@ -1432,27 +1430,10 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       progressPageMounted.current = false;
     };
   }, []);
-  const clearCompletedChecklistFilterRefresh = useCallback((noteId: string) => {
-    const timeout = completedChecklistFilterTimeouts.current.get(noteId);
-    if (timeout !== undefined) window.clearTimeout(timeout);
-    completedChecklistFilterTimeouts.current.delete(noteId);
-  }, []);
-  const clearCompletedChecklistFilterRefreshes = useCallback(() => {
-    for (const timeout of completedChecklistFilterTimeouts.current.values()) window.clearTimeout(timeout);
-    completedChecklistFilterTimeouts.current.clear();
-    completedChecklistFilterPendingNoteIds.current.clear();
-  }, []);
   useEffect(() => {
     if (completedChecklistFilterEnabled) return;
-    clearCompletedChecklistFilterRefreshes();
-  }, [clearCompletedChecklistFilterRefreshes, completedChecklistFilterEnabled]);
-  useEffect(() => {
-    completedChecklistFilterPageMounted.current = true;
-    return () => {
-      completedChecklistFilterPageMounted.current = false;
-      clearCompletedChecklistFilterRefreshes();
-    };
-  }, [clearCompletedChecklistFilterRefreshes]);
+    completedChecklistFilterPendingNoteIds.current.clear();
+  }, [completedChecklistFilterEnabled]);
   useEffect(() => {
     if (!restoreProgressDeleteFocus || saving || progressDraft !== null) return;
     setRestoreProgressDeleteFocus(false);
@@ -1516,32 +1497,25 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     if (await persist({ notes: nextNotes }, { authoredNoteIds })) { setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }
   };
   completedChecklistFilterKnownNoteIds.current = new Set(editableNotes.map((note) => note.clientId));
-  const scheduleCompletedChecklistFilterRefresh = useCallback((noteId: string) => {
-    if (!completedChecklistFilterPageMounted.current || !completedChecklistFilterEnabledRef.current || !completedChecklistFilterPendingNoteIds.current.has(noteId) || activeInteractionNoteIdRef.current === noteId || !completedChecklistFilterKnownNoteIds.current.has(noteId)) return;
-    clearCompletedChecklistFilterRefresh(noteId);
-    const generation = completedChecklistFilterGenerationRef.current;
-    completedChecklistFilterTimeouts.current.set(noteId, window.setTimeout(() => {
-      completedChecklistFilterTimeouts.current.delete(noteId);
-      if (!completedChecklistFilterPageMounted.current || !completedChecklistFilterEnabledRef.current || completedChecklistFilterGenerationRef.current !== generation || activeInteractionNoteIdRef.current === noteId || !completedChecklistFilterKnownNoteIds.current.has(noteId) || !completedChecklistFilterPendingNoteIds.current.has(noteId)) return;
-      completedChecklistFilterPendingNoteIds.current.delete(noteId);
-      setCompletedChecklistFilterRevisions((current) => new Map(current).set(noteId, (current.get(noteId) ?? 0) + 1));
-    }, 5_000));
-  }, [clearCompletedChecklistFilterRefresh]);
-  const markCompletedChecklistFilterPending = useCallback((noteId: string) => {
-    if (!completedChecklistFilterEnabledRef.current) return;
+  const refreshCompletedChecklistFilter = useCallback((noteId: string, generation: number) => {
+    if (!completedChecklistFilterEnabledRef.current || completedChecklistFilterGenerationRef.current !== generation || activeInteractionNoteIdRef.current === noteId || !completedChecklistFilterKnownNoteIds.current.has(noteId) || !completedChecklistFilterPendingNoteIds.current.has(noteId)) return;
+    completedChecklistFilterPendingNoteIds.current.delete(noteId);
+    setCompletedChecklistFilterRevisions((current) => new Map(current).set(noteId, (current.get(noteId) ?? 0) + 1));
+  }, []);
+  const markCompletedChecklistFilterPending = useCallback((noteId: string, generation = completedChecklistFilterGenerationRef.current) => {
+    if (!completedChecklistFilterEnabledRef.current || completedChecklistFilterGenerationRef.current !== generation) return;
     completedChecklistFilterPendingNoteIds.current.add(noteId);
-    if (activeInteractionNoteIdRef.current !== noteId) scheduleCompletedChecklistFilterRefresh(noteId);
-  }, [scheduleCompletedChecklistFilterRefresh]);
+    if (activeInteractionNoteIdRef.current !== noteId) refreshCompletedChecklistFilter(noteId, generation);
+  }, [refreshCompletedChecklistFilter]);
   useEffect(() => {
     const transferActivity = (event: Event) => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>(".note-card[data-note-id]") : null;
       const nextNoteId = target?.dataset.noteId ?? null;
       const previousNoteId = activeInteractionNoteIdRef.current;
-      if (nextNoteId) clearCompletedChecklistFilterRefresh(nextNoteId);
       if (previousNoteId === nextNoteId) return;
       activeInteractionNoteIdRef.current = nextNoteId;
       setActiveInteractionNoteId(nextNoteId);
-      if (previousNoteId && completedChecklistFilterPendingNoteIds.current.has(previousNoteId)) scheduleCompletedChecklistFilterRefresh(previousNoteId);
+      if (previousNoteId && completedChecklistFilterPendingNoteIds.current.has(previousNoteId)) refreshCompletedChecklistFilter(previousNoteId, completedChecklistFilterGenerationRef.current);
     };
     document.addEventListener("pointerdown", transferActivity, true);
     document.addEventListener("focusin", transferActivity, true);
@@ -1549,10 +1523,10 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       document.removeEventListener("pointerdown", transferActivity, true);
       document.removeEventListener("focusin", transferActivity, true);
     };
-  }, [clearCompletedChecklistFilterRefresh, scheduleCompletedChecklistFilterRefresh]);
+  }, [refreshCompletedChecklistFilter]);
   const saveTaskNote = async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration = completedChecklistFilterGeneration) => {
     if (reason === "checkbox-saved") {
-      if (completedChecklistFilterGenerationRef.current === filterGeneration) markCompletedChecklistFilterPending(draft.clientId);
+      markCompletedChecklistFilterPending(draft.clientId, filterGeneration);
       return;
     }
     if (taskSaveInFlight.current || saving || editingField !== null || editingDraft !== null || coverEditing || progressDraft !== null) return;
@@ -1564,7 +1538,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       const saved = await persist({ notes: nextNotes }, { globalSaving: false });
       if (!saved) {
         setOptimisticTaskNote(null);
-      } else if (reason === "checkbox" && completedChecklistFilterGenerationRef.current === filterGeneration) markCompletedChecklistFilterPending(draft.clientId);
+      } else if (reason === "checkbox") markCompletedChecklistFilterPending(draft.clientId, filterGeneration);
     } finally {
       taskSaveInFlight.current = false;
       setTaskSaveNoteId(null);

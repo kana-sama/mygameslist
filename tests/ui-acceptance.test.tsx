@@ -386,7 +386,7 @@ describe("GamePage", () => {
     expect(firstCard).not.toHaveClass("note-card--interaction-active");
   });
 
-  it("refreshes the completed-checklist snapshot only for an inactive pending note after five seconds", async () => {
+  it("refreshes only the pending note synchronously when activity leaves without scheduling a functional timer", async () => {
     vi.useFakeTimers();
     const requestAnimationFrame = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
@@ -410,25 +410,17 @@ describe("GamePage", () => {
     expect(firstCard).toHaveClass("note-card--interaction-active");
     expect(vi.getTimerCount()).toBe(activeTimerBaseline);
     expect(screen.getByText("First")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(5_001); });
-    expect(screen.getByText("First")).toBeInTheDocument();
-
     fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
-    act(() => { vi.advanceTimersByTime(0); });
-    expect(vi.getTimerCount()).toBe(activeTimerBaseline + 1);
-    act(() => { vi.advanceTimersByTime(4_999); });
-    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(activeTimerBaseline);
+    expect(screen.queryByRole("checkbox", { name: "Отметить: First" })).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Отметить: Second" })).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(1); });
-    expect(screen.queryByText("First")).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Отметить: Second" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Скрыто 1 пунктов" })).toBeInTheDocument();
     } finally {
       window.requestAnimationFrame = requestAnimationFrame;
     }
   });
 
-  it("cancels and restarts the completed-checklist snapshot refresh when activity returns to a pending note", async () => {
-    vi.useFakeTimers();
+  it("keeps a pending completed-checklist snapshot unchanged while its note stays active", async () => {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
     function Harness() {
       const [notes, setNotes] = useState([note]);
@@ -439,20 +431,17 @@ describe("GamePage", () => {
     fireEvent.pointerDown(screen.getByRole("checkbox", { name: "Отметить: First" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
-    act(() => { vi.advanceTimersByTime(2_000); });
     fireEvent.pointerDown(document.querySelector(`[data-note-id="${NOTE_ID}"]`)!);
-    act(() => { vi.advanceTimersByTime(5_000); });
     expect(screen.getByText("First")).toBeInTheDocument();
     fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
-    act(() => { vi.advanceTimersByTime(4_999); });
-    expect(screen.getByText("First")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(1); });
     expect(screen.queryByText("First")).not.toBeInTheDocument();
   });
 
-  it("starts a connected completed-checklist snapshot refresh only after its asynchronous checkbox save succeeds", async () => {
+  it("refreshes a connected completed-checklist snapshot synchronously when its asynchronous save settles after departure", async () => {
     vi.useFakeTimers();
+    const requestAnimationFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = () => 0;
+    try {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
     let resolveSave: (() => void) | undefined;
     const saveResolution = new Promise<void>((resolve) => { resolveSave = resolve; });
@@ -473,17 +462,22 @@ describe("GamePage", () => {
     fireEvent.pointerDown(screen.getByRole("checkbox", { name: "Отметить: First" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
-    act(() => { vi.advanceTimersByTime(5_000); });
     expect(screen.getByText("First")).toBeInTheDocument();
+    const timerBaseline = vi.getTimerCount();
     await act(async () => { resolveSave?.(); await saveResolution; await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(4_999); });
-    expect(screen.getByText("First")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(1); });
-    expect(screen.queryByText("First")).not.toBeInTheDocument();
+    expect(vi.getTimerCount()).toBe(timerBaseline);
+    expect(screen.queryByRole("checkbox", { name: "Отметить: First" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Скрыто 1 пунктов" })).toBeInTheDocument();
+    } finally {
+      window.requestAnimationFrame = requestAnimationFrame;
+    }
   });
 
-  it("uses the hidden summary refresh path after revealing a completed item", () => {
+  it("uses the zero-delay refresh path after revealing a completed item", () => {
     vi.useFakeTimers();
+    const requestAnimationFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = () => 0;
+    try {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] Finished", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
     render(<><button type="button">Outside</button><GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} /></>);
 
@@ -494,18 +488,18 @@ describe("GamePage", () => {
     const card = document.querySelector<HTMLElement>(`.note-card[data-note-id="${NOTE_ID}"]`)!;
     expect(card).toHaveClass("note-card--interaction-active");
     expect(screen.getByText("Finished")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(5_001); });
-    expect(screen.getByText("Finished")).toBeInTheDocument();
+    const timerBaseline = vi.getTimerCount();
 
     fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
-    act(() => { vi.advanceTimersByTime(4_999); });
-    expect(screen.getByText("Finished")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(1); });
+    expect(vi.getTimerCount()).toBe(timerBaseline);
     expect(screen.queryByText("Finished")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Скрыто 1 пунктов" })).toBeInTheDocument();
+    } finally {
+      window.requestAnimationFrame = requestAnimationFrame;
+    }
   });
 
-  it("cancels a pending refresh on filter disable without clearing another active note", async () => {
+  it("clears pending refresh work on filter disable without clearing another active note", async () => {
     vi.useFakeTimers();
     const requestAnimationFrame = window.requestAnimationFrame;
     window.requestAnimationFrame = () => 0;
@@ -526,18 +520,12 @@ describe("GamePage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Second" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     act(() => { vi.advanceTimersByTime(0); });
-    const firstCard = document.querySelector<HTMLElement>(`.note-card[data-note-id="${NOTE_ID}"]`)!;
-    fireEvent.pointerDown(firstCard);
-    await act(async () => { await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(0); });
-    expect(firstCard).toHaveClass("note-card--interaction-active");
-    expect(vi.getTimerCount()).toBe(activeTimerBaseline + 1);
-
     fireEvent.click(screen.getByRole("button", { name: "Disable filter" }));
     act(() => { vi.advanceTimersByTime(0); });
+    const firstCard = document.querySelector<HTMLElement>(`.note-card[data-note-id="${NOTE_ID}"]`)!;
+    fireEvent.pointerDown(firstCard);
     expect(firstCard).toHaveClass("note-card--interaction-active");
     expect(vi.getTimerCount()).toBe(activeTimerBaseline);
-    act(() => { vi.advanceTimersByTime(5_000); });
     expect(screen.getByText("Second")).toBeInTheDocument();
     } finally {
       window.requestAnimationFrame = requestAnimationFrame;
@@ -641,8 +629,7 @@ describe("GamePage", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("refreshes connected note checkboxes after leaving the active note for five seconds", async () => {
-    vi.useFakeTimers();
+  it("refreshes connected note checkboxes synchronously after leaving the active note", async () => {
     const note: Note = {
       id: NOTE_ID,
       gameId: DUCK_ID,
@@ -671,12 +658,10 @@ describe("GamePage", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
     fireEvent.pointerDown(document.body);
-    act(() => { vi.advanceTimersByTime(5_000); });
     expect(screen.queryByText("First")).not.toBeInTheDocument();
   });
 
-  it("does not reset a checkbox refresh for text edits or added checklist items", async () => {
-    vi.useFakeTimers();
+  it("keeps pending checkbox work while text edits and checklist additions stay in the active note", async () => {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] First\n- [ ] Second\n- [ ] ...", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
     function Harness() {
       const [notes, setNotes] = useState([note]);
@@ -687,30 +672,23 @@ describe("GamePage", () => {
     fireEvent.pointerDown(screen.getByRole("checkbox", { name: "Отметить: First" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(20_000); });
 
     fireEvent.click(screen.getByRole("button", { name: "Редактировать пункт: Second" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Текст пункта: Second" }), { target: { value: "Edited second" } });
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Текст пункта: Second" }), { key: "Enter" });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(20_000); });
 
     fireEvent.click(screen.getByRole("button", { name: "Добавить пункт чеклиста" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), { target: { value: "Added" } });
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Новый пункт чеклиста" }), { key: "Enter" });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(19_999); });
     expect(screen.getByText("First")).toBeInTheDocument();
     fireEvent.pointerDown(document.body);
-    act(() => { vi.advanceTimersByTime(4_999); });
-    expect(screen.getByText("First")).toBeInTheDocument();
-    act(() => { vi.advanceTimersByTime(1); });
 
     expect(screen.queryByText("First")).not.toBeInTheDocument();
   });
 
-  it("does not reset a checkbox refresh when a checklist section is collapsed", async () => {
-    vi.useFakeTimers();
+  it("keeps pending checkbox work while a checklist section is collapsed inside the active note", async () => {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "# Root\n## Section\n- [ ] First", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
     function Harness() {
       const [notes, setNotes] = useState([note]);
@@ -718,19 +696,20 @@ describe("GamePage", () => {
     }
     render(<Harness />);
 
+    fireEvent.pointerDown(screen.getByRole("checkbox", { name: "Отметить: First" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(30_000); });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Root/ }));
       await Promise.resolve();
     });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    act(() => { vi.advanceTimersByTime(30_000); });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /Root/ }));
       await Promise.resolve();
     });
+    expect(screen.getByText("First")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
     expect(screen.queryByText("First")).not.toBeInTheDocument();
   });
 

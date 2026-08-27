@@ -52,6 +52,27 @@ function makeNote(bodyMarkdown: string): Note {
   };
 }
 
+function motionRect(top: number, height = 10, width = 240, left = 0): DOMRect {
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    toJSON: () => ({ left, top, width, height }),
+  } as DOMRect;
+}
+
+interface RecordedMarkdownAnimation {
+  animation: Animation & { cancelled: boolean; finish: () => void };
+  element: Element;
+  keyframes: Keyframe[];
+  options: KeyframeAnimationOptions;
+}
+
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 });
@@ -64,6 +85,434 @@ afterEach(() => {
 
 describe("Markdown tasks", () => {
   describe("completed checklist filter", () => {
+    describe("motion", () => {
+      let animations: RecordedMarkdownAnimation[];
+      let originalAnimateDescriptor: PropertyDescriptor | undefined;
+
+      beforeEach(() => {
+        animations = [];
+        originalAnimateDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "animate");
+        Object.defineProperty(Element.prototype, "animate", {
+          configurable: true,
+          value: function animate(keyframes: Keyframe[] | PropertyIndexedKeyframes, options?: number | KeyframeAnimationOptions): Animation {
+            const animation = {
+              cancelled: false,
+              oncancel: null as Animation["oncancel"],
+              onfinish: null as Animation["onfinish"],
+              cancel() {
+                this.cancelled = true;
+                this.oncancel?.(new Event("cancel") as AnimationPlaybackEvent);
+              },
+              finish() {
+                this.onfinish?.(new Event("finish") as AnimationPlaybackEvent);
+              },
+            };
+            animations.push({
+              animation: animation as unknown as RecordedMarkdownAnimation["animation"],
+              element: this,
+              keyframes: Array.isArray(keyframes) ? keyframes : [],
+              options: typeof options === "number" ? { duration: options } : options ?? {},
+            });
+            return animation as unknown as Animation;
+          },
+          writable: true,
+        });
+        vi.stubGlobal("matchMedia", vi.fn(() => ({
+          matches: false,
+          media: "(prefers-reduced-motion: reduce)",
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })));
+      });
+
+      afterEach(() => {
+        if (originalAnimateDescriptor) Object.defineProperty(Element.prototype, "animate", originalAnimateDescriptor);
+        else delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      });
+
+      it("moves completed list rows into their exact list summary with inert full-width exit replicas and FLIP settling", () => {
+        let phase: "initial" | "filtered" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 300, 300);
+          const text = this.textContent ?? "";
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(90);
+          if (text.includes("Visible one")) return motionRect(10);
+          if (text.includes("Completed one")) return motionRect(30);
+          if (text.includes("Visible two")) return motionRect(phase === "initial" ? 50 : 30);
+          if (text.includes("Completed group")) return motionRect(70, 16);
+          return motionRect(0);
+        });
+        const initial = [
+          "- [ ] Visible one",
+          "- [ ] Completed one",
+          "- [ ] Visible two",
+          "- Completed group",
+          "  - [ ] Completed nested",
+        ].join("\n");
+        const completed = initial.replace("[ ] Completed one", "[x] Completed one").replace("[ ] Completed nested", "[x] Completed nested");
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} onCollapsedChecklistSectionsChange={vi.fn()} />);
+
+        expect(animations).toHaveLength(0);
+        phase = "filtered";
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={completed} onCollapsedChecklistSectionsChange={vi.fn()} />);
+
+        const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-completed-checklist-motion-replica")];
+        expect(replicas).toHaveLength(2);
+        const exitReplica = replicas.find((replica) => replica.textContent?.includes("Completed group"))!;
+        expect(exitReplica).toHaveAttribute("aria-hidden", "true");
+        expect(exitReplica).toHaveAttribute("inert");
+        expect(exitReplica.querySelector("[id]")).toBeNull();
+        const summary = view.container.querySelector<HTMLElement>("[data-completed-checklist-motion-summary]")!;
+        expect(summary.dataset.completedChecklistMotionSummary).toBe(exitReplica.dataset.completedChecklistMotionTarget);
+        const exit = animations.find((entry) => entry.element === exitReplica)!;
+        expect(exit.options.duration).toBe(280);
+        expect(exit.keyframes.at(-1)?.transform).toContain("translateY(20px)");
+        expect(exit.keyframes.at(-1)?.transform).toContain("scaleY(");
+        expect(exit.keyframes.at(-1)?.transform).not.toContain("scaleX(");
+        const survivingRow = screen.getByText("Visible two").closest("li")!;
+        const settling = animations.find((entry) => entry.element === survivingRow)!;
+        expect(settling.keyframes[0]?.transform).toContain("translateY(20px)");
+        expect(settling.keyframes.at(-1)?.transform).toBe("translateY(0px)");
+        exit.animation.finish();
+        expect(exitReplica).not.toBeInTheDocument();
+      });
+
+      it("animates a caller-provided snapshot change even when its numeric revision is unchanged", () => {
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 180, 300);
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(70);
+          if ((this.textContent ?? "").includes("Finished")) return motionRect(20);
+          return motionRect(40);
+        });
+        const markdown = "- [x] Finished\n- [ ] Visible";
+        const finishedId = parseMarkdownBlocks(markdown)[0].items![0].structuralId!;
+        const emptySnapshot = { hiddenListItemStructuralIds: new Set<string>(), hiddenSectionCollapseIds: new Set<string>() };
+        const filteredSnapshot = { hiddenListItemStructuralIds: new Set([finishedId]), hiddenSectionCollapseIds: new Set<string>() };
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} completedChecklistFilterSnapshot={emptySnapshot} markdown={markdown} />);
+
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} completedChecklistFilterSnapshot={filteredSnapshot} markdown={markdown} />);
+
+        expect(view.container.querySelectorAll(".markdown-completed-checklist-motion-replica")).toHaveLength(1);
+      });
+
+      it("normalizes exit and FLIP deltas when the Markdown root moves in the viewport", () => {
+        let phase: "initial" | "filtered" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          const rootTop = phase === "initial" ? 100 : 40;
+          if (this.classList.contains("markdown")) return motionRect(rootTop, 180, 300);
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(rootTop + 70);
+          const text = this.textContent ?? "";
+          if (text.includes("Finished")) return motionRect(rootTop + 20);
+          if (text.includes("Visible")) return motionRect(rootTop + (phase === "initial" ? 50 : 30));
+          return motionRect(rootTop);
+        });
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={"- [ ] Finished\n- [ ] Visible"} />);
+
+        phase = "filtered";
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={"- [x] Finished\n- [ ] Visible"} />);
+
+        const exitReplica = view.container.querySelector<HTMLElement>(".markdown-completed-checklist-motion-replica")!;
+        const exit = animations.find((entry) => entry.element === exitReplica)!;
+        expect(exit.keyframes.at(-1)?.transform).toContain("translateY(50px)");
+        const visibleRow = screen.getByText("Visible").closest("li")!;
+        const settling = animations.find((entry) => entry.element === visibleRow)!;
+        expect(settling.keyframes[0]?.transform).toContain("translateY(20px)");
+      });
+
+      it("targets nested and root checklist sections only at their hierarchy-owned summaries", () => {
+        let phase: "initial" | "filtered" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 360, 300);
+          const text = this.textContent ?? "";
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) {
+            return motionRect(this.classList.contains("markdown-checklist-hidden-sections--nested") ? 120 : 190);
+          }
+          if (text.includes("Root completed")) return motionRect(20, 30);
+          if (text.includes("Visible parent")) return motionRect(phase === "initial" ? 60 : 20, 100);
+          if (text.includes("Child completed")) return motionRect(80, 24);
+          if (text.includes("Visible child")) return motionRect(phase === "initial" ? 120 : 60, 30);
+          return motionRect(0);
+        });
+        const initial = [
+          "# Root",
+          "## Root completed",
+          "- [ ] Root row",
+          "## Visible parent",
+          "- [ ] Parent row",
+          "### Child completed",
+          "- [ ] Child row",
+          "### Visible child",
+          "- [ ] Child open",
+        ].join("\n");
+        const completed = initial.replace("[ ] Root row", "[x] Root row").replace("[ ] Child row", "[x] Child row");
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} />);
+
+        phase = "filtered";
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={completed} />);
+
+        const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-completed-checklist-motion-replica")];
+        const rootReplica = replicas.find((replica) => replica.textContent?.includes("Root completed"))!;
+        const childReplica = replicas.find((replica) => replica.textContent?.includes("Child completed"))!;
+        expect(rootReplica.dataset.completedChecklistMotionTarget).not.toBe(childReplica.dataset.completedChecklistMotionTarget);
+        const rootSummary = view.container.querySelector<HTMLElement>(`.markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)[data-completed-checklist-motion-summary="${rootReplica.dataset.completedChecklistMotionTarget}"]`);
+        const childSummary = view.container.querySelector<HTMLElement>(`.markdown-checklist-hidden-sections--nested[data-completed-checklist-motion-summary="${childReplica.dataset.completedChecklistMotionTarget}"]`);
+        expect(rootSummary).not.toBeNull();
+        expect(childSummary).not.toBeNull();
+        expect(animations.find((entry) => entry.element === rootReplica)!.keyframes.at(-1)?.transform).toContain("translateY(170px)");
+        expect(animations.find((entry) => entry.element === childReplica)!.keyframes.at(-1)?.transform).toContain("translateY(40px)");
+      });
+
+      it("reverses from the owning summary and cancels obsolete exit replicas on interruption", () => {
+        let phase: "initial" | "filtered" | "revealed" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 240, 300);
+          const text = this.textContent ?? "";
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(80);
+          if (text.includes("Visible")) return motionRect(phase === "filtered" ? 20 : 40);
+          if (text.includes("Finished")) return motionRect(20);
+          return motionRect(0);
+        });
+        function Harness({ markdown, revision }: { markdown: string; revision: number }) {
+          const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
+          return <MarkdownView
+            completedChecklistFilterEnabled
+            completedChecklistFilterRevision={revision}
+            completedChecklistRevealedItemIds={revealed}
+            markdown={markdown}
+            onRevealCompletedChecklistItems={(ids) => setRevealed(new Set(ids))}
+          />;
+        }
+        const initial = "- [ ] Finished\n- [ ] Visible";
+        const completed = "- [x] Finished\n- [ ] Visible";
+        const view = render(<Harness markdown={initial} revision={0} />);
+        phase = "filtered";
+        view.rerender(<Harness markdown={completed} revision={1} />);
+        const exitReplica = view.container.querySelector<HTMLElement>(".markdown-completed-checklist-motion-replica")!;
+        const exitAnimation = animations.find((entry) => entry.element === exitReplica)!.animation;
+
+        phase = "revealed";
+        fireEvent.click(screen.getByRole("button", { name: "Скрыто 1 пунктов" }));
+
+        expect(exitAnimation.cancelled).toBe(true);
+        expect(view.container.querySelector(".markdown-completed-checklist-motion-replica")).toBeNull();
+        const enteredRow = screen.getByText("Finished").closest("li")!;
+        const entering = animations.findLast((entry) => entry.element === enteredRow)!;
+        expect(entering.options.duration).toBe(280);
+        expect(entering.keyframes[0]?.transform).toContain("translateY(60px)");
+        expect(entering.keyframes.at(-1)?.transform).toContain("translateY(0px)");
+      });
+
+      it("preserves logical boxes across an unrelated render during an unfinished exit", () => {
+        let phase: "initial" | "filtered" | "interrupted" | "revealed" = "initial";
+        let filteredSettlingAnimation: RecordedMarkdownAnimation["animation"] | undefined;
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 240, 300);
+          const text = this.textContent ?? "";
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(80);
+          if (text.includes("Finished")) return motionRect(20);
+          if (text.includes("Visible")) {
+            if (phase === "initial" || phase === "revealed" && filteredSettlingAnimation?.cancelled) return motionRect(40);
+            if (phase === "filtered") return motionRect(20);
+            return motionRect(30);
+          }
+          return motionRect(0);
+        });
+        function Harness({ className, markdown, revision }: { className: string; markdown: string; revision: number }) {
+          const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
+          return <MarkdownView
+            className={className}
+            completedChecklistFilterEnabled
+            completedChecklistFilterRevision={revision}
+            completedChecklistRevealedItemIds={revealed}
+            markdown={markdown}
+            onRevealCompletedChecklistItems={(ids) => setRevealed(new Set(ids))}
+          />;
+        }
+        const initial = "- [ ] Finished\n- [ ] Visible";
+        const completed = "- [x] Finished\n- [ ] Visible";
+        const view = render(<Harness className="before" markdown={initial} revision={0} />);
+        phase = "filtered";
+        view.rerender(<Harness className="filtered" markdown={completed} revision={1} />);
+        const visibleRow = screen.getByText("Visible").closest("li")!;
+        filteredSettlingAnimation = animations.find((entry) => entry.element === visibleRow)!.animation;
+        const exitReplica = view.container.querySelector<HTMLElement>(".markdown-completed-checklist-motion-replica")!;
+
+        phase = "interrupted";
+        view.rerender(<Harness className="unrelated-render" markdown={completed} revision={1} />);
+        expect(exitReplica).toBeInTheDocument();
+        phase = "revealed";
+        fireEvent.click(screen.getByRole("button", { name: "Скрыто 1 пунктов" }));
+
+        expect(filteredSettlingAnimation.cancelled).toBe(true);
+        expect(exitReplica).not.toBeInTheDocument();
+        const enteredRow = screen.getByText("Finished").closest("li")!;
+        const entering = animations.findLast((entry) => entry.element === enteredRow);
+        expect(entering?.keyframes[0]?.transform).toContain("translateY(60px)");
+        const revealedSettling = animations.findLast((entry) => entry.element === visibleRow);
+        expect(revealedSettling?.keyframes[0]?.transform).toContain("translateY(-20px)");
+      });
+
+      it("reveals a tall completed section from the top-left edge of its owning summary", () => {
+        let phase: "initial" | "filtered" | "revealed" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 320, 300);
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(160, 12);
+          const text = this.textContent ?? "";
+          if (this.classList.contains("markdown-checklist-subsection") && text.includes("Tall finished section")) {
+            return motionRect(20, 120);
+          }
+          if (text.includes("Visible section")) return motionRect(phase === "filtered" ? 20 : 150, 60);
+          if (text.includes("Finished row")) return motionRect(50);
+          return motionRect(0);
+        });
+        function Harness({ markdown, revision }: { markdown: string; revision: number }) {
+          const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
+          return <MarkdownView
+            completedChecklistFilterEnabled
+            completedChecklistFilterRevision={revision}
+            completedChecklistRevealedSectionIds={revealed}
+            markdown={markdown}
+            onRevealCompletedChecklistSections={(ids) => setRevealed(new Set(ids))}
+          />;
+        }
+        const initial = "# Root\n## Tall finished section\n- [ ] Finished row\n## Visible section\n- [ ] Open row";
+        const completed = initial.replace("[ ] Finished row", "[x] Finished row");
+        const view = render(<Harness markdown={initial} revision={0} />);
+        phase = "filtered";
+        view.rerender(<Harness markdown={completed} revision={1} />);
+
+        phase = "revealed";
+        fireEvent.click(screen.getByRole("button", { name: "Скрыто 1 секций" }));
+
+        const section = screen.getByRole("heading", { name: /Tall finished section/ }).closest<HTMLElement>(".markdown-checklist-subsection")!;
+        const entering = animations.findLast((entry) => entry.element === section)!;
+        expect(entering.keyframes).toHaveLength(2);
+        expect(entering.keyframes.every((keyframe) => keyframe.transformOrigin === "top left")).toBe(true);
+        expect(entering.keyframes[0]?.transform).toContain("scaleY(0.1)");
+      });
+
+      it("composes a surviving row's local FLIP delta with its moving section ancestor", () => {
+        let phase: "initial" | "filtered" = "initial";
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(0, 320, 300);
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(220);
+          const text = this.textContent ?? "";
+          if (this.classList.contains("markdown-checklist-subsection") && text.includes("Earlier")) return motionRect(20, 50);
+          if (this.classList.contains("markdown-checklist-subsection") && text.includes("Later")) {
+            return motionRect(phase === "initial" ? 100 : 40, 100);
+          }
+          if (text.includes("Internal row")) return motionRect(120);
+          if (text.includes("Surviving row")) return motionRect(phase === "initial" ? 140 : 70);
+          if (text.includes("Earlier row")) return motionRect(40);
+          return motionRect(0);
+        });
+        const initial = "# Root\n## Earlier\n- [ ] Earlier row\n## Later\n- [ ] Internal row\n- [ ] Surviving row";
+        const completed = initial.replace("[ ] Earlier row", "[x] Earlier row").replace("[ ] Internal row", "[x] Internal row");
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} />);
+
+        phase = "filtered";
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={completed} />);
+
+        const laterSection = screen.getByRole("heading", { name: /Later/ }).closest<HTMLElement>(".markdown-checklist-subsection")!;
+        const survivingRow = screen.getByText("Surviving row").closest<HTMLElement>("li")!;
+        const sectionSettling = animations.find((entry) => entry.element === laterSection)!;
+        const rowSettling = animations.find((entry) => entry.element === survivingRow)!;
+        expect(sectionSettling.keyframes[0]?.transform).toBe("translateY(60px)");
+        expect(rowSettling.keyframes[0]?.transform).toBe("translateY(10px)");
+        expect(rowSettling.keyframes.at(-1)?.transform).toBe("translateY(0px)");
+      });
+
+      it("keeps a nested completed list row replica inside an inert exact-geometry list shell", () => {
+        vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+          if (this.classList.contains("markdown")) return motionRect(50, 300, 300, 100);
+          if (this.hasAttribute("data-completed-checklist-motion-summary")) return motionRect(230, 10, 240, 120);
+          const text = this.textContent ?? "";
+          if (text.includes("Completed parent")) return motionRect(120, 70, 210, 130);
+          if (text.includes("Visible")) return motionRect(80, 20, 240, 120);
+          return motionRect(0);
+        });
+        const initial = "- [ ] Visible\n- [ ] Completed parent\n  - [ ] Completed child";
+        const completed = initial.replace("[ ] Completed parent", "[x] Completed parent").replace("[ ] Completed child", "[x] Completed child");
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown={initial} />);
+        const originalRow = screen.getByText("Completed parent").closest<HTMLElement>("li")!;
+        const originalListTag = originalRow.parentElement!.tagName;
+
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown={completed} />);
+
+        const replicaShell = view.container.querySelector<HTMLElement>(".markdown-completed-checklist-motion-replica")!;
+        expect(replicaShell.tagName).toBe(originalListTag);
+        expect(replicaShell).toHaveAttribute("aria-hidden", "true");
+        expect(replicaShell).toHaveAttribute("inert");
+        expect(replicaShell.style.pointerEvents).toBe("none");
+        expect(replicaShell.style.top).toBe("70px");
+        expect(replicaShell.style.left).toBe("30px");
+        expect(replicaShell.style.width).toBe("210px");
+        expect(replicaShell.style.height).toBe("70px");
+        const clonedRow = replicaShell.querySelector<HTMLElement>(":scope > li");
+        const clonedNestedList = replicaShell.querySelector<HTMLElement>(":scope > li > ul");
+        expect(clonedRow).not.toBeNull();
+        expect(clonedNestedList).not.toBeNull();
+        expect(clonedRow?.parentElement).toBe(replicaShell);
+        expect(clonedNestedList?.parentElement?.closest("ul")).toBe(replicaShell);
+        expect(replicaShell.querySelector("[id]")).toBeNull();
+      });
+
+      it("performs no layout read for Markdown without checklist motion participants", () => {
+        const rectangle = vi.spyOn(Element.prototype, "getBoundingClientRect");
+
+        render(<MarkdownView markdown="Plain Markdown without a checklist" />);
+
+        expect(rectangle).not.toHaveBeenCalled();
+      });
+
+      it("does not rerender the memoized Markdown body when only reveal callback identities change", () => {
+        const rectangle = vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(motionRect(0));
+        const markdown = "- [x] Finished\n- [ ] Visible";
+        const view = render(<MarkdownView
+          completedChecklistFilterEnabled
+          markdown={markdown}
+          onRevealCompletedChecklistItems={vi.fn()}
+          onRevealCompletedChecklistSections={vi.fn()}
+        />);
+        rectangle.mockClear();
+
+        view.rerender(<MarkdownView
+          completedChecklistFilterEnabled
+          markdown={markdown}
+          onRevealCompletedChecklistItems={vi.fn()}
+          onRevealCompletedChecklistSections={vi.fn()}
+        />);
+
+        expect(rectangle).not.toHaveBeenCalled();
+      });
+
+      it("creates no transition on initial mount and skips replicas and animations for reduced motion", () => {
+        const initialView = render(<MarkdownView completedChecklistFilterEnabled markdown={"- [x] Finished\n- [ ] Visible"} />);
+        expect(animations).toHaveLength(0);
+        expect(initialView.container.querySelector(".markdown-completed-checklist-motion-replica")).toBeNull();
+        initialView.unmount();
+        vi.mocked(window.matchMedia).mockReturnValue({
+          matches: true,
+          media: "(prefers-reduced-motion: reduce)",
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        });
+        const view = render(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={0} markdown="- [ ] Finished" />);
+        view.rerender(<MarkdownView completedChecklistFilterEnabled completedChecklistFilterRevision={1} markdown="- [x] Finished" />);
+
+        expect(animations).toHaveLength(0);
+        expect(view.container.querySelector(".markdown-completed-checklist-motion-replica")).toBeNull();
+      });
+    });
+
     it("hides checked flat-list items and reports their count", () => {
       render(<MarkdownView completedChecklistFilterEnabled markdown={[
         "- [x] Done one",
@@ -398,6 +847,7 @@ describe("Markdown tasks", () => {
       expect(screen.getByRole("table")).toBeInTheDocument();
       expect(screen.getByText("Finished")).toBeInTheDocument();
       expect(screen.queryByText(/Скрыто/)).not.toBeInTheDocument();
+      expect(screen.getByRole("table").querySelector("[data-completed-checklist-motion-key], [data-completed-checklist-motion-target], [data-completed-checklist-motion-summary]")).toBeNull();
     });
 
     it("renders every item and no summaries when disabled", () => {
