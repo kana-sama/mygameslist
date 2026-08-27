@@ -15,6 +15,27 @@ const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const NOW = "2026-07-17T10:00:00.000Z";
 const productionStyles = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
+interface RecordedCollapseAnimation {
+  animation: Animation & { finish: () => void };
+  element: Element;
+  keyframes: Keyframe[];
+  options: KeyframeAnimationOptions;
+}
+
+function collapseMotionRect(top: number, height = 10, width = 280, left = 10): DOMRect {
+  return {
+    x: left,
+    y: top,
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    toJSON: () => ({ left, top, width, height }),
+  } as DOMRect;
+}
+
 function installProductionStyles(): HTMLStyleElement {
   const style = document.createElement("style");
   style.textContent = productionStyles;
@@ -331,6 +352,104 @@ describe("scrollable long note cards", () => {
       expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
     } finally {
       style.remove();
+    }
+  });
+
+  it("animates explicit checklist collapse through the production heading portal", async () => {
+    const animations: RecordedCollapseAnimation[] = [];
+    const originalAnimateDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "animate");
+    Object.defineProperty(Element.prototype, "animate", {
+      configurable: true,
+      value: function animate(keyframes: Keyframe[] | PropertyIndexedKeyframes, options?: number | KeyframeAnimationOptions): Animation {
+        const animation = {
+          oncancel: null as Animation["oncancel"],
+          onfinish: null as Animation["onfinish"],
+          cancel() {
+            this.oncancel?.(new Event("cancel") as AnimationPlaybackEvent);
+          },
+          finish() {
+            this.onfinish?.(new Event("finish") as AnimationPlaybackEvent);
+          },
+        };
+        animations.push({
+          animation: animation as unknown as RecordedCollapseAnimation["animation"],
+          element: this,
+          keyframes: Array.isArray(keyframes) ? keyframes : [],
+          options: typeof options === "number" ? { duration: options } : options ?? {},
+        });
+        return animation as unknown as Animation;
+      },
+      writable: true,
+    });
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+      if (this.classList.contains("note-card__page-heading")) return collapseMotionRect(10, 80, 300, 0);
+      if (this.classList.contains("markdown") && !this.classList.contains("note-card__page-heading")) return collapseMotionRect(100, 240, 300, 0);
+      if (this.closest(".markdown-note-title--outer") && this.hasAttribute("aria-expanded")) return collapseMotionRect(20, 20, 280, 10);
+      if (this.closest(".markdown-note-title--inner") && this.hasAttribute("aria-expanded")) return collapseMotionRect(210, 20, 280, 10);
+      if (this.classList.contains("markdown-checklist-heading__collapsed-state--placeholder")) return collapseMotionRect(220, 10, 280, 10);
+      if (this.classList.contains("markdown-checklist-heading__collapsed-state")) return collapseMotionRect(50, 10, 280, 10);
+      if (this.getAttribute("data-checklist-collapse-motion-owner") && this.tagName === "P") return collapseMotionRect(140, 10, 280, 10);
+      if (this.getAttribute("data-checklist-collapse-motion-owner") && (this.tagName === "UL" || this.tagName === "OL")) return collapseMotionRect(170, 20, 280, 10);
+      return collapseMotionRect(0);
+    });
+    const note = makeNote(
+      "22222222-2222-4222-8222-222222222222",
+      "# Primary route\nContext\n\n- [ ] Root task",
+      1024,
+    );
+
+    try {
+      render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()} />);
+      const card = screen.getByRole("heading", { name: /^Primary route / }).closest<HTMLElement>("article")!;
+      const pageHeading = card.querySelector<HTMLElement>(".note-card__page-heading")!;
+      const outerHeading = pageHeading.querySelector<HTMLElement>(".markdown-note-title--outer")!;
+      const innerHeading = card.querySelector<HTMLElement>(".markdown-note-title--inner")!;
+      const outerButton = within(outerHeading).getByRole("button", { name: /^Primary route / });
+      const innerButton = innerHeading.querySelector<HTMLButtonElement>("button")!;
+
+      fireEvent.click(outerButton);
+      await waitFor(() => expect(outerButton).toHaveAttribute("aria-expanded", "false"));
+
+      const outerState = pageHeading.querySelector<HTMLElement>(".markdown-checklist-heading__collapsed-state")!;
+      const innerState = innerHeading.nextElementSibling as HTMLElement;
+      expect(outerButton).toHaveAttribute("data-checklist-collapse-motion-trigger");
+      expect(innerButton).not.toHaveAttribute("data-checklist-collapse-motion-trigger");
+      expect(outerState).toHaveAttribute("data-checklist-collapse-motion-key");
+      expect(innerState).not.toHaveAttribute("data-checklist-collapse-motion-key");
+      expect(animations.some((entry) => entry.element === outerState)).toBe(true);
+      expect(animations.some((entry) => entry.element === innerState)).toBe(false);
+      const contextReplica = [...card.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .find((replica) => replica.textContent === "Context")!;
+      const contextTransform = animations.find((entry) => entry.element === contextReplica && entry.keyframes.some((frame) => frame.transform !== undefined))!;
+      expect(contextTransform.keyframes.at(-1)?.transform).toBe("translateY(-115px) scaleY(0.08)");
+
+      animations
+        .filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica"))
+        .forEach((entry) => entry.animation.finish());
+      fireEvent.click(outerButton);
+      await waitFor(() => expect(outerButton).toHaveAttribute("aria-expanded", "true"));
+
+      const stateReplica = [...pageHeading.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .find((replica) => replica.textContent?.includes("Свернуто"))!;
+      expect(stateReplica).toHaveAttribute("aria-hidden", "true");
+      const stateExit = animations.find((entry) => entry.element === stateReplica && entry.keyframes.some((frame) => frame.transform !== undefined))!;
+      expect(stateExit.keyframes.at(-1)?.transform).toBe("translateY(-25px) scaleY(0.08)");
+      expect(innerHeading.nextElementSibling).not.toHaveClass("markdown-checklist-collapse-motion-replica");
+      expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
+    } finally {
+      if (originalAnimateDescriptor) Object.defineProperty(Element.prototype, "animate", originalAnimateDescriptor);
+      else delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      vi.unstubAllGlobals();
     }
   });
 

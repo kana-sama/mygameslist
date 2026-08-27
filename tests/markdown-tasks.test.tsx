@@ -924,6 +924,521 @@ describe("Markdown tasks", () => {
     });
   });
 
+  describe("animates explicit checklist collapse", () => {
+    let animations: RecordedMarkdownAnimation[];
+    let originalAnimateDescriptor: PropertyDescriptor | undefined;
+
+    const installMatchMedia = (matches = false) => {
+      vi.stubGlobal("matchMedia", vi.fn(() => ({
+        matches,
+        media: "(prefers-reduced-motion: reduce)",
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })));
+    };
+
+    function ControlledMarkdown({ markdown }: { markdown: string }) {
+      const [collapsed, setCollapsed] = useState<string[]>([]);
+      return (
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={setCollapsed}
+        />
+      );
+    }
+
+    beforeEach(() => {
+      animations = [];
+      originalAnimateDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "animate");
+      Object.defineProperty(Element.prototype, "animate", {
+        configurable: true,
+        value: function animate(keyframes: Keyframe[] | PropertyIndexedKeyframes, options?: number | KeyframeAnimationOptions): Animation {
+          const animation = {
+            cancelled: false,
+            oncancel: null as Animation["oncancel"],
+            onfinish: null as Animation["onfinish"],
+            cancel() {
+              this.cancelled = true;
+              this.oncancel?.(new Event("cancel") as AnimationPlaybackEvent);
+            },
+            finish() {
+              this.onfinish?.(new Event("finish") as AnimationPlaybackEvent);
+            },
+          };
+          animations.push({
+            animation: animation as unknown as RecordedMarkdownAnimation["animation"],
+            element: this,
+            keyframes: Array.isArray(keyframes) ? keyframes : [],
+            options: typeof options === "number" ? { duration: options } : options ?? {},
+          });
+          return animation as unknown as Animation;
+        },
+        writable: true,
+      });
+      installMatchMedia();
+    });
+
+    afterEach(() => {
+      if (originalAnimateDescriptor) Object.defineProperty(Element.prototype, "animate", originalAnimateDescriptor);
+      else delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+    });
+
+    it("routes nested list rows to their parent with a reversible capped row cascade and FLIP settling", () => {
+      let phase: "expanded" | "collapsed" = "expanded";
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 220, 320);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.textContent === "Near") return motionRect(40, 10, 260, 20);
+          if (this.textContent === "Middle") return motionRect(60, 10, 260, 20);
+          if (this.textContent === "Far") return motionRect(80, 10, 260, 20);
+        }
+        if (this.textContent?.includes("Following")) return motionRect(phase === "expanded" ? 110 : 50, 10, 280, 10);
+        return motionRect(0, 10, 280, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "- Parent",
+        "  - [ ] Near",
+        "  - [ ] Middle",
+        "  - [ ] Far",
+        "- [ ] Following",
+      ].join("\n")} />);
+      const owner = screen.getByRole("button", { name: /^Parent / });
+      const originalListTag = screen.getByText("Near").closest("li")!.parentElement!.tagName;
+
+      expect(animations).toHaveLength(0);
+      phase = "collapsed";
+      fireEvent.click(owner);
+
+      expect(screen.getByRole("button", { name: /^Parent / })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("checkbox", { name: "Отметить: Near" })).not.toBeInTheDocument();
+      const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")];
+      expect(replicas).toHaveLength(3);
+      expect(replicas.map((replica) => replica.textContent)).toEqual(["Near", "Middle", "Far"]);
+      const exits = replicas.map((replica) => animations.find((entry) => entry.element === replica)!);
+      expect(exits.map((entry) => entry.options.delay)).toEqual([28, 14, 0]);
+      expect(exits[0].keyframes.at(-1)?.transform).toBe("translateY(-25px) scaleY(0.08)");
+      expect(exits.every((entry) => !String(entry.keyframes.at(-1)?.transform).includes("scaleX"))).toBe(true);
+      expect(animations.some((entry) => entry.element === owner)).toBe(false);
+      for (const replica of replicas) {
+        expect(replica.tagName).toBe(originalListTag);
+        expect(replica).toHaveAttribute("aria-hidden", "true");
+        expect(replica).toHaveAttribute("inert");
+        expect(replica.style.pointerEvents).toBe("none");
+        expect(replica.querySelector(":scope > li")).not.toBeNull();
+        expect(replica.querySelector("[id]")).toBeNull();
+      }
+      const following = screen.getByText("Following").closest("li")!;
+      const settling = animations.find((entry) => entry.element === following)!;
+      expect(settling.keyframes).toEqual([
+        { transform: "translateY(60px)" },
+        { transform: "translateY(0px)" },
+      ]);
+
+      exits.forEach((entry) => entry.animation.finish());
+      const animationCountBeforeExpansion = animations.length;
+      phase = "expanded";
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+
+      expect(screen.getByRole("button", { name: /^Parent / })).toHaveAttribute("aria-expanded", "true");
+      const enteredRows = ["Near", "Middle", "Far"].map((label) => screen.getByText(label).closest("li")!);
+      const entries = enteredRows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!);
+      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 14, 28]);
+      expect(entries[0].keyframes[0]?.transform).toBe("translateY(-25px) scaleY(0.08)");
+      expect(entries[0].keyframes.at(-1)?.transform).toBe("translateY(0px) scaleY(1)");
+    });
+
+    it("matches variant C transform and opacity phases independently in both directions", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 180, 300);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.textContent === "Near") return motionRect(40, 10, 260, 20);
+          if (this.textContent === "Middle") return motionRect(60, 10, 260, 20);
+          if (this.textContent === "Far") return motionRect(80, 10, 260, 20);
+        }
+        return motionRect(0, 10, 280, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "- Parent",
+        "  - [ ] Near",
+        "  - [ ] Middle",
+        "  - [ ] Far",
+      ].join("\n")} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      const nearReplica = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .find((replica) => replica.textContent === "Near")!;
+      const nearExitAnimations = animations.filter((entry) => entry.element === nearReplica);
+      const exitTransform = nearExitAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
+      const exitOpacity = nearExitAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
+      expect(exitTransform?.options).toMatchObject({
+        delay: 28,
+        duration: 185,
+        easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+        fill: "forwards",
+      });
+      expect(exitTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
+      expect(exitOpacity?.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+      expect(exitOpacity?.options).toMatchObject({ delay: 83, duration: 85, easing: "ease-in", fill: "forwards" });
+      exitTransform?.animation.finish();
+      expect(nearReplica).toBeInTheDocument();
+      exitOpacity?.animation.finish();
+      expect(nearReplica).not.toBeInTheDocument();
+      animations
+        .filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica"))
+        .forEach((entry) => entry.animation.finish());
+
+      const animationCountBeforeExpansion = animations.length;
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      const nearRow = screen.getByText("Near").closest("li")!;
+      const nearEntryAnimations = animations.slice(animationCountBeforeExpansion).filter((entry) => entry.element === nearRow);
+      const entryTransform = nearEntryAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
+      const entryOpacity = nearEntryAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
+      expect(entryTransform?.options).toMatchObject({
+        delay: 0,
+        duration: 190,
+        easing: "cubic-bezier(0.2, 0, 0, 1)",
+        fill: "backwards",
+      });
+      expect(entryTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
+      expect(entryOpacity?.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+      expect(entryOpacity?.options).toMatchObject({ delay: 45, duration: 95, easing: "ease-out", fill: "backwards" });
+    });
+
+    it("preserves ordered-list counter context for isolated exit replicas", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 200, 300);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) return motionRect(40, 10, 260, 20);
+        return motionRect(0, 10, 280, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "- Parent",
+        "  1. [ ] First numbered",
+        "  2. [ ] Second numbered",
+        "  3. [ ] Third numbered",
+      ].join("\n")} />);
+      const originalList = screen.getByText("First numbered").closest("ol")!;
+      const originalItems = [...originalList.querySelectorAll<HTMLLIElement>(":scope > li")];
+      originalList.start = 4;
+      originalList.type = "A";
+      originalItems[1].value = 8;
+
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+
+      const replicas = [...view.container.querySelectorAll<HTMLOListElement>("ol.markdown-checklist-collapse-motion-replica")];
+      expect(replicas).toHaveLength(3);
+      expect(replicas.map((replica) => replica.start)).toEqual([4, 8, 9]);
+      expect(replicas.map((replica) => replica.type)).toEqual(["A", "A", "A"]);
+      expect(replicas.map((replica) => replica.querySelector(":scope > li")?.textContent)).toEqual([
+        "First numbered",
+        "Second numbered",
+        "Third numbered",
+      ]);
+    });
+
+    it("suppresses layout handoff when Markdown content changes in the collapse render", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 240, 300);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) return motionRect(40, 20, 280, 10);
+        return motionRect(100, 20, 280, 10);
+      });
+      const baseMarkdown = "# Root\n## Route\n- [ ] Hidden task\n## Sibling\n- [ ] Stable task";
+      function ContentChangingHarness() {
+        const [state, setState] = useState({ collapsed: [] as string[], markdown: baseMarkdown });
+        return (
+          <MarkdownView
+            collapsedChecklistSections={state.collapsed}
+            markdown={state.markdown}
+            onCollapsedChecklistSectionsChange={(collapsed) => setState({
+              collapsed,
+              markdown: baseMarkdown.replace("## Route\n", "## Route\nInserted during save\n\n"),
+            })}
+          />
+        );
+      }
+      const view = render(<ContentChangingHarness />);
+
+      fireEvent.click(screen.getByRole("button", { name: /^Route / }));
+
+      expect(screen.getByRole("button", { name: /^Route / })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("checkbox", { name: "Отметить: Stable task" })).toBeInTheDocument();
+      expect(view.container.querySelector(".markdown-checklist-collapse-motion-replica")).toBeNull();
+      expect(animations).toHaveLength(0);
+    });
+
+    it("caps both directions at 42 ms while every row finishes within 235 ms", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 260, 320);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        const label = this.textContent?.match(/^Row (\d)$/)?.[1];
+        if (this.getAttribute("data-checklist-collapse-motion-owner") && label) return motionRect(30 + Number(label) * 20, 10, 260, 20);
+        return motionRect(0, 10, 280, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "- Parent",
+        "  - [ ] Row 1",
+        "  - [ ] Row 2",
+        "  - [ ] Row 3",
+        "  - [ ] Row 4",
+        "  - [ ] Row 5",
+      ].join("\n")} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")];
+      const exits = replicas.map((replica) => animations.find((entry) => entry.element === replica)!);
+      expect(exits.map((entry) => entry.options.delay)).toEqual([42, 42, 28, 14, 0]);
+      expect(exits.every((entry) => Number(entry.options.duration) + Number(entry.options.delay) <= 235)).toBe(true);
+      exits.forEach((entry) => entry.animation.finish());
+
+      const animationCountBeforeExpansion = animations.length;
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      const rows = [1, 2, 3, 4, 5].map((number) => screen.getByText(`Row ${number}`).closest("li")!);
+      const entries = rows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!);
+      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 14, 28, 42, 42]);
+      expect(entries.every((entry) => Number(entry.options.duration) + Number(entry.options.delay) <= 235)).toBe(true);
+    });
+
+    it("moves each heading-owned direct block and collapsed state toward the controlling heading", () => {
+      let phase: "expanded" | "collapsed" = "expanded";
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 320, 320);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Chapter")) return motionRect(20, 20, 300, 10);
+        if (this.classList.contains("markdown-checklist-heading__collapsed-state")) return motionRect(45, 10, 300, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.tagName === "P" && this.textContent === "Context paragraph") return motionRect(55, 15, 300, 10);
+          if ((this.tagName === "UL" || this.tagName === "OL") && this.textContent?.includes("Direct task")) return motionRect(80, 25, 290, 15);
+          if (this.classList.contains("markdown-checklist-subsection") && this.textContent?.includes("Nested")) return motionRect(120, 40, 300, 10);
+        }
+        if (this.classList.contains("markdown-checklist-subsection") && this.textContent?.includes("Following")) {
+          return motionRect(phase === "expanded" ? 180 : 65, 50, 300, 10);
+        }
+        return motionRect(0, 10, 300, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "# Root",
+        "## Chapter",
+        "Context paragraph",
+        "- [ ] Direct task",
+        "### Nested",
+        "- [ ] Nested task",
+        "## Following",
+        "- [ ] Following task",
+      ].join("\n")} />);
+      const owner = screen.getByRole("button", { name: /^Chapter / });
+      const ownerId = owner.getAttribute("data-checklist-collapse-motion-trigger");
+
+      phase = "collapsed";
+      fireEvent.click(owner);
+
+      const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .filter((replica) => !replica.textContent?.includes("Свернуто"));
+      expect(replicas).toHaveLength(3);
+      expect(replicas.every((replica) => replica.getAttribute("data-checklist-collapse-motion-owner") === ownerId)).toBe(true);
+      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([28, 14, 0]);
+      expect(screen.getByText("Свернуто · 1 пунктов внутри")).toBeInTheDocument();
+      const collapsedState = screen.getByText("Свернуто · 1 пунктов внутри");
+      const stateEntryAnimations = animations.filter((entry) => entry.element === collapsedState);
+      const stateEntryTransform = stateEntryAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
+      const stateEntryOpacity = stateEntryAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
+      expect(stateEntryTransform?.keyframes).toEqual([
+        { transform: "translateY(-20px) scaleY(0.08)", transformOrigin: "top left" },
+        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
+      ]);
+      expect(stateEntryTransform?.options).toMatchObject({
+        delay: 90,
+        duration: 145,
+        easing: "cubic-bezier(0, 0, 0.2, 1)",
+        fill: "backwards",
+      });
+      expect(stateEntryTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
+      expect(stateEntryOpacity?.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
+      expect(stateEntryOpacity?.options).toMatchObject({ delay: 115, duration: 85, easing: "ease-out", fill: "backwards" });
+      const following = screen.getByRole("button", { name: /^Following / }).closest(".markdown-checklist-subsection")!;
+      expect(animations.find((entry) => entry.element === following)?.keyframes[0]?.transform).toBe("translateY(115px)");
+
+      replicas.forEach((replica) => animations.find((entry) => entry.element === replica)?.animation.finish());
+      const animationCountBeforeExpansion = animations.length;
+      phase = "expanded";
+      fireEvent.click(screen.getByRole("button", { name: /^Chapter / }));
+
+      expect(stateEntryAnimations.every((entry) => entry.animation.cancelled)).toBe(true);
+      expect(view.container.querySelector(".markdown-checklist-heading__collapsed-state:not(.markdown-checklist-collapse-motion-replica)")).toBeNull();
+      const stateReplica = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .find((replica) => replica.textContent?.includes("Свернуто"))!;
+      expect(stateReplica).toHaveAttribute("aria-hidden", "true");
+      const stateExitAnimations = animations.filter((entry) => entry.element === stateReplica);
+      const stateExitTransform = stateExitAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
+      const stateExitOpacity = stateExitAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
+      expect(stateExitTransform?.keyframes).toEqual([
+        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
+        { transform: "translateY(-20px) scaleY(0.08)", transformOrigin: "top left" },
+      ]);
+      expect(stateExitTransform?.options).toMatchObject({
+        delay: 0,
+        duration: 145,
+        easing: "cubic-bezier(0, 0, 0.2, 1)",
+        fill: "forwards",
+      });
+      expect(stateExitTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
+      expect(stateExitOpacity?.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
+      expect(stateExitOpacity?.options).toMatchObject({ delay: 0, duration: 85, easing: "ease-out", fill: "forwards" });
+      stateExitTransform?.animation.finish();
+      expect(stateReplica).toBeInTheDocument();
+      stateExitOpacity?.animation.finish();
+      expect(stateReplica).not.toBeInTheDocument();
+      const entered = animations.slice(animationCountBeforeExpansion).filter((entry) =>
+        entry.element.getAttribute("data-checklist-collapse-motion-owner") === ownerId
+        && !entry.element.classList.contains("markdown-checklist-collapse-motion-replica")
+        && entry.keyframes.some((frame) => frame.transform !== undefined),
+      );
+      expect(entered.map((entry) => entry.options.delay)).toEqual([0, 14, 28]);
+    });
+
+    it("cancels both collapsed-state tracks and removes its exit replica once on unmount", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 160, 300);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.classList.contains("markdown-checklist-heading__collapsed-state")) return motionRect(40, 10, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) return motionRect(60, 20, 260, 20);
+        return motionRect(0, 10, 280, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={"# Chapter\n\n- [ ] Child"} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /^Chapter / }));
+      fireEvent.click(screen.getByRole("button", { name: /^Chapter / }));
+
+      const stateReplica = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
+        .find((replica) => replica.textContent?.includes("Свернуто"))!;
+      const stateExitAnimations = animations.filter((entry) => entry.element === stateReplica).map((entry) => entry.animation);
+      const remove = vi.spyOn(stateReplica, "remove");
+      expect(stateExitAnimations).toHaveLength(2);
+
+      view.unmount();
+
+      expect(stateExitAnimations.every((animation) => animation.cancelled)).toBe(true);
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(stateReplica).not.toBeInTheDocument();
+    });
+
+    it("keeps grouped-table replicas semantic and column-width compatible", () => {
+      let phase: "expanded" | "collapsed" = "expanded";
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 320, 360);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Group one")) return motionRect(30, 20, 300, 20);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.textContent?.includes("One")) return motionRect(60, 20, 300, 20);
+          if (this.textContent?.includes("Two")) return motionRect(85, 20, 300, 20);
+          if (this.textContent?.includes("Three")) return motionRect(110, 20, 300, 20);
+        }
+        if (this.classList.contains("markdown-table-group") && this.textContent?.includes("Group two")) {
+          return motionRect(phase === "expanded" ? 140 : 65, 30, 300, 20);
+        }
+        if (this.tagName === "TD") return motionRect(0, 20, 100, 0);
+        return motionRect(0, 10, 300, 10);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "| Item | Done |",
+        "| --- | --- |",
+        "| Group one |",
+        "| --- | --- |",
+        "| One | [ ] |",
+        "| Two | [ ] |",
+        "| Three | [ ] |",
+        "| --- | --- |",
+        "| Group two |",
+        "| --- | --- |",
+        "| Next | [ ] |",
+      ].join("\n")} />);
+      const owner = screen.getByRole("button", { name: /^Group one / });
+
+      phase = "collapsed";
+      fireEvent.click(owner);
+
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: "Отметить: One — Done" })).not.toBeInTheDocument();
+      const replicas = [...view.container.querySelectorAll<HTMLElement>("table.markdown-checklist-collapse-motion-replica")];
+      expect(replicas).toHaveLength(3);
+      for (const replica of replicas) {
+        expect(replica.querySelector(":scope > tbody > tr")).not.toBeNull();
+        expect(replica.querySelector(":scope > tbody > tr")?.parentElement?.parentElement).toBe(replica);
+        expect(replica.style.width).toBe("300px");
+        expect(replica.querySelector("[id]")).toBeNull();
+      }
+      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([28, 14, 0]);
+      const followingGroup = screen.getByRole("button", { name: /^Group two / }).closest("tbody")!;
+      expect(animations.find((entry) => entry.element === followingGroup)?.keyframes[0]?.transform).toBe("translateY(75px)");
+
+      replicas.forEach((replica) => animations.find((entry) => entry.element === replica)?.animation.finish());
+      const animationCountBeforeExpansion = animations.length;
+      phase = "expanded";
+      fireEvent.click(screen.getByRole("button", { name: /^Group one / }));
+      const rows = ["One", "Two", "Three"].map((label) => screen.getByText(label).closest("tr")!);
+      expect(rows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!.options.delay)).toEqual([0, 14, 28]);
+    });
+
+    it("is silent on mount and bypasses or cleans up motion when its lifecycle requires it", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 160, 300);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) return motionRect(40, 20, 260, 20);
+        return motionRect(0, 10, 280, 10);
+      });
+      const markdown = "- Parent\n  - [ ] Child";
+      const view = render(<ControlledMarkdown markdown={markdown} />);
+
+      expect(animations).toHaveLength(0);
+      expect(view.container.querySelector("[data-checklist-collapse-motion-key]")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      const exitReplica = view.container.querySelector<HTMLElement>(".markdown-checklist-collapse-motion-replica")!;
+      const exitAnimations = animations.filter((entry) => entry.element === exitReplica).map((entry) => entry.animation);
+      expect(exitAnimations).toHaveLength(2);
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+
+      expect(exitAnimations.every((animation) => animation.cancelled)).toBe(true);
+      expect(exitReplica).not.toBeInTheDocument();
+      const activeAnimations = animations.filter((entry) => !entry.animation.cancelled).map((entry) => entry.animation);
+      view.unmount();
+      expect(activeAnimations.every((animation) => animation.cancelled)).toBe(true);
+
+      animations = [];
+      installMatchMedia(true);
+      const reducedView = render(<ControlledMarkdown markdown={markdown} />);
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      expect(animations).toHaveLength(0);
+      expect(reducedView.container.querySelector(".markdown-checklist-collapse-motion-replica")).toBeNull();
+      reducedView.unmount();
+
+      animations = [];
+      installMatchMedia(false);
+      delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+      const unsupportedView = render(<ControlledMarkdown markdown={markdown} />);
+      fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
+      expect(animations).toHaveLength(0);
+      expect(unsupportedView.container.querySelector(".markdown-checklist-collapse-motion-replica")).toBeNull();
+    });
+
+    it("adds no collapse-motion metadata to noninteractive or diff Markdown", () => {
+      const markdown = "# Root\n- Parent\n  - [ ] Child";
+      const view = render(<MarkdownView markdown={markdown} />);
+      expect(view.container.querySelector("[data-checklist-collapse-motion-key], [data-checklist-collapse-motion-owner], [data-checklist-collapse-motion-trigger]")).toBeNull();
+
+      view.rerender(<MarkdownView
+        decorations={[{ endColumn: 4, endLine: 0, kind: "modified", label: "Изменено", startColumn: 0, startLine: 0 }]}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={vi.fn()}
+      />);
+      expect(view.container.querySelector("[data-checklist-collapse-motion-key], [data-checklist-collapse-motion-owner], [data-checklist-collapse-motion-trigger]")).toBeNull();
+    });
+  });
+
   it("renders a computed-style hierarchy for progress-bearing checklist headings", () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
