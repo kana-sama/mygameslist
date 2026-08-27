@@ -808,6 +808,69 @@ describe("Markdown tasks", () => {
       expect(parentSubsection!.lastElementChild).toBe(nestedSummary);
     });
 
+    it("separates root and nested hidden-section summaries from painted subsections", () => {
+      const style = document.createElement("style");
+      style.textContent = productionStyles;
+      document.head.append(style);
+
+      try {
+        const completeView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+          "# Complete root",
+          "## Complete visible",
+          "Context keeps this section visible",
+          "- [x] Finished",
+          "### Hidden child",
+          "- [x] Child finished",
+          "## Hidden root sibling",
+          "- [x] Root finished",
+        ].join("\n")} />);
+        const completeRootSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
+        const completeNestedSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
+        expect(completeRootSummary).not.toBeNull();
+        expect(completeNestedSummary).not.toBeNull();
+        const completeOffsetRule = [...style.sheet!.cssRules]
+          .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText.includes(".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections"));
+        expect(completeOffsetRule?.style.marginTop).toBe("calc(var(--markdown-checklist-subsection-gap) + 8px)");
+        expect(completeRootSummary!.matches(".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections")).toBe(true);
+        expect(completeNestedSummary!.matches(".markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections")).toBe(true);
+
+        cleanup();
+        const indeterminateView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+          "# Indeterminate root",
+          "## Indeterminate visible",
+          "Context keeps this section visible",
+          "- [-] Partial",
+          "### Hidden child",
+          "- [x] Child finished",
+          "## Hidden root sibling",
+          "- [x] Root finished",
+        ].join("\n")} />);
+        const indeterminateRootSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
+        const indeterminateNestedSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
+        expect(indeterminateRootSummary).not.toBeNull();
+        expect(indeterminateNestedSummary).not.toBeNull();
+        const indeterminateOffsetRule = [...style.sheet!.cssRules]
+          .find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText.includes(".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections"));
+        expect(indeterminateOffsetRule?.style.marginTop).toBe("calc(var(--markdown-checklist-subsection-gap) + 8px)");
+        expect(indeterminateRootSummary!.matches(".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections")).toBe(true);
+        expect(indeterminateNestedSummary!.matches(".markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections")).toBe(true);
+
+        cleanup();
+        const unpaintedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+          "# Unpainted root",
+          "## Visible",
+          "- [ ] Open",
+          "### Hidden child",
+          "- [x] Child finished",
+        ].join("\n")} />);
+        const unpaintedSummary = unpaintedView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
+        expect(unpaintedSummary).not.toBeNull();
+        expect(getComputedStyle(unpaintedSummary!).marginTop).toBe("8px");
+      } finally {
+        style.remove();
+      }
+    });
+
     it("counts only the topmost hidden completed section", () => {
       render(<MarkdownView completedChecklistFilterEnabled markdown={[
         "# Root",

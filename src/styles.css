@@ -404,9 +404,13 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown-checklist-subsection > h3.markdown-checklist-heading { border-block-start-color: transparent; }
 .markdown-checklist-subsection--complete { background: var(--success-wash); }
 .markdown-checklist-subsection--complete::after { content: ""; position: absolute; right: 0; bottom: calc(-1 * var(--markdown-checklist-subsection-gap)); left: 0; height: var(--markdown-checklist-subsection-gap); background: var(--success-wash); pointer-events: none; }
+.markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections,
+.markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections { margin-top: calc(var(--markdown-checklist-subsection-gap) + 8px); }
 .markdown-checklist-subsection--complete + .markdown-checklist-subsection--complete::before { border-block-start-color: var(--markdown-checklist-subsection-adjacent-complete-line); }
 .markdown-checklist-subsection--indeterminate { background: rgba(214, 167, 43, .14); }
 .markdown-checklist-subsection--indeterminate::after { content: ""; position: absolute; right: 0; bottom: calc(-1 * var(--markdown-checklist-subsection-gap)); left: 0; height: var(--markdown-checklist-subsection-gap); background: rgba(214, 167, 43, .14); pointer-events: none; }
+.markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections,
+.markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections { margin-top: calc(var(--markdown-checklist-subsection-gap) + 8px); }
 .markdown-checklist-subsection--indeterminate > .markdown-checklist-heading { color: #d6a72b; }
 .markdown-checklist-subsection--indeterminate > .markdown-checklist-heading .markdown-checklist-progress { color: inherit; }
 .markdown-checklist-subsection--indeterminate > .markdown-checklist-heading a, .markdown-checklist-subsection--indeterminate > .markdown-checklist-heading code { color: inherit; }
