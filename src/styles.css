@@ -401,6 +401,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown .markdown-checklist-heading--complete { color: var(--success); }
 .markdown-checklist-subsection { --markdown-checklist-subsection-gap: 1.674em; --markdown-checklist-subsection-line: var(--line-soft); --markdown-checklist-subsection-adjacent-complete-line: color-mix(in srgb, var(--line-soft) 92%, var(--text)); --markdown-checklist-subsection-line-width: 1px; position: relative; }
 .markdown-checklist-subsection--nested { --markdown-checklist-subsection-gap: .5em; }
+.markdown-checklist-subsection:has(> h3.markdown-checklist-heading--collapsed) { --markdown-checklist-subsection-gap: 1em; margin-block-end: calc(1em - 1.674em); }
 .markdown-checklist-subsection::before { content: ""; position: absolute; z-index: 1; top: 0; right: 0; left: 0; border-block-start: var(--markdown-checklist-subsection-line-width) solid var(--markdown-checklist-subsection-line); pointer-events: none; }
 .markdown-checklist-subsection > h3.markdown-checklist-heading { border-block-start-color: transparent; }
 .markdown-checklist-subsection--complete { background: var(--success-wash); }
@@ -500,10 +501,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-preview__toolbar { min-height: 28px; display: flex; align-items: center; justify-content: flex-end; padding: 3px 5px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
 .markdown-checklist-hidden-count { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; list-style: none; }
 .markdown-checklist-hidden-sections { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
-.markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections { margin-top: calc(1.674em + 8px); }
-.markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections--nested { margin-top: calc(.5em + 8px); }
-.markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections { margin-top: calc(1.674em + 8px); }
-.markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections--nested { margin-top: calc(.5em + 8px); }
+.markdown-checklist-subsection + .markdown-checklist-hidden-sections { margin-top: calc(20.088px + 8px); }
+.markdown-checklist-subsection > .markdown-checklist-subsection + .markdown-checklist-hidden-sections--nested { margin-top: calc(6px + 8px); }
 .markdown-checklist-hidden-count button, .markdown-checklist-hidden-sections button { appearance: none; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
 .markdown-checklist-hidden-count button:hover, .markdown-checklist-hidden-sections button:hover { color: var(--text); }
 .markdown-checklist-hidden-count button:focus-visible, .markdown-checklist-hidden-sections button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }

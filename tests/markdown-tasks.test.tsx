@@ -808,66 +808,69 @@ describe("Markdown tasks", () => {
       expect(parentSubsection!.lastElementChild).toBe(nestedSummary);
     });
 
-    it("separates root and nested hidden-section summaries from painted subsections", () => {
+    it("spaces hidden-section summaries structurally", () => {
       const style = document.createElement("style");
       style.textContent = productionStyles;
       document.head.append(style);
 
       try {
-        const completeView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
-          "# Complete root",
-          "## Complete visible",
-          "Context keeps this section visible",
-          "- [x] Finished",
-          "### Hidden child",
-          "- [x] Child finished",
-          "## Hidden root sibling",
+        const states = [
+          { label: "unpainted", marker: "- [ ] Open" },
+          { label: "complete", marker: "- [x] Finished" },
+          { label: "indeterminate", marker: "- [-] Partial" },
+        ];
+        for (const state of states) {
+          const rootView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+            `# ${state.label} root`,
+            `## Visible ${state.label} root`,
+            "Context keeps this section visible",
+            state.marker,
+            "## Hidden root sibling",
+            "- [x] Root finished",
+          ].join("\n")} />);
+          const rootSummary = rootView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
+          expect(rootSummary).not.toBeNull();
+          expect(getComputedStyle(rootSummary!).marginTop).toBe("calc(28.088px)");
+          expect(getComputedStyle(rootSummary!).paddingTop).toBe("0");
+
+          cleanup();
+          const nestedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+            `# ${state.label} nested root`,
+            "## Visible parent",
+            "- [ ] Parent work",
+            `### Visible ${state.label} child`,
+            "Context keeps this section visible",
+            state.marker,
+            "### Hidden nested sibling",
+            "- [x] Nested finished",
+          ].join("\n")} />);
+          const nestedSummary = nestedView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
+          expect(nestedSummary).not.toBeNull();
+          expect(getComputedStyle(nestedSummary!).marginTop).toBe("calc(14px)");
+          expect(getComputedStyle(nestedSummary!).paddingTop).toBe("0");
+          cleanup();
+        }
+
+        const allHiddenRootView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+          "# All hidden root",
+          "## Hidden root subsection",
           "- [x] Root finished",
         ].join("\n")} />);
-        const completeRootSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
-        const completeNestedSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
-        expect(completeRootSummary).not.toBeNull();
-        expect(completeNestedSummary).not.toBeNull();
-        expect(getComputedStyle(completeRootSummary!).paddingTop).toBe("0");
-        expect(getComputedStyle(completeNestedSummary!).paddingTop).toBe("0");
-        const completeRootOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections");
-        const completeNestedOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections--nested");
-        expect(completeRootOffset?.style.marginTop).toBe("calc(1.674em + 8px)");
-        expect(completeNestedOffset?.style.marginTop).toBe("calc(0.5em + 8px)");
+        const allHiddenRootSummary = allHiddenRootView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
+        expect(allHiddenRootSummary).not.toBeNull();
+        expect(getComputedStyle(allHiddenRootSummary!).marginTop).toBe("8px");
 
         cleanup();
-        const indeterminateView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
-          "# Indeterminate root",
-          "## Indeterminate visible",
-          "Context keeps this section visible",
-          "- [-] Partial",
-          "### Hidden child",
-          "- [x] Child finished",
-          "## Hidden root sibling",
-          "- [x] Root finished",
+        const allHiddenNestedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
+          "# All hidden nested root",
+          "## Visible parent",
+          "- [ ] Parent work",
+          "### Hidden nested subsection",
+          "- [x] Nested finished",
         ].join("\n")} />);
-        const indeterminateRootSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections:not(.markdown-checklist-hidden-sections--nested)");
-        const indeterminateNestedSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
-        expect(indeterminateRootSummary).not.toBeNull();
-        expect(indeterminateNestedSummary).not.toBeNull();
-        expect(getComputedStyle(indeterminateRootSummary!).paddingTop).toBe("0");
-        expect(getComputedStyle(indeterminateNestedSummary!).paddingTop).toBe("0");
-        const indeterminateRootOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections");
-        const indeterminateNestedOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections--nested");
-        expect(indeterminateRootOffset?.style.marginTop).toBe("calc(1.674em + 8px)");
-        expect(indeterminateNestedOffset?.style.marginTop).toBe("calc(0.5em + 8px)");
-
-        cleanup();
-        const unpaintedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
-          "# Unpainted root",
-          "## Visible",
-          "- [ ] Open",
-          "### Hidden child",
-          "- [x] Child finished",
-        ].join("\n")} />);
-        const unpaintedSummary = unpaintedView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
-        expect(unpaintedSummary).not.toBeNull();
-        expect(getComputedStyle(unpaintedSummary!).marginTop).toBe("8px");
+        const allHiddenNestedSummary = allHiddenNestedView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
+        expect(allHiddenNestedSummary).not.toBeNull();
+        expect(getComputedStyle(allHiddenNestedSummary!).marginTop).toBe("8px");
       } finally {
         style.remove();
       }
@@ -1577,6 +1580,10 @@ describe("Markdown tasks", () => {
       const markdownRoot = view.container.querySelector<HTMLElement>(".markdown")!;
       const chapter4 = screen.getByRole("heading", { name: "Chapter 4 Выполнено 1 из 2" });
       const plain = screen.getByRole("heading", { name: "Plain heading" });
+      const expandedSubsection = chapter4.closest<HTMLElement>(".markdown-checklist-subsection");
+      expect(expandedSubsection).not.toBeNull();
+      expect(getComputedStyle(expandedSubsection!).getPropertyValue("--markdown-checklist-subsection-gap").trim()).toBe("1.674em");
+      expect(getComputedStyle(expandedSubsection!).marginBlockEnd).toBe("0");
       const expandedGroupMargin = Number.parseFloat(getComputedStyle(chapter4).marginBlockStart);
       const expandedGroupPadding = Number.parseFloat(getComputedStyle(chapter4).paddingBlockStart);
 
@@ -1589,7 +1596,11 @@ describe("Markdown tasks", () => {
       const collapsedGroup = screen.getByRole("heading", { name: "Chapter 4 Выполнено 1 из 2" });
       const collapsedButton = screen.getByRole("button", { name: "Chapter 4 Выполнено 1 из 2" });
       const collapsedState = collapsedGroup.nextElementSibling as HTMLElement;
+      const collapsedSubsection = collapsedGroup.closest<HTMLElement>(".markdown-checklist-subsection");
       expect(collapsedState).not.toBeNull();
+      expect(collapsedSubsection).not.toBeNull();
+      expect(getComputedStyle(collapsedSubsection!).getPropertyValue("--markdown-checklist-subsection-gap").trim()).toBe("1em");
+      expect(getComputedStyle(collapsedSubsection!).marginBlockEnd).toBe("calc(-0.674em)");
       const collapsedHeadingStyle = getComputedStyle(collapsedGroup);
       const collapsedStateStyle = getComputedStyle(collapsedState);
       expect(collapsedButton).toHaveAttribute("aria-expanded", "false");
@@ -1620,7 +1631,11 @@ describe("Markdown tasks", () => {
 
       const collapsedUrsula = screen.getByRole("heading", { name: "Ursula Выполнено 0 из 1" });
       const nestedState = collapsedUrsula.nextElementSibling as HTMLElement;
+      const collapsedNestedSubsection = collapsedUrsula.closest<HTMLElement>(".markdown-checklist-subsection");
       const nestedStateStyle = getComputedStyle(nestedState);
+      expect(collapsedNestedSubsection).not.toBeNull();
+      expect(getComputedStyle(collapsedNestedSubsection!).getPropertyValue("--markdown-checklist-subsection-gap").trim()).toBe(".5em");
+      expect(getComputedStyle(collapsedNestedSubsection!).marginBlockEnd).toBe("0");
       expect(nestedState).toHaveTextContent("Свернуто · 1 пунктов внутри");
       expect(nestedState).toHaveClass("markdown-checklist-heading__collapsed-state--nested");
       expect(nestedStateStyle.borderInlineStart).toBe("1px solid var(--line-soft)");
@@ -1632,6 +1647,68 @@ describe("Markdown tasks", () => {
 
       const collapsedVess = screen.getByRole("heading", { name: "Vess Выполнено 1 из 1" });
       expect(collapsedVess.nextElementSibling).toHaveTextContent("Свернуто · 1 пунктов внутри");
+    } finally {
+      style.remove();
+    }
+  });
+
+  it("balances collapsed root subsection rhythm", async () => {
+    const style = document.createElement("style");
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    const user = userEvent.setup();
+    const states = [
+      { label: "Unpainted", marker: "- [ ] Open" },
+      { label: "Complete", marker: "- [x] Finished" },
+      { label: "Indeterminate", marker: "- [-] Partial" },
+    ];
+
+    try {
+      for (const state of states) {
+        let collapsed: string[] = [];
+        let view: ReturnType<typeof render>;
+        const markdown = [
+          "# Root",
+          `## ${state.label} subsection`,
+          state.marker,
+        ].join("\n");
+        const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+          collapsed = next;
+          view.rerender(
+            <MarkdownView
+              collapsedChecklistSections={collapsed}
+              markdown={markdown}
+              onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+            />,
+          );
+        });
+
+        view = render(
+          <MarkdownView
+            collapsedChecklistSections={collapsed}
+            markdown={markdown}
+            onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+          />,
+        );
+
+        const completedCount = state.label === "Complete" ? "1" : "0";
+        const accessibleName = `${state.label} subsection Выполнено ${completedCount} из 1`;
+        const heading = screen.getByRole("heading", { name: accessibleName });
+        const expandedHeadingStyle = getComputedStyle(heading);
+        const expandedMarginStart = expandedHeadingStyle.marginBlockStart;
+        const expandedPaddingStart = expandedHeadingStyle.paddingBlockStart;
+        await user.click(screen.getByRole("button", { name: accessibleName }));
+
+        const collapsedHeading = screen.getByRole("heading", { name: accessibleName });
+        const subsection = collapsedHeading.closest<HTMLElement>(".markdown-checklist-subsection");
+        expect(subsection).not.toBeNull();
+        expect(getComputedStyle(subsection!).getPropertyValue("--markdown-checklist-subsection-gap").trim()).toBe("1em");
+        expect(getComputedStyle(subsection!).marginBlockEnd).toBe("calc(-0.674em)");
+        expect(getComputedStyle(collapsedHeading).marginBlockStart).toBe(expandedMarginStart);
+        expect(getComputedStyle(collapsedHeading).paddingBlockStart).toBe(expandedPaddingStart);
+        cleanup();
+      }
     } finally {
       style.remove();
     }
