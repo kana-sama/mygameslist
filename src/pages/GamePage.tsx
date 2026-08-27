@@ -1519,9 +1519,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     };
     document.addEventListener("pointerdown", transferActivity, true);
     document.addEventListener("focusin", transferActivity, true);
+    document.addEventListener("click", transferActivity, true);
     return () => {
       document.removeEventListener("pointerdown", transferActivity, true);
       document.removeEventListener("focusin", transferActivity, true);
+      document.removeEventListener("click", transferActivity, true);
     };
   }, [refreshCompletedChecklistFilter]);
   const saveTaskNote = async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration = completedChecklistFilterGeneration) => {

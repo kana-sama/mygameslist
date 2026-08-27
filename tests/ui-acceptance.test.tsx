@@ -499,6 +499,46 @@ describe("GamePage", () => {
     }
   });
 
+  it("uses the first click after leaving notes for a checkbox", async () => {
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [ ] Open", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    function Harness() {
+      const [snapshot, setSnapshot] = useState({ bodyMarkdown: note.bodyMarkdown, collapsedChecklistSections: undefined as readonly string[] | undefined });
+      const noteInteractionSource = {
+        useNoteInteractionSnapshot: () => snapshot,
+        readNoteInteractionSnapshot: () => snapshot,
+        saveNoteInteraction: async (update: { field: "bodyMarkdown" | "collapsedChecklistSections"; value: string | readonly string[] | undefined }) => {
+          setSnapshot((current) => update.field === "bodyMarkdown"
+            ? { ...current, bodyMarkdown: update.value as string }
+            : { ...current, collapsedChecklistSections: update.value as readonly string[] | undefined });
+        },
+      };
+      return <><button type="button">Outside</button><GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} /></>;
+    }
+    render(<Harness />);
+
+    const card = document.querySelector<HTMLElement>(`.note-card[data-note-id="${NOTE_ID}"]`)!;
+    fireEvent.pointerDown(card);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Open" }));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(screen.getByRole("checkbox", { name: "Снять отметку: Open" })).toBeInTheDocument();
+    expect(card).toHaveClass("note-card--interaction-active");
+  });
+
+  it("uses the first click after leaving notes for a hidden-summary reveal", () => {
+    const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] Finished", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
+    render(<><button type="button">Outside</button><GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} /></>);
+
+    const card = document.querySelector<HTMLElement>(`.note-card[data-note-id="${NOTE_ID}"]`)!;
+    fireEvent.pointerDown(card);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
+    fireEvent.click(screen.getByRole("button", { name: "Скрыто 1 пунктов" }));
+
+    expect(screen.getByText("Finished")).toBeInTheDocument();
+    expect(card).toHaveClass("note-card--interaction-active");
+  });
+
   it("clears pending refresh work on filter disable without clearing another active note", async () => {
     vi.useFakeTimers();
     const requestAnimationFrame = window.requestAnimationFrame;
@@ -557,6 +597,7 @@ describe("GamePage", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); });
+    const timerBaseline = vi.getTimerCount();
     fireEvent.click(screen.getByRole("button", { name: "Disable filter" }));
     await act(async () => {
       resolveSave?.();
@@ -564,7 +605,7 @@ describe("GamePage", () => {
       await Promise.resolve();
     });
 
-    expect(vi.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(timerBaseline);
   });
 
   it("does not schedule an old connected checkbox refresh after disable and re-enable during its save", async () => {
@@ -591,6 +632,7 @@ describe("GamePage", () => {
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); });
+    const timerBaseline = vi.getTimerCount();
     fireEvent.click(screen.getByRole("button", { name: "Показывать выполненные пункты" }));
     fireEvent.click(screen.getByRole("button", { name: "Скрывать выполненные пункты" }));
     await act(async () => {
@@ -600,7 +642,7 @@ describe("GamePage", () => {
     });
 
     expect(screen.getByText("First")).toBeInTheDocument();
-    expect(vi.getTimerCount()).toBe(0);
+    expect(vi.getTimerCount()).toBe(timerBaseline);
   });
 
   it("does not schedule a connected checkbox refresh after the game page unmounts during its save", async () => {
