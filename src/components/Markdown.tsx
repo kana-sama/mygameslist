@@ -990,7 +990,6 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                   className={`markdown-table-group${complete ? " markdown-table-group--complete" : ""}`}
                   data-checklist-section-id={collapseId}
                   data-markdown-source-line={section.titleSourceLine}
-                  {...checklistCollapseMotionAttributes(`table-group-heading:${collapseId ?? groupKey}`)}
                 >
                   <tr className="markdown-table-group__heading" {...diffVisualAttributes(section.titleSourceLine, section.title.value)}>
                     <th colSpan={table.headers.length} scope="rowgroup">
@@ -1003,10 +1002,11 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
                           onClick={() => toggleChecklistSection(collapseId)}
                           type="button"
                           {...checklistCollapseMotionTriggerAttributes(collapseId)}
+                          {...checklistCollapseMotionAttributes(`table-group-heading:${collapseId ?? groupKey}`)}
                         >
                           {headerChildren}
                         </button>
-                      ) : <div className="markdown-table-group__header">{headerChildren}</div>}
+                      ) : <div className="markdown-table-group__header" {...checklistCollapseMotionAttributes(`table-group-heading:${collapseId ?? groupKey}`)}>{headerChildren}</div>}
                     </th>
                   </tr>
                 </tbody>

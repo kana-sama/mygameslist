@@ -366,6 +366,7 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .markdown { color: #d1d2d5; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 .markdown[data-completed-checklist-motion-enabled="true"], .markdown[data-checklist-collapse-motion-enabled="true"] { position: relative; }
 .markdown .markdown-completed-checklist-motion-replica, .markdown .markdown-checklist-collapse-motion-replica { position: absolute; z-index: 2; pointer-events: none; }
+.markdown .markdown-checklist-collapse-motion-clip { position: absolute; z-index: 2; overflow: hidden; pointer-events: none; }
 .markdown table.markdown-checklist-collapse-motion-replica { table-layout: fixed; }
 .markdown > :first-child, .markdown > .markdown-section:first-child > :first-child { margin-top: 0; }
 .markdown > :last-child, .markdown > .markdown-section:last-child > :last-child { margin-bottom: 0; }

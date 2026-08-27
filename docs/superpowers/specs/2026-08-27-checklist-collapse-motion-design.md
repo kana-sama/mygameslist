@@ -38,6 +38,12 @@ React state remains authoritative and updates immediately. Removed content leave
 
 Initial mount does not animate. A new collapse/expand interaction cancels obsolete animations and removes obsolete replicas. Unmount does the same. When Web Animations are unavailable or `prefers-reduced-motion: reduce` matches, state changes immediately with no replica or transform animation.
 
+## Approved follow-up: clipping and table-group settling
+
+During collapse only, each owner receives a temporary, visual-only clipping layer. Its top edge is exactly the owning control's bottom edge, its overflow stays clipped, and its visible height closes to zero with variant C's 225 ms collapse easing. Exit replicas live inside that layer, so they fold into their list row, checklist heading, or table-group header without ever painting across or above it. The layer is removed with its replicas on finish, interruption, unmount, reduced motion, and missing Web Animations; expansion has no new clipping layer.
+
+For grouped tables, persistent FLIP settling targets the existing inner table-group header control/container. It must never animate or transform a semantic `tbody`; `table > tbody > tr` structure, collapse IDs, and interaction remain unchanged. This prevents an expanding group from hiding text in another collapsed group.
+
 ## Integration constraints
 
 - Reuse the current collapsed-section state and `onCollapsedChecklistSectionsChange` API.
@@ -61,6 +67,8 @@ Automated tests must observe RED before implementation and then verify:
 - inert, ID-free replicas with correct list/table context;
 - exact transform/opacity phases, sticky-title portal routing, and ordered-list counters;
 - safe suppression when content and collapse state change together;
+- no FLIP animation target on `tbody`, with the persistent table-group header receiving the hand-checked vertical delta;
+- owner-bottom clipping, closing clip animation, replica nesting, and cleanup for list, heading, and table collapse;
 - interruption, unmount cleanup, initial-mount silence, and reduced-motion bypass;
 - unchanged collapse persistence, `aria-expanded`, and table semantics.
 

@@ -1336,6 +1336,7 @@ describe("Markdown tasks", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
         if (this.classList.contains("markdown")) return motionRect(0, 320, 360);
         if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Group one")) return motionRect(30, 20, 300, 20);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Group two")) return motionRect(phase === "expanded" ? 140 : 65, 30, 300, 20);
         if (this.getAttribute("data-checklist-collapse-motion-owner")) {
           if (this.textContent?.includes("One")) return motionRect(60, 20, 300, 20);
           if (this.textContent?.includes("Two")) return motionRect(85, 20, 300, 20);
@@ -1376,7 +1377,7 @@ describe("Markdown tasks", () => {
         expect(replica.querySelector("[id]")).toBeNull();
       }
       expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([28, 14, 0]);
-      const followingGroup = screen.getByRole("button", { name: /^Group two / }).closest("tbody")!;
+      const followingGroup = screen.getByRole("button", { name: /^Group two / });
       expect(animations.find((entry) => entry.element === followingGroup)?.keyframes[0]?.transform).toBe("translateY(75px)");
 
       replicas.forEach((replica) => animations.find((entry) => entry.element === replica)?.animation.finish());
@@ -1385,6 +1386,117 @@ describe("Markdown tasks", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Group one / }));
       const rows = ["One", "Two", "Three"].map((label) => screen.getByText(label).closest("tr")!);
       expect(rows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!.options.delay)).toEqual([0, 14, 28]);
+    });
+
+    it("settles a grouped table's inner heading without ever transforming a row group", () => {
+      let phase: "initial" | "first-collapsed" | "first-expanded" = "initial";
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 300, 320);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) {
+          return motionRect(this.textContent?.includes("Group two") ? (phase === "first-collapsed" ? 50 : 130) : 20, 20, 300);
+        }
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.textContent?.includes("One")) return motionRect(60, 20, 300);
+          if (this.textContent?.includes("Two")) return motionRect(85, 20, 300);
+        }
+        if (this.tagName === "TD") return motionRect(0, 20, 150);
+        return motionRect(0, 10, 300);
+      });
+      const view = render(<ControlledMarkdown markdown={[
+        "| Item | Done |",
+        "| --- | --- |",
+        "| Group one |",
+        "| --- | --- |",
+        "| One | [ ] |",
+        "| Two | [ ] |",
+        "| --- | --- |",
+        "| Group two |",
+        "| --- | --- |",
+        "| Other | [ ] |",
+      ].join("\n")} />);
+      const firstHeading = screen.getByRole("button", { name: /^Group one / });
+      const secondHeading = screen.getByRole("button", { name: /^Group two / });
+
+      fireEvent.click(secondHeading);
+      animations.filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica"))
+        .forEach((entry) => entry.animation.finish());
+      phase = "first-collapsed";
+      fireEvent.click(firstHeading);
+      animations.filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica"))
+        .forEach((entry) => entry.animation.finish());
+
+      const animationCountBeforeExpansion = animations.length;
+      phase = "first-expanded";
+      fireEvent.click(firstHeading);
+
+      const expansionAnimations = animations.slice(animationCountBeforeExpansion);
+      expect(expansionAnimations.some((entry) => entry.element.tagName === "TBODY")).toBe(false);
+      expect(expansionAnimations.find((entry) => entry.element === secondHeading)?.keyframes).toEqual([
+        { transform: "translateY(-80px)" },
+        { transform: "translateY(0px)" },
+      ]);
+      expect(view.container.querySelectorAll("table > tbody > tr")).not.toHaveLength(0);
+      expect(secondHeading).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("clips collapse replicas below each owning list, heading, and table control until all motion settles", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
+        if (this.classList.contains("markdown")) return motionRect(0, 320, 360);
+        if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(20, 20, 300);
+        if (this.getAttribute("data-checklist-collapse-motion-owner")) {
+          if (this.textContent?.includes("Far")) return motionRect(110, 20, 300);
+          if (this.textContent?.includes("Middle")) return motionRect(85, 20, 300);
+          return motionRect(60, 20, 300);
+        }
+        if (this.tagName === "TD") return motionRect(0, 20, 150);
+        return motionRect(0, 10, 300);
+      });
+      const fixtures = [
+        {
+          markdown: ["- Parent", "  - [ ] Near", "  - [ ] Middle", "  - [ ] Far"].join("\n"),
+          owner: /^Parent /,
+        },
+        {
+          markdown: ["# Root", "## Chapter", "Context", "- [ ] Near", "### Nested", "- [ ] Far"].join("\n"),
+          owner: /^Chapter /,
+        },
+        {
+          markdown: [
+            "| Item | Done |",
+            "| --- | --- |",
+            "| Group |",
+            "| --- | --- |",
+            "| Near | [ ] |",
+            "| Middle | [ ] |",
+            "| Far | [ ] |",
+          ].join("\n"),
+          owner: /^Group /,
+        },
+      ];
+
+      for (const fixture of fixtures) {
+        animations = [];
+        const view = render(<ControlledMarkdown markdown={fixture.markdown} />);
+        fireEvent.click(view.getByRole("button", { name: fixture.owner }));
+
+        const clip = view.container.querySelector<HTMLElement>(".markdown-checklist-collapse-motion-clip")!;
+        const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")];
+        expect(clip).toHaveStyle({ overflow: "hidden", top: "40px" });
+        expect(Number.parseFloat(clip.style.height)).toBeGreaterThan(0);
+        expect(replicas.length).toBeGreaterThan(0);
+        expect(replicas.every((replica) => replica.parentElement === clip)).toBe(true);
+        const clipAnimation = animations.find((entry) => entry.element === clip)!;
+        expect(clipAnimation.options).toMatchObject({ duration: 225, easing: "cubic-bezier(0.2, 0, 0, 1)", fill: "forwards" });
+        expect(clipAnimation.keyframes[0]).toEqual({ height: clip.style.height });
+        expect(clipAnimation.keyframes.at(-1)).toEqual({ height: "0px" });
+
+        [...animations]
+          .filter((entry) => entry.element === clip || replicas.includes(entry.element as HTMLElement))
+          .forEach((entry) => entry.animation.finish());
+        expect(view.container.querySelector(".markdown-checklist-collapse-motion-clip")).toBeNull();
+        expect(view.container.querySelector(".markdown-checklist-collapse-motion-replica")).toBeNull();
+        view.unmount();
+      }
     });
 
     it("is silent on mount and bypasses or cleans up motion when its lifecycle requires it", () => {

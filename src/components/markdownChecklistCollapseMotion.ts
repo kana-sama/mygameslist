@@ -25,6 +25,11 @@ interface MotionLayoutEntry {
   tableRow: boolean;
 }
 
+interface ExitClip {
+  element: HTMLElement;
+  top: number;
+}
+
 interface MotionTrigger {
   expanded: boolean;
   rect: MotionRect;
@@ -52,6 +57,7 @@ const COLLAPSED_STATE_OPACITY_DURATION_MS = 85;
 const COLLAPSED_STATE_OPACITY_DELAY_MS = 115;
 const COLLAPSE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 const EXPAND_EASING = "cubic-bezier(0.2, 0, 0, 1)";
+const CLIP_EASING = "cubic-bezier(0.2, 0, 0, 1)";
 const COLLAPSED_STATE_EASING = "cubic-bezier(0, 0, 0.2, 1)";
 
 function rootLocalRect(rect: DOMRect, rootRect: DOMRect): MotionRect {
@@ -229,6 +235,7 @@ export function useMarkdownChecklistCollapseMotion(
   const previousFingerprint = useRef<string | null>(null);
   const previousContentFingerprint = useRef<string | null>(null);
   const activeAnimations = useRef(new Set<Animation>());
+  const activeClips = useRef(new Set<HTMLElement>());
   const activeReplicas = useRef(new Set<HTMLElement>());
 
   const clearVisuals = (): void => {
@@ -236,6 +243,8 @@ export function useMarkdownChecklistCollapseMotion(
     activeAnimations.current.clear();
     for (const replica of activeReplicas.current) replica.remove();
     activeReplicas.current.clear();
+    for (const clip of activeClips.current) clip.remove();
+    activeClips.current.clear();
   };
 
   useLayoutEffect(() => {
@@ -303,10 +312,13 @@ export function useMarkdownChecklistCollapseMotion(
       entry: MotionLayoutEntry,
       owner: MotionRect,
       delay: number,
+      clip: ExitClip | null,
       collapsedState = false,
+      onSettled?: () => void,
     ): void => {
       const replica = createExitReplica(entry);
-      entry.replicaContainer.append(replica);
+      if (clip) replica.style.top = `${entry.replicaRect.top - clip.top}px`;
+      (clip?.element ?? entry.replicaContainer).append(replica);
       activeReplicas.current.add(replica);
       let remainingAnimations = 2;
       const animationSettled = () => {
@@ -314,6 +326,7 @@ export function useMarkdownChecklistCollapseMotion(
         if (remainingAnimations > 0) return;
         activeReplicas.current.delete(replica);
         replica.remove();
+        onSettled?.();
       };
       trackAnimation(replica, [
         { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
@@ -335,6 +348,38 @@ export function useMarkdownChecklistCollapseMotion(
       }, animationSettled);
     };
 
+    const createExitClip = (owner: MotionRect, entries: readonly MotionLayoutEntry[]): ExitClip | null => {
+      const firstEntry = entries[0];
+      if (!firstEntry) return null;
+      const containerTopInRoot = firstEntry.rect.top - firstEntry.replicaRect.top;
+      const top = owner.top + owner.height - containerTopInRoot;
+      const height = Math.max(...entries.map((entry) => entry.replicaRect.top + entry.replicaRect.height - top));
+      if (height <= 0) return null;
+      const clip = document.createElement("div");
+      clip.className = "markdown-checklist-collapse-motion-clip";
+      clip.style.height = `${height}px`;
+      clip.style.left = "0";
+      clip.style.overflow = "hidden";
+      clip.style.pointerEvents = "none";
+      clip.style.position = "absolute";
+      clip.style.top = `${top}px`;
+      clip.style.width = "100%";
+      firstEntry.replicaContainer.append(clip);
+      activeClips.current.add(clip);
+      return { element: clip, top };
+    };
+
+    const animateClip = (clip: ExitClip, height: number, onSettled: () => void): void => {
+      trackAnimation(clip.element, [
+        { height: `${height}px` },
+        { height: "0px" },
+      ], {
+        duration: SETTLE_DURATION_MS,
+        easing: CLIP_EASING,
+        fill: "forwards",
+      }, onSettled);
+    };
+
     const disappearedKeys = new Set([...priorLayout.entries.keys()].filter((key) => !nextLayout.entries.has(key)));
     const disappearedEntries = topLevelEntries(priorLayout, disappearedKeys);
     const collapsedStateExits = disappearedEntries.filter((entry) => entry.collapsedState);
@@ -349,14 +394,36 @@ export function useMarkdownChecklistCollapseMotion(
       const owner = nextLayout.triggers.get(ownerId)?.rect ?? priorLayout.triggers.get(ownerId)?.rect;
       if (!owner) continue;
       entries.sort((left, right) => left.rect.top - right.rect.top);
+      const entriesByContainer = new Map<Element, MotionLayoutEntry[]>();
+      for (const entry of entries) {
+        const containerEntries = entriesByContainer.get(entry.replicaContainer) ?? [];
+        containerEntries.push(entry);
+        entriesByContainer.set(entry.replicaContainer, containerEntries);
+      }
+      const clips = new Map<MotionLayoutEntry, { clip: ExitClip; release: () => void }>();
+      for (const containerEntries of entriesByContainer.values()) {
+        const clip = createExitClip(owner, containerEntries);
+        if (!clip) continue;
+        let remainingSettles = containerEntries.length + 1;
+        const settled = () => {
+          remainingSettles -= 1;
+          if (remainingSettles > 0) return;
+          activeClips.current.delete(clip.element);
+          clip.element.remove();
+        };
+        const height = Number.parseFloat(clip.element.style.height);
+        animateClip(clip, height, settled);
+        for (const entry of containerEntries) clips.set(entry, { clip, release: settled });
+      }
       entries.forEach((entry, index) => {
-        animateExit(entry, owner, cascadeDelay(entries.length - index - 1));
+        const clipping = clips.get(entry);
+        animateExit(entry, owner, cascadeDelay(entries.length - index - 1), clipping?.clip ?? null, false, clipping?.release);
       });
     }
     for (const entry of collapsedStateExits) {
       if (!entry.owner) continue;
       const owner = nextLayout.triggers.get(entry.owner)?.rect ?? priorLayout.triggers.get(entry.owner)?.rect;
-      if (owner) animateExit(entry, owner, 0, true);
+      if (owner) animateExit(entry, owner, 0, null, true);
     }
 
     const appearedKeys = new Set([...nextLayout.entries.keys()].filter((key) => !priorLayout.entries.has(key)));

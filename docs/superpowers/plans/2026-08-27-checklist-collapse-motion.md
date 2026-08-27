@@ -24,6 +24,13 @@
 - Add no dependency and no timer-based state delay.
 - Follow strict TDD and leave implementation uncommitted for controller review; the controller finalizes exactly one Jujutsu commit for the feature.
 
+## Approved follow-up: collapse clipping and safe table FLIP targets
+
+- Move the stable table-group-heading motion key from the semantic row-group to the existing inner group-header control/container. Persistent FLIP must never invoke Web Animations on `tbody`.
+- For each collapsing owner, append its exit replicas to a temporary absolute clip layer whose top equals the owner control's bottom edge. Animate that layer's positive measured height to `0px` in 225 ms with the variant-C collapse easing while preserving the existing item tracks and cascade.
+- Keep the clip layer through both tracks of every nested replica, then remove it on completion; clear it with replicas on cancellation/interruption or unmount. Do not create one on expansion, reduced motion, or unavailable Web Animations.
+- Add behavior-level regressions for a collapsed sibling table group remaining visible while the other group expands, plus real list/heading/table clip geometry, nested replicas, closing animation, and cleanup.
+
 ---
 
 ### Task 1: Owner-bound cascade motion for every collapsible Markdown structure
