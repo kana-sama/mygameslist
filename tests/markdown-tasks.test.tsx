@@ -991,7 +991,7 @@ describe("Markdown tasks", () => {
       else delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
     });
 
-    it("routes nested list rows to their parent with a reversible capped row cascade and FLIP settling", () => {
+    it("routes nested list rows as one reversible rigid ribbon with FLIP settling", () => {
       let phase: "expanded" | "collapsed" = "expanded";
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
         if (this.classList.contains("markdown")) return motionRect(0, 220, 320);
@@ -1024,9 +1024,13 @@ describe("Markdown tasks", () => {
       expect(replicas).toHaveLength(3);
       expect(replicas.map((replica) => replica.textContent)).toEqual(["Near", "Middle", "Far"]);
       const exits = replicas.map((replica) => animations.find((entry) => entry.element === replica)!);
-      expect(exits.map((entry) => entry.options.delay)).toEqual([28, 14, 0]);
-      expect(exits[0].keyframes.at(-1)?.transform).toBe("translateY(-25px) scaleY(0.08)");
-      expect(exits.every((entry) => !String(entry.keyframes.at(-1)?.transform).includes("scaleX"))).toBe(true);
+      expect(exits.map((entry) => entry.options.delay)).toEqual([0, 0, 0]);
+      expect(exits.map((entry) => entry.keyframes.at(-1)?.transform)).toEqual([
+        "translateY(-60px)",
+        "translateY(-60px)",
+        "translateY(-60px)",
+      ]);
+      expect(exits.every((entry) => !String(entry.keyframes.at(-1)?.transform).includes("scale"))).toBe(true);
       expect(animations.some((entry) => entry.element === owner)).toBe(false);
       for (const replica of replicas) {
         expect(replica.tagName).toBe(originalListTag);
@@ -1051,12 +1055,16 @@ describe("Markdown tasks", () => {
       expect(screen.getByRole("button", { name: /^Parent / })).toHaveAttribute("aria-expanded", "true");
       const enteredRows = ["Near", "Middle", "Far"].map((label) => screen.getByText(label).closest("li")!);
       const entries = enteredRows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!);
-      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 14, 28]);
-      expect(entries[0].keyframes[0]?.transform).toBe("translateY(-25px) scaleY(0.08)");
-      expect(entries[0].keyframes.at(-1)?.transform).toBe("translateY(0px) scaleY(1)");
+      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 0, 0]);
+      expect(entries.map((entry) => entry.keyframes[0]?.transform)).toEqual([
+        "translateY(-60px)",
+        "translateY(-60px)",
+        "translateY(-60px)",
+      ]);
+      expect(entries.every((entry) => entry.keyframes.at(-1)?.transform === "translateY(0px)" && !entry.keyframes.some((frame) => String(frame.transform).includes("scale")))).toBe(true);
     });
 
-    it("matches variant C transform and opacity phases independently in both directions", () => {
+    it("uses synchronized ribbon transform and fade tracks independently in both directions", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
         if (this.classList.contains("markdown")) return motionRect(0, 180, 300);
         if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
@@ -1081,14 +1089,20 @@ describe("Markdown tasks", () => {
       const exitTransform = nearExitAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
       const exitOpacity = nearExitAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
       expect(exitTransform?.options).toMatchObject({
-        delay: 28,
+        delay: 0,
         duration: 185,
         easing: "cubic-bezier(0.4, 0, 0.2, 1)",
         fill: "forwards",
       });
       expect(exitTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
-      expect(exitOpacity?.keyframes).toEqual([{ opacity: 1 }, { opacity: 0 }]);
-      expect(exitOpacity?.options).toMatchObject({ delay: 83, duration: 85, easing: "ease-in", fill: "forwards" });
+      expect(exitOpacity?.keyframes).toEqual([
+        { offset: 0, opacity: 1 },
+        { offset: .35, opacity: .92 },
+        { offset: .65, opacity: .58 },
+        { offset: .88, opacity: .18 },
+        { offset: 1, opacity: 0 },
+      ]);
+      expect(exitOpacity?.options).toMatchObject({ delay: 0, duration: 185, easing: "linear", fill: "forwards" });
       exitTransform?.animation.finish();
       expect(nearReplica).toBeInTheDocument();
       exitOpacity?.animation.finish();
@@ -1110,8 +1124,14 @@ describe("Markdown tasks", () => {
         fill: "backwards",
       });
       expect(entryTransform?.keyframes.every((frame) => frame.opacity === undefined)).toBe(true);
-      expect(entryOpacity?.keyframes).toEqual([{ opacity: 0 }, { opacity: 1 }]);
-      expect(entryOpacity?.options).toMatchObject({ delay: 45, duration: 95, easing: "ease-out", fill: "backwards" });
+      expect(entryOpacity?.keyframes).toEqual([
+        { offset: 0, opacity: 0 },
+        { offset: .18, opacity: .22 },
+        { offset: .45, opacity: .68 },
+        { offset: .72, opacity: 1 },
+        { offset: 1, opacity: 1 },
+      ]);
+      expect(entryOpacity?.options).toMatchObject({ delay: 0, duration: 190, easing: "linear", fill: "backwards" });
     });
 
     it("preserves ordered-list counter context for isolated exit replicas", () => {
@@ -1177,7 +1197,7 @@ describe("Markdown tasks", () => {
       expect(animations).toHaveLength(0);
     });
 
-    it("caps both directions at 42 ms while every row finishes within 235 ms", () => {
+    it("starts every row synchronously while every row finishes within 235 ms", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
         if (this.classList.contains("markdown")) return motionRect(0, 260, 320);
         if (this.hasAttribute("data-checklist-collapse-motion-trigger")) return motionRect(10, 20, 280, 10);
@@ -1197,7 +1217,7 @@ describe("Markdown tasks", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
       const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")];
       const exits = replicas.map((replica) => animations.find((entry) => entry.element === replica)!);
-      expect(exits.map((entry) => entry.options.delay)).toEqual([42, 42, 28, 14, 0]);
+      expect(exits.map((entry) => entry.options.delay)).toEqual([0, 0, 0, 0, 0]);
       expect(exits.every((entry) => Number(entry.options.duration) + Number(entry.options.delay) <= 235)).toBe(true);
       exits.forEach((entry) => entry.animation.finish());
 
@@ -1205,7 +1225,7 @@ describe("Markdown tasks", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Parent / }));
       const rows = [1, 2, 3, 4, 5].map((number) => screen.getByText(`Row ${number}`).closest("li")!);
       const entries = rows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!);
-      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 14, 28, 42, 42]);
+      expect(entries.map((entry) => entry.options.delay)).toEqual([0, 0, 0, 0, 0]);
       expect(entries.every((entry) => Number(entry.options.duration) + Number(entry.options.delay) <= 235)).toBe(true);
     });
 
@@ -1245,15 +1265,15 @@ describe("Markdown tasks", () => {
         .filter((replica) => !replica.textContent?.includes("Свернуто"));
       expect(replicas).toHaveLength(3);
       expect(replicas.every((replica) => replica.getAttribute("data-checklist-collapse-motion-owner") === ownerId)).toBe(true);
-      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([28, 14, 0]);
+      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([0, 0, 0]);
       expect(screen.getByText("Свернуто · 1 пунктов внутри")).toBeInTheDocument();
       const collapsedState = screen.getByText("Свернуто · 1 пунктов внутри");
       const stateEntryAnimations = animations.filter((entry) => entry.element === collapsedState);
       const stateEntryTransform = stateEntryAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
       const stateEntryOpacity = stateEntryAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
       expect(stateEntryTransform?.keyframes).toEqual([
-        { transform: "translateY(-20px) scaleY(0.08)", transformOrigin: "top left" },
-        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
+        { transform: "translateY(-20px)", transformOrigin: "top left" },
+        { transform: "translateY(0px)", transformOrigin: "top left" },
       ]);
       expect(stateEntryTransform?.options).toMatchObject({
         delay: 90,
@@ -1281,8 +1301,8 @@ describe("Markdown tasks", () => {
       const stateExitTransform = stateExitAnimations.find((entry) => entry.keyframes.some((frame) => frame.transform !== undefined));
       const stateExitOpacity = stateExitAnimations.find((entry) => entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined));
       expect(stateExitTransform?.keyframes).toEqual([
-        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
-        { transform: "translateY(-20px) scaleY(0.08)", transformOrigin: "top left" },
+        { transform: "translateY(0px)", transformOrigin: "top left" },
+        { transform: "translateY(-20px)", transformOrigin: "top left" },
       ]);
       expect(stateExitTransform?.options).toMatchObject({
         delay: 0,
@@ -1302,7 +1322,7 @@ describe("Markdown tasks", () => {
         && !entry.element.classList.contains("markdown-checklist-collapse-motion-replica")
         && entry.keyframes.some((frame) => frame.transform !== undefined),
       );
-      expect(entered.map((entry) => entry.options.delay)).toEqual([0, 14, 28]);
+      expect(entered.map((entry) => entry.options.delay)).toEqual([0, 0, 0]);
     });
 
     it("cancels both collapsed-state tracks and removes its exit replica once on unmount", () => {
@@ -1335,6 +1355,16 @@ describe("Markdown tasks", () => {
       let phase: "expanded" | "collapsed" = "expanded";
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function rectangle(this: Element) {
         if (this.classList.contains("markdown")) return motionRect(0, 320, 360);
+        if (this.tagName === "TR" && this.closest("table.markdown-checklist-collapse-motion-replica")) {
+          const replica = this.closest<HTMLElement>("table.markdown-checklist-collapse-motion-replica")!;
+          const clip = replica.parentElement as HTMLElement;
+          return motionRect(
+            Number.parseFloat(clip.style.top) + Number.parseFloat(replica.style.top) + .5,
+            Number.parseFloat(replica.style.height),
+            Number.parseFloat(replica.style.width),
+            Number.parseFloat(clip.style.left) + Number.parseFloat(replica.style.left) + .5,
+          );
+        }
         if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Group one")) return motionRect(30, 20, 300, 20);
         if (this.hasAttribute("data-checklist-collapse-motion-trigger") && this.textContent?.includes("Group two")) return motionRect(phase === "expanded" ? 140 : 65, 30, 300, 20);
         if (this.getAttribute("data-checklist-collapse-motion-owner")) {
@@ -1376,16 +1406,80 @@ describe("Markdown tasks", () => {
         expect(replica.style.width).toBe("300px");
         expect(replica.querySelector("[id]")).toBeNull();
       }
-      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([28, 14, 0]);
+      expect(replicas.map((replica) => animations.find((entry) => entry.element === replica)!.options.delay)).toEqual([0, 0, 0]);
       const followingGroup = screen.getByRole("button", { name: /^Group two / });
       expect(animations.find((entry) => entry.element === followingGroup)?.keyframes[0]?.transform).toBe("translateY(75px)");
 
-      replicas.forEach((replica) => animations.find((entry) => entry.element === replica)?.animation.finish());
+      [...animations]
+        .filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica") || entry.element.classList.contains("markdown-checklist-collapse-motion-clip"))
+        .forEach((entry) => entry.animation.finish());
       const animationCountBeforeExpansion = animations.length;
       phase = "expanded";
       fireEvent.click(screen.getByRole("button", { name: /^Group one / }));
-      const rows = ["One", "Two", "Three"].map((label) => screen.getByText(label).closest("tr")!);
-      expect(rows.map((row) => animations.slice(animationCountBeforeExpansion).find((entry) => entry.element === row)!.options.delay)).toEqual([0, 14, 28]);
+      const realTable = screen.getByRole("table");
+      const rows = ["One", "Two", "Three"].map((label) =>
+        [...realTable.querySelectorAll<HTMLTableRowElement>("tbody tr")].find((row) => row.textContent?.includes(label))!,
+      );
+      const expansionAnimations = animations.slice(animationCountBeforeExpansion);
+      const expansionReplicas = [...view.container.querySelectorAll<HTMLTableElement>("table.markdown-checklist-collapse-motion-replica")];
+      const expansionClip = view.container.querySelector<HTMLElement>(".markdown-checklist-collapse-motion-clip")!;
+
+      expect(expansionReplicas).toHaveLength(3);
+      expect(rows.map((row) => row.style.visibility)).toEqual(["hidden", "hidden", "hidden"]);
+      expect(rows.every((row) => !expansionAnimations.some((entry) => entry.element === row))).toBe(true);
+      for (const [index, replica] of expansionReplicas.entries()) {
+        const replicaRow = replica.querySelector<HTMLTableRowElement>(":scope > tbody > tr")!;
+        const transform = expansionAnimations.find((entry) => entry.element === replica && entry.keyframes.some((frame) => frame.transform !== undefined))!;
+        const opacity = expansionAnimations.find((entry) => entry.element === replica && entry.keyframes.every((frame) => frame.opacity !== undefined && frame.transform === undefined))!;
+        expect(replica.parentElement).toBe(expansionClip);
+        expect(replicaRow.parentElement?.parentElement).toBe(replica);
+        expect([...replica.querySelectorAll("col")].map((column) => (column as HTMLElement).style.width)).toEqual(["100px", "100px"]);
+        expect(transform.keyframes).toEqual([
+          { transform: "translateY(-80px)", transformOrigin: "top left" },
+          { transform: "translateY(0px)", transformOrigin: "top left" },
+        ]);
+        expect(transform.options).toMatchObject({ delay: 0, duration: 190, fill: "backwards" });
+        expect(opacity.keyframes).toEqual([
+          { offset: 0, opacity: 0 },
+          { offset: .18, opacity: .22 },
+          { offset: .45, opacity: .68 },
+          { offset: .72, opacity: 1 },
+          { offset: 1, opacity: 1 },
+        ]);
+        expect(opacity.options).toMatchObject({ delay: 0, duration: 190, easing: "linear", fill: "backwards" });
+        const sourceRect = rows[index].getBoundingClientRect();
+        const replicaRect = replicaRow.getBoundingClientRect();
+        expect({ left: replicaRect.left, top: replicaRect.top, width: replicaRect.width, height: replicaRect.height }).toEqual({
+          left: sourceRect.left,
+          top: sourceRect.top,
+          width: sourceRect.width,
+          height: sourceRect.height,
+        });
+        expect(replica.style.left).toBe("19.5px");
+        expect(Number.parseFloat(replica.style.top) % 1).toBe(.5);
+      }
+
+      expansionAnimations
+        .filter((entry) => expansionReplicas.includes(entry.element as HTMLTableElement))
+        .forEach((entry) => entry.animation.finish());
+      expect(rows.map((row) => row.style.visibility)).toEqual(["", "", ""]);
+      expect(expansionReplicas.every((replica) => !replica.isConnected)).toBe(true);
+
+      phase = "collapsed";
+      fireEvent.click(screen.getByRole("button", { name: /^Group one / }));
+      [...animations]
+        .filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica") || entry.element.classList.contains("markdown-checklist-collapse-motion-clip"))
+        .forEach((entry) => entry.animation.finish());
+      phase = "expanded";
+      fireEvent.click(screen.getByRole("button", { name: /^Group one / }));
+      const rowsHiddenBeforeUnmount = ["One", "Two", "Three"].map((label) =>
+        [...screen.getByRole("table").querySelectorAll<HTMLTableRowElement>("tbody tr")].find((row) => row.textContent?.includes(label))!,
+      );
+      const replicasBeforeUnmount = [...view.container.querySelectorAll("table.markdown-checklist-collapse-motion-replica")];
+      expect(rowsHiddenBeforeUnmount.map((row) => row.style.visibility)).toEqual(["hidden", "hidden", "hidden"]);
+      view.unmount();
+      expect(rowsHiddenBeforeUnmount.map((row) => row.style.visibility)).toEqual(["", "", ""]);
+      expect(replicasBeforeUnmount.every((replica) => !replica.isConnected)).toBe(true);
     });
 
     it("settles a grouped table's inner heading without ever transforming a row group", () => {
@@ -1482,6 +1576,10 @@ describe("Markdown tasks", () => {
         const clip = view.container.querySelector<HTMLElement>(".markdown-checklist-collapse-motion-clip")!;
         const replicas = [...view.container.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")];
         expect(clip).toHaveStyle({ overflow: "hidden", top: "40px" });
+        expect(clip.style.getPropertyValue("mask-position")).toBe("0 -6px");
+        expect(clip.style.getPropertyValue("-webkit-mask-position")).toBe("0 -6px");
+        expect(clip.style.getPropertyValue("mask-repeat")).toBe("no-repeat");
+        expect(clip.style.getPropertyValue("-webkit-mask-repeat")).toBe("no-repeat");
         expect(Number.parseFloat(clip.style.height)).toBeGreaterThan(0);
         expect(replicas.length).toBeGreaterThan(0);
         expect(replicas.every((replica) => replica.parentElement === clip)).toBe(true);

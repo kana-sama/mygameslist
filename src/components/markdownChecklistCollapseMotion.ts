@@ -1,8 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 export const CHECKLIST_COLLAPSE_MOTION_DURATION_MS = 235;
-export const CHECKLIST_COLLAPSE_MOTION_STAGGER_MS = 14;
-export const CHECKLIST_COLLAPSE_MOTION_MAX_STAGGER_MS = 42;
 
 interface MotionRect {
   height: number;
@@ -46,10 +44,6 @@ const MOTION_TRIGGER_ATTRIBUTE = "data-checklist-collapse-motion-trigger";
 const REPLICA_CLASS_NAME = "markdown-checklist-collapse-motion-replica";
 const COLLAPSE_ITEM_DURATION_MS = 185;
 const EXPAND_ITEM_DURATION_MS = 190;
-const COLLAPSE_OPACITY_DELAY_MS = 55;
-const COLLAPSE_OPACITY_DURATION_MS = 85;
-const EXPAND_OPACITY_DELAY_MS = 45;
-const EXPAND_OPACITY_DURATION_MS = 95;
 const SETTLE_DURATION_MS = 225;
 const COLLAPSED_STATE_DURATION_MS = 145;
 const COLLAPSED_STATE_DELAY_MS = 90;
@@ -59,6 +53,8 @@ const COLLAPSE_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 const EXPAND_EASING = "cubic-bezier(0.2, 0, 0, 1)";
 const CLIP_EASING = "cubic-bezier(0.2, 0, 0, 1)";
 const COLLAPSED_STATE_EASING = "cubic-bezier(0, 0, 0.2, 1)";
+const HEADER_FADE_DISTANCE_PX = 6;
+const HEADER_FADE_MASK = "linear-gradient(to bottom, transparent 0, rgb(0 0 0 / .5) 3px, black 6px, black 100%)";
 
 function rootLocalRect(rect: DOMRect, rootRect: DOMRect): MotionRect {
   return {
@@ -221,8 +217,9 @@ function ownerCenterDelta(entry: MotionLayoutEntry, owner: MotionRect): number {
   return owner.top + owner.height / 2 - (entry.rect.top + entry.rect.height / 2);
 }
 
-function cascadeDelay(index: number): number {
-  return Math.min(index * CHECKLIST_COLLAPSE_MOTION_STAGGER_MS, CHECKLIST_COLLAPSE_MOTION_MAX_STAGGER_MS);
+function groupTravelDelta(entries: readonly MotionLayoutEntry[], owner: MotionRect): number {
+  const lastBottom = Math.max(...entries.map((entry) => entry.rect.top + entry.rect.height));
+  return owner.top + owner.height - lastBottom;
 }
 
 export function useMarkdownChecklistCollapseMotion(
@@ -236,11 +233,14 @@ export function useMarkdownChecklistCollapseMotion(
   const previousContentFingerprint = useRef<string | null>(null);
   const activeAnimations = useRef(new Set<Animation>());
   const activeClips = useRef(new Set<HTMLElement>());
+  const activeHiddenEntries = useRef(new Set<HTMLElement>());
   const activeReplicas = useRef(new Set<HTMLElement>());
 
   const clearVisuals = (): void => {
     for (const animation of [...activeAnimations.current]) animation.cancel();
     activeAnimations.current.clear();
+    for (const entry of activeHiddenEntries.current) entry.style.visibility = "";
+    activeHiddenEntries.current.clear();
     for (const replica of activeReplicas.current) replica.remove();
     activeReplicas.current.clear();
     for (const clip of activeClips.current) clip.remove();
@@ -315,6 +315,7 @@ export function useMarkdownChecklistCollapseMotion(
       clip: ExitClip | null,
       collapsedState = false,
       onSettled?: () => void,
+      travelDelta = ownerCenterDelta(entry, owner),
     ): void => {
       const replica = createExitReplica(entry);
       if (clip) replica.style.top = `${entry.replicaRect.top - clip.top}px`;
@@ -329,23 +330,43 @@ export function useMarkdownChecklistCollapseMotion(
         onSettled?.();
       };
       trackAnimation(replica, [
-        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
-        { transform: `translateY(${ownerCenterDelta(entry, owner)}px) scaleY(0.08)`, transformOrigin: "top left" },
+        { transform: "translateY(0px)", transformOrigin: "top left" },
+        {
+          transform: collapsedState
+            ? `translateY(${ownerCenterDelta(entry, owner)}px)`
+            : `translateY(${travelDelta}px)`,
+          transformOrigin: "top left",
+        },
       ], {
         delay,
         duration: collapsedState ? COLLAPSED_STATE_DURATION_MS : COLLAPSE_ITEM_DURATION_MS,
         easing: collapsedState ? COLLAPSED_STATE_EASING : COLLAPSE_EASING,
         fill: "forwards",
       }, animationSettled);
-      trackAnimation(replica, [
-        { opacity: 1 },
-        { opacity: 0 },
-      ], {
-        delay: collapsedState ? delay : delay + COLLAPSE_OPACITY_DELAY_MS,
-        duration: collapsedState ? COLLAPSED_STATE_OPACITY_DURATION_MS : COLLAPSE_OPACITY_DURATION_MS,
-        easing: collapsedState ? "ease-out" : "ease-in",
-        fill: "forwards",
-      }, animationSettled);
+      if (collapsedState) {
+        trackAnimation(replica, [
+          { opacity: 1 },
+          { opacity: 0 },
+        ], {
+          delay,
+          duration: COLLAPSED_STATE_OPACITY_DURATION_MS,
+          easing: "ease-out",
+          fill: "forwards",
+        }, animationSettled);
+      } else {
+        trackAnimation(replica, [
+          { offset: 0, opacity: 1 },
+          { offset: .35, opacity: .92 },
+          { offset: .65, opacity: .58 },
+          { offset: .88, opacity: .18 },
+          { offset: 1, opacity: 0 },
+        ], {
+          delay,
+          duration: COLLAPSE_ITEM_DURATION_MS,
+          easing: "linear",
+          fill: "forwards",
+        }, animationSettled);
+      }
     };
 
     const createExitClip = (owner: MotionRect, entries: readonly MotionLayoutEntry[]): ExitClip | null => {
@@ -364,6 +385,14 @@ export function useMarkdownChecklistCollapseMotion(
       clip.style.position = "absolute";
       clip.style.top = `${top}px`;
       clip.style.width = "100%";
+      clip.style.setProperty("mask-image", HEADER_FADE_MASK);
+      clip.style.setProperty("mask-position", `0 -${HEADER_FADE_DISTANCE_PX}px`);
+      clip.style.setProperty("mask-repeat", "no-repeat");
+      clip.style.setProperty("mask-size", `100% calc(100% + ${HEADER_FADE_DISTANCE_PX}px)`);
+      clip.style.setProperty("-webkit-mask-image", HEADER_FADE_MASK);
+      clip.style.setProperty("-webkit-mask-position", `0 -${HEADER_FADE_DISTANCE_PX}px`);
+      clip.style.setProperty("-webkit-mask-repeat", "no-repeat");
+      clip.style.setProperty("-webkit-mask-size", `100% calc(100% + ${HEADER_FADE_DISTANCE_PX}px)`);
       firstEntry.replicaContainer.append(clip);
       activeClips.current.add(clip);
       return { element: clip, top };
@@ -380,6 +409,58 @@ export function useMarkdownChecklistCollapseMotion(
       }, onSettled);
     };
 
+    const animateTableEntry = (
+      entry: MotionLayoutEntry,
+      clip: ExitClip,
+      travelDelta: number,
+      onSettled: () => void,
+    ): void => {
+      const replica = createExitReplica(entry);
+      replica.style.top = `${entry.replicaRect.top - clip.top}px`;
+      clip.element.append(replica);
+      const replicaRow = replica.querySelector("tr");
+      if (replicaRow) {
+        const sourceRect = entry.element.getBoundingClientRect();
+        const replicaRowRect = replicaRow.getBoundingClientRect();
+        replica.style.left = `${Number.parseFloat(replica.style.left) + sourceRect.left - replicaRowRect.left}px`;
+        replica.style.top = `${Number.parseFloat(replica.style.top) + sourceRect.top - replicaRowRect.top}px`;
+      }
+      activeReplicas.current.add(replica);
+      entry.element.style.visibility = "hidden";
+      activeHiddenEntries.current.add(entry.element);
+      let remainingAnimations = 2;
+      const animationSettled = () => {
+        remainingAnimations -= 1;
+        if (remainingAnimations > 0) return;
+        activeReplicas.current.delete(replica);
+        replica.remove();
+        activeHiddenEntries.current.delete(entry.element);
+        entry.element.style.visibility = "";
+        onSettled();
+      };
+      trackAnimation(replica, [
+        { transform: `translateY(${travelDelta}px)`, transformOrigin: "top left" },
+        { transform: "translateY(0px)", transformOrigin: "top left" },
+      ], {
+        delay: 0,
+        duration: EXPAND_ITEM_DURATION_MS,
+        easing: EXPAND_EASING,
+        fill: "backwards",
+      }, animationSettled);
+      trackAnimation(replica, [
+        { offset: 0, opacity: 0 },
+        { offset: .18, opacity: .22 },
+        { offset: .45, opacity: .68 },
+        { offset: .72, opacity: 1 },
+        { offset: 1, opacity: 1 },
+      ], {
+        delay: 0,
+        duration: EXPAND_ITEM_DURATION_MS,
+        easing: "linear",
+        fill: "backwards",
+      }, animationSettled);
+    };
+
     const disappearedKeys = new Set([...priorLayout.entries.keys()].filter((key) => !nextLayout.entries.has(key)));
     const disappearedEntries = topLevelEntries(priorLayout, disappearedKeys);
     const collapsedStateExits = disappearedEntries.filter((entry) => entry.collapsedState);
@@ -394,6 +475,7 @@ export function useMarkdownChecklistCollapseMotion(
       const owner = nextLayout.triggers.get(ownerId)?.rect ?? priorLayout.triggers.get(ownerId)?.rect;
       if (!owner) continue;
       entries.sort((left, right) => left.rect.top - right.rect.top);
+      const travelDelta = groupTravelDelta(entries, owner);
       const entriesByContainer = new Map<Element, MotionLayoutEntry[]>();
       for (const entry of entries) {
         const containerEntries = entriesByContainer.get(entry.replicaContainer) ?? [];
@@ -415,9 +497,9 @@ export function useMarkdownChecklistCollapseMotion(
         animateClip(clip, height, settled);
         for (const entry of containerEntries) clips.set(entry, { clip, release: settled });
       }
-      entries.forEach((entry, index) => {
+      entries.forEach((entry) => {
         const clipping = clips.get(entry);
-        animateExit(entry, owner, cascadeDelay(entries.length - index - 1), clipping?.clip ?? null, false, clipping?.release);
+        animateExit(entry, owner, 0, clipping?.clip ?? null, false, clipping?.release, travelDelta);
       });
     }
     for (const entry of collapsedStateExits) {
@@ -440,24 +522,64 @@ export function useMarkdownChecklistCollapseMotion(
       const owner = priorLayout.triggers.get(ownerId)?.rect ?? nextLayout.triggers.get(ownerId)?.rect;
       if (!owner) continue;
       entries.sort((left, right) => left.rect.top - right.rect.top);
-      entries.forEach((entry, index) => {
-        const delay = cascadeDelay(index);
-        trackAnimation(entry.element, [
-          { transform: `translateY(${ownerCenterDelta(entry, owner)}px) scaleY(0.08)`, transformOrigin: "top left" },
-          { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
-        ], {
-          delay,
+      const travelDelta = groupTravelDelta(entries, owner);
+      if (entries.every((entry) => entry.tableRow)) {
+        const clip = createExitClip(owner, entries);
+        if (clip) {
+          let remainingEntries = entries.length;
+          const entrySettled = () => {
+            remainingEntries -= 1;
+            if (remainingEntries > 0) return;
+            activeClips.current.delete(clip.element);
+            clip.element.remove();
+          };
+          entries.forEach((entry) => animateTableEntry(entry, clip, travelDelta, entrySettled));
+          continue;
+        }
+      }
+      const ownerBottom = owner.top + owner.height;
+      entries.forEach((entry) => {
+        const initialClipTop = ownerBottom - (entry.rect.top + travelDelta);
+        const finalClipTop = ownerBottom - entry.rect.top;
+        const initialMaskTop = initialClipTop - HEADER_FADE_DISTANCE_PX;
+        const finalMaskTop = finalClipTop - HEADER_FADE_DISTANCE_PX;
+        const maskHeight = entry.rect.height + Math.abs(travelDelta) + HEADER_FADE_DISTANCE_PX * 2;
+        const movementKeyframes: Keyframe[] = [
+          {
+            clipPath: `inset(${initialClipTop}px 0 0)`,
+            maskImage: HEADER_FADE_MASK,
+            maskPosition: `0 ${initialMaskTop}px`,
+            maskRepeat: "no-repeat",
+            maskSize: `100% ${maskHeight}px`,
+            transform: `translateY(${travelDelta}px)`,
+            transformOrigin: "top left",
+          },
+          {
+            clipPath: `inset(${finalClipTop}px 0 0)`,
+            maskImage: HEADER_FADE_MASK,
+            maskPosition: `0 ${finalMaskTop}px`,
+            maskRepeat: "no-repeat",
+            maskSize: `100% ${maskHeight}px`,
+            transform: "translateY(0px)",
+            transformOrigin: "top left",
+          },
+        ];
+        trackAnimation(entry.element, movementKeyframes, {
+          delay: 0,
           duration: EXPAND_ITEM_DURATION_MS,
           easing: EXPAND_EASING,
           fill: "backwards",
         });
         trackAnimation(entry.element, [
-          { opacity: 0 },
-          { opacity: 1 },
+          { offset: 0, opacity: 0 },
+          { offset: .18, opacity: .22 },
+          { offset: .45, opacity: .68 },
+          { offset: .72, opacity: 1 },
+          { offset: 1, opacity: 1 },
         ], {
-          delay: delay + EXPAND_OPACITY_DELAY_MS,
-          duration: EXPAND_OPACITY_DURATION_MS,
-          easing: "ease-out",
+          delay: 0,
+          duration: EXPAND_ITEM_DURATION_MS,
+          easing: "linear",
           fill: "backwards",
         });
       });
@@ -467,8 +589,8 @@ export function useMarkdownChecklistCollapseMotion(
       const owner = priorLayout.triggers.get(entry.owner)?.rect ?? nextLayout.triggers.get(entry.owner)?.rect;
       if (!owner) continue;
       trackAnimation(entry.element, [
-        { transform: `translateY(${ownerCenterDelta(entry, owner)}px) scaleY(0.08)`, transformOrigin: "top left" },
-        { transform: "translateY(0px) scaleY(1)", transformOrigin: "top left" },
+        { transform: `translateY(${ownerCenterDelta(entry, owner)}px)`, transformOrigin: "top left" },
+        { transform: "translateY(0px)", transformOrigin: "top left" },
       ], {
         delay: COLLAPSED_STATE_DELAY_MS,
         duration: COLLAPSED_STATE_DURATION_MS,

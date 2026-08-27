@@ -431,7 +431,7 @@ describe("scrollable long note cards", () => {
       const contextReplica = [...card.querySelectorAll<HTMLElement>(".markdown-checklist-collapse-motion-replica")]
         .find((replica) => replica.textContent === "Context")!;
       const contextTransform = animations.find((entry) => entry.element === contextReplica && entry.keyframes.some((frame) => frame.transform !== undefined))!;
-      expect(contextTransform.keyframes.at(-1)?.transform).toBe("translateY(-115px) scaleY(0.08)");
+      expect(contextTransform.keyframes.at(-1)?.transform).toBe("translateY(-150px)");
 
       animations
         .filter((entry) => entry.element.classList.contains("markdown-checklist-collapse-motion-replica"))
@@ -443,7 +443,7 @@ describe("scrollable long note cards", () => {
         .find((replica) => replica.textContent?.includes("Свернуто"))!;
       expect(stateReplica).toHaveAttribute("aria-hidden", "true");
       const stateExit = animations.find((entry) => entry.element === stateReplica && entry.keyframes.some((frame) => frame.transform !== undefined))!;
-      expect(stateExit.keyframes.at(-1)?.transform).toBe("translateY(-25px) scaleY(0.08)");
+      expect(stateExit.keyframes.at(-1)?.transform).toBe("translateY(-25px)");
       expect(innerHeading.nextElementSibling).not.toHaveClass("markdown-checklist-collapse-motion-replica");
       expect(screen.getAllByRole("heading", { name: /^Primary route / })).toHaveLength(1);
     } finally {
