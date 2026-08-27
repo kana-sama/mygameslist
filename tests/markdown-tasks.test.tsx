@@ -828,10 +828,12 @@ describe("Markdown tasks", () => {
         const completeNestedSummary = completeView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
         expect(completeRootSummary).not.toBeNull();
         expect(completeNestedSummary).not.toBeNull();
-        expect(getComputedStyle(completeRootSummary!).marginTop).toBe("1.674em");
-        expect(getComputedStyle(completeRootSummary!).paddingTop).toBe("8px");
-        expect(getComputedStyle(completeNestedSummary!).marginTop).toBe("0.5em");
-        expect(getComputedStyle(completeNestedSummary!).paddingTop).toBe("8px");
+        expect(getComputedStyle(completeRootSummary!).paddingTop).toBe("0");
+        expect(getComputedStyle(completeNestedSummary!).paddingTop).toBe("0");
+        const completeRootOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--complete + .markdown-checklist-hidden-sections");
+        const completeNestedOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--complete > .markdown-checklist-hidden-sections--nested");
+        expect(completeRootOffset?.style.marginTop).toBe("calc(1.674em + 8px)");
+        expect(completeNestedOffset?.style.marginTop).toBe("calc(0.5em + 8px)");
 
         cleanup();
         const indeterminateView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
@@ -848,10 +850,12 @@ describe("Markdown tasks", () => {
         const indeterminateNestedSummary = indeterminateView.container.querySelector<HTMLElement>(".markdown-checklist-hidden-sections--nested");
         expect(indeterminateRootSummary).not.toBeNull();
         expect(indeterminateNestedSummary).not.toBeNull();
-        expect(getComputedStyle(indeterminateRootSummary!).marginTop).toBe("1.674em");
-        expect(getComputedStyle(indeterminateRootSummary!).paddingTop).toBe("8px");
-        expect(getComputedStyle(indeterminateNestedSummary!).marginTop).toBe("0.5em");
-        expect(getComputedStyle(indeterminateNestedSummary!).paddingTop).toBe("8px");
+        expect(getComputedStyle(indeterminateRootSummary!).paddingTop).toBe("0");
+        expect(getComputedStyle(indeterminateNestedSummary!).paddingTop).toBe("0");
+        const indeterminateRootOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--indeterminate + .markdown-checklist-hidden-sections");
+        const indeterminateNestedOffset = [...style.sheet!.cssRules].find((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule && rule.selectorText === ".markdown-checklist-subsection--indeterminate > .markdown-checklist-hidden-sections--nested");
+        expect(indeterminateRootOffset?.style.marginTop).toBe("calc(1.674em + 8px)");
+        expect(indeterminateNestedOffset?.style.marginTop).toBe("calc(0.5em + 8px)");
 
         cleanup();
         const unpaintedView = render(<MarkdownView completedChecklistFilterEnabled markdown={[
