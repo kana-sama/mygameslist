@@ -494,6 +494,9 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .markdown-diff-preview__toolbar { min-height: 28px; display: flex; align-items: center; justify-content: flex-end; padding: 3px 5px; border-bottom: 1px solid var(--line-soft); background: var(--surface); }
 .markdown-checklist-hidden-count { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; list-style: none; }
 .markdown-checklist-hidden-sections { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.markdown-checklist-hidden-count button, .markdown-checklist-hidden-sections button { appearance: none; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.markdown-checklist-hidden-count button:hover, .markdown-checklist-hidden-sections button:hover { color: var(--text); }
+.markdown-checklist-hidden-count button:focus-visible, .markdown-checklist-hidden-sections button:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .markdown-checklist-hidden-sections--nested { box-sizing: border-box; margin-inline-start: .5em; padding-inline-start: .95em; border-inline-start: 1px solid var(--line-soft); }
 .markdown-diff-preview__mode, .markdown-diff-preview__expand { min-height: 24px; padding: 2px 6px; border: 0; border-radius: 3px; color: var(--accent-strong); background: transparent; font-size: 10px; cursor: pointer; }
 .markdown-diff-preview__mode:hover, .markdown-diff-preview__expand:hover { color: var(--text); background: var(--surface-3); }
@@ -558,6 +561,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card--double-height { --note-text-height: 600px; }
 .note-card:not(.note-card--editing) { overflow: visible; }
 .note-card__surface { position: relative; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: clip; border: 1px solid var(--line-soft); border-radius: 5px; background: #141518; }
+.note-card--interaction-active .note-card__surface { border-color: var(--accent); }
 .note-card:not(.note-card--editing):hover, .note-card:not(.note-card--editing):focus-within { z-index: 48; }
 .note-card--sortable { touch-action: pan-y; }
 .note-card--sortable.is-dragging { opacity: .28; }
@@ -646,6 +650,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-attachment-shell--link .note-attachment-remove, .note-attachment-shell--file .note-attachment-remove { top: 50%; right: 3px; transform: translateY(-50%); }
 .note-card--editing .note-attachment-shell--link .note-attachment--link, .note-card--editing .note-attachment-shell--file .note-attachment--file { padding-right: 30px; }
 .note-card--editing { display: flex; flex-direction: column; overflow: hidden; border: 1px solid #44484e; border-radius: 5px; background: var(--field); }
+.note-card--editing.note-card--interaction-active { border-color: var(--accent); }
 .note-card--editing > .monaco-note-editor { min-height: var(--note-text-height); height: var(--note-text-height); flex: 1 0 var(--note-text-height); }
 .monaco-note-editor--loading { display: grid; place-items: center; }
 .monaco-markdown-editor { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden; color: var(--text); background: var(--field); }

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hasMarkdownTasks, insertMarkdownOpenChecklistItem, MarkdownView, setMarkdownTaskChecked, setMarkdownTaskItemText, setMarkdownTaskState } from "../src/components/Markdown";
 import { parseMarkdownBlocks } from "../src/domain/markdownChecklist";
@@ -76,6 +77,103 @@ describe("Markdown tasks", () => {
       expect(screen.getByText("Open")).toBeInTheDocument();
       expect(screen.getByText("Mixed")).toBeInTheDocument();
       expect(screen.getByText("Скрыто 2 пунктов")).toBeInTheDocument();
+    });
+
+    it("reveals only the direct hidden items from the selected list", async () => {
+      const user = userEvent.setup();
+      function Harness() {
+        const [revealedItemIds, setRevealedItemIds] = useState<ReadonlySet<string>>(new Set());
+        return <MarkdownView
+          completedChecklistFilterEnabled
+          completedChecklistRevealedItemIds={revealedItemIds}
+          markdown={[
+            "- [x] First finished",
+            "- [ ] First open",
+            "",
+            "Separate checklist",
+            "",
+            "- [x] Second finished",
+            "- [ ] Second open",
+          ].join("\n")}
+          onRevealCompletedChecklistItems={(structuralIds) => setRevealedItemIds((current) => new Set([...current, ...structuralIds]))}
+        />;
+      }
+      render(<Harness />);
+
+      const summaries = screen.getAllByRole("button", { name: "Скрыто 1 пунктов" });
+      expect(summaries).toHaveLength(2);
+      expect(screen.queryByText("First finished")).not.toBeInTheDocument();
+      expect(screen.queryByText("Second finished")).not.toBeInTheDocument();
+
+      summaries[0].focus();
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByText("First finished")).toBeInTheDocument();
+      expect(screen.queryByText("Second finished")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Скрыто 1 пунктов" })).toBeInTheDocument();
+    });
+
+    it("reveals only the direct hidden sections from the selected owner", () => {
+      function Harness() {
+        const [revealedSectionIds, setRevealedSectionIds] = useState<ReadonlySet<string>>(new Set());
+        return <MarkdownView
+          completedChecklistFilterEnabled
+          completedChecklistRevealedSectionIds={revealedSectionIds}
+          markdown={[
+            "# Root",
+            "## Root hidden",
+            "- [x] Root finished row",
+            "## Visible parent",
+            "- [ ] Parent open row",
+            "### Child hidden one",
+            "- [x] Child one finished row",
+            "### Child hidden two",
+            "- [x] Child two finished row",
+          ].join("\n")}
+          onRevealCompletedChecklistSections={(collapseIds) => setRevealedSectionIds((current) => new Set([...current, ...collapseIds]))}
+        />;
+      }
+      render(<Harness />);
+
+      const summary = screen.getByRole("button", { name: "Скрыто 2 секций" });
+      expect(screen.queryByRole("heading", { name: /Child hidden one/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Child hidden two/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Root hidden/ })).not.toBeInTheDocument();
+
+      fireEvent.click(summary);
+
+      expect(screen.getByRole("heading", { name: /Child hidden one/ })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Child hidden two/ })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Root hidden/ })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Скрыто 1 пунктов" })).toHaveLength(2);
+      expect(screen.queryByText("Child one finished row")).not.toBeInTheDocument();
+      expect(screen.queryByText("Child two finished row")).not.toBeInTheDocument();
+    });
+
+    it("reveals only the root-owned sections from the selected root summary", () => {
+      function Harness() {
+        const [revealedSectionIds, setRevealedSectionIds] = useState<ReadonlySet<string>>(new Set());
+        return <MarkdownView
+          completedChecklistFilterEnabled
+          completedChecklistRevealedSectionIds={revealedSectionIds}
+          markdown={[
+            "# First root",
+            "## First root hidden",
+            "- [x] First finished row",
+            "# Second root",
+            "## Second root hidden",
+            "- [x] Second finished row",
+          ].join("\n")}
+          onRevealCompletedChecklistSections={(collapseIds) => setRevealedSectionIds((current) => new Set([...current, ...collapseIds]))}
+        />;
+      }
+      render(<Harness />);
+
+      const summaries = screen.getAllByRole("button", { name: "Скрыто 1 секций" });
+      fireEvent.click(summaries[0]);
+
+      expect(screen.getByRole("heading", { name: /First root hidden/ })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Second root hidden/ })).not.toBeInTheDocument();
     });
 
     it("hides completed structural checklist groups", () => {

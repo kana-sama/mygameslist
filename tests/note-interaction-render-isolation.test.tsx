@@ -238,7 +238,7 @@ describe("route-backed note interaction render isolation", () => {
     expect(screen.getByText("Editor addition")).toBeInTheDocument();
   });
 
-  it("updates one subscribed note and the current diff without redrawing the route, page, or sibling", async () => {
+  it("updates one subscribed note and the current diff while recording its active interaction", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -266,9 +266,11 @@ describe("route-backed note interaction render isolation", () => {
     expect(renderCounters.fullSaves).toBe(0);
     expect(renderCounters.root).toBe(beforeCheckbox.root);
     expect(renderCounters.route).toBe(beforeCheckbox.route);
-    expect(renderCounters.page).toBe(beforeCheckbox.page);
+    expect(renderCounters.page).toBe(beforeCheckbox.page + 1);
     expect(renderCounters.affectedNote).toBeGreaterThan(beforeCheckbox.affectedNote);
-    expect(renderCounters.siblingNote).toBe(beforeCheckbox.siblingNote);
+    expect(renderCounters.siblingNote).toBe(beforeCheckbox.siblingNote + 1);
+    expect(affectedCard).toHaveClass("note-card--interaction-active");
+    expect(siblingCard).not.toHaveClass("note-card--interaction-active");
     expect(siblingTask).toBeEnabled();
     expect(siblingTask).not.toHaveAttribute("aria-disabled");
     expect(screen.getByRole("checkbox", { name: "Снять отметку: Affected task" }).closest("article")).toBe(initialDom.affectedCard);
