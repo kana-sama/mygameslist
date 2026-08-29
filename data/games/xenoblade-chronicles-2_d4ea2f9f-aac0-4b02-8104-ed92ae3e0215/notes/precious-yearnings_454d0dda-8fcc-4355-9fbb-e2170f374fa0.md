@@ -4,14 +4,14 @@ groupRank: 4096
 rank: 3072
 doubleHeight: true
 createdAt: "2026-08-25T07:42:24.845Z"
-updatedAt: "2026-08-25T07:43:40.559Z"
+updatedAt: "2026-08-28T01:17:51.210Z"
 -->
 # Precious Yearnings
 
 ## Prospecting Lv.1
 - [x] [Leftherian Archipelago]("Fonsett Island")
 - [x] [Temperantia]("west of Ardainian Garrison")
-- [ ] [Kingdom of Tantal]("Pippito's Haunt")
+- [x] [Kingdom of Tantal]("Pippito's Haunt")
 - [ ] [Spirit Crucible Elpys]("Penitents' Spring")
 
 ## Prospecting Lv.2

@@ -61,9 +61,8 @@ collapsedChecklistSections:
   - "heading:1u4gwz0-1c"
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
-  - "heading:ofsxh4-1h"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-27T09:30:59.874Z"
+updatedAt: "2026-08-28T07:59:29.445Z"
 -->
 # Shop Deeds
 
@@ -370,8 +369,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Secret Trials
   - [x] Dueling Kingdoms
   - [x] Dealing Kingdoms — открывается после Merc Mission `Shipyard Security`.
-  - [ ] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
-  - [ ] **Elgeschel Deeds**
+  - [x] Plumber Escape Game — открывается после Merc Mission `Cold Storage`.
+  - [x] **Elgeschel Deeds**
 
 - Yafush Antiques
 
@@ -387,8 +386,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Grilled Salmon in Herbs
   - [x] Cloud Sea Crab Sticks
   - [x] Sand Salmon Ceviche — открывается после Merc Mission `Shipyard Security`.
-  - [ ] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
-  - [ ] **Hanoon Deeds**
+  - [x] Fish and Herb Broth — открывается после Merc Mission `Cold Storage`.
+  - [x] **Hanoon Deeds**
 
 - Griogair's Greens
 
@@ -483,8 +482,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Baked Narcipear
   - [x] Sno-Bake Cheesecake
   - [x] Odifa Punch — открывается после Merc Mission `Weathered Ship`.
-  - [ ] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
-  - [ ] **Placks Deeds**
+  - [x] Snow Dumplings — открывается после Merc Mission `Beat the Heat`.
+  - [x] **Placks Deeds**
 
 - Platini Deli
 
@@ -492,8 +491,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Tantalese Porridge
   - [x] Fried Octomayo
   - [x] Poached Fruit Samod — открывается после Merc Mission `Frozen Door`.
-  - [ ] Grumbird Rice Bowl — открывается после Merc Mission `Beat the Heat`.
-  - [ ] **Platini Deeds**
+  - [x] Grumbird Rice Bowl — открывается после Merc Mission `Beat the Heat`.
+  - [x] **Platini Deeds**
 
 - Tatraty Fish
 
@@ -510,8 +509,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Witness the Crustip
   - [x] The Annals of Addam
   - [x] The Blizzard Choir — открывается после Merc Mission `Weathered Ship`.
-  - [ ] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
-  - [ ] **Paulio Deeds**
+  - [x] Astrology Made Simple — открывается после Merc Mission `Crafty Developments`.
+  - [x] **Paulio Deeds**
 
 - Boldarde Textiles
 
@@ -520,8 +519,8 @@ updatedAt: "2026-08-27T09:30:59.874Z"
   - [x] Genbu-Weave Cloth
   - [x] Heatstripe
   - [x] Musical Hair Clasp — открывается после Merc Mission `Cuisine Researcher`.
-  - [ ] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
-  - [ ] **Boldarde Deeds**
+  - [x] Torigoth Snowpouch — открывается после Merc Mission `Crafty Developments`.
+  - [x] **Boldarde Deeds**
 
 - Praximo Cosmetics
 
