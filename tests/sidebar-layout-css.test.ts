@@ -10,6 +10,11 @@ afterEach(() => {
 });
 
 describe("top sidebar layout", () => {
+  it("matches the settings dialog header and narrow reference geometry", () => {
+    expect(productionStyles).toMatch(/\.settings-dialog__header \{ min-height: 88px; display: grid; grid-template-columns: 44px minmax\(0, 1fr\) 32px; align-items: start;/);
+    expect(productionStyles).toMatch(/@media \(max-width: 680px\) \{[\s\S]*?\.settings-dialog-layer \{ align-items: flex-start; padding: 0; \}[\s\S]*?\.settings-dialog \{ width: min\(660px, calc\(100% - 28px\)\); margin-top: 12px; \}/);
+  });
+
   it("uses the approved one-column page and compact desktop sidebar tracks", () => {
     const style = document.createElement("style");
     style.dataset.sidebarLayoutTest = "true";

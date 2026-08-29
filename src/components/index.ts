@@ -14,3 +14,5 @@ export * from "./monacoMarkdownListEditing";
 export * from "./ShelfGrid";
 export * from "./TagInput";
 export * from "./libraryUi";
+export * from "./PinchZoomGuard";
+export * from "./SettingsDialog";

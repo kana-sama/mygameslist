@@ -16,7 +16,13 @@ export function toggleSidebarLayoutMode(
   current: SidebarLayoutMode,
   storage?: Pick<Storage, "setItem" | "removeItem">,
 ): SidebarLayoutMode {
-  const next = current === "side" ? "top" : "side";
+  return setSidebarLayoutMode(current === "side" ? "top" : "side", storage);
+}
+
+export function setSidebarLayoutMode(
+  next: SidebarLayoutMode,
+  storage?: Pick<Storage, "setItem" | "removeItem">,
+): SidebarLayoutMode {
   try {
     const target = storage ?? window.localStorage;
     if (next === "top") target.setItem(SIDEBAR_LAYOUT_STORAGE_KEY, "top");

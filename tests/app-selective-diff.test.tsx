@@ -225,6 +225,20 @@ afterEach(() => {
 });
 
 describe("App selective diff integration", () => {
+  it("returns focus to the header settings trigger after a dialog preference update", async () => {
+    const user = userEvent.setup();
+    libraryHarness.current = libraryValue(database(), database());
+    window.location.hash = "#/";
+
+    render(<App />);
+    const settingsTrigger = screen.getByRole("button", { name: "Настройки" });
+    await user.click(settingsTrigger);
+    await user.click(screen.getByRole("radio", { name: "Сверху" }));
+    await user.click(screen.getByRole("button", { name: "Готово" }));
+
+    await waitFor(() => expect(settingsTrigger).toHaveFocus());
+  });
+
   it("keeps one persisted sidebar layout across games and App remounts", async () => {
     const user = userEvent.setup();
     const base = database();
@@ -236,11 +250,9 @@ describe("App selective diff integration", () => {
     const firstMount = render(<App />);
 
     expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
-    expect(screen.getByRole("button", { name: "Переместить сайдбар наверх" })).toHaveAttribute("aria-pressed", "false");
-
-    await user.click(screen.getByRole("button", { name: "Переместить сайдбар наверх" }));
+    await user.click(screen.getByRole("button", { name: "Настройки" }));
+    await user.click(screen.getByRole("radio", { name: "Сверху" }));
     expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
-    expect(screen.getByRole("button", { name: "Вернуть сайдбар слева" })).toHaveAttribute("aria-pressed", "true");
 
     window.location.hash = `#/games/${GAME_B_ID}`;
     await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Beta" })).toBeInTheDocument());
@@ -250,12 +262,44 @@ describe("App selective diff integration", () => {
     const secondMount = render(<App />);
     expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
 
-    await user.click(screen.getByRole("button", { name: "Вернуть сайдбар слева" }));
+    await user.click(screen.getByRole("button", { name: "Настройки" }));
+    await user.click(screen.getByRole("radio", { name: "Слева" }));
     expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
 
     secondMount.unmount();
     render(<App />);
     expect(document.querySelector(".game-view-layout")).not.toHaveClass("game-view-layout--sidebar-top");
+  });
+
+  it("applies both global switches from a non-game route, persists them, and removes their keys when disabled", async () => {
+    const user = userEvent.setup();
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Alpha");
+    base.notes[NOTE_A_ID] = note(NOTE_A_ID, GAME_A_ID, "- [x] Finished\n- [ ] Open", 1024);
+    libraryHarness.current = libraryValue(base, base);
+    window.location.hash = "#/";
+    const firstMount = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Настройки" }));
+    await user.click(screen.getByRole("switch", { name: "Скрывать выполненные пункты" }));
+    await user.click(screen.getByRole("switch", { name: "Отключить масштабирование жестом" }));
+    const pinchWheel = new WheelEvent("wheel", { bubbles: true, cancelable: true, ctrlKey: true });
+    document.dispatchEvent(pinchWheel);
+    expect(pinchWheel.defaultPrevented).toBe(true);
+
+    window.location.hash = `#/games/${GAME_A_ID}`;
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Alpha" })).toBeInTheDocument());
+    expect(screen.queryByText("Finished")).not.toBeInTheDocument();
+
+    firstMount.unmount();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Настройки" }));
+    expect(screen.getByRole("switch", { name: "Скрывать выполненные пункты" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Отключить масштабирование жестом" })).toBeChecked();
+    await user.click(screen.getByRole("switch", { name: "Скрывать выполненные пункты" }));
+    await user.click(screen.getByRole("switch", { name: "Отключить масштабирование жестом" }));
+    expect(window.localStorage.getItem("mygameslist:hide-completed-checklists:v1")).toBeNull();
+    expect(window.localStorage.getItem("mygameslist:block-pinch-zoom:v1")).toBeNull();
   });
 
   it("does not expose a custom-style control on an existing game page", () => {

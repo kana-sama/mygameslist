@@ -15,7 +15,13 @@ export function toggleCompletedChecklistFilterEnabled(
   current: boolean,
   storage: Pick<Storage, "setItem" | "removeItem"> = window.localStorage,
 ): boolean {
-  const next = !current;
+  return setCompletedChecklistFilterEnabled(!current, storage);
+}
+
+export function setCompletedChecklistFilterEnabled(
+  next: boolean,
+  storage: Pick<Storage, "setItem" | "removeItem"> = window.localStorage,
+): boolean {
   try {
     if (next) storage.setItem(STORAGE_KEY, ENABLED_VALUE);
     else storage.removeItem(STORAGE_KEY);

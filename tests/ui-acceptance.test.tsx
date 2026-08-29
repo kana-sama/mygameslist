@@ -112,6 +112,19 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
+  it("opens global settings from between the random control and local changes", async () => {
+    const user = userEvent.setup();
+    const onOpenSettings = vi.fn();
+    render(<AppShell onOpenDiff={vi.fn()} onOpenSettings={onOpenSettings} route="tiers" storage={{ bytes: 0, operationCount: 0 }}><div>Тирлист</div></AppShell>);
+    const actions = document.querySelector(".app-header__actions")!;
+    const children = Array.from(actions.children);
+    const settings = screen.getByRole("button", { name: "Настройки" });
+    expect(children.indexOf(settings)).toBe(children.findIndex((child) => child.classList.contains("random-game-picker")) + 1);
+    expect(children.indexOf(settings)).toBe(children.findIndex((child) => child.classList.contains("patch-pill")) - 1);
+    await user.click(settings);
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
   it("does not expose a game id activation point", () => {
     const view = render(<AppShell onOpenDiff={vi.fn()} route="game" storage={{ bytes: 0, operationCount: 0 }}><div>Игра</div></AppShell>);
     expect(view.container.firstElementChild).not.toHaveAttribute("id");
@@ -312,10 +325,7 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
-  it("puts the completed-checklist and top-layout toggles before delete with accessible active states", async () => {
-    const user = userEvent.setup();
-    const onToggleCompletedChecklistFilter = vi.fn();
-    const onToggleSidebarLayout = vi.fn();
+  it("keeps delete as the only game information panel tool while applying supplied preferences", () => {
     render(<GamePage
       assets={{}}
       game={makeGame()}
@@ -324,41 +334,21 @@ describe("GamePage", () => {
       onDelete={vi.fn()}
       onSave={vi.fn()}
       completedChecklistFilterEnabled
-      onToggleCompletedChecklistFilter={onToggleCompletedChecklistFilter}
-      onToggleSidebarLayout={onToggleSidebarLayout}
       sidebarLayoutMode="top"
     />);
 
     expect(document.querySelector(".game-view-layout")).toHaveClass("game-view-layout--sidebar-top");
     const tools = document.querySelector(".game-sidebar__tools")!;
-    const filterButton = screen.getByRole("button", { name: "Показывать выполненные пункты" });
-    const layoutButton = screen.getByRole("button", { name: "Вернуть сайдбар слева" });
     const deleteButton = screen.getByRole("button", { name: "Удалить игру" });
-    expect(filterButton).toHaveAttribute("aria-pressed", "true");
-    expect(layoutButton).toHaveAttribute("aria-pressed", "true");
-    expect(Array.from(tools.querySelectorAll("button"))).toEqual([filterButton, layoutButton, deleteButton]);
-
-    await user.click(filterButton);
-    await user.click(layoutButton);
-    expect(onToggleCompletedChecklistFilter.mock.calls).toEqual([[]]);
-    expect(onToggleSidebarLayout.mock.calls).toEqual([[]]);
+    expect(Array.from(tools.querySelectorAll("button"))).toEqual([deleteButton]);
+    expect(within(tools).queryByRole("button", { name: /сайдбар|выполненные/i })).not.toBeInTheDocument();
   });
 
-  it("immediately filters completed checklist items when the inactive control becomes active", () => {
+  it("immediately filters completed checklist items when the supplied global preference becomes active", () => {
     const note: Note = { id: NOTE_ID, gameId: DUCK_ID, bodyMarkdown: "- [x] Finished\n- [ ] Open", attachments: [], rank: 1024, createdAt: NOW, updatedAt: NOW };
-    function Harness() {
-      const [enabled, setEnabled] = useState(false);
-      return <GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} onToggleCompletedChecklistFilter={() => setEnabled((current) => !current)} />;
-    }
-    render(<Harness />);
-
-    const inactive = screen.getByRole("button", { name: "Скрывать выполненные пункты" });
-    expect(inactive).toHaveAttribute("aria-pressed", "false");
+    const view = render(<GamePage assets={{}} completedChecklistFilterEnabled={false} game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
     expect(screen.getByText("Finished")).toBeInTheDocument();
-
-    fireEvent.click(inactive);
-
-    expect(screen.getByRole("button", { name: "Показывать выполненные пункты" })).toHaveAttribute("aria-pressed", "true");
+    view.rerender(<GamePage assets={{}} completedChecklistFilterEnabled game={makeGame({ reviewMarkdown: "" })} mode="game" notes={[note]} onSave={vi.fn()} />);
     expect(screen.queryByText("Finished")).not.toBeInTheDocument();
     expect(screen.getByText("Скрыто 1 пунктов")).toBeInTheDocument();
   });
@@ -626,15 +616,15 @@ describe("GamePage", () => {
             : { ...current, collapsedChecklistSections: update.value as readonly string[] | undefined });
         },
       };
-      return <GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} onToggleCompletedChecklistFilter={() => setEnabled((current) => !current)} />;
+      return <><button onClick={() => setEnabled((current) => !current)} type="button">Переключить фильтр</button><GamePage assets={{}} completedChecklistFilterEnabled={enabled} game={makeGame({ reviewMarkdown: "" })} mode="game" noteInteractionSource={noteInteractionSource} notes={[note]} onSave={vi.fn()} /></>;
     }
     render(<Harness />);
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: First" }));
     await act(async () => { await Promise.resolve(); });
     const timerBaseline = vi.getTimerCount();
-    fireEvent.click(screen.getByRole("button", { name: "Показывать выполненные пункты" }));
-    fireEvent.click(screen.getByRole("button", { name: "Скрывать выполненные пункты" }));
+    fireEvent.click(screen.getByRole("button", { name: "Переключить фильтр" }));
+    fireEvent.click(screen.getByRole("button", { name: "Переключить фильтр" }));
     await act(async () => {
       resolveSave?.();
       await saveResolution;

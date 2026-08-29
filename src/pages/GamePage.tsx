@@ -441,9 +441,7 @@ export interface GamePageProps {
   onSave: (input: GameSaveInput) => void | Promise<void>;
   onDelete?: (gameId: string) => void | Promise<void>;
   sidebarLayoutMode?: SidebarLayoutMode;
-  onToggleSidebarLayout?: () => void;
   completedChecklistFilterEnabled?: boolean;
-  onToggleCompletedChecklistFilter?: () => void;
   noteInteractionSource?: NoteInteractionSource;
 }
 
@@ -1330,7 +1328,7 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
   return createPortal(<PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onAutoFocusConsumed={consumeAutoFocus} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />, host);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", onToggleSidebarLayout, completedChecklistFilterEnabled = false, onToggleCompletedChecklistFilter, noteInteractionSource }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", completedChecklistFilterEnabled = false, noteInteractionSource }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -1636,24 +1634,8 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
             <div><dt>Теги</dt><dd><InlineValuesField active={editingField === "tags"} ariaLabel="Теги" disabled={globalActionsDisabled} onBegin={() => !globalActionsDisabled && setEditingField("tags")} onCommit={(tags) => persist({ tags })} onEnd={() => setEditingField((field) => field === "tags" ? null : field)} suggestions={tagSuggestions} values={game.tags}>{game.tags.length ? game.tags.map((tag) => <span className="inline-tag" key={tag}>{tag}</span>) : "Не указаны"}</InlineValuesField></dd></div>
           </dl>
           <GameProgressGrid assets={assets} disabled={storageLocked || globalActionsDisabled} gameId={game.id} items={game.progressItems ?? []} notes={notes} onAdd={beginProgressAdd} onEdit={beginProgressEdit} onReorder={(activeId, overId) => moveProgressItem(activeId, overId)} resolveAssetUrl={resolveAssetUrl} sortingDisabled={globalActionsDisabled} />
-          {onToggleCompletedChecklistFilter || onToggleSidebarLayout || onDelete ? <div className="game-sidebar__tools">
-            {onToggleCompletedChecklistFilter ? <button
-              aria-label={completedChecklistFilterEnabled ? "Показывать выполненные пункты" : "Скрывать выполненные пункты"}
-              aria-pressed={completedChecklistFilterEnabled}
-              className="game-sidebar__completed-checklist-filter-toggle"
-              onClick={() => onToggleCompletedChecklistFilter()}
-              title={completedChecklistFilterEnabled ? "Показывать выполненные пункты" : "Скрывать выполненные пункты"}
-              type="button"
-            ><Icon name="eye-off" size={15} /></button> : null}
-            {onToggleSidebarLayout ? <button
-              aria-label={sidebarLayoutMode === "top" ? "Вернуть сайдбар слева" : "Переместить сайдбар наверх"}
-              aria-pressed={sidebarLayoutMode === "top"}
-              className="game-sidebar__layout-toggle"
-              onClick={() => onToggleSidebarLayout()}
-              title={sidebarLayoutMode === "top" ? "Вернуть сайдбар слева" : "Переместить сайдбар наверх"}
-              type="button"
-            ><Icon name={sidebarLayoutMode === "top" ? "expand-vertical" : "expand-horizontal"} size={15} /></button> : null}
-            {onDelete ? <button aria-label="Удалить игру" className="game-sidebar__delete" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button> : null}
+          {onDelete ? <div className="game-sidebar__tools">
+            <button aria-label="Удалить игру" className="game-sidebar__delete" disabled={globalActionsDisabled} onClick={() => void deleteGame()} title="Удалить игру" type="button"><Icon name="trash" size={15} /></button>
           </div> : null}
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>

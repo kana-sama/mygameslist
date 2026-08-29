@@ -11,6 +11,8 @@ import {
   AppShell,
   DiffDialog,
   LocalChangesIndicator,
+  PinchZoomGuard,
+  SettingsDialog,
   type AppRoute,
   type DiffSyncController,
   type StorageSummary,
@@ -31,8 +33,9 @@ import {
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
 import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
-import { loadSidebarLayoutMode, toggleSidebarLayoutMode, type SidebarLayoutMode } from "./state/sidebarLayoutPreference";
-import { loadCompletedChecklistFilterEnabled, toggleCompletedChecklistFilterEnabled } from "./state/completedChecklistFilterPreference";
+import { loadSidebarLayoutMode, setSidebarLayoutMode as persistSidebarLayoutMode, type SidebarLayoutMode } from "./state/sidebarLayoutPreference";
+import { loadCompletedChecklistFilterEnabled, setCompletedChecklistFilterEnabled as persistCompletedChecklistFilterEnabled } from "./state/completedChecklistFilterPreference";
+import { loadPinchZoomBlocked, setPinchZoomBlocked as persistPinchZoomBlocked } from "./state/pinchZoomPreference";
 import {
   GITHUB_REPOSITORY_NAME,
   GITHUB_REPOSITORY_OWNER,
@@ -227,8 +230,10 @@ function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
   const [diffOpen, setDiffOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarLayoutMode, setSidebarLayoutMode] = useState<SidebarLayoutMode>(loadSidebarLayoutMode);
   const [completedChecklistFilterEnabled, setCompletedChecklistFilterEnabled] = useState(loadCompletedChecklistFilterEnabled);
+  const [pinchZoomBlocked, setPinchZoomBlocked] = useState(loadPinchZoomBlocked);
   const library = useLibrarySelector(identityLibrary, diffOpen ? Object.is : sameLibraryRouteBoundary);
   const [selectionMode, setSelectionMode] = useState(false);
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
@@ -485,6 +490,7 @@ function LibraryRoutes() {
       localChangesIndicator={<SubscribedLocalChangesIndicator actionError={actionError} onOpenDiff={openDiff} />}
       onNavigate={navigateHref}
       onOpenDiff={openDiff}
+      onOpenSettings={() => setSettingsOpen(true)}
       resolveAssetUrl={library.resolveAssetUrl}
       route={routeKind(location.pathname)}
       storage={{
@@ -526,12 +532,22 @@ function LibraryRoutes() {
         <Route path="/games/:id" element={<GameRoute
           completedChecklistFilterEnabled={completedChecklistFilterEnabled}
           mode="game"
-          onToggleCompletedChecklistFilter={() => setCompletedChecklistFilterEnabled((current) => toggleCompletedChecklistFilterEnabled(current))}
-          onToggleSidebarLayout={() => setSidebarLayoutMode((current) => toggleSidebarLayoutMode(current))}
           sidebarLayoutMode={sidebarLayoutMode}
         />} />
         <Route path="*" element={<div className="empty-state empty-state--hero"><h1>Страница не найдена</h1><p>Такого раздела в библиотеке нет.</p><a className="button button--primary" href="#/">Вернуться в тирлист</a></div>} />
       </Routes>
+
+      <PinchZoomGuard enabled={pinchZoomBlocked} />
+      <SettingsDialog
+        completedChecklistFilterEnabled={completedChecklistFilterEnabled}
+        onClose={() => setSettingsOpen(false)}
+        onCompletedChecklistFilterEnabledChange={(enabled) => setCompletedChecklistFilterEnabled(persistCompletedChecklistFilterEnabled(enabled))}
+        onPinchZoomBlockedChange={(enabled) => setPinchZoomBlocked(persistPinchZoomBlocked(enabled))}
+        onSidebarLayoutModeChange={(mode) => setSidebarLayoutMode(persistSidebarLayoutMode(mode))}
+        open={settingsOpen}
+        pinchZoomBlocked={pinchZoomBlocked}
+        sidebarLayoutMode={sidebarLayoutMode}
+      />
 
       <DiffDialog
         conflicts={conflictItems}
@@ -651,11 +667,9 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
   }, sameNoteInteractionSnapshot);
 }
 
-function GameRoute({ mode, completedChecklistFilterEnabled, onToggleCompletedChecklistFilter, onToggleSidebarLayout, sidebarLayoutMode }: {
+function GameRoute({ mode, completedChecklistFilterEnabled, sidebarLayoutMode }: {
   mode: "new" | "game";
   completedChecklistFilterEnabled?: boolean;
-  onToggleCompletedChecklistFilter?: () => void;
-  onToggleSidebarLayout?: () => void;
   sidebarLayoutMode?: SidebarLayoutMode;
 }) {
   const navigate = useNavigate();
@@ -702,8 +716,6 @@ function GameRoute({ mode, completedChecklistFilterEnabled, onToggleCompletedChe
       const gameId = await selection.saveGame(input);
       if (mode === "new") navigate(`/games/${gameId}`, { replace: true });
     }}
-    onToggleCompletedChecklistFilter={onToggleCompletedChecklistFilter}
-    onToggleSidebarLayout={onToggleSidebarLayout}
     platformSuggestions={platformSuggestions}
     resolveAssetUrl={selection.resolveAssetUrl}
     sidebarLayoutMode={sidebarLayoutMode}
