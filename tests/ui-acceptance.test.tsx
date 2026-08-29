@@ -112,15 +112,15 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
-  it("opens global settings from between the random control and local changes", async () => {
+  it("keeps global settings as the final header action after adding a game", async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
     render(<AppShell onOpenDiff={vi.fn()} onOpenSettings={onOpenSettings} route="tiers" storage={{ bytes: 0, operationCount: 0 }}><div>Тирлист</div></AppShell>);
     const actions = document.querySelector(".app-header__actions")!;
-    const children = Array.from(actions.children);
     const settings = screen.getByRole("button", { name: "Настройки" });
-    expect(children.indexOf(settings)).toBe(children.findIndex((child) => child.classList.contains("random-game-picker")) + 1);
-    expect(children.indexOf(settings)).toBe(children.findIndex((child) => child.classList.contains("patch-pill")) - 1);
+    const newGame = screen.getByRole("link", { name: "Добавить игру" });
+    expect(actions.lastElementChild).toBe(settings);
+    expect(newGame.nextElementSibling).toBe(settings);
     await user.click(settings);
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });

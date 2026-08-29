@@ -15,6 +15,14 @@ describe("top sidebar layout", () => {
     expect(productionStyles).toMatch(/@media \(max-width: 680px\) \{[\s\S]*?\.settings-dialog-layer \{ align-items: flex-start; padding: 0; \}[\s\S]*?\.settings-dialog \{ width: min\(660px, calc\(100% - 28px\)\); margin-top: 12px; \}/);
   });
 
+  it("animates settings dialog entry and exit while disabling motion when requested", () => {
+    expect(productionStyles).toMatch(/\.settings-dialog-layer\[data-state="open"\] \{[^}]*animation:/);
+    expect(productionStyles).toMatch(/\.settings-dialog-layer\[data-state="closing"\] \{[^}]*animation:/);
+    expect(productionStyles).toMatch(/\.settings-dialog-layer\[data-state="open"\] \.settings-dialog \{[^}]*animation:/);
+    expect(productionStyles).toMatch(/\.settings-dialog-layer\[data-state="closing"\] \.settings-dialog \{[^}]*animation:/);
+    expect(productionStyles).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.settings-dialog-layer[^}]*animation: none/);
+  });
+
   it("uses the approved one-column page and compact desktop sidebar tracks", () => {
     const style = document.createElement("style");
     style.dataset.sidebarLayoutTest = "true";

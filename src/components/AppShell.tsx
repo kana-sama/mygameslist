@@ -118,11 +118,11 @@ export function AppShell({
         <GlobalGameSearch games={games} onNavigate={onNavigate} />
         <div className="app-header__actions">
           <RandomGameButton games={games} onNavigate={onNavigate} resolveAssetUrl={resolveAssetUrl} />
-          <button aria-label="Настройки" className="app-header__settings" onClick={onOpenSettings} title="Настройки" type="button"><Icon name="settings" size={17} /></button>
           {localChangesIndicator ?? <LocalChangesIndicator onOpenDiff={onOpenDiff} storage={storage} />}
           <a className="button button--primary button--new-game" href="#/games/new" onClick={onNavigate ? (event) => { event.preventDefault(); onNavigate("#/games/new"); } : undefined}>
             <Icon name="plus" size={18} />Добавить игру
           </a>
+          <button aria-label="Настройки" className="app-header__settings" onClick={onOpenSettings} title="Настройки" type="button"><Icon name="settings" size={17} /></button>
         </div>
       </header>
 

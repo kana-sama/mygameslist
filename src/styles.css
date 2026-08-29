@@ -713,7 +713,15 @@ button.markdown-table-group__header:disabled { cursor: default; }
 
 .modal-layer { position: fixed; z-index: 100; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 14px; background: rgba(0, 0, 0, .68); }
 .settings-dialog-layer { align-items: center; background: rgba(5, 7, 9, .71); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.settings-dialog-layer[data-state="open"] { animation: settings-dialog-backdrop-in 160ms cubic-bezier(.2, .7, .2, 1) both; }
+.settings-dialog-layer[data-state="closing"] { animation: settings-dialog-backdrop-out 160ms cubic-bezier(.4, 0, 1, 1) both; pointer-events: none; }
 .settings-dialog { width: min(660px, calc(100% - 28px)); max-height: calc(100dvh - 28px); overflow: auto; border: 1px solid #41454b; border-radius: 11px; background: #1d1f22; box-shadow: 0 28px 80px rgba(0, 0, 0, .52), inset 0 0 0 1px rgba(255, 255, 255, .025); }
+.settings-dialog-layer[data-state="open"] .settings-dialog { animation: settings-dialog-in 160ms cubic-bezier(.2, .7, .2, 1) both; }
+.settings-dialog-layer[data-state="closing"] .settings-dialog { animation: settings-dialog-out 160ms cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes settings-dialog-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes settings-dialog-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes settings-dialog-in { from { opacity: 0; transform: translateY(9px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes settings-dialog-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(9px) scale(.985); } }
 .settings-dialog__header { min-height: 88px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 32px; align-items: start; gap: 13px; padding: 19px 20px 17px; border-bottom: 1px solid var(--line-soft); background: #202225; }
 .settings-dialog__title-icon, .settings-section-icon { display: grid; flex: 0 0 auto; place-items: center; border: 1px solid #3e596a; color: #a8cce5; background: #263640; }
 .settings-dialog__title-icon { width: 44px; height: 44px; border-radius: 9px; }.settings-dialog__header h2 { margin: 0; font-size: 18px; }.settings-dialog__header p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
@@ -726,6 +734,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .settings-dialog__footer { min-height: 55px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding: 10px 20px; border-top: 1px solid var(--line-soft); background: #1a1c1f; }.settings-dialog__footer > span { display: flex; align-items: center; gap: 6px; color: var(--muted-2); font-size: 9px; }.settings-dialog__footer > span i { width: 5px; height: 5px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(111, 160, 125, .12); }.settings-dialog__footer .button { min-width: 78px; min-height: 31px; padding: 0 14px; font-size: 10px; }
 .app-header__settings { width: 30px; height: 30px; display: grid; padding: 0; border: 1px solid #4f7087; border-radius: 5px; place-items: center; color: #afd1e8; background: #24333d; cursor: pointer; }.app-header__settings:hover { color: #d7ebf7; border-color: #6291af; background: #2c414f; }
 @media (max-width: 680px) { .settings-dialog-layer { align-items: flex-start; padding: 0; }.settings-dialog { width: min(660px, calc(100% - 28px)); margin-top: 12px; }.settings-dialog__header { padding: 16px; }.settings-dialog__body { padding: 16px 16px 2px; }.settings-layout-grid, .settings-preference { grid-template-columns: 1fr; }.settings-preference { gap: 12px; }.settings-preference__copy p { margin-left: 0; }.settings-dialog__footer { padding: 10px 16px; } }
+@media (prefers-reduced-motion: reduce) { .settings-dialog-layer[data-state], .settings-dialog-layer[data-state] .settings-dialog { animation: none; } }
 .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .modal-header h2 { margin: 2px 0 0; font-size: 16px; }
 .modal-layer--right { justify-content: flex-end; padding: 0; }

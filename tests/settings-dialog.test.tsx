@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -75,6 +75,62 @@ describe("SettingsDialog", () => {
 
     rerender(<><button type="button">Открыть</button><SettingsDialog completedChecklistFilterEnabled={false} onClose={onClose} onCompletedChecklistFilterEnabledChange={vi.fn()} onPinchZoomBlockedChange={vi.fn()} onSidebarLayoutModeChange={vi.fn()} open={false} pinchZoomBlocked={false} sidebarLayoutMode="side" /></>);
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Открыть" }));
+  });
+
+  it("keeps a closing settings layer until its exit lifecycle completes", () => {
+    vi.useFakeTimers();
+    try {
+      const { onClose, onCompletedChecklistFilterEnabledChange, onPinchZoomBlockedChange, onSidebarLayoutModeChange, rerender } = renderDialog({ open: false });
+      const opener = screen.getByRole("button", { name: "Открыть" });
+      opener.focus();
+
+      rerender(<><button type="button">Открыть</button><SettingsDialog completedChecklistFilterEnabled={false} onClose={onClose} onCompletedChecklistFilterEnabledChange={onCompletedChecklistFilterEnabledChange} onPinchZoomBlockedChange={onPinchZoomBlockedChange} onSidebarLayoutModeChange={onSidebarLayoutModeChange} open pinchZoomBlocked={false} sidebarLayoutMode="side" /></>);
+      expect(document.querySelector(".settings-dialog-layer")).toHaveAttribute("data-state", "open");
+      rerender(<><button type="button">Открыть</button><SettingsDialog completedChecklistFilterEnabled={false} onClose={onClose} onCompletedChecklistFilterEnabledChange={onCompletedChecklistFilterEnabledChange} onPinchZoomBlockedChange={onPinchZoomBlockedChange} onSidebarLayoutModeChange={onSidebarLayoutModeChange} open={false} pinchZoomBlocked={false} sidebarLayoutMode="side" /></>);
+
+      const layer = document.querySelector(".settings-dialog-layer");
+      expect(layer).toHaveAttribute("data-state", "closing");
+      expect(layer).toHaveAttribute("aria-hidden", "true");
+      expect(layer).toHaveAttribute("inert", "");
+      expect(screen.queryByRole("dialog", { name: "Настройки" })).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(opener);
+      expect(within(layer as HTMLElement).queryByRole("button", { name: "Закрыть настройки" })).not.toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onSidebarLayoutModeChange).not.toHaveBeenCalled();
+      expect(onCompletedChecklistFilterEnabledChange).not.toHaveBeenCalled();
+      expect(onPinchZoomBlockedChange).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(171));
+
+      expect(document.querySelector(".settings-dialog-layer")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps focus on the opener when closing preempts scheduled dialog focus", () => {
+    let pendingFrame: FrameRequestCallback | undefined;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      pendingFrame = callback;
+      return 1;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {
+      pendingFrame = undefined;
+    });
+    try {
+      const { rerender } = renderDialog({ open: false });
+      const opener = screen.getByRole("button", { name: "Открыть" });
+      opener.focus();
+
+      rerender(<><button type="button">Открыть</button><SettingsDialog completedChecklistFilterEnabled={false} onClose={vi.fn()} onCompletedChecklistFilterEnabledChange={vi.fn()} onPinchZoomBlockedChange={vi.fn()} onSidebarLayoutModeChange={vi.fn()} open pinchZoomBlocked={false} sidebarLayoutMode="side" /></>);
+
+      rerender(<><button type="button">Открыть</button><SettingsDialog completedChecklistFilterEnabled={false} onClose={vi.fn()} onCompletedChecklistFilterEnabledChange={vi.fn()} onPinchZoomBlockedChange={vi.fn()} onSidebarLayoutModeChange={vi.fn()} open={false} pinchZoomBlocked={false} sidebarLayoutMode="side" /></>);
+      act(() => pendingFrame?.(performance.now()));
+
+      expect(document.activeElement).toBe(opener);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it("traps Tab navigation inside the open dialog", async () => {
