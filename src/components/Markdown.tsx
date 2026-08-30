@@ -697,6 +697,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
   };
 
   const collapsedHeadingItemCount = (headingIndex: number, headingDepth: number, progress: ChecklistProgress): number => {
+    if (completedChecklistFilterEnabled) return progress.total - progress.checked;
     let childHeadingCount = 0;
     for (let index = headingIndex + 1; index < blocks.length; index += 1) {
       const candidate = blocks[index];

@@ -1862,6 +1862,63 @@ describe("Markdown tasks", () => {
     }
   });
 
+  it("counts only non-checked rows inside a collapsed heading when completed items are hidden", async () => {
+    const user = userEvent.setup();
+    const markdown = [
+      "# Root",
+      "## Hello",
+      "- [ ] a",
+      "- [-] b",
+      "- [x] c",
+    ].join("\n");
+    let collapsed: string[] = [];
+    let filterEnabled = false;
+    let view: ReturnType<typeof render>;
+    const onCollapsedChecklistSectionsChange = vi.fn((next: string[]) => {
+      collapsed = next;
+      view.rerender(
+        <MarkdownView
+          collapsedChecklistSections={collapsed}
+          completedChecklistFilterEnabled={filterEnabled}
+          completedChecklistFilterRevision={filterEnabled ? 1 : 0}
+          markdown={markdown}
+          onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+        />,
+      );
+    });
+
+    view = render(
+      <MarkdownView
+        collapsedChecklistSections={collapsed}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Hello Выполнено 1 из 3" }));
+    expect(screen.getByRole("heading", { name: "Hello Выполнено 1 из 3" })).toBeInTheDocument();
+    expect(screen.getByText("Свернуто · 3 пунктов внутри")).toBeInTheDocument();
+
+    filterEnabled = true;
+    view.rerender(
+      <MarkdownView
+        collapsedChecklistSections={collapsed}
+        completedChecklistFilterEnabled={filterEnabled}
+        completedChecklistFilterRevision={1}
+        markdown={markdown}
+        onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Hello Выполнено 1 из 3" })).toBeInTheDocument();
+    expect(screen.getByText("Свернуто · 2 пунктов внутри")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hello Выполнено 1 из 3" }));
+    expect(screen.getByText("a")).toBeInTheDocument();
+    expect(screen.getByText("b")).toBeInTheDocument();
+    expect(screen.queryByText("c")).not.toBeInTheDocument();
+  });
+
   it("balances collapsed root subsection rhythm", async () => {
     const style = document.createElement("style");
     style.textContent = productionStyles;
