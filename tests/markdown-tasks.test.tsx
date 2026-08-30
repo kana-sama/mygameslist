@@ -84,6 +84,23 @@ afterEach(() => {
 });
 
 describe("Markdown tasks", () => {
+  it("preserves title-anchor definitions when a task containing a rich trigger changes", () => {
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "- [ ] Visit [Archive Entry][?]",
+      "",
+      "[?Archive Entry]:",
+      "    Synthetic body",
+    ].join("\n");
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} richTooltipsEnabled />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать пункт: Visit [Archive Entry][?]" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Текст пункта: Visit [Archive Entry][?]" }), { target: { value: "Revisit [Archive Entry][?]" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Текст пункта: Visit [Archive Entry][?]" }), { key: "Enter" });
+
+    expect(onTaskChange).toHaveBeenCalledWith(markdown.replace("Visit", "Revisit"));
+  });
+
   describe("completed checklist filter", () => {
     describe("motion", () => {
       let animations: RecordedMarkdownAnimation[];

@@ -80,17 +80,17 @@ describe("library validation", () => {
     database.games[GAME_ID] = game();
     database.notes[NOTE_ID] = {
       ...note(),
-      bodyMarkdown: "Visit [Archive][?archive].\n\n[?archive]:\n    **North wing**",
+      bodyMarkdown: "Visit [Archive][?].\n\n[?Archive]:\n    **North wing**",
     };
     expect(validateLibrary(database).ok).toBe(true);
 
-    database.notes[NOTE_ID] = { ...database.notes[NOTE_ID], bodyMarkdown: "Visit [Archive][?archive]." };
+    database.notes[NOTE_ID] = { ...database.notes[NOTE_ID], bodyMarkdown: "Visit [Archive][?]." };
     expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/bodyMarkdown` }));
   });
 
   it("allows literal rich references in reviews without isolating reviews from Markdown safety", () => {
     const database = empty();
-    database.games[GAME_ID] = { ...game(), reviewMarkdown: "Review [Label][?entry]." };
+    database.games[GAME_ID] = { ...game(), reviewMarkdown: "Review [Label][?]." };
     database.notes[NOTE_ID] = note();
 
     expect(validateLibrary(database).ok).toBe(true);
@@ -101,10 +101,10 @@ describe("library validation", () => {
       message: "Небезопасная ссылка: javascript:alert(1",
     }));
 
-    database.games[GAME_ID] = { ...game(), reviewMarkdown: "Review [Label][?entry]." };
-    database.notes[NOTE_ID] = { ...note(), bodyMarkdown: "Note [Label][?entry]." };
+    database.games[GAME_ID] = { ...game(), reviewMarkdown: "Review [Label][?]." };
+    database.notes[NOTE_ID] = { ...note(), bodyMarkdown: "Note [Label][?]." };
     expect(validateLibrary(database).issues).toEqual([
-      { path: `/notes/${NOTE_ID}/bodyMarkdown`, message: "Rich tooltip [?entry]: определение не найдено" },
+      { path: `/notes/${NOTE_ID}/bodyMarkdown`, message: "Rich tooltip [?Label]: определение не найдено" },
     ]);
   });
 

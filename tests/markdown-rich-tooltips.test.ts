@@ -1,47 +1,75 @@
 import { describe, expect, it } from "vitest";
 import {
+  markdownRichTooltipAnchor,
   parseMarkdownRichTooltipBody,
+  parseMarkdownRichTooltipReference,
   parseMarkdownRichTooltips,
   restoreMarkdownRichTooltipDefinitions,
 } from "../src/domain/markdownRichTooltips";
-import { markdownInlineTokenPattern, markdownVisibleSourceRanges } from "../src/components/markdownInlineSyntax";
 import { validateInteractiveNoteField, validateMarkdown, validateNoteMarkdown } from "../src/domain/validation";
 
 describe("Markdown rich tooltip source", () => {
-  it("recognizes rich references while exposing only their visible labels", () => {
-    const source = "[**Archive Entry**][?archive-entry]";
-
-    expect([...source.matchAll(markdownInlineTokenPattern())].map((match) => match[0])).toEqual([source]);
-    expect(markdownVisibleSourceRanges(source, true)).toEqual([{ start: 3, end: 16 }]);
+  it("derives a trimmed plain-text anchor from supported inline Markdown labels", () => {
+    expect(markdownRichTooltipAnchor("  **Archive _Entry_** and `Cache`  ")).toBe("Archive Entry and Cache");
+    expect(parseMarkdownRichTooltipReference("[**Archive Entry**][?]")).toEqual({
+      anchor: "Archive Entry",
+      label: "**Archive Entry**",
+    });
   });
 
-  it("keeps the entire rich-reference source visible when rich tooltips are not enabled", () => {
-    const source = "[**Archive Entry**][?archive-entry]";
+  it("derives anchors from the same escape and spoiler tokens the inline renderer displays", () => {
+    expect(markdownRichTooltipAnchor(String.raw`A\q`)).toBe(String.raw`A\q`);
+    expect(markdownRichTooltipAnchor("||a|b||")).toBe("||a|b||");
+    expect(markdownRichTooltipAnchor(String.raw`**Outer _inner_** \| ||secret||`)).toBe("Outer inner | secret");
 
-    expect(markdownVisibleSourceRanges(source)).toEqual([{ start: 0, end: 35 }]);
+    const source = [
+      String.raw`[A\q][?] [||a|b||][?] [**Outer _inner_** \| ||secret||][?]`,
+      "",
+      String.raw`[?A\q]:`,
+      "    Backslash body",
+      "[?||a|b||]:",
+      "    Literal spoiler body",
+      "[?Outer inner | secret]:",
+      "    Formatted body",
+    ].join("\n");
+
+    expect(parseMarkdownRichTooltips(source)).toMatchObject({
+      errors: [],
+      references: [
+        { anchor: String.raw`A\q` },
+        { anchor: "||a|b||" },
+        { anchor: "Outer inner | secret" },
+      ],
+    });
   });
 
-  it("keeps ordinary links and hover hints visible exactly as before", () => {
-    expect(markdownVisibleSourceRanges('[Guide](https://example.com) [Hint]("description")')).toEqual([
-      { start: 1, end: 6 },
-      { start: 28, end: 29 },
-      { start: 30, end: 34 },
-    ]);
+  it("accepts only complete empty-destination rich-reference tokens", () => {
+    expect(parseMarkdownRichTooltipReference("[Archive][?]")).toEqual({ anchor: "Archive", label: "Archive" });
+    expect(parseMarkdownRichTooltipReference("[Archive][?old-slug]")).toBeNull();
+    expect(parseMarkdownRichTooltipReference("before [Archive][?]")).toBeNull();
+  });
+
+  it("keeps old slug syntax literal in parser and validation", () => {
+    const source = "[Label][?old-slug]";
+
+    expect(parseMarkdownRichTooltips(source)).toMatchObject({ errors: [], references: [], visibleMarkdown: source });
+    expect(validateMarkdown(source)).toEqual([]);
+    expect(validateInteractiveNoteField("bodyMarkdown", source)).toEqual([]);
   });
 
   it("keeps rich-reference diagnostics out of generic Markdown while note interactions opt in", () => {
-    expect(validateMarkdown("Review [Label][?entry].")).toEqual([]);
-    expect(validateInteractiveNoteField("bodyMarkdown", "Note [Label][?entry].")).toEqual([
-      { path: "/bodyMarkdown", message: "Rich tooltip [?entry]: определение не найдено" },
+    expect(validateMarkdown("Review [Label][?].")).toEqual([]);
+    expect(validateInteractiveNoteField("bodyMarkdown", "Note [Label][?].")).toEqual([
+      { path: "/bodyMarkdown", message: "Rich tooltip [?Label]: определение не найдено" },
     ]);
   });
 
   it("extracts a terminal definition while preserving the visible source and suffix", () => {
     const source = [
       "# Note",
-      "Open [Archive Entry][?archive-entry].",
+      "Open [**Archive Entry**][?].",
       "",
-      "[?archive-entry]:",
+      "[?Archive Entry]:",
       "    Location",
       "    : **North Wing**",
       "",
@@ -50,166 +78,147 @@ describe("Markdown rich tooltip source", () => {
 
     const parsed = parseMarkdownRichTooltips(source);
 
-    expect(parsed.visibleMarkdown).toBe("# Note\nOpen [Archive Entry][?archive-entry].\n\n");
-    expect(parsed.definitionSectionStart).toBe(46);
-    expect(parsed.definitions.get("archive-entry")).toEqual({
-      id: "archive-entry",
-      sourceStart: 46,
+    expect(parsed.visibleMarkdown).toBe("# Note\nOpen [**Archive Entry**][?].\n\n");
+    expect(parsed.definitionSectionStart).toBe(37);
+    expect(parsed.definitions.get("Archive Entry")).toEqual({
+      anchor: "Archive Entry",
+      sourceStart: 37,
       sourceEnd: source.length,
       bodyMarkdown: "Location\n: **North Wing**\n\n- Available after chapter 8",
     });
-    expect(parsed.references).toEqual([{ id: "archive-entry", sourceStart: 12, sourceEnd: 43 }]);
+    expect(parsed.references).toEqual([{ anchor: "Archive Entry", sourceStart: 12, sourceEnd: 34 }]);
     expect(parsed.errors).toEqual([]);
     expect(restoreMarkdownRichTooltipDefinitions(parsed, parsed.visibleMarkdown.replace("Open", "Unlock")))
       .toBe(source.replace("Open", "Unlock"));
   });
 
   it("preserves CRLF bodies and extracts adjacent definitions", () => {
-    const source = "Read [One][?one] and [Two][?two].\r\n\r\n[?one]:\r\n    First\r\n\r\n[?two]:\r\n    Second\r\n";
+    const source = "Read [One][?] and [Two][?].\r\n\r\n[?One]:\r\n    First\r\n\r\n[?Two]:\r\n    Second\r\n";
     const parsed = parseMarkdownRichTooltips(source);
 
-    expect(parsed.visibleMarkdown).toBe("Read [One][?one] and [Two][?two].\r\n\r\n");
-    expect(parsed.definitions.get("one")?.bodyMarkdown).toBe("First");
-    expect(parsed.definitions.get("two")?.bodyMarkdown).toBe("Second");
+    expect(parsed.visibleMarkdown).toBe("Read [One][?] and [Two][?].\r\n\r\n");
+    expect(parsed.definitions.get("One")?.bodyMarkdown).toBe("First");
+    expect(parsed.definitions.get("Two")?.bodyMarkdown).toBe("Second");
     expect(parsed.references).toEqual([
-      { id: "one", sourceStart: 5, sourceEnd: 16 },
-      { id: "two", sourceStart: 21, sourceEnd: 32 },
+      { anchor: "One", sourceStart: 5, sourceEnd: 13 },
+      { anchor: "Two", sourceStart: 18, sourceEnd: 26 },
     ]);
   });
 
-  it("keeps every visible reference including reused ids but ignores code and escaped syntax", () => {
+  it("keeps every visible reference sharing one anchor but ignores code and escaped syntax", () => {
     const source = [
-      "Use [First][?entry] then [Second][?entry].",
-      "`[Code][?entry]` and \\[Escaped][?entry]",
+      "Use [First][?] then [First][?].",
+      "`[Code][?]` and \\[Escaped][?]",
       "```md",
-      "[Fence][?entry]",
+      "[Fence][?]",
       "```",
       "",
-      "[?entry]:",
+      "[?First]:",
       "    Body",
     ].join("\n");
 
     const parsed = parseMarkdownRichTooltips(source);
 
-    expect(parsed.references.map(({ id, sourceStart, sourceEnd }) => ({ id, sourceStart, sourceEnd }))).toEqual([
-      { id: "entry", sourceStart: 4, sourceEnd: 19 },
-      { id: "entry", sourceStart: 25, sourceEnd: 41 },
+    expect(parsed.references).toEqual([
+      { anchor: "First", sourceStart: 4, sourceEnd: 14 },
+      { anchor: "First", sourceStart: 20, sourceEnd: 30 },
     ]);
     expect(parsed.errors).toEqual([]);
   });
 
   it("collects only visible rich references outside escapes and link metadata with exact offsets", () => {
-    const source = String.raw`\[Escaped][?entry] [Hint]("see [Hinted][?entry]") [Guide](https://example.test/[Path][?entry] "see [Title][?entry]") [Visible][?entry]`;
-    const parsed = parseMarkdownRichTooltips(`${source}\n\n[?entry]:\n    Synthetic body`);
+    const source = String.raw`\[Escaped][?] [Hint]("see [Hinted][?]") [Guide](https://example.test/[Path][?] "see [Title][?]") [Visible][?]`;
+    const parsed = parseMarkdownRichTooltips(`${source}\n\n[?Visible]:\n    Synthetic body`);
 
-    expect(parsed.references).toEqual([{ id: "entry", sourceStart: 117, sourceEnd: 134 }]);
+    expect(parsed.references).toEqual([{ anchor: "Visible", sourceStart: 97, sourceEnd: 109 }]);
     expect(parsed.errors).toEqual([]);
-    expect(validateNoteMarkdown(`${source}\n\n[?entry]:\n    Synthetic body`)).toEqual([]);
+    expect(validateNoteMarkdown(`${source}\n\n[?Visible]:\n    Synthetic body`)).toEqual([]);
   });
 
-  it("keeps escaped references and rich-looking link metadata aligned with rendered source visibility", () => {
-    expect(markdownVisibleSourceRanges(String.raw`\[Escaped][?entry]`, true)).toEqual([
-      { start: 1, end: 18 },
-    ]);
-    expect(markdownVisibleSourceRanges('[Hint]("see [Inner][?entry]")', true)).toEqual([
-      { start: 1, end: 5 },
-    ]);
-    expect(markdownVisibleSourceRanges('[Guide](https://example.test/[Path][?entry] "see [Title][?entry]")', true)).toEqual([
-      { start: 1, end: 6 },
-    ]);
-  });
+  it("treats a rich reference after an even backslash run as active", () => {
+    const source = String.raw`\\[Visible][?]`;
+    const parsed = parseMarkdownRichTooltips(`${source}\n\n[?Visible]:\n    Synthetic body`);
 
-  it("treats a rich reference after an even backslash run as active everywhere", () => {
-    const source = String.raw`\\[Visible][?entry]`;
-    const parsed = parseMarkdownRichTooltips(`${source}\n\n[?entry]:\n    Synthetic body`);
-
-    expect(parsed.references).toEqual([{ id: "entry", sourceStart: 2, sourceEnd: 19 }]);
+    expect(parsed.references).toEqual([{ anchor: "Visible", sourceStart: 2, sourceEnd: 14 }]);
     expect(parsed.errors).toEqual([]);
-    expect(markdownVisibleSourceRanges(source, true)).toEqual([
-      { start: 0, end: 1 },
-      { start: 3, end: 10 },
-    ]);
   });
 
-  it("rejects leading and trailing hyphens while preserving consecutive interior hyphens", () => {
+  it("matches anchors exactly across case, Unicode, punctuation, and whitespace", () => {
     const source = [
-      "[Leading][?-entry] [Trailing][?entry-] [Interior][?entry--part]",
+      "[First][?] [first][?] [Mòrag: chapter 8!][?] [ Spaced ][?]",
       "",
-      "[?-entry]:",
-      "    Leading body",
-      "[?entry-]:",
-      "    Trailing body",
-      "[?entry--part]:",
-      "    Interior body",
+      "[?First]:",
+      "    First body",
+      "[?Mòrag: chapter 8!]:",
+      "    Unicode body",
+      "[? Spaced ]:",
+      "    Spaced body",
     ].join("\n");
 
-    expect(parseMarkdownRichTooltips(source).errors).toEqual([
-      "Некорректный rich tooltip id: -entry",
-      "Некорректный rich tooltip id: entry-",
-      "Некорректный rich tooltip id: -entry",
-      "Некорректный rich tooltip id: entry-",
+    const parsed = parseMarkdownRichTooltips(source);
+
+    expect(parsed.duplicateAnchors).toEqual(new Set());
+    expect(parsed.errors).toEqual([
+      "Rich tooltip [?first]: определение не найдено",
     ]);
-    expect(markdownVisibleSourceRanges("[Leading][?-entry] [Trailing][?entry-] [Interior][?entry--part]", true)).toEqual([
-      { start: 0, end: 18 },
-      { start: 18, end: 19 },
-      { start: 19, end: 38 },
-      { start: 38, end: 39 },
-      { start: 40, end: 48 },
-    ]);
+    expect(parseMarkdownRichTooltips(source).definitions.get("Spaced")?.bodyMarkdown).toBe("Spaced body");
   });
 
   it("collects a visible reference after an unmatched backtick with exact source offsets", () => {
-    const parsed = parseMarkdownRichTooltips("Prefix ` [Missing][?missing]");
+    const parsed = parseMarkdownRichTooltips("Prefix ` [Missing][?]");
 
-    expect(parsed.references).toEqual([{ id: "missing", sourceStart: 9, sourceEnd: 28 }]);
-    expect(parsed.errors).toEqual(["Rich tooltip [?missing]: определение не найдено"]);
+    expect(parsed.references).toEqual([{ anchor: "Missing", sourceStart: 9, sourceEnd: 21 }]);
+    expect(parsed.errors).toEqual(["Rich tooltip [?Missing]: определение не найдено"]);
   });
 
   it("validates a missing definition after an unmatched backtick", () => {
-    expect(validateNoteMarkdown("Prefix ` [Missing][?missing]")).toEqual([
-      "Rich tooltip [?missing]: определение не найдено",
+    expect(validateNoteMarkdown("Prefix ` [Missing][?]")).toEqual([
+      "Rich tooltip [?Missing]: определение не найдено",
     ]);
   });
 
   it("matches renderer code spans that begin inside a longer backtick run", () => {
-    const codeSource = "`` [Missing][?missing] `";
+    const codeSource = "`` [Missing][?] `";
     expect(parseMarkdownRichTooltips(codeSource).references).toEqual([]);
     expect(validateNoteMarkdown(codeSource)).toEqual([]);
 
-    const source = `${codeSource} [Visible][?visible]`;
+    const source = `${codeSource} [Visible][?]`;
     const parsed = parseMarkdownRichTooltips(source);
 
-    expect(parsed.references).toEqual([{ id: "visible", sourceStart: 25, sourceEnd: 44 }]);
-    expect(parsed.errors).toEqual(["Rich tooltip [?visible]: определение не найдено"]);
+    expect(parsed.references).toEqual([{ anchor: "Visible", sourceStart: 18, sourceEnd: 30 }]);
+    expect(parsed.errors).toEqual(["Rich tooltip [?Visible]: определение не найдено"]);
     expect(validateNoteMarkdown(source)).toEqual([
-      "Rich tooltip [?visible]: определение не найдено",
+      "Rich tooltip [?Visible]: определение не найдено",
     ]);
   });
 
-  it("reports invalid ids, duplicate definitions, missing definitions, empty definitions, and forbidden nested references", () => {
+  it("reports empty anchors, duplicate anchors, missing definitions, empty definitions, and forbidden nested references", () => {
     const source = [
-      "[Bad][?bad_id] [Missing][?missing] [Again][?good]",
+      "[   ][?] [Missing][?] [Again][?Good]",
       "",
-      "[?bad_id]:",
+      "[?   ]:",
       "    Body",
-      "[?good]:",
-      "    [Nested][?good]",
-      "[?good]:",
+      "[?Good]:",
+      "    [Nested][?]",
+      "[?Good]:",
       "",
     ].join("\n");
 
-    expect(parseMarkdownRichTooltips(source).errors).toEqual([
-      "Некорректный rich tooltip id: bad_id",
-      "Rich tooltip [?missing]: определение не найдено",
-      "Некорректный rich tooltip id: bad_id",
-      "Rich tooltip [?good]: вложенные rich tooltip references запрещены",
-      "Rich tooltip [?good]: определение задано несколько раз",
-      "Rich tooltip [?good]: пустое определение",
+    const parsed = parseMarkdownRichTooltips(source);
+
+    expect(parsed.duplicateAnchors).toEqual(new Set(["Good"]));
+    expect(parsed.errors).toEqual([
+      "Некорректный rich tooltip anchor: ",
+      "Rich tooltip [?Missing]: определение не найдено",
+      "Некорректный rich tooltip anchor: ",
+      "Rich tooltip [?Nested]: вложенные rich tooltip references запрещены",
+      "Rich tooltip [?Good]: определение задано несколько раз",
+      "Rich tooltip [?Good]: пустое определение",
     ]);
   });
 
   it("does not extract an interrupted definition section and leaves it visible", () => {
-    const source = "Visible\n\n[?entry]:\n    Body\nNot terminal\n";
+    const source = "Visible\n\n[?Entry]:\n    Body\nNot terminal\n";
     const parsed = parseMarkdownRichTooltips(source);
 
     expect(parsed.definitionSectionStart).toBeNull();
@@ -220,7 +229,7 @@ describe("Markdown rich tooltip source", () => {
   });
 
   it("allows unused definitions and retains Markdown safety checks inside definitions", () => {
-    const source = "Visible\n\n[?unused]:\n    [Unsafe](javascript:alert(1))";
+    const source = "Visible\n\n[?Unused]:\n    [Unsafe](javascript:alert(1))";
 
     expect(parseMarkdownRichTooltips(source).errors).toEqual([]);
     expect(validateMarkdown(source)).toEqual(["Небезопасная ссылка: javascript:alert(1"]);
@@ -228,11 +237,11 @@ describe("Markdown rich tooltip source", () => {
 
   it("ignores rich references inside four-space-indented fenced definition code", () => {
     const source = [
-      "Visible [Entry][?entry].",
+      "Visible [Entry][?].",
       "",
-      "[?entry]:",
+      "[?Entry]:",
       "    ```md",
-      "    [Nested][?entry]",
+      "    [Nested][?]",
       "    ```",
     ].join("\n");
 
@@ -242,9 +251,9 @@ describe("Markdown rich tooltip source", () => {
   it("keeps a fence open when a candidate closing fence has trailing text", () => {
     const source = [
       "```md",
-      "[Hidden][?hidden]",
+      "[Hidden][?]",
       "``` invalid",
-      "[Still hidden][?still-hidden]",
+      "[Still hidden][?]",
       "```",
     ].join("\n");
 

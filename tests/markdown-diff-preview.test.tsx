@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { MarkdownDiffPreview } from "../src/components";
+import { markdownVisibleSourceRanges } from "../src/components/markdownInlineSyntax";
 import { createMarkdownDiff, type MarkdownDiffModel } from "../src/domain";
 import {
   LEGO_PARCELS_AFTER,
@@ -9,6 +10,32 @@ import {
 } from "./fixtures/lego-harry-potter-98c11c1c";
 
 describe("compact Markdown diff preview", () => {
+  it("projects exact visible source ranges for title anchors, links, and hover hints", () => {
+    const source = "[**Title**][?] [Guide](https://example.test) [Hint](\"Native\")";
+
+    expect(markdownVisibleSourceRanges(source, true)).toEqual([
+      { start: 3, end: 8 },
+      { start: 14, end: 15 },
+      { start: 16, end: 21 },
+      { start: 44, end: 45 },
+      { start: 46, end: 50 },
+    ]);
+  });
+
+  it("decorates only a changed title-anchor label rather than its hidden reference syntax", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff("Open [Old title][?]", "Open [New title][?]")}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByLabelText("Удалено: Old")).toBeInTheDocument();
+    expect(within(modified).getByLabelText("Добавлено: New")).toBeInTheDocument();
+    expect(within(modified).getByLabelText("Удалено: Old")).not.toHaveTextContent("[?");
+    expect(within(modified).getByLabelText("Добавлено: New")).not.toHaveTextContent("[?");
+  });
+
   it("opens rendered, toggles only itself to exact source, and shows no service markers", async () => {
     const user = userEvent.setup();
     const first = createMarkdownDiff(LEGO_PARCELS_BEFORE, LEGO_PARCELS_AFTER);

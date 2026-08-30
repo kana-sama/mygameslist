@@ -68,14 +68,14 @@ function RichTooltipHarness({ markdown }: { markdown: string }) {
 }
 
 const richMarkdown = [
-  "Open [Archive Entry][?archive-entry] and [Second][?second]. Legacy [hint](\"Native text\").",
+  "Open [Archive Entry][?] and [Second][?]. Legacy [hint](\"Native text\").",
   "",
-  "[?archive-entry]:",
+  "[?Archive Entry]:",
   "    Location",
   "    : **North Wing**",
   "",
   "    [Guide](https://example.com) and ||secret||.",
-  "[?second]:",
+  "[?Second]:",
   "    Replacement body",
 ].join("\n");
 
@@ -114,7 +114,7 @@ describe("Markdown rich tooltip rendering", () => {
 
   it("degrades an enabled formatted rich reference to its formatted label when no tooltip controller exists", () => {
     const view = render(<MarkdownView
-      markdown={"Before [**Archive Entry**][?archive-entry] after.\n\n[?archive-entry]:\n    Definition"}
+      markdown={"Before [**Archive Entry**][?] after.\n\n[?Archive Entry]:\n    Definition"}
       richTooltipsEnabled
     />);
 
@@ -124,19 +124,44 @@ describe("Markdown rich tooltip rendering", () => {
     expect(screen.queryByText("Definition")).not.toBeInTheDocument();
   });
 
+  it("uses a rendered title anchor for active rich-tooltip triggers and leaves legacy slug syntax literal", () => {
+    const controller = idleRichTooltipController();
+    const markdown = [
+      "Open [**Archive Entry**][?]. Legacy [Archive Entry][?archive-entry].",
+      "",
+      "[?Archive Entry]:",
+      "    Synthetic body",
+    ].join("\n");
+
+    const view = renderWithController(controller, <MarkdownView markdown={markdown} richTooltipsEnabled />);
+
+    const trigger = screen.getByRole("button", { name: "Archive Entry" });
+    expect(trigger.querySelector("strong")).toHaveTextContent("Archive Entry");
+    expect(view.container.querySelector(".markdown")?.textContent).toBe(
+      "Open Archive Entry. Legacy [Archive Entry][?archive-entry].",
+    );
+    expect(screen.queryByText("[?Archive Entry]:")).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(controller.open).toHaveBeenCalledWith({
+      bodyMarkdown: "Synthetic body",
+      sourceElement: trigger,
+      title: "Archive Entry",
+    });
+  });
+
   it("keeps escaped references literal and ignores rich-looking text in link metadata", () => {
     const controller = idleRichTooltipController();
     const markdown = [
-      String.raw`\[Escaped][?entry] [Visible][?entry] [Hint]("see [Inner][?entry]") [Guide](https://example.test/[Path][?entry] "see [Title][?entry]")`,
+      String.raw`\[Escaped][?] [Visible][?] [Hint]("see [Inner][?entry]") [Guide](https://example.test/[Path][?entry] "see [Title][?entry]")`,
       "",
-      "[?entry]:",
+      "[?Visible]:",
       "    Synthetic body",
     ].join("\n");
 
     const view = renderWithController(controller, <MarkdownView markdown={markdown} richTooltipsEnabled />);
 
     expect(view.container.querySelector(".markdown")?.textContent).toBe(
-      '[Escaped][?entry] Visible Hint Guide',
+      '[Escaped][?] Visible Hint Guide',
     );
     expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Visible" })).toBeInTheDocument();
@@ -146,9 +171,9 @@ describe("Markdown rich tooltip rendering", () => {
   it("activates a rich reference after an even backslash run", () => {
     const controller = idleRichTooltipController();
     const markdown = [
-      String.raw`\\[Visible][?entry]`,
+      String.raw`\\[Visible][?]`,
       "",
-      "[?entry]:",
+      "[?Visible]:",
       "    Synthetic body",
     ].join("\n");
 
@@ -158,16 +183,12 @@ describe("Markdown rich tooltip rendering", () => {
     expect(screen.getByRole("button", { name: "Visible" })).toBeInTheDocument();
   });
 
-  it("renders noncanonical ids literally and activates an id with consecutive interior hyphens", () => {
+  it("renders legacy slug syntax literally and activates the title-anchor form", () => {
     const controller = idleRichTooltipController();
     const markdown = [
-      "[Leading][?-entry] [Trailing][?entry-] [Interior][?entry--part]",
+      "[Leading][?-entry] [Trailing][?entry-] [Interior][?]",
       "",
-      "[?-entry]:",
-      "    Leading body",
-      "[?entry-]:",
-      "    Trailing body",
-      "[?entry--part]:",
+      "[?Interior]:",
       "    Interior body",
     ].join("\n");
 
@@ -183,17 +204,17 @@ describe("Markdown rich tooltip rendering", () => {
 
   it("uses noninteractive rendered label text for trigger names and repeated dialog titles", async () => {
     const markdown = [
-      "[save_slot][?literal] [`slot_id`][?code] [*save*][?emphasis] [save\\|slot][?escape] [||secret||][?spoiler]",
+      "[save_slot][?] [`slot_id`][?] [*save*][?] [save\\|slot][?] [||secret||][?]",
       "",
-      "[?literal]:",
+      "[?save_slot]:",
       "    Literal body",
-      "[?code]:",
+      "[?slot_id]:",
       "    Code body",
-      "[?emphasis]:",
+      "[?save]:",
       "    Emphasis body",
-      "[?escape]:",
+      "[?save|slot]:",
       "    Escape body",
-      "[?spoiler]:",
+      "[?secret]:",
       "    Spoiler body",
     ].join("\n");
     render(<RichTooltipHarness markdown={markdown} />);
@@ -210,19 +231,43 @@ describe("Markdown rich tooltip rendering", () => {
     }
   });
 
+  it("keeps title anchors identical to rendered labels for unsupported escapes and literal spoiler delimiters", async () => {
+    const markdown = [
+      String.raw`[A\q][?] [||a|b||][?] [**Outer _inner_** \| ||secret||][?]`,
+      "",
+      String.raw`[?A\q]:`,
+      "    Backslash body",
+      "[?||a|b||]:",
+      "    Literal spoiler body",
+      "[?Outer inner | secret]:",
+      "    Formatted body",
+    ].join("\n");
+    render(<RichTooltipHarness markdown={markdown} />);
+
+    for (const name of [String.raw`A\q`, "||a|b||", "Outer inner | secret"]) {
+      const trigger = screen.getByRole("button", { name });
+      expect(trigger).toHaveAccessibleName(name);
+      fireEvent.click(trigger);
+      const dialog = await screen.findByRole("dialog");
+      expect(dialog.querySelector(".markdown-rich-tooltip__title")).toHaveTextContent(name);
+      expect(dialog).toHaveAccessibleName(name);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Закрыть" }));
+    }
+  });
+
   it("does not commit an unrelated sibling Markdown body when a tooltip opens or closes", async () => {
     const siblingCommits = vi.fn();
     render(
       <MarkdownRichTooltipProvider>
         <section className="note-card__surface">
           <div className="note-card__viewport">
-            <MarkdownView markdown={"[Primary][?primary]\n\n[?primary]:\n    Primary body"} richTooltipsEnabled />
+            <MarkdownView markdown={"[Primary][?]\n\n[?Primary]:\n    Primary body"} richTooltipsEnabled />
           </div>
         </section>
         <section className="note-card__surface">
           <div className="note-card__viewport">
             <Profiler id="unrelated-markdown" onRender={siblingCommits}>
-              <MarkdownView markdown={"[Sibling][?sibling]\n\n[?sibling]:\n    Sibling body"} richTooltipsEnabled />
+              <MarkdownView markdown={"[Sibling][?]\n\n[?Sibling]:\n    Sibling body"} richTooltipsEnabled />
             </Profiler>
           </div>
         </section>
@@ -246,16 +291,16 @@ describe("Markdown rich tooltip rendering", () => {
     const timestamp = "2026-08-30T00:00:00.000Z";
     const firstMarkdown = [
       "# Field Notes",
-      "- [ ] Visit [Archive Entry][?archive-entry]",
+      "- [ ] Visit [Archive Entry][?]",
       "",
-      "[?archive-entry]:",
+      "[?Archive Entry]:",
       "    **North Wing**",
     ].join("\n");
     const secondMarkdown = [
       "# Affinity",
-      "Open [Second][?second].",
+      "Open [Second][?].",
       "",
-      "[?second]:",
+      "[?Second]:",
       "    Replacement body",
     ].join("\n");
     const game: Game = {
@@ -307,22 +352,22 @@ describe("Markdown rich tooltip rendering", () => {
     expect(within(dialog).queryByText("North Wing")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
-    fireEvent.click(within(firstCard).getByRole("checkbox", { name: "Отметить: Visit [Archive Entry][?archive-entry]" }));
+    fireEvent.click(within(firstCard).getByRole("checkbox", { name: "Отметить: Visit [Archive Entry][?]" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].notes.find((note) => note.clientId === firstNoteId)?.bodyMarkdown).toBe(firstMarkdown.replace("[ ]", "[x]"));
 
-    fireEvent.click(within(firstCard).getByRole("button", { name: "Редактировать пункт: Visit [Archive Entry][?archive-entry]" }));
-    const taskEditor = within(firstCard).getByRole("textbox", { name: "Текст пункта: Visit [Archive Entry][?archive-entry]" });
-    fireEvent.change(taskEditor, { target: { value: "Revisit [Archive Entry][?archive-entry]" } });
+    fireEvent.click(within(firstCard).getByRole("button", { name: "Редактировать пункт: Visit [Archive Entry][?]" }));
+    const taskEditor = within(firstCard).getByRole("textbox", { name: "Текст пункта: Visit [Archive Entry][?]" });
+    fireEvent.change(taskEditor, { target: { value: "Revisit [Archive Entry][?]" } });
     fireEvent.keyDown(taskEditor, { key: "Enter" });
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
     expect(onSave.mock.calls[1][0].notes.find((note) => note.clientId === firstNoteId)?.bodyMarkdown).toBe(
-      firstMarkdown.replace("[ ] Visit [Archive Entry][?archive-entry]", "[x] Revisit [Archive Entry][?archive-entry]"),
+      firstMarkdown.replace("[ ] Visit [Archive Entry][?]", "[x] Revisit [Archive Entry][?]"),
     );
   });
 
   it("opens a unique defined reference and preserves terminal definitions through both task callbacks", () => {
-    const markdown = "# Note\n- [ ] [**Archive Entry**][?archive-entry]\n\n[?archive-entry]:\n    **Body**";
+    const markdown = "# Note\n- [ ] [**Archive Entry**][?]\n\n[?Archive Entry]:\n    **Body**";
     const onTaskChange = vi.fn();
     const onTaskCheckboxChange = vi.fn();
     const controller = idleRichTooltipController();
@@ -343,25 +388,25 @@ describe("Markdown rich tooltip rendering", () => {
       title: "Archive Entry",
     });
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: [Archive Entry][?archive-entry]" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: [Archive Entry][?]" }));
     expect(onTaskCheckboxChange).toHaveBeenCalledWith(markdown.replace("[ ]", "[x]"));
     expect(onTaskChange).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Редактировать пункт: [Archive Entry][?archive-entry]" }));
-    const editor = screen.getByRole("textbox", { name: "Текст пункта: [Archive Entry][?archive-entry]" });
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать пункт: [Archive Entry][?]" }));
+    const editor = screen.getByRole("textbox", { name: "Текст пункта: [Archive Entry][?]" });
     fireEvent.change(editor, { target: { value: "Updated" } });
     fireEvent.keyDown(editor, { key: "Enter" });
-    expect(onTaskChange).toHaveBeenCalledWith(markdown.replace("[**Archive Entry**][?archive-entry]", "Updated"));
+    expect(onTaskChange).toHaveBeenCalledWith(markdown.replace("[**Archive Entry**][?]", "Updated"));
   });
 
   it("renders missing, duplicate, and disabled references as noninteractive labels", () => {
     const controller = idleRichTooltipController();
     const missingAndDuplicate = [
-      "[Missing][?missing] [Duplicate][?duplicate]",
+      "[Missing][?] [Duplicate][?]",
       "",
-      "[?duplicate]:",
+      "[?Duplicate]:",
       "    First",
-      "[?duplicate]:",
+      "[?Duplicate]:",
       "    Second",
     ].join("\n");
 
@@ -373,7 +418,7 @@ describe("Markdown rich tooltip rendering", () => {
     view.unmount();
 
     renderWithController(controller, <MarkdownView
-      markdown={"[Disabled][?disabled]\n\n[?disabled]:\n    Body"}
+      markdown={"[Disabled][?]\n\n[?Disabled]:\n    Body"}
       richTooltipTriggersDisabled
       richTooltipsEnabled
     />);
@@ -382,11 +427,11 @@ describe("Markdown rich tooltip rendering", () => {
     expect(screen.queryByText("Body")).not.toBeInTheDocument();
   });
 
-  it("renders an invalid identifier as a noninteractive label even when a malformed definition exists", () => {
+  it("renders an unresolved title anchor as a noninteractive label when a blank definition exists", () => {
     const controller = idleRichTooltipController();
 
     renderWithController(controller, <MarkdownView
-      markdown={"[Invalid][?not_valid]\n\n[?not_valid]:\n    Body"}
+      markdown={"[Invalid][?]\n\n[?]:\n    Body"}
       richTooltipsEnabled
     />);
 
@@ -398,7 +443,7 @@ describe("Markdown rich tooltip rendering", () => {
     const controller = idleRichTooltipController();
 
     renderWithController(controller, <MarkdownView
-      markdown={"[Label][?id]\n\n[?id]:\n"}
+      markdown={"[Label][?]\n\n[?Label]:\n"}
       richTooltipsEnabled
     />);
 
@@ -459,9 +504,9 @@ describe("Markdown rich tooltip rendering", () => {
 
   it("renders definition-like fenced tooltip content as code instead of a semantic definition list", async () => {
     const markdown = [
-      "Open [Code sample][?code-sample].",
+      "Open [Code sample][?].",
       "",
-      "[?code-sample]:",
+      "[?Code sample]:",
       "    ```md",
       "    Term",
       "    : Value",

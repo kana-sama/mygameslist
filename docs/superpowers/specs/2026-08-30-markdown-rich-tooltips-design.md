@@ -32,7 +32,7 @@
 
 - Миграция существующих `[text]("description")` в новый формат.
 - Удаление или изменение legacy-синтаксиса `[text]("description")`.
-- Автоматическое создание идентификаторов tooltip в редакторе.
+- Автоматическое создание rich-tooltip references или definitions в редакторе.
 - Отдельный визуальный редактор определений.
 - Изменение обычных Markdown-ссылок, изображений, вложений или attachment projection.
 - Data-specific постоянные тесты, перечисляющие реальные заметки или tooltip из `data/`.
@@ -44,38 +44,38 @@
 Rich tooltip вызывается конструкцией:
 
 ```md
-[Eternal Rest][?eternal-rest]
+[**Eternal Rest**][?]
 ```
 
-- `Eternal Rest` — видимая inline-подпись и источник заголовка открытой карточки.
-- `eternal-rest` — идентификатор определения в пределах текущего Markdown-документа.
-- Префикс `?` является обязательным и отделяет rich tooltip от обычного reference link.
+- `**Eternal Rest**` — видимая inline-подпись, источник заголовка открытой карточки и единственный источник anchor.
+- Пустой destination `[?]` является обязательным и отделяет rich tooltip от обычного reference link.
 - Подпись поддерживает существующий inline Markdown, разрешённый внутри подписей ссылок и legacy tooltip.
-- Заголовок карточки получает plain-text представление отрендеренной подписи. Служебные Markdown-маркеры в заголовок не попадают.
-- Один идентификатор может использоваться несколькими inline-reference. Каждое вхождение получает собственный заголовок из своей видимой подписи, но общее тело определения.
+- Заголовок карточки и anchor получают одно и то же plain-text представление отрендеренной подписи. Служебные Markdown-маркеры в них не попадают.
+- Несколько inline-reference с одинаковым plain-text anchor используют одно тело определения.
 
-### Идентификаторы
+### Plain-text anchor
 
-Идентификатор соответствует шаблону:
+Anchor вычисляется из видимой подписи:
 
-```text
-[a-z0-9](?:[a-z0-9-]*[a-z0-9])?
+```md
+[**Eternal Rest**][?] → Eternal Rest
 ```
 
 Правила:
 
-- идентификаторы используют lowercase ASCII и kebab-case;
-- пробелы, подчёркивания, Unicode-буквы и ведущий/замыкающий дефис не допускаются;
-- последовательные дефисы внутри идентификатора допускаются;
-- сравнение чувствительно к регистру, однако uppercase уже запрещён грамматикой;
-- идентификатор обязан быть уникальным среди определений одного документа.
+- inline Markdown раскрывается в то же plain-text значение, которое используется как заголовок карточки;
+- внешние пробелы удаляются, внутренние пробелы сохраняются;
+- сравнение anchor чувствительно к регистру и не выполняет Unicode-нормализацию;
+- Unicode, пробелы и пунктуация разрешены, кроме закрывающей `]` и перевода строки, зарезервированных грамматикой opener;
+- slug, kebab-case и отдельный пользовательский идентификатор отсутствуют;
+- anchor обязан быть непустым и уникальным среди definitions одного документа.
 
 ### Определение
 
 Определение располагается в терминальной секции авторского тела заметки:
 
 ```md
-[?eternal-rest]:
+[?Eternal Rest]:
     **Vault of Heroes** · Lower Level
 
     - Доступно после главы 8
@@ -84,11 +84,11 @@ Rich tooltip вызывается конструкцией:
 
 Правила определения:
 
-- opener `[?id]:` начинается с первой колонки;
+- opener `[?Plain-text anchor]:` начинается с первой колонки;
 - непустые строки тела имеют как минимум четыре ведущих пробела;
 - перед рендерингом один уровень из четырёх пробелов удаляется;
 - пустые строки внутри тела разрешены;
-- определение завершается перед следующим `[?id]:` в первой колонке либо перед концом авторского тела;
+- определение завершается перед следующим `[?Plain-text anchor]:` в первой колонке либо перед концом авторского тела;
 - пустое определение невалидно;
 - тело поддерживает существующий Markdown приложения: абзацы, emphasis, strong, code, spoilers, безопасные ссылки, изображения, списки, таблицы, block code и другие уже поддерживаемые блоки;
 - вложенный rich-tooltip reference внутри тела определения не поддерживается и считается невалидным, чтобы не создавать рекурсивные popover;
@@ -96,14 +96,14 @@ Rich tooltip вызывается конструкцией:
 
 ### Расположение определений в файле
 
-Все rich-tooltip definitions образуют одну непрерывную терминальную секцию внизу авторского Markdown. После первого `[?id]:` разрешены только тела определений, следующие определения и пустые строки.
+Все rich-tooltip definitions образуют одну непрерывную терминальную секцию внизу авторского Markdown. После первого `[?Plain-text anchor]:` разрешены только тела определений, следующие definitions и пустые строки.
 
 Для заметки без вложений секция заканчивается концом файла. Для заметки с вложениями definitions находятся непосредственно перед генерируемой attachment projection:
 
 ```md
 Основной текст заметки.
 
-[?eternal-rest]:
+[?Eternal Rest]:
     Содержимое tooltip.
 
 <!-- mygameslist-attachments:v1:start -->
@@ -144,9 +144,9 @@ Definitions не отображаются внизу заметки и не уч
 Полный рекомендуемый пример:
 
 ```md
-После прибытия откроется [Eternal Rest][?eternal-rest].
+После прибытия откроется [Eternal Rest][?].
 
-[?eternal-rest]:
+[?Eternal Rest]:
     Локация
     : **Vault of Heroes**
 
@@ -183,18 +183,18 @@ Definitions не отображаются внизу заметки и не уч
 До существующего block parsing отдельный parser rich tooltip разделяет Markdown на:
 
 1. видимое авторское тело без терминальной секции definitions;
-2. карту `id → definition body` с исходными диапазонами;
+2. карту `plain-text anchor → definition body` с исходными диапазонами;
 3. диагностическую информацию о некорректных definitions и references.
 
-Inline tokenizer получает отдельный token для `[label][?id]`. Обычные links и `[text]("description")` сохраняют собственные токены и прежнюю семантику. Экранированный `\[label][?id]` остаётся буквальным неинтерактивным текстом, а rich-looking текст внутри URL/title обычной ссылки или description legacy hover hint относится к metadata внешней конструкции и не считается reference.
+Inline tokenizer получает отдельный token для `[label][?]`. Обычные links и `[text]("description")` сохраняют собственные токены и прежнюю семантику. Экранированный `\[label][?]` остаётся буквальным неинтерактивным текстом, а rich-looking текст внутри URL/title обычной ссылки или description legacy hover hint относится к metadata внешней конструкции и не считается reference.
 
-Domain parser, inline tokenizer/rendering и source-range projection используют одинаковые escape, token-boundary и canonical-id правила. References или definition openers не распознаются внутри inline code, fenced code blocks и экранированных конструкций.
+Domain parser, inline tokenizer/rendering и source-range projection используют одинаковые escape, token-boundary и plain-text-anchor правила. References или definition openers не распознаются внутри inline code, fenced code blocks и экранированных конструкций.
 
 ### Компонентные границы
 
 Фича разделяется на независимые единицы:
 
-- parser definitions отвечает только за terminal section, идентификаторы, dedent и диагностику;
+- parser definitions отвечает только за terminal section, anchors, dedent и диагностику;
 - inline parser отвечает только за распознавание trigger и source ranges;
 - tooltip Markdown renderer отвечает за тело definition и definition-list rows;
 - positioning layer отвечает только за desktop placement, vertical clamping и mobile mode;
@@ -218,7 +218,7 @@ Tooltip layer рендерится через portal вне `.note-card__surface
 
 1. Note Markdown разбирается на видимое тело и definitions.
 2. Видимое тело проходит существующий block/inline rendering.
-3. Inline-reference получает `id`, неинтерактивно rendered label, plain-text title из фактически отрендеренного текста и source element ref. Внутри outer trigger не создаются вложенные links, buttons или интерактивные spoilers; безопасные inline-форматы вроде emphasis, strong и code сохраняются.
+3. Inline-reference получает plain-text anchor/title из фактически отрендеренной подписи, неинтерактивно rendered label и source element ref. Внутри outer trigger не создаются вложенные links, buttons или интерактивные spoilers; безопасные inline-форматы вроде emphasis, strong и code сохраняются.
 4. Клик передаёт active reference, definition body, note surface и source element в tooltip layer.
 5. Tooltip layer выбирает desktop side либо mobile modal mode.
 6. Definition body рендерится существующими Markdown primitives в read-only tooltip context.
@@ -393,9 +393,9 @@ Domain validation проверяет новый синтаксис незави�
 
 Ошибки:
 
-- reference указывает на отсутствующий id;
-- один id определён более одного раза;
-- id не соответствует канонической грамматике;
+- reference указывает на отсутствующий plain-text anchor;
+- один anchor определён более одного раза;
+- reference или definition образует пустой anchor;
 - definition пусто;
 - terminal definition section прерывается обычным неиндентированным Markdown;
 - definition содержит вложенный rich-tooltip reference;
@@ -406,7 +406,7 @@ Domain validation проверяет новый синтаксис незави�
 Preview не падает на временно невалидном тексте:
 
 - missing или ambiguous reference отображает только отрендеренную подпись как обычный текст без dashed underline и click behavior;
-- rich-looking reference с неканоническим id остаётся буквальным неинтерактивным исходным текстом;
+- rich-looking reference с пустым anchor остаётся буквальным неинтерактивным исходным текстом;
 - malformed definition, не распознанное как definition, остаётся обычным Markdown исходника;
 - диагностическое сообщение проходит через существующий validation/save flow; фича не добавляет persistent error badge или отдельный repair UI.
 
@@ -427,12 +427,13 @@ Parser и validation fixtures, не связанные с реальными и�
 
 - один и несколько references;
 - переиспользование definition;
-- canonical id grammar;
+- plain-text anchor extraction для emphasis, strong, code, escapes, spoilers, links и literal punctuation;
+- Unicode, spaces, punctuation, case sensitivity и empty-anchor rejection;
 - terminal section extraction и четырёхпробельный dedent;
 - definitions перед attachment projection;
 - отсутствие распознавания внутри code spans и fenced code;
 - escape и metadata boundaries для legacy hints и обычных links;
-- leading/trailing-hyphen rejection при допустимых последовательных внутренних дефисах;
+- дефисы как обычную пунктуацию title anchor, включая дефисы в начале, конце и подряд;
 - missing, duplicate, empty и interrupted definitions;
 - вложенный rich-tooltip reference как validation error;
 - сохранение legacy `[text]("description")`;
@@ -482,7 +483,7 @@ Implementation plan должен включить focused tests изменённ
 
 Фича готова, когда:
 
-1. `[label][?id]` открывает definition по клику.
+1. `[label][?]` открывает `[?Plain label]:` definition по клику.
 2. Definition хранится в терминальной секции внизу авторского Markdown.
 3. Заголовок карточки точно повторяет plain-text label trigger.
 4. Definition list отображает согласованные label/value rows.

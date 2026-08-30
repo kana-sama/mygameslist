@@ -1,12 +1,12 @@
 export interface MarkdownRichTooltipDefinition {
+  anchor: string;
   bodyMarkdown: string;
-  id: string;
   sourceEnd: number;
   sourceStart: number;
 }
 
 export interface MarkdownRichTooltipReference {
-  id: string;
+  anchor: string;
   sourceEnd: number;
   sourceStart: number;
 }
@@ -14,7 +14,7 @@ export interface MarkdownRichTooltipReference {
 export interface ParsedMarkdownRichTooltips {
   definitions: ReadonlyMap<string, MarkdownRichTooltipDefinition>;
   definitionSectionStart: number | null;
-  duplicateIds: ReadonlySet<string>;
+  duplicateAnchors: ReadonlySet<string>;
   errors: readonly string[];
   references: readonly MarkdownRichTooltipReference[];
   source: string;
@@ -33,7 +33,7 @@ interface SourceLine {
 }
 
 interface DefinitionCandidate {
-  id: string;
+  anchor: string;
   lineIndex: number;
 }
 
@@ -43,14 +43,14 @@ interface Diagnostic {
   sequence: number;
 }
 
-export const MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE = String.raw`\[[^\]\r\n]+\]\[\?[^\]\r\n]+\]`;
-export const MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE = String.raw`\\+\[[^\]\r\n]+\]\[\?[^\]\r\n]+\]`;
+export const MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE = String.raw`\[[^\]\r\n]*\]\[\?\]`;
+export const MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE = String.raw`\\+\[[^\]\r\n]*\]\[\?\]`;
+export const MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE = "`[^`\\n]+`|\\\\[|]|\\|\\|[^|\\n]+\\|\\||\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|\\*[^*\\n]+\\*|_[^_\\n]+_";
 
-const DEFINITION_OPENER = /^\[\?([^\]\r\n]+)\]:[ \t]*$/;
-const RICH_TOOLTIP_REFERENCE = /^\[([^\]\r\n]+)\]\[\?([^\]\r\n]+)\]/;
+const DEFINITION_OPENER = /^\[\?([^\]\r\n]*)\]:[ \t]*$/;
+const RICH_TOOLTIP_REFERENCE = /^\[([^\]\r\n]*)\]\[\?\]/;
 const LEGACY_HOVER_HINT = /^\[[^\]\r\n]+\]\("[^"\r\n]*"\)/;
 const ORDINARY_LINK = /^\[[^\]\r\n]+\]\([^\s)]+(?:\s+"[^"]*")?\)/;
-const RICH_TOOLTIP_ID = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
 const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
 const DEFINITION_BODY_FENCE_OPEN = /^ {0,4}(`{3,}|~{3,})/;
@@ -113,13 +113,32 @@ export function markdownRichTooltipLeadingBackslashCount(source: string): number
   return count;
 }
 
-export function markdownRichTooltipIdIsCanonical(id: string): boolean {
-  return RICH_TOOLTIP_ID.test(id);
+export function markdownRichTooltipAnchor(labelMarkdown: string): string {
+  const plainText = (markdown: string): string => {
+    let result = "";
+    const token = new RegExp(MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE, "g");
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    while ((match = token.exec(markdown))) {
+      result += markdown.slice(cursor, match.index);
+      const raw = match[0];
+      if (raw === "\\|") result += "|";
+      else if (raw.startsWith("`")) result += raw.slice(1, -1);
+      else {
+        const markerLength = raw.startsWith("||") || raw.startsWith("**") || raw.startsWith("__") ? 2 : 1;
+        result += plainText(raw.slice(markerLength, -markerLength));
+      }
+      cursor = match.index + raw.length;
+    }
+    result += markdown.slice(cursor);
+    return result;
+  };
+  return plainText(labelMarkdown).trim();
 }
 
-export function parseMarkdownRichTooltipReference(source: string): { id: string; label: string } | null {
+export function parseMarkdownRichTooltipReference(source: string): { anchor: string; label: string } | null {
   const match = RICH_TOOLTIP_REFERENCE.exec(source);
-  return match && match[0].length === source.length ? { label: match[1], id: match[2] } : null;
+  return match && match[0].length === source.length ? { label: match[1], anchor: markdownRichTooltipAnchor(match[1]) } : null;
 }
 
 function collectRichTooltipReferences(source: string, offset = 0, allowsDefinitionIndent = false): MarkdownRichTooltipReference[] {
@@ -156,7 +175,7 @@ function collectRichTooltipReferences(source: string, offset = 0, allowsDefiniti
         continue;
       }
       references.push({
-        id: match[2],
+        anchor: markdownRichTooltipAnchor(match[1]),
         sourceStart: offset + line.start + cursor,
         sourceEnd: offset + line.start + cursor + match[0].length,
       });
@@ -189,7 +208,7 @@ function terminalDefinitionCandidates(source: string): {
   const fenced = fencedCodeLines(lines);
   const candidates = lines.flatMap((line, index) => {
     const match = !fenced.has(index) ? DEFINITION_OPENER.exec(line.content) : null;
-    return match ? [{ id: match[1], lineIndex: index }] : [];
+    return match ? [{ anchor: match[1].trim(), lineIndex: index }] : [];
   });
   if (!candidates.length) return { candidates, definitionSectionStart: null, lines, terminal: true };
 
@@ -216,12 +235,12 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
     addDiagnostic(lines[candidates[0].lineIndex].start, "Rich tooltip definitions должны находиться в конце Markdown");
     const references = collectRichTooltipReferences(source);
     for (const reference of references) {
-      if (!markdownRichTooltipIdIsCanonical(reference.id)) addDiagnostic(reference.sourceStart, `Некорректный rich tooltip id: ${reference.id}`);
+      if (!reference.anchor) addDiagnostic(reference.sourceStart, "Некорректный rich tooltip anchor: ");
     }
     return {
       definitions: new Map(),
       definitionSectionStart: null,
-      duplicateIds: new Set(),
+      duplicateAnchors: new Set(),
       errors: diagnostics.sort((left, right) => left.offset - right.offset || left.sequence - right.sequence).map(({ message }) => message),
       references,
       source,
@@ -230,47 +249,47 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
   }
 
   const definitions = new Map<string, MarkdownRichTooltipDefinition>();
-  const duplicateIds = new Set<string>();
+  const duplicateAnchors = new Set<string>();
   for (let index = 0; index < candidates.length; index += 1) {
     const candidate = candidates[index];
     const next = candidates[index + 1]?.lineIndex ?? lines.length;
     const line = lines[candidate.lineIndex];
     const bodyMarkdown = definitionBody(lines, candidate.lineIndex, next);
     const definition: MarkdownRichTooltipDefinition = {
-      id: candidate.id,
+      anchor: candidate.anchor,
       sourceStart: line.start,
       sourceEnd: next < lines.length ? lines[next].start : source.length,
       bodyMarkdown,
     };
-    if (!markdownRichTooltipIdIsCanonical(candidate.id)) addDiagnostic(line.start, `Некорректный rich tooltip id: ${candidate.id}`);
-    if (definitions.has(candidate.id)) {
-      duplicateIds.add(candidate.id);
-      addDiagnostic(line.start, `Rich tooltip [?${candidate.id}]: определение задано несколько раз`);
+    if (!candidate.anchor) addDiagnostic(line.start, "Некорректный rich tooltip anchor: ");
+    if (definitions.has(candidate.anchor)) {
+      duplicateAnchors.add(candidate.anchor);
+      addDiagnostic(line.start, `Rich tooltip [?${candidate.anchor}]: определение задано несколько раз`);
     } else {
-      definitions.set(candidate.id, definition);
+      definitions.set(candidate.anchor, definition);
     }
-    if (!bodyMarkdown) addDiagnostic(line.start, `Rich tooltip [?${candidate.id}]: пустое определение`);
+    if (!bodyMarkdown) addDiagnostic(line.start, `Rich tooltip [?${candidate.anchor}]: пустое определение`);
 
     const nestedSourceStart = lines[candidate.lineIndex + 1]?.start ?? source.length;
     for (const reference of collectRichTooltipReferences(source.slice(nestedSourceStart, definition.sourceEnd), nestedSourceStart, true)) {
-      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.id}]: вложенные rich tooltip references запрещены`);
+      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.anchor}]: вложенные rich tooltip references запрещены`);
     }
   }
 
   const visibleMarkdown = definitionSectionStart === null ? source : source.slice(0, definitionSectionStart);
   const references = collectRichTooltipReferences(visibleMarkdown);
   for (const reference of references) {
-    if (!markdownRichTooltipIdIsCanonical(reference.id)) {
-      addDiagnostic(reference.sourceStart, `Некорректный rich tooltip id: ${reference.id}`);
-    } else if (!definitions.has(reference.id)) {
-      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.id}]: определение не найдено`);
+    if (!reference.anchor) {
+      addDiagnostic(reference.sourceStart, "Некорректный rich tooltip anchor: ");
+    } else if (!definitions.has(reference.anchor)) {
+      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.anchor}]: определение не найдено`);
     }
   }
 
   return {
     definitions,
     definitionSectionStart,
-    duplicateIds,
+    duplicateAnchors,
     errors: diagnostics.sort((left, right) => left.offset - right.offset || left.sequence - right.sequence).map(({ message }) => message),
     references,
     source,

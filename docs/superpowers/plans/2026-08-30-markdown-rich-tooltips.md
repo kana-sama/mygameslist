@@ -4,7 +4,7 @@
 
 **Goal:** Add reference-backed Markdown tooltips that open as an externally positioned desktop card or a fullscreen modal while preserving the existing native plaintext hover hints.
 
-**Architecture:** A pure domain parser extracts the terminal tooltip-definition section and validates references without coupling to React. Shared lexical and canonical-id helpers align domain collection, inline rendering, and source visibility. `MarkdownView` renders valid references as trigger buttons while preserving the hidden definition suffix across checklist edits; the page-level context value stays stable, and only narrow trigger subscribers observe active-source changes. A page-level provider owns the single active portal, renders definition-list rows plus ordinary Markdown, and chooses right, left, or fullscreen placement from live DOM geometry.
+**Architecture:** A pure domain parser extracts the terminal tooltip-definition section and validates references without coupling to React. Shared lexical and plain-text-anchor helpers align domain collection, inline rendering, and source visibility. `MarkdownView` renders valid references as trigger buttons while preserving the hidden definition suffix across checklist edits; the page-level context value stays stable, and only narrow trigger subscribers observe active-source changes. A page-level provider owns the single active portal, renders definition-list rows plus ordinary Markdown, and chooses right, left, or fullscreen placement from live DOM geometry.
 
 **Tech Stack:** TypeScript 7, React 19, React DOM portals, Vitest 4, Testing Library, JSDOM, existing custom Markdown parser, CSS.
 
@@ -16,7 +16,7 @@
 - Produce exactly one final feature commit containing the specification, this plan, implementation, and permanent generic tests.
 - Do not create intermediate commits for individual tasks.
 - Do not migrate any existing `[text]("description")` content; that syntax and behavior remain unchanged.
-- New inline syntax is exactly `[label][?id]`; definitions are terminal `[?id]:` blocks with four-space-indented bodies.
+- New inline syntax is exactly `[label][?]`; definitions are terminal `[?Plain label]:` blocks with four-space-indented bodies, keyed by the trimmed plain-text anchor derived from the label.
 - Definition-list syntax is exactly a term line followed by `: description`; descriptions are one-line inline Markdown.
 - Desktop cards are `344px` wide, prefer the right side with a `14px` gap, fall back left, and never cross the note surface's top or bottom.
 - If neither side fits `344px + 14px`, render a `100dvw × 100dvh` modal with fixed header, internal scroll, and close-button-only dismissal.
@@ -63,13 +63,13 @@
 ```ts
 export interface MarkdownRichTooltipDefinition {
   bodyMarkdown: string;
-  id: string;
+  anchor: string;
   sourceEnd: number;
   sourceStart: number;
 }
 
 export interface MarkdownRichTooltipReference {
-  id: string;
+  anchor: string;
   sourceEnd: number;
   sourceStart: number;
 }
@@ -77,7 +77,7 @@ export interface MarkdownRichTooltipReference {
 export interface ParsedMarkdownRichTooltips {
   definitions: ReadonlyMap<string, MarkdownRichTooltipDefinition>;
   definitionSectionStart: number | null;
-  duplicateIds: ReadonlySet<string>;
+  duplicateAnchors: ReadonlySet<string>;
   errors: readonly string[];
   references: readonly MarkdownRichTooltipReference[];
   source: string;
@@ -97,14 +97,14 @@ export function parseMarkdownRichTooltipBody(markdown: string): MarkdownRichTool
 
 - [ ] **Step 1: Write failing parser tests**
 
-Create tests with synthetic Markdown that assert exact `visibleMarkdown`, definition bodies, source offsets, reference ids, and suffix restoration:
+Create tests with synthetic Markdown that assert exact `visibleMarkdown`, definition bodies, source offsets, plain-text anchors, and suffix restoration:
 
 ```ts
 const source = [
   "# Note",
-  "Open [Archive Entry][?archive-entry].",
+  "Open [Archive Entry][?].",
   "",
-  "[?archive-entry]:",
+  "[?Archive Entry]:",
   "    Location",
   "    : **North Wing**",
   "",
@@ -112,15 +112,15 @@ const source = [
 ].join("\n");
 
 const parsed = parseMarkdownRichTooltips(source);
-expect(parsed.visibleMarkdown).toBe("# Note\nOpen [Archive Entry][?archive-entry].\n\n");
-expect(parsed.definitions.get("archive-entry")?.bodyMarkdown).toBe(
+expect(parsed.visibleMarkdown).toBe("# Note\nOpen [Archive Entry][?].\n\n");
+expect(parsed.definitions.get("Archive Entry")?.bodyMarkdown).toBe(
   "Location\n: **North Wing**\n\n- Available after chapter 8",
 );
 expect(restoreMarkdownRichTooltipDefinitions(parsed, parsed.visibleMarkdown.replace("Open", "Unlock")))
   .toBe(source.replace("Open", "Unlock"));
 ```
 
-Add separate cases for LF/CRLF, two definitions, reused references, code spans/fences, escaped syntax, rich-looking link/hint metadata, invalid ids (including leading/trailing hyphens while preserving consecutive interior hyphens), duplicates, missing definitions, empty definitions, interrupted terminal sections, nested references, and allowed unused definitions.
+Add separate cases for LF/CRLF, two definitions, reused references, code spans/fences, escaped syntax, rich-looking link/hint metadata, empty anchors, exact case-sensitive and Unicode anchors, duplicates, missing definitions, empty definitions, interrupted terminal sections, nested references, and allowed unused definitions. Preserve literal old slug-looking forms such as `[Label][?old-slug]` as noncanonical Markdown.
 
 - [ ] **Step 2: Run parser tests and verify RED**
 
@@ -136,15 +136,15 @@ Expected: FAIL because `src/domain/markdownRichTooltips.ts` and its exports do n
 
 Implement a line scanner that preserves each line's content, EOL, and absolute start offset. Track fenced-code state before recognizing a top-level opener matching `^\[\?([^\]\r\n]+)\]:[ \t]*$`. A terminal section is extractable only when every nonblank line after its first opener is either another opener or begins with at least four spaces.
 
-Dedent exactly four spaces from nonblank definition-body lines, preserve internal whitespace and EOL style, populate first definitions in the map, and record duplicate ids separately. Collect `[label][?id]` references outside inline/fenced code from only `visibleMarkdown`. Return diagnostics in stable source order using these exact message shapes:
+Dedent exactly four spaces from nonblank definition-body lines, preserve internal whitespace and EOL style, populate first definitions in the map keyed by trimmed plain-text anchor, and record duplicate anchors separately. Collect `[label][?]` references outside inline/fenced code from only `visibleMarkdown`. Return diagnostics in stable source order using these exact message shapes:
 
 ```ts
-`Rich tooltip [?${id}]: определение не найдено`
-`Rich tooltip [?${id}]: определение задано несколько раз`
-`Некорректный rich tooltip id: ${id}`
-`Rich tooltip [?${id}]: пустое определение`
+`Rich tooltip [?${anchor}]: определение не найдено`
+`Rich tooltip [?${anchor}]: определение задано несколько раз`
+`Некорректный rich tooltip anchor: ${anchor}`
+`Rich tooltip [?${anchor}]: пустое определение`
 "Rich tooltip definitions должны находиться в конце Markdown"
-`Rich tooltip [?${id}]: вложенные rich tooltip references запрещены`
+`Rich tooltip [?${anchor}]: вложенные rich tooltip references запрещены`
 ```
 
 `restoreMarkdownRichTooltipDefinitions` must append the original suffix beginning at `definitionSectionStart`, or return the new visible Markdown unchanged when no terminal section exists.
@@ -155,7 +155,7 @@ Scan dedented tooltip Markdown for a nonblank term line followed immediately by 
 
 - [ ] **Step 5: Integrate domain validation**
 
-Keep `validateMarkdown` generic for review and unrelated Markdown. Add `validateNoteMarkdown`, which prepends `parseMarkdownRichTooltips(value).errors` and then runs the unchanged generic raw-HTML/link safety scan over the original source so links inside definitions remain protected. Use `validateNoteMarkdown` for stored note bodies, immediate note-field validation, and source-note documents only. Ensure `[label][?id]` is not interpreted as a URL and the legacy hover-hint removal remains unchanged.
+Keep `validateMarkdown` generic for review and unrelated Markdown. Add `validateNoteMarkdown`, which prepends `parseMarkdownRichTooltips(value).errors` and then runs the unchanged generic raw-HTML/link safety scan over the original source so links inside definitions remain protected. Use `validateNoteMarkdown` for stored note bodies, immediate note-field validation, and source-note documents only. Ensure `[label][?]` is not interpreted as a URL and the legacy hover-hint removal remains unchanged.
 
 Export the new module through `src/domain/index.ts`.
 
@@ -226,7 +226,7 @@ richTooltipTriggersDisabled?: boolean;
 
 - [ ] **Step 1: Write failing inline-token tests**
 
-Extend the pure test file to assert that `markdownInlineTokenPattern()` recognizes `[**Archive Entry**][?archive-entry]`, that `markdownVisibleSourceRanges()` exposes only the label contents, and that ordinary links plus `[text]("description")` still produce the previous ranges.
+Extend the pure test file to assert that `markdownInlineTokenPattern()` recognizes `[**Archive Entry**][?]`, that `markdownVisibleSourceRanges()` exposes only the label contents, and that ordinary links plus `[text]("description")` still produce the previous ranges.
 
 - [ ] **Step 2: Write failing render and source-preservation tests**
 
@@ -235,7 +235,7 @@ In the UI test, render a `MarkdownView` inside a synthetic context controller wi
 ```tsx
 <MarkdownRichTooltipContext.Provider value={controller}>
   <MarkdownView
-    markdown={"# Note\n- [ ] [Archive Entry][?archive-entry]\n\n[?archive-entry]:\n    **Body**"}
+    markdown={"# Note\n- [ ] [Archive Entry][?]\n\n[?Archive Entry]:\n    **Body**"}
     onTaskChange={onTaskChange}
     richTooltipsEnabled
   />
@@ -258,7 +258,7 @@ Expected: FAIL because rich-reference tokens, context, props, and trigger render
 
 - [ ] **Step 4: Extend inline tokenization and source visibility**
 
-Add escaped and unescaped rich-reference alternatives before ordinary link alternatives in `INLINE_TOKEN_SOURCE`, sourced from the shared domain lexical contract. In `collectVisibleRanges`, recurse only into a canonical reference label with offset `start + 1`; keep escaped or noncanonical forms literal. Legacy hint and ordinary-link tokens own their complete metadata, so rich-looking metadata never becomes a nested reference.
+Add escaped and unescaped rich-reference alternatives before ordinary link alternatives in `INLINE_TOKEN_SOURCE`, sourced from the shared domain lexical contract. In `collectVisibleRanges`, recurse only into a canonical `[label][?]` label with offset `start + 1`; keep escaped or noncanonical forms literal. Legacy hint and ordinary-link tokens own their complete metadata, so rich-looking metadata never becomes a nested reference.
 
 - [ ] **Step 5: Add context contracts and inline rendering**
 
@@ -282,7 +282,7 @@ Pass an optional rich-tooltip inline context through every recursive `renderInli
 </button>
 ```
 
-Use component state/ref only as needed to derive `aria-expanded`; do not add hover handlers. Missing, duplicate, and disabled canonical references render their label nodes only. Noncanonical and escaped rich-looking forms stay literal and noninteractive.
+Use component state/ref only as needed to derive `aria-expanded`; do not add hover handlers. Missing, duplicate, and disabled canonical references render their label nodes only. Noncanonical and escaped rich-looking forms stay literal and noninteractive. Resolve definitions by the exact shared plain-text anchor; do not introduce slug validation or a separate identifier field.
 
 - [ ] **Step 6: Strip definitions and preserve their suffix across callbacks**
 

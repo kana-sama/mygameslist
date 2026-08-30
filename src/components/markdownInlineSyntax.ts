@@ -1,8 +1,8 @@
 import {
   MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
+  MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE,
   MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
   markdownRichTooltipBackslashRunIsEscaped,
-  markdownRichTooltipIdIsCanonical,
   markdownRichTooltipLeadingBackslashCount,
   parseMarkdownRichTooltipReference,
 } from "../domain/markdownRichTooltips";
@@ -14,7 +14,8 @@ export interface MarkdownSourceRange {
 
 const INLINE_TOKEN_SOURCE_PREFIX = "(`[^`\\n]+`";
 const INLINE_RICH_TOOLTIP_TOKEN_SOURCE = `|${MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}|${MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}`;
-const INLINE_TOKEN_SOURCE_SUFFIX = "|\\[[^\\]\\n]+\\]\\(\"[^\"\\n]*\"\\)|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|\\\\[|]|\\|\\|[^|\\n]+\\|\\||\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|\\*[^*\\n]+\\*|_[^_\\n]+_)";
+const INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE = "|\\[[^\\]\\n]*\\]\\[\\?[^\\]\\n]+\\]";
+const INLINE_TOKEN_SOURCE_SUFFIX = `${INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE}|\\[[^\\]\\n]+\\]\\(\"[^\"\\n]*\"\\)|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|${MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE})`;
 
 export function markdownInlineTokenPattern(): RegExp {
   return new RegExp(`${INLINE_TOKEN_SOURCE_PREFIX}${INLINE_RICH_TOOLTIP_TOKEN_SOURCE}${INLINE_TOKEN_SOURCE_SUFFIX}`, "g");
@@ -52,7 +53,7 @@ function collectVisibleRanges(source: string, offset: number, ranges: MarkdownSo
       const richReference = parseMarkdownRichTooltipReference(raw);
       const hint = /^\[([^\]]+)\]\("([^"\n]*)"\)$/.exec(raw);
       const link = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);
-      if (richReference && richTooltipsEnabled && markdownRichTooltipIdIsCanonical(richReference.id)) {
+      if (richReference && richTooltipsEnabled) {
         collectVisibleRanges(richReference.label, start + 1, ranges, richTooltipsEnabled);
       }
       else if (richReference) ranges.push({ start, end: start + raw.length });

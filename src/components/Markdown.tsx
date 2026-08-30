@@ -20,7 +20,6 @@ import {
   parseMarkdownRichTooltips,
   restoreMarkdownRichTooltipDefinitions,
   markdownRichTooltipBackslashRunIsEscaped,
-  markdownRichTooltipIdIsCanonical,
   markdownRichTooltipLeadingBackslashCount,
   parseMarkdownRichTooltipReference,
   type ParsedMarkdownRichTooltips,
@@ -216,7 +215,7 @@ function renderDecoratedText(
 interface MarkdownRichTooltipInlineContext {
   controller: MarkdownRichTooltipController | null;
   definitions: ParsedMarkdownRichTooltips["definitions"];
-  duplicateIds: ParsedMarkdownRichTooltips["duplicateIds"];
+  duplicateAnchors: ParsedMarkdownRichTooltips["duplicateAnchors"];
   triggersDisabled: boolean;
 }
 
@@ -299,16 +298,11 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
           cursor = match.index + raw.length;
           continue;
         }
-        const { label, id } = richReference;
-        if (!markdownRichTooltipIdIsCanonical(id)) {
-          nodes.push(...renderDecoratedText(raw, key, match.index, location));
-          cursor = match.index + raw.length;
-          continue;
-        }
-        const definition = richTooltipContext.definitions.get(id);
+        const { anchor, label } = richReference;
+        const definition = richTooltipContext.definitions.get(anchor);
         const triggerEnabled = Boolean(
           definition?.bodyMarkdown.trim()
-          && !richTooltipContext.duplicateIds.has(id)
+          && !richTooltipContext.duplicateAnchors.has(anchor)
           && !richTooltipContext.triggersDisabled
           && richTooltipContext.controller
           && !interactionsDisabled,
@@ -316,7 +310,7 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
         const labelNodes = renderInline(label, `${key}-label`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined, forceRevealSpoilers, richTooltipContext, triggerEnabled);
         if (triggerEnabled && definition && richTooltipContext.controller) {
           nodes.push(
-            <MarkdownRichTooltipTrigger bodyMarkdown={definition.bodyMarkdown} controller={richTooltipContext.controller} key={key} title={reactNodeText(labelNodes)}>
+            <MarkdownRichTooltipTrigger bodyMarkdown={definition.bodyMarkdown} controller={richTooltipContext.controller} key={key} title={anchor}>
               {labelNodes}
             </MarkdownRichTooltipTrigger>,
           );
@@ -751,7 +745,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       richTooltipParsed ? {
         controller: richTooltipController,
         definitions: richTooltipParsed.definitions,
-        duplicateIds: richTooltipParsed.duplicateIds,
+        duplicateAnchors: richTooltipParsed.duplicateAnchors,
         triggersDisabled: richTooltipTriggersDisabled,
       } : undefined,
     );
@@ -759,7 +753,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
     if (!decorations && !inlineChanges.length) return renderInline(value, key, undefined, forceRevealSpoilers, richTooltipParsed ? {
       controller: richTooltipController,
       definitions: richTooltipParsed.definitions,
-      duplicateIds: richTooltipParsed.duplicateIds,
+      duplicateAnchors: richTooltipParsed.duplicateAnchors,
       triggersDisabled: richTooltipTriggersDisabled,
     } : undefined);
     const lines = value.split("\n");
