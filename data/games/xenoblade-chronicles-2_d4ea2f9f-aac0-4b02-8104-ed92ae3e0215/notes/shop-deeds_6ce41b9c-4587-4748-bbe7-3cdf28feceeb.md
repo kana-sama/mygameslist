@@ -35,6 +35,7 @@ collapsedChecklistSections:
   - "group:99ho5n-29"
   - "group:c2bs7l-29"
   - "group:icv3am-26"
+  - "group:l88vxk-20"
   - "group:mao2w8-26"
   - "group:mj0rd8-2a"
   - "group:mm9jvm-25"
@@ -60,7 +61,7 @@ collapsedChecklistSections:
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-30T10:51:11.776Z"
+updatedAt: "2026-08-30T13:32:12.229Z"
 -->
 # Shop Deeds
 
