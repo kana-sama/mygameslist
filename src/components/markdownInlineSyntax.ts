@@ -2,6 +2,7 @@ import {
   MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
   MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE,
   MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
+  markdownRichTooltipAnchor,
   markdownRichTooltipBackslashRunIsEscaped,
   markdownRichTooltipLeadingBackslashCount,
   parseMarkdownRichTooltipReference,
@@ -16,9 +17,92 @@ const INLINE_TOKEN_SOURCE_PREFIX = "(`[^`\\n]+`";
 const INLINE_RICH_TOOLTIP_TOKEN_SOURCE = `|${MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}|${MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}`;
 const INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE = "|\\[[^\\]\\n]*\\]\\[\\?[^\\]\\n]+\\]";
 const INLINE_TOKEN_SOURCE_SUFFIX = `${INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE}|\\[[^\\]\\n]+\\]\\(\"[^\"\\n]*\"\\)|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|${MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE})`;
+const LEGACY_TOOLTIP_TOKEN = /^\[([^\]\r\n]+)\]\("[^"\r\n]*"\)$/u;
 
 export function markdownInlineTokenPattern(): RegExp {
   return new RegExp(`${INLINE_TOKEN_SOURCE_PREFIX}${INLINE_RICH_TOOLTIP_TOKEN_SOURCE}${INLINE_TOKEN_SOURCE_SUFFIX}`, "g");
+}
+
+interface MarkdownTooltipProjection {
+  formattedText: string;
+  legacyCount: number;
+  renderedText: string;
+  richCount: number;
+}
+
+function markdownTooltipProjection(source: string): MarkdownTooltipProjection {
+  const token = markdownInlineTokenPattern();
+  let cursor = 0;
+  let formattedText = "";
+  let legacyCount = 0;
+  let renderedText = "";
+  let richCount = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = token.exec(source))) {
+    const preceding = source.slice(cursor, match.index);
+    formattedText += preceding;
+    renderedText += markdownRichTooltipAnchor(preceding);
+    const raw = match[0];
+    const legacy = LEGACY_TOOLTIP_TOKEN.exec(raw);
+    const rich = parseMarkdownRichTooltipReference(raw);
+    if (legacy) {
+      legacyCount += 1;
+      formattedText += legacy[1];
+      renderedText += markdownRichTooltipAnchor(legacy[1]);
+    } else if (rich) {
+      richCount += 1;
+      formattedText += rich.label;
+      renderedText += markdownRichTooltipAnchor(rich.label);
+    } else {
+      formattedText += raw;
+      renderedText += markdownRichTooltipAnchor(raw);
+    }
+    cursor = match.index + raw.length;
+  }
+  const trailing = source.slice(cursor);
+  formattedText += trailing;
+  renderedText += markdownRichTooltipAnchor(trailing);
+  return { formattedText, legacyCount, renderedText, richCount };
+}
+
+function isLegacyTooltipCandidate(projection: MarkdownTooltipProjection): boolean {
+  return projection.legacyCount === 1 && projection.richCount === 0;
+}
+
+function isRichTooltipCandidate(projection: MarkdownTooltipProjection): boolean {
+  return projection.legacyCount === 0 && projection.richCount === 1;
+}
+
+export function isMarkdownLegacyTooltipMigrationCandidate(source: string): boolean {
+  return isLegacyTooltipCandidate(markdownTooltipProjection(source));
+}
+
+export function isMarkdownRichTooltipMigrationCandidate(source: string): boolean {
+  return isRichTooltipCandidate(markdownTooltipProjection(source));
+}
+
+export function isMarkdownLegacyTooltipToRichTooltipMigration(before: string, after: string): boolean {
+  const beforeProjection = markdownTooltipProjection(before);
+  const afterProjection = markdownTooltipProjection(after);
+  return isLegacyTooltipCandidate(beforeProjection)
+    && isRichTooltipCandidate(afterProjection)
+    && beforeProjection.renderedText === afterProjection.renderedText;
+}
+
+export function isMarkdownLegacyTooltipToRichTooltipVisuallyEquivalent(
+  before: string,
+  after: string,
+): boolean {
+  const beforeProjection = markdownTooltipProjection(before);
+  const afterProjection = markdownTooltipProjection(after);
+  return isLegacyTooltipCandidate(beforeProjection)
+    && isRichTooltipCandidate(afterProjection)
+    && beforeProjection.formattedText === afterProjection.formattedText;
+}
+
+export function markdownRichTooltipVisibleText(source: string): string {
+  return markdownTooltipProjection(source).renderedText;
 }
 
 export function markdownIsSingleSpoiler(source: string): boolean {

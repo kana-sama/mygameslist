@@ -5,6 +5,12 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import type { MarkdownTaskState } from "./markdownChecklist";
 import { scanMarkdownTableLine } from "../components/markdownTableSyntax";
+import {
+  isMarkdownLegacyTooltipMigrationCandidate,
+  isMarkdownLegacyTooltipToRichTooltipMigration,
+  isMarkdownRichTooltipMigrationCandidate,
+  markdownRichTooltipVisibleText,
+} from "../components/markdownInlineSyntax";
 
 export type SourceDiffKind = "context" | "added" | "removed";
 
@@ -190,9 +196,13 @@ function normalizeVisibleText(value: string): string {
   return value.replace(/\s+/gu, " ").trim().toLowerCase();
 }
 
-function visibleText(node: PositionedNode): string {
+function sourceText(node: PositionedNode): string {
   if (typeof node.value === "string") return node.value;
-  return (node.children ?? []).map(visibleText).join("");
+  return (node.children ?? []).map(sourceText).join("");
+}
+
+function visibleText(node: PositionedNode): string {
+  return markdownRichTooltipVisibleText(sourceText(node));
 }
 
 function listItemKey(node: PositionedNode): string | null {
@@ -575,7 +585,17 @@ function safeToPair(
     (beforeStructure.type === "listItem" || beforeStructure.type === "tableRow")
     && (beforeStructure.key === "listItem:task" || beforeStructure.key === "tableRow:task-only")
     && beforeStructure.key === afterStructure.key;
-  if (!taskOnlyPair && !mayPair(beforeLine.value, afterLine.value)) return false;
+  const uniqueListItemTooltipMigration =
+    beforeStructure.type === "listItem"
+    && beforeStructure.key !== null
+    && beforeStructure.key === afterStructure.key
+    && beforeStructure.occurrenceCount <= 1
+    && afterStructure.occurrenceCount <= 1
+    && isMarkdownLegacyTooltipToRichTooltipMigration(
+      semanticPairText(beforeLine.value),
+      semanticPairText(afterLine.value),
+    );
+  if (!taskOnlyPair && !uniqueListItemTooltipMigration && !mayPair(beforeLine.value, afterLine.value)) return false;
 
   if (beforeStructure.type === "heading") {
     return beforeStructure.depth === afterStructure.depth;
@@ -755,14 +775,36 @@ function annotatePairs(
       .filter((entry) => entry.line.kind === "added");
 
     if (removed.length === 0 || added.length === 0) continue;
+    if (removed.length !== added.length) {
+      const legacyCandidates = removed.filter((entry) =>
+        isMarkdownLegacyTooltipMigrationCandidate(semanticPairText(entry.line.value))
+      );
+      const richCandidates = added.filter((entry) =>
+        isMarkdownRichTooltipMigrationCandidate(semanticPairText(entry.line.value))
+      );
+      if (legacyCandidates.length === 1 && richCandidates.length === 1) {
+        const [left] = legacyCandidates;
+        const [right] = richCandidates;
+        if (safeToPair(left.line, right.line, before, after, ambiguous)) {
+          const pairId = `pair:${left.index}:${right.index}`;
+          const inline = inlineParts(left.line.value, right.line.value);
+          left.line.pairId = pairId;
+          left.line.inline = inline.before;
+          right.line.pairId = pairId;
+          right.line.inline = inline.after;
+          pairs.set(left.index, right.index);
+          continue;
+        }
+      }
+    }
     if (run.some((line) => line.value.length === 0)) continue;
     const containsHeading = run.some(
       (line) => lineBlockType(line, before, after) === "heading",
     );
     if (containsHeading && run.length > 2) continue;
 
-    if (removed.length !== added.length) continue;
     if (exceedsProduct(removed.length, added.length, MAX_REPLACEMENT_RUN_PAIR_COMPARISONS)) continue;
+    if (removed.length !== added.length) continue;
     const eligiblePairProducts = removed.flatMap((left) => {
       const leftLength = semanticPairText(left.line.value).length;
       return added

@@ -8,6 +8,7 @@ import type {
   SourceDiffLine,
 } from "../domain/markdownDiff";
 import {
+  isMarkdownLegacyTooltipToRichTooltipVisuallyEquivalent,
   markdownSourceRangeIsVisible,
   markdownVisibleSourceRanges,
 } from "./markdownInlineSyntax";
@@ -397,13 +398,19 @@ function renderChangesForTableRow(
   return { inlineChanges, taskChanges };
 }
 
+interface RenderLineChanges {
+  inlineChanges: RenderedInlineChange[];
+  taskChanges: RenderedTaskChange[];
+  visuallyEquivalent?: boolean;
+}
+
 function renderChangesForLine(
   before: string,
   after: string,
   blockType: MarkdownDiffFragment["blockType"],
   sourceLine: number,
   idPrefix: string,
-): { inlineChanges: RenderedInlineChange[]; taskChanges: RenderedTaskChange[] } | null {
+): RenderLineChanges | null {
   if (blockType === "tableRow") {
     return renderChangesForTableRow(before, after, sourceLine, idPrefix);
   }
@@ -434,14 +441,8 @@ function renderChangesForLine(
   const beforePrefix = parsedListPrefix(before);
   const afterPrefix = parsedListPrefix(after);
   if (!beforePrefix || !afterPrefix || beforePrefix.structuralKey !== afterPrefix.structuralKey) return null;
-  const inlineChanges = inlineChangesForText(
-    before.slice(beforePrefix.contentStart),
-    after.slice(afterPrefix.contentStart),
-    sourceLine,
-    idPrefix,
-    afterPrefix.contentStart,
-  );
-  if (!inlineChanges) return null;
+  const beforeContent = before.slice(beforePrefix.contentStart);
+  const afterContent = after.slice(afterPrefix.contentStart);
   const taskChanges: RenderedTaskChange[] = [];
   if (
     beforePrefix.state !== undefined
@@ -456,6 +457,17 @@ function renderChangesForLine(
       sourceLine,
     });
   }
+  if (isMarkdownLegacyTooltipToRichTooltipVisuallyEquivalent(beforeContent, afterContent)) {
+    return { inlineChanges: [], taskChanges, visuallyEquivalent: true };
+  }
+  const inlineChanges = inlineChangesForText(
+    beforeContent,
+    afterContent,
+    sourceLine,
+    idPrefix,
+    afterPrefix.contentStart,
+  );
+  if (!inlineChanges) return null;
   return { inlineChanges, taskChanges };
 }
 
@@ -607,7 +619,8 @@ function mergedFragmentSide(
   );
   const inlineChanges = safeLineChanges.flatMap((changes) => changes.inlineChanges);
   const taskChanges = safeLineChanges.flatMap((changes) => changes.taskChanges);
-  if (!inlineChanges.length && !taskChanges.length) return null;
+  const visuallyEquivalent = safeLineChanges.some((changes) => changes.visuallyEquivalent);
+  if (!inlineChanges.length && !taskChanges.length && !visuallyEquivalent) return null;
   return renderedDiffSide({
     decorations: [],
     inlineChanges,

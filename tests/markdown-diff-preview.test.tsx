@@ -733,6 +733,97 @@ describe("compact Markdown diff preview", () => {
     expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
   });
 
+  it("renders a checklist tooltip migration as one inactive rich-label modification and keeps exact source evidence", async () => {
+    const user = userEvent.setup();
+    const before = '- [x] [Archive Entry]("Old plain tooltip body")';
+    const after = "- [x] [Archive Entry][?]";
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getAllByRole("group", { name: "Изменено" })).toHaveLength(1);
+    expect(screen.queryByRole("group", { name: "Удалено" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Добавлено" })).not.toBeInTheDocument();
+    expect(screen.getByText("Archive Entry")).toBeInTheDocument();
+    expect(screen.queryByText("[?]", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive Entry" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+
+    expect(screen.getByText(before)).toHaveAttribute("data-diff-kind", "removed");
+    expect(screen.getByText(after)).toHaveAttribute("data-diff-kind", "added");
+  });
+
+  it("keeps matching bold tooltip formatting in one yellow migration row", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          '- [x] [**Archive Entry**]("Old plain tooltip body")',
+          "- [x] [**Archive Entry**][?]",
+        )}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getByText("Archive Entry").closest("strong")).not.toBeNull();
+    expect(screen.queryByRole("group", { name: "Удалено" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Добавлено" })).not.toBeInTheDocument();
+  });
+
+  it("does not hide bold-to-plain formatting inside tooltip migration equivalence", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          '- [x] [**Archive Entry**]("Old plain tooltip body")',
+          "- [x] [Archive Entry][?]",
+        )}
+      />,
+    );
+
+    expect(screen.queryByRole("group", { name: "Изменено" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Удалено" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Добавлено" })).toBeInTheDocument();
+  });
+
+  it("renders a checklist tooltip migration before terminal definitions as one yellow row and keeps definitions in source", async () => {
+    const user = userEvent.setup();
+    const before = '- [x] [Archive Entry]("Old plain tooltip body")';
+    const after = [
+      "- [x] [Archive Entry][?]",
+      "",
+      "[?Archive Entry]:",
+      "    Old plain tooltip body",
+    ].join("\n");
+    render(<MarkdownDiffPreview model={createMarkdownDiff(before, after)} />);
+
+    expect(screen.getAllByRole("group", { name: "Изменено" })).toHaveLength(1);
+    expect(screen.queryByText("[?]", { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText("Archive Entry")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Показать исходник" }));
+
+    expect(screen.getByText(before)).toHaveAttribute("data-diff-kind", "removed");
+    expect(screen.getByText("- [x] [Archive Entry][?]")).toHaveAttribute("data-diff-kind", "added");
+    expect(screen.getByText("[?Archive Entry]:")).toHaveAttribute("data-diff-kind", "added");
+    expect(
+      screen.getAllByTestId("diff-visual-row").find((row) => row.textContent === "    Old plain tooltip body"),
+    ).toHaveAttribute("data-diff-kind", "added");
+  });
+
+  it("keeps both checklist states visible when a tooltip migration also toggles the task", () => {
+    render(
+      <MarkdownDiffPreview
+        model={createMarkdownDiff(
+          '- [ ] [Archive Entry]("Old plain tooltip body")',
+          "- [x] [Archive Entry][?]",
+        )}
+      />,
+    );
+
+    const modified = screen.getByRole("group", { name: "Изменено" });
+    expect(within(modified).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(modified).getByRole("checkbox", { name: "Было не отмечено" })).not.toBeChecked();
+    expect(within(modified).getByRole("checkbox", { name: "Стало отмечено" })).toBeChecked();
+  });
+
   it("falls back when a paragraph changes only trimmed layout whitespace", () => {
     render(<MarkdownDiffPreview model={createMarkdownDiff("  Text", " Text")} />);
 

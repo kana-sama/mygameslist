@@ -437,6 +437,7 @@ Preview не падает на временно невалидном текст�
 - Definition bodies сохраняют исходные диапазоны в полном `bodyMarkdown`, хотя исключаются из видимого note flow.
 - Monaco редактирует полный исходник вместе с terminal definitions.
 - Markdown diff показывает изменения definitions как обычные изменения source text.
+- В rendered diff миграция checklist-строки из legacy `[Label]("description")` в `[Label][?]` с тем же rendered label отображается одной жёлтой строкой `Изменено`, без буквального `[?]` и без интерактивного tooltip. Одновременный переход checkbox state остаётся в той же жёлтой строке и показывает оба disabled состояния «было/стало». Точный legacy/rich source и terminal definitions остаются доступны в source mode как красно-зелёный diff.
 - Checkbox state changes в основном теле не должны менять, переставлять или пересериализовывать definitions.
 - Serialize/parse roundtrip сохраняет EOL style и содержимое definitions без нормализации авторского Markdown.
 

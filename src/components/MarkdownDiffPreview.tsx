@@ -312,6 +312,8 @@ function RenderedRows({ units }: { units: readonly RenderedDiffUnit[] }) {
           inlineChanges={side.inlineChanges}
           markdown={side.markdown}
           rowChanges={side.rowChanges}
+          richTooltipTriggersDisabled
+          richTooltipsEnabled
           taskChanges={side.taskChanges}
           taskChangesDisabled
         />

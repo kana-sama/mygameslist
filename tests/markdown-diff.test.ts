@@ -69,6 +69,121 @@ describe("exact Markdown source diff", () => {
     expect(reconstructAfter(model.lines)).toBe(after);
   });
 
+  it("pairs a unique checklist tooltip migration by its rendered label", () => {
+    const before = '- [x] [Archive Entry]("Old plain tooltip body")';
+    const after = "- [x] [Archive Entry][?]";
+    const model = createMarkdownDiff(before, after);
+
+    const changedLines = model.lines.filter((line) => line.kind !== "context");
+    expect(changedLines).toHaveLength(2);
+    expect(changedLines[0]?.pairId).toBeDefined();
+    expect(changedLines[1]?.pairId).toBe(changedLines[0]?.pairId);
+    expect(model.fragments).toContainEqual(expect.objectContaining({
+      blockType: "listItem",
+      kind: "modified",
+    }));
+    expect(model.fragments.filter((fragment) => fragment.kind === "removed" || fragment.kind === "added"))
+      .toHaveLength(0);
+  });
+
+  it("pairs a unique checklist tooltip migration before independently added terminal definitions", () => {
+    const before = '- [x] [Archive Entry]("Old plain tooltip body")';
+    const after = [
+      "- [x] [Archive Entry][?]",
+      "",
+      "[?Archive Entry]:",
+      "    Old plain tooltip body",
+    ].join("\n");
+    const model = createMarkdownDiff(before, after);
+
+    const paired = model.lines.filter((line) => line.pairId);
+    expect(paired).toHaveLength(2);
+    expect(paired.map((line) => line.value)).toEqual([
+      before,
+      "- [x] [Archive Entry][?]",
+    ]);
+    expect(model.lines.filter((line) => line.value.startsWith("[?Archive Entry]:"))[0]?.pairId)
+      .toBeUndefined();
+    expect(model.fragments).toContainEqual(expect.objectContaining({
+      blockType: "listItem",
+      kind: "modified",
+    }));
+  });
+
+  it.each([
+    [
+      "a formatted tooltip label",
+      '- [x] [**Archive Entry**]("Old plain tooltip body")',
+      "- [x] [**Archive Entry**][?]",
+    ],
+    [
+      "embedded checklist text around a tooltip label",
+      '- [x] Open [Archive Entry]("Old plain tooltip body") now',
+      "- [x] Open [Archive Entry][?] now",
+    ],
+  ])("pairs %s by rendered tooltip content", (_label, before, after) => {
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.filter((line) => line.pairId)).toHaveLength(2);
+    expect(model.fragments).toContainEqual(expect.objectContaining({
+      blockType: "listItem",
+      kind: "modified",
+    }));
+  });
+
+  it("declines an unequal run with multiple legacy and rich tooltip candidates", () => {
+    const before = Array.from(
+      { length: 20 },
+      (_, index) => `- [x] [Legacy ${index}]("Old tooltip body ${index}")`,
+    ).join("\n");
+    const after = [
+      "- [x] [Legacy 0][?]",
+      ...Array.from({ length: 20 }, (_, index) => `- [x] [Rich ${index}][?]`),
+    ].join("\n");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.every((line) => line.pairId === undefined)).toBe(true);
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+  });
+
+  it.each([
+    [
+      "escaped tooltip syntax",
+      '- [x] \\[Archive Entry]("Old plain tooltip body")',
+      "- [x] \\[Archive Entry][?]",
+    ],
+    [
+      "code tooltip syntax",
+      '- [x] `[Archive Entry]("Old plain tooltip body")`',
+      "- [x] `[Archive Entry][?]`",
+    ],
+    [
+      "ordinary checklist links",
+      "- [x] [Archive Entry](https://example.test/old)",
+      "- [x] [Archive Entry][?]",
+    ],
+  ])("does not treat %s as a semantic tooltip migration", (_label, before, after) => {
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.every((line) => line.pairId === undefined)).toBe(true);
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+  });
+
+  it("does not pair ambiguous duplicate checklist tooltip migrations", () => {
+    const before = [
+      '- [x] [Archive Entry]("Old plain tooltip body")',
+      '- [x] [Archive Entry]("Old plain tooltip body")',
+    ].join("\n");
+    const after = [
+      "- [x] [Archive Entry][?]",
+      "- [x] [Archive Entry][?]",
+    ].join("\n");
+    const model = createMarkdownDiff(before, after);
+
+    expect(model.lines.every((line) => line.pairId === undefined)).toBe(true);
+    expect(model.fragments.some((fragment) => fragment.kind === "modified")).toBe(false);
+  });
+
   it("falls back to exact lines when table row keys are ambiguous", () => {
     const before = "| Этап | Статус |\n| --- | --- |\n| Дубль | [ ] |\n| Дубль | [x] |";
     const after = "| Этап | Статус |\n| --- | --- |\n| Дубль | [x] |\n| Дубль | [x] |";
