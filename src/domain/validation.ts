@@ -1,4 +1,5 @@
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
+import { parseMarkdownRichTooltips } from "./markdownRichTooltips";
 import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
 import { deriveImageAssetAltFromOwners, indexAssetOwners } from "./assetOwnership";
@@ -115,13 +116,18 @@ export function validateMarkdown(value: string): string[] {
   return errors;
 }
 
+/** Applies note-only rich-tooltip diagnostics in addition to generic Markdown safety. */
+export function validateNoteMarkdown(value: string): string[] {
+  return [...parseMarkdownRichTooltips(value).errors, ...validateMarkdown(value)];
+}
+
 /** Validates the two note fields that can be changed by immediate interactions. */
 export function validateInteractiveNoteField(
   field: "bodyMarkdown" | "collapsedChecklistSections",
   value: string | string[] | undefined,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  if (field === "bodyMarkdown") markdown(value, "/bodyMarkdown", issues);
+  if (field === "bodyMarkdown") markdown(value, "/bodyMarkdown", issues, true);
   else if (value !== undefined) stringList(value, "/collapsedChecklistSections", issues);
   return issues;
 }
@@ -134,9 +140,10 @@ export function validateInteractiveNoteOperationMetadata(changedAt: string, tran
   return issues;
 }
 
-function markdown(value: unknown, path: string, issues: ValidationIssue[]): void {
+function markdown(value: unknown, path: string, issues: ValidationIssue[], richTooltipsEnabled = false): void {
   if (!string(value, path, issues, true, 2_000_000)) return;
-  for (const message of validateMarkdown(value)) issue(issues, path, message);
+  const messages = richTooltipsEnabled ? validateNoteMarkdown(value) : validateMarkdown(value);
+  for (const message of messages) issue(issues, path, message);
 }
 
 function record(value: unknown, path: string, issues: ValidationIssue[]): value is Record<string, unknown> {
@@ -187,7 +194,7 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
   const optionalFields = ["collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
   exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
-  markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues);
+  markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues, true);
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
   else value.attachments.forEach((attachment, index) => {
     const attachmentPath = `${path}/attachments/${index}`;

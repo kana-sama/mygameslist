@@ -1,4 +1,4 @@
-import { validateMarkdown } from "../domain/validation";
+import { validateNoteMarkdown } from "../domain/validation";
 import { parseNoteMetadataYaml, serializeNoteMetadataYaml } from "./metadata";
 import type { SourceNoteMetadataV1 } from "./types";
 
@@ -19,7 +19,7 @@ function fail(context: string, message: string): never {
 }
 
 function validateBodyMarkdown(bodyMarkdown: string, context: string): void {
-  const errors = validateMarkdown(bodyMarkdown);
+  const errors = validateNoteMarkdown(bodyMarkdown);
   if (errors.length) fail(context, `invalid Markdown: ${errors.join("; ")}`);
 }
 

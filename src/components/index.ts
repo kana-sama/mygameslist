@@ -8,6 +8,7 @@ export * from "./GlobalGameSearch";
 export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";
+export * from "./MarkdownRichTooltip";
 export * from "./MarkdownDiffPreview";
 export * from "./monacoGameLinkCompletion";
 export * from "./monacoMarkdownListEditing";

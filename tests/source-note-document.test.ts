@@ -112,6 +112,20 @@ describe("exact source note documents", () => {
     expect(serializeNoteDocument({ metadata: ATTACHED_METADATA, bodyMarkdown: "Route body\n" }, ASSET_NAMES)).toBe(source);
   });
 
+  it("keeps a terminal rich definition immediately before the generated attachment projection", () => {
+    const bodyMarkdown = "Route body\n\n[?archive]:\n    **North wing**\n";
+    const serialized = serializeNoteDocument({ metadata: ATTACHED_METADATA, bodyMarkdown }, ASSET_NAMES);
+
+    expect(serialized).toBe(`${ATTACHED_PREFIX}${bodyMarkdown}\n${ATTACHED_PROJECTION}`);
+    expect(serialized.indexOf("[?archive]:")).toBeLessThan(serialized.indexOf("<!-- mygameslist-attachments:v1:start -->"));
+    expect(parseNoteDocument(serialized, SOURCE_PATH, ASSET_NAMES)).toEqual({ metadata: ATTACHED_METADATA, bodyMarkdown });
+  });
+
+  it("rejects a source note with a rich reference missing its terminal definition", () => {
+    expect(() => parseNoteDocument(`${MINIMAL_PREFIX}Note [Label][?entry].`, SOURCE_PATH, new Map()))
+      .toThrow(/definition|определение/i);
+  });
+
   it.each([
     ["empty", ""],
     ["no final LF", "alpha"],
