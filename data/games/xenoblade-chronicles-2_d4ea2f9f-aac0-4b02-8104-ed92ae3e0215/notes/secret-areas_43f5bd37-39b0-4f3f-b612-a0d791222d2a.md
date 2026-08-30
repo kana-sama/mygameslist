@@ -10,10 +10,9 @@ collapsedChecklistSections:
   - "heading:omtvm-1m"
   - "heading:oxxgn0-1m"
   - "heading:xcrsji-1g"
-  - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-29T08:39:35.857Z"
+updatedAt: "2026-08-30T09:27:00.549Z"
 -->
 # Secret Areas
 
@@ -46,7 +45,7 @@ updatedAt: "2026-08-29T08:39:35.857Z"
 
 ## Land of Morytha
 
-- [ ] [View of a Lost Time]("Streets; От Highway 8 используйте дорожный знак; нужны Lv. 8 Earth Mastery и Lv. 5 Superstrength.")
+- [x] [View of a Lost Time]("Streets; От Highway 8 используйте дорожный знак; нужны Lv. 8 Earth Mastery и Lv. 5 Superstrength.")
 
 ## Spirit Crucible Elpys
 

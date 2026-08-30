@@ -8,7 +8,7 @@ collapsedChecklistSections:
   - "heading:ax1qo3-1a"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-30T06:38:35.718Z"
+updatedAt: "2026-08-30T10:48:25.688Z"
 -->
 # Quests
 
@@ -152,7 +152,7 @@ updatedAt: "2026-08-30T06:38:35.718Z"
 - [-] [Uncover the Truth]("Notice Board · Central Exchange; получение: Chapter 5; завершение: Chapter 8.")
 - [-] [The Riddle on the Wall]("Erebos · Tretl Windmill Plaza; требования: Mysterious Note completed; получение: Chapter 7; завершение: Chapter 8.")
 - [ ] [Upgrades and Tinkering]("Tora's House")
-- [-] [Precious Yearnings]("Fonsa Myma; получение: Chapter 5; требования: Agate in party; group sets out for Temperantia.")
+- [x] [Precious Yearnings]("Fonsa Myma; получение: Chapter 5; требования: Agate in party; group sets out for Temperantia.")
 - [ ] [Limits of Awareness]("Goldmouth Warehouse; получение: Chapter 6; требования: Adenine's Books completed.")
 - [ ] [Adenine's Password]("Goldmouth Warehouse; требования: Limits of Awareness; fail password entry once.")
 - [-] [Nature Boy]("Gwenith Paddies; получение: Chapter 5; требования: Unspoken Suspicion completed.")
