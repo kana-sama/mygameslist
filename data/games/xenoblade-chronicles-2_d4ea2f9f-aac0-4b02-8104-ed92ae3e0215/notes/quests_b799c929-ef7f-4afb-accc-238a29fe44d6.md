@@ -4,12 +4,11 @@ groupRank: 2048
 rank: 512
 doubleHeight: true
 collapsedChecklistSections:
-  - "heading:12a39n2-19"
   - "heading:16oz515-18"
   - "heading:ax1qo3-1a"
   - "heading:t3gat5-19"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-29T03:36:24.498Z"
+updatedAt: "2026-08-30T06:38:35.718Z"
 -->
 # Quests
 
@@ -130,18 +129,18 @@ updatedAt: "2026-08-29T03:36:24.498Z"
 
 
 ## Chapter 7
-- [-] [Midnight Feasting]("Nharil Central Plaza")
+- [x] [Midnight Feasting]("Nharil Central Plaza")
 - [x] [Partners]("Humhum · Sealed Quarry")
 - [x] [Glory from the Past]("Dead Man · Little Banerro Ruins")
 - [x] [Artisanal Accessories]("Soprac Old Market")
-- [ ] [Souvenirs from Morytha]("Dibidi · Cliffs of Morytha Inlet")
+- [x] [Souvenirs from Morytha]("Dibidi · Cliffs of Morytha Inlet")
 - [x] [Time is Money]("Corinne · Corinne's House; требования: 90,000 G sent to Corinne from Argentum. Позднее корабль стоит 300,500 G либо 2,000 G после Umon Bounces Back.")
 - [x] [Bana's Secret Treasure]("Niranira · Bana's Bedroom")
   - [x] [Tirkin Suppression]("Soldier · Torigoth Relay Base; требования: Part of 'Bana's Secret Treasure'.")
 - [-] [Fool's Gold]("Little Garden of Tradition; получение: Chapter 6; требования: Sheba Lv. 5 Affinity; all Drivers in party; 1 million G saved.")
-- [-] [Blade-Sharp Memory]("Royal Guard Barracks; требования: Crystal Clear; Praxis Lv. 4 Affinity.")
+- [x] [Blade-Sharp Memory]("Royal Guard Barracks; требования: Crystal Clear; Praxis Lv. 4 Affinity.")
   - [x] [Pest Control 1]("Garagorm's Arch; часть Blade-Sharp Memory.")
-  - [-] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
+  - [x] [Pest Control 2]("Garagorm's Arch; часть Blade-Sharp Memory.")
   - [x] [Pest Control 3]("Garagorm's Arch; часть Blade-Sharp Memory.")
 - [x] [Making Love Source]("Lemour Inn; требования: Poppi QT; sleep at the inn.")
 
@@ -149,7 +148,7 @@ updatedAt: "2026-08-29T03:36:24.498Z"
 ## Chapter 8
 - [ ] [Difficult Decisions]("Jelved · Garfont Town Gate; требования: Would-Be Mercs completed; Chapter 8 onward.")
 - [ ] [Salvage King]("Eulogimenos · Royal Audience Hall; требования: Rex as party leader.")
-- [ ] [Timeworn Machine]("Old Machine · Great Wall Tunnel No. 8")
+- [x] [Timeworn Machine]("Old Machine · Great Wall Tunnel No. 8")
 - [-] [Uncover the Truth]("Notice Board · Central Exchange; получение: Chapter 5; завершение: Chapter 8.")
 - [-] [The Riddle on the Wall]("Erebos · Tretl Windmill Plaza; требования: Mysterious Note completed; получение: Chapter 7; завершение: Chapter 8.")
 - [ ] [Upgrades and Tinkering]("Tora's House")

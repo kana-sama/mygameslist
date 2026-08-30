@@ -9,19 +9,18 @@ collapsedChecklistSections:
   - "heading:6al93y-1h"
   - "heading:omtvm-1m"
   - "heading:oxxgn0-1m"
-  - "heading:paw22u-1n"
   - "heading:xcrsji-1g"
   - "heading:z2b8uc-1l"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-26T14:38:33.559Z"
+updatedAt: "2026-08-29T08:39:35.857Z"
 -->
 # Secret Areas
 
 ## Cliffs of Morytha
 
-- [ ] [Way of the Practitioner]("Lower Level; Исследуйте Lower Level и найдите скрытый путь.")
-- [ ] [Runo Cave-in]("Upper Level; Открывается по пути Main Story; пропустить невозможно.")
+- [x] [Way of the Practitioner]("Lower Level; Исследуйте Lower Level и найдите скрытый путь.")
+- [x] [Runo Cave-in]("Upper Level; Открывается по пути Main Story; пропустить невозможно.")
 
 ## Empire of Mor Ardain
 
@@ -51,7 +50,7 @@ updatedAt: "2026-08-26T14:38:33.559Z"
 
 ## Spirit Crucible Elpys
 
-- [ ] [Subterranean Lake Galantia]("Mid Level; Исследуйте Mid Level и найдите подземное озеро.")
+- [x] [Subterranean Lake Galantia]("Mid Level; Исследуйте Mid Level и найдите подземное озеро.")
 
 ## Temperantia
 

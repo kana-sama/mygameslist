@@ -47,7 +47,6 @@ collapsedChecklistSections:
   - "group:pa0674-26"
   - "group:rkoooi-26"
   - "group:sbs9yt-21"
-  - "group:st0tbv-29"
   - "group:t1hzrz-2e"
   - "group:tfw7ad-26"
   - "group:tg4jd5-29"
@@ -62,7 +61,7 @@ collapsedChecklistSections:
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-28T07:59:29.445Z"
+updatedAt: "2026-08-30T06:18:35.289Z"
 -->
 # Shop Deeds
 
@@ -135,13 +134,13 @@ updatedAt: "2026-08-28T07:59:29.445Z"
 
 - 12 Brothersisterpon
 
-  - [ ] Twinklejuice
-  - [ ] Fizz Juice
-  - [ ] Chunky Juice
-  - [ ] Sappan Veg Juice — открывается после нахождения всех Brothersisterpons.
-  - [ ] Honey au Lait — открывается после нахождения всех Brothersisterpons.
-  - [ ] Crispy Blendshake — открывается после нахождения всех Brothersisterpons.
-  - [ ] **Brothersisterpon Deeds**
+  - [x] Twinklejuice
+  - [x] Fizz Juice
+  - [x] Chunky Juice
+  - [x] Sappan Veg Juice — открывается после нахождения всех Brothersisterpons.
+  - [x] Honey au Lait — открывается после нахождения всех Brothersisterpons.
+  - [x] Crispy Blendshake — открывается после нахождения всех Brothersisterpons.
+  - [x] **Brothersisterpon Deeds**
 
 ## Torigoth
 
