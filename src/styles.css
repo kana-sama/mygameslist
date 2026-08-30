@@ -483,12 +483,20 @@ button.markdown-table-group__header:disabled { cursor: default; }
 }
 .markdown-rich-tooltip--desktop {
   --markdown-rich-tooltip-gap: 14px;
+  --markdown-rich-tooltip-arrow-width: 10px;
+  --markdown-rich-tooltip-arrow-height: 18px;
+  --markdown-rich-tooltip-arrow-half-height: 9px;
+  --markdown-rich-tooltip-header-divider-top: 39px;
+  --markdown-rich-tooltip-divider-height: 1px;
+  --markdown-rich-tooltip-arrow-divider-top: calc(var(--markdown-rich-tooltip-header-divider-top) - var(--markdown-rich-tooltip-arrow-top) + var(--markdown-rich-tooltip-arrow-half-height));
   position: fixed;
   width: 344px;
   max-height: var(--markdown-rich-tooltip-max-height);
   overflow: visible;
 }
 .markdown-rich-tooltip__card {
+  position: relative;
+  z-index: 0;
   min-height: 0;
   max-height: inherit;
   display: flex;
@@ -501,16 +509,36 @@ button.markdown-table-group__header:disabled { cursor: default; }
 }
 .markdown-rich-tooltip__arrow {
   position: absolute;
-  z-index: -1;
+  z-index: 1; /* Paint the 1px overlap above the card border to remove the base seam. */
   top: var(--markdown-rich-tooltip-arrow-top);
-  width: 11px;
-  height: 11px;
-  border: 1px solid #42454b;
-  background: var(--surface-2);
-  transform: translateY(-50%) rotate(45deg);
+  width: var(--markdown-rich-tooltip-arrow-width);
+  height: var(--markdown-rich-tooltip-arrow-height);
+  border: 0;
+  background: transparent;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
-.markdown-rich-tooltip[data-side="right"] .markdown-rich-tooltip__arrow { left: -6px; border-top: 0; border-right: 0; }
-.markdown-rich-tooltip[data-side="left"] .markdown-rich-tooltip__arrow { right: -6px; border-bottom: 0; border-left: 0; }
+.markdown-rich-tooltip__arrow::before,
+.markdown-rich-tooltip__arrow::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+}
+.markdown-rich-tooltip__arrow::before { background: #42454b; }
+.markdown-rich-tooltip__arrow::after {
+  background: linear-gradient(
+    to bottom,
+    #202226 0 var(--markdown-rich-tooltip-arrow-divider-top),
+    var(--line-soft) var(--markdown-rich-tooltip-arrow-divider-top) calc(var(--markdown-rich-tooltip-arrow-divider-top) + var(--markdown-rich-tooltip-divider-height)),
+    var(--surface-2) calc(var(--markdown-rich-tooltip-arrow-divider-top) + var(--markdown-rich-tooltip-divider-height)) 100%
+  );
+}
+.markdown-rich-tooltip[data-side="right"] .markdown-rich-tooltip__arrow { left: -9px; }
+.markdown-rich-tooltip[data-side="right"] .markdown-rich-tooltip__arrow::before { clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.markdown-rich-tooltip[data-side="right"] .markdown-rich-tooltip__arrow::after { clip-path: polygon(100% 1px, 2px 50%, 100% calc(100% - 1px)); }
+.markdown-rich-tooltip[data-side="left"] .markdown-rich-tooltip__arrow { right: -9px; }
+.markdown-rich-tooltip[data-side="left"] .markdown-rich-tooltip__arrow::before { clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.markdown-rich-tooltip[data-side="left"] .markdown-rich-tooltip__arrow::after { clip-path: polygon(0 1px, calc(100% - 2px) 50%, 0 calc(100% - 1px)); }
 .markdown-rich-tooltip__header {
   min-height: 39px;
   display: flex;
@@ -575,6 +603,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
   border-radius: 0;
   background: var(--surface-2);
 }
+.markdown-rich-tooltip--fullscreen .markdown-rich-tooltip__arrow { display: none; }
 .markdown-rich-tooltip--fullscreen .markdown-rich-tooltip__card { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
 .markdown-rich-tooltip--fullscreen .markdown-rich-tooltip__header {
   position: sticky;

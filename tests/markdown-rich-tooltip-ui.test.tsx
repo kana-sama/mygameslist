@@ -594,6 +594,7 @@ describe("Markdown rich tooltip rendering", () => {
 
     await waitFor(() => expect(dialog).toHaveClass("markdown-rich-tooltip--fullscreen"));
     expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog.querySelector(".markdown-rich-tooltip__arrow")).not.toBeInTheDocument();
     await waitFor(() => expect(close).toHaveFocus());
 
     fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
