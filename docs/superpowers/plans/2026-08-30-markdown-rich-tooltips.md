@@ -4,7 +4,7 @@
 
 **Goal:** Add reference-backed Markdown tooltips that open as an externally positioned desktop card or a fullscreen modal while preserving the existing native plaintext hover hints.
 
-**Architecture:** A pure domain parser extracts the terminal tooltip-definition section and validates references without coupling to React. Shared lexical and plain-text-anchor helpers align domain collection, inline rendering, and source visibility. `MarkdownView` renders valid references as trigger buttons while preserving the hidden definition suffix across checklist edits; the page-level context value stays stable, and only narrow trigger subscribers observe active-source changes. A page-level provider owns the single active portal, renders definition-list rows plus ordinary Markdown, and chooses right, left, or fullscreen placement from live DOM geometry.
+**Architecture:** A pure domain parser extracts the terminal tooltip-definition section and validates structural errors without coupling to React. A separate source audit reports orphan references and definitions as warning-level linkage diagnostics at explicit save boundaries. Shared lexical and plain-text-anchor helpers align domain collection, inline rendering, and source visibility. `MarkdownView` renders valid references as trigger buttons while preserving the hidden definition suffix across checklist edits; the page-level context value stays stable, and only narrow trigger subscribers observe active-source changes. A page-level provider owns the single active portal, renders definition-list rows plus ordinary Markdown, and chooses right, left, or fullscreen placement from live DOM geometry.
 
 **Tech Stack:** TypeScript 7, React 19, React DOM portals, Vitest 4, Testing Library, JSDOM, existing custom Markdown parser, CSS.
 
@@ -21,6 +21,7 @@
 - Desktop cards are `344px` wide, prefer the right side with a `14px` gap, fall back left, and never cross the note surface's top or bottom.
 - If neither side fits `344px + 14px`, render a `100dvw × 100dvh` modal with fixed header, internal scroll, and close-button-only dismissal.
 - Desktop dismissal is only close button or outside click; hover, mouseleave, scrolling, resize, repeated trigger clicks, and Escape do not close it.
+- Missing references and unreferenced definitions are warning-level linkage findings, not blocking validation errors. An explicit author save warns on the first unchanged draft submit and persists only after a repeat submit; changing Markdown resets the confirmation. Structural/checklist persistence bypasses this warning.
 - Permanent tests use synthetic fixtures and must not encode real game, note, or authored database content.
 - Definitions remain in Monaco/source diff but are excluded from rendered note flow, checklist progress, collapse, and completed-item filtering.
 - Execute every implementation task through a subagent and require specification plus code-quality review before finalizing.
@@ -30,7 +31,7 @@
 ## File Structure
 
 - Create `src/domain/markdownRichTooltips.ts`: pure terminal-section parser, reference diagnostics, suffix restoration, and definition-list body segmentation.
-- Modify `src/domain/validation.ts`: compose rich-tooltip diagnostics with existing Markdown safety checks.
+- Modify `src/domain/validation.ts`: compose blocking rich-tooltip diagnostics with existing Markdown safety checks; keep warning-only linkage audits at explicit save boundaries.
 - Modify `src/domain/index.ts`: export the pure rich-tooltip contracts used outside the domain folder.
 - Create `src/components/markdownRichTooltipContext.ts`: stable context commands plus narrow active-source subscription for the single page-level tooltip.
 - Create `src/components/MarkdownRichTooltip.tsx`: provider, portal, body renderer, focus management, outside-click behavior, and live placement.
@@ -74,6 +75,11 @@ export interface MarkdownRichTooltipReference {
   sourceStart: number;
 }
 
+export interface MarkdownRichTooltipLinkAudit {
+  missingBodyAnchors: readonly string[];
+  unreferencedBodyAnchors: readonly string[];
+}
+
 export interface ParsedMarkdownRichTooltips {
   definitions: ReadonlyMap<string, MarkdownRichTooltipDefinition>;
   definitionSectionStart: number | null;
@@ -89,6 +95,7 @@ export type MarkdownRichTooltipBodyPart =
   | { items: readonly { descriptionMarkdown: string; termMarkdown: string }[]; type: "definition-list" };
 
 export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichTooltips;
+export function auditMarkdownRichTooltipLinks(source: string): MarkdownRichTooltipLinkAudit;
 export function restoreMarkdownRichTooltipDefinitions(parsed: ParsedMarkdownRichTooltips, visibleMarkdown: string): string;
 export function parseMarkdownRichTooltipBody(markdown: string): MarkdownRichTooltipBodyPart[];
 ```
@@ -120,7 +127,7 @@ expect(restoreMarkdownRichTooltipDefinitions(parsed, parsed.visibleMarkdown.repl
   .toBe(source.replace("Open", "Unlock"));
 ```
 
-Add separate cases for LF/CRLF, two definitions, reused references, code spans/fences, escaped syntax, rich-looking link/hint metadata, empty anchors, exact case-sensitive and Unicode anchors, duplicates, missing definitions, empty definitions, interrupted terminal sections, nested references, and allowed unused definitions. Preserve literal old slug-looking forms such as `[Label][?old-slug]` as noncanonical Markdown.
+Add separate cases for LF/CRLF, two definitions, reused references, code spans/fences, escaped syntax, rich-looking link/hint metadata, empty anchors, exact case-sensitive and Unicode anchors, duplicates, missing definitions, empty definitions, interrupted terminal sections, nested references, and the warning-only audit for unreferenced definitions. Missing/unreferenced linkage must not enter the parser's blocking error list. Preserve literal old slug-looking forms such as `[Label][?old-slug]` as noncanonical Markdown.
 
 - [ ] **Step 2: Run parser tests and verify RED**
 
@@ -136,16 +143,17 @@ Expected: FAIL because `src/domain/markdownRichTooltips.ts` and its exports do n
 
 Implement a line scanner that preserves each line's content, EOL, and absolute start offset. Track fenced-code state before recognizing a top-level opener matching `^\[\?([^\]\r\n]+)\]:[ \t]*$`. A terminal section is extractable only when every nonblank line after its first opener is either another opener or begins with at least four spaces.
 
-Dedent exactly four spaces from nonblank definition-body lines, preserve internal whitespace and EOL style, populate first definitions in the map keyed by trimmed plain-text anchor, and record duplicate anchors separately. Collect `[label][?]` references outside inline/fenced code from only `visibleMarkdown`. Return diagnostics in stable source order using these exact message shapes:
+Dedent exactly four spaces from nonblank definition-body lines, preserve internal whitespace and EOL style, populate first definitions in the map keyed by trimmed plain-text anchor, and record duplicate anchors separately. Collect `[label][?]` references outside inline/fenced code from only `visibleMarkdown`. Return only blocking parser diagnostics in stable source order using these exact message shapes:
 
 ```ts
-`Rich tooltip [?${anchor}]: определение не найдено`
 `Rich tooltip [?${anchor}]: определение задано несколько раз`
 `Некорректный rich tooltip anchor: ${anchor}`
 `Rich tooltip [?${anchor}]: пустое определение`
 "Rich tooltip definitions должны находиться в конце Markdown"
 `Rich tooltip [?${anchor}]: вложенные rich tooltip references запрещены`
 ```
+
+Do not emit a missing-definition diagnostic from the parser. Implement `auditMarkdownRichTooltipLinks(source)` separately; it returns unique `missingBodyAnchors` and `unreferencedBodyAnchors` in first-source order, treating only nonempty, nonduplicate definitions as valid bodies. These findings are warning-level and are consumed only by explicit author-save guards.
 
 `restoreMarkdownRichTooltipDefinitions` must append the original suffix beginning at `definitionSectionStart`, or return the new visible Markdown unchanged when no terminal section exists.
 
@@ -155,13 +163,13 @@ Scan dedented tooltip Markdown for a nonblank term line followed immediately by 
 
 - [ ] **Step 5: Integrate domain validation**
 
-Keep `validateMarkdown` generic for review and unrelated Markdown. Add `validateNoteMarkdown`, which prepends `parseMarkdownRichTooltips(value).errors` and then runs the unchanged generic raw-HTML/link safety scan over the original source so links inside definitions remain protected. Use `validateNoteMarkdown` for stored note bodies, immediate note-field validation, and source-note documents only. Ensure `[label][?]` is not interpreted as a URL and the legacy hover-hint removal remains unchanged.
+Keep `validateMarkdown` generic for review and unrelated Markdown. Add `validateNoteMarkdown`, which prepends only `parseMarkdownRichTooltips(value).errors` and then runs the unchanged generic raw-HTML/link safety scan over the original source so links inside definitions remain protected; missing/unreferenced linkage is intentionally excluded from this blocking path. Use `validateNoteMarkdown` for stored note bodies, immediate note-field validation, and source-note documents only. Ensure `[label][?]` is not interpreted as a URL and the legacy hover-hint removal remains unchanged.
 
 Export the new module through `src/domain/index.ts`.
 
 - [ ] **Step 6: Add library and source-document regression tests**
 
-In `tests/domain-core.test.ts`, use a synthetic note with one valid reference/definition and assert library validation passes; then mutate it to a missing definition and assert a `/bodyMarkdown` issue.
+In `tests/domain-core.test.ts`, use a synthetic note with one valid reference/definition and assert library validation passes; then mutate it to a missing definition and assert validation still passes while `auditMarkdownRichTooltipLinks` reports the missing anchor. Keep parser-malformation cases as blocking `/bodyMarkdown` issues.
 
 In `tests/source-note-document.test.ts`, serialize and parse a synthetic attached note whose body ends in a rich definition. Assert the definition remains immediately before the generated attachment projection and roundtrips byte-for-byte.
 
@@ -423,6 +431,7 @@ Run `jj status` and `jj diff`. Compare every observable class/state directly wit
 - Modify: `src/pages/GamePage.tsx`
 - Modify: `src/components/index.ts` if the Task 3 export is not already present
 - Modify: `tests/markdown-rich-tooltip-ui.test.tsx`
+- Modify: `tests/game-note-links.test.tsx`
 - Modify: `tests/note-interaction-render-isolation.test.tsx` only if provider state affects sibling renders
 - Verify: `docs/superpowers/specs/2026-08-30-markdown-rich-tooltips-design.md`
 - Verify: `docs/superpowers/plans/2026-08-30-markdown-rich-tooltips.md`
@@ -430,6 +439,8 @@ Run `jj status` and `jj diff`. Compare every observable class/state directly wit
 **Interfaces:**
 - Consumes: `MarkdownRichTooltipProvider` and `MarkdownView richTooltipsEnabled` from Tasks 2–3.
 - Produces: the complete user-visible feature on rendered game-note cards.
+
+Explicit author-save integration also consumes `auditMarkdownRichTooltipLinks`. For an existing note, the `Сохранить заметку` button and keyboard submit share one guard; for a new game, the `Сохранить` submit aggregates unique audit findings across all draft notes. A warning containing `Нет тела для: «Anchor»` and/or `Нет ссылки для: «Anchor»`, followed by `Нажмите «Сохранить заметку» ещё раз, чтобы сохранить всё равно.` for existing notes or `Нажмите «Сохранить» ещё раз, чтобы сохранить всё равно.` for new games, prevents the first persistence attempt. The exact unchanged Markdown draft must be submitted again to confirm; any Markdown edit, cancel, unmount, or successful or unsuccessful persistence clears confirmation. Blocking parser/domain errors continue through the ordinary save pipeline, and checklist, collapse, reorder, delete, and other structural saves never invoke this guard.
 
 - [ ] **Step 1: Write failing GamePage integration test**
 
@@ -441,6 +452,10 @@ Render a synthetic `GamePage` note beginning with `# Field Notes`, containing a 
 - scrolling `.note-card__viewport` keeps it open and invokes repositioning;
 - another note's trigger replaces the open portal instead of creating a second one;
 - editing and task interactions preserve terminal definitions.
+- first explicit save with orphan linkage shows the yellow warning immediately above actions without persistence;
+- repeat submit of the unchanged draft persists the exact source, while editing the draft resets confirmation and warns again;
+- new-game submit aggregates de-duplicated missing and unreferenced anchors across draft notes;
+- parser errors bypass the warning and use the existing blocking error path, while checklist/structural saves bypass the warning entirely.
 
 - [ ] **Step 2: Run integration tests and verify RED**
 
@@ -452,16 +467,16 @@ npx vitest run tests/markdown-rich-tooltip-ui.test.tsx tests/note-interaction-re
 
 Expected: the new GamePage integration case fails before the provider is wired.
 
-- [ ] **Step 3: Wire the notes workspace**
+- [ ] **Step 3: Wire the notes workspace and explicit-save warning guards**
 
-Wrap the rendered notes `DndContext`/groups in `MarkdownRichTooltipProvider`. Pass `richTooltipsEnabled` only to the normal rendered-note `MarkdownView`. For drag previews, pass `richTooltipsEnabled richTooltipTriggersDisabled` so definitions stay hidden but previews cannot open a tooltip. Do not enable the feature for game review Markdown or unrelated Markdown surfaces.
+Wrap the rendered notes `DndContext`/groups in `MarkdownRichTooltipProvider`. Pass `richTooltipsEnabled` only to the normal rendered-note `MarkdownView`. For drag previews, pass `richTooltipsEnabled richTooltipTriggersDisabled` so definitions stay hidden but previews cannot open a tooltip. Add the audit guard only around existing-note explicit submit and new-game explicit submit, preserving exact Markdown through the existing persistence path. Do not enable the feature for game review Markdown or unrelated Markdown surfaces, and do not add the guard to structural persistence.
 
 - [ ] **Step 4: Run integration and render-isolation tests**
 
 Run:
 
 ```bash
-npx vitest run tests/markdown-rich-tooltip-ui.test.tsx tests/markdown-tasks.test.tsx tests/note-interaction-render-isolation.test.tsx tests/source-note-document.test.ts tests/domain-core.test.ts
+npx vitest run tests/markdown-rich-tooltip-ui.test.tsx tests/markdown-tasks.test.tsx tests/note-interaction-render-isolation.test.tsx tests/source-note-document.test.ts tests/domain-core.test.ts tests/game-note-links.test.tsx
 ```
 
 Expected: PASS; opening/closing tooltip state must not trigger full note saves or corrupt sibling note state.

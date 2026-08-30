@@ -75,7 +75,7 @@ describe("library validation", () => {
     expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/bodyMarkdown` }));
   });
 
-  it("validates synthetic rich tooltip references against their terminal definitions", () => {
+  it("allows synthetic rich tooltip references without terminal definitions", () => {
     const database = empty();
     database.games[GAME_ID] = game();
     database.notes[NOTE_ID] = {
@@ -85,7 +85,7 @@ describe("library validation", () => {
     expect(validateLibrary(database).ok).toBe(true);
 
     database.notes[NOTE_ID] = { ...database.notes[NOTE_ID], bodyMarkdown: "Visit [Archive][?]." };
-    expect(validateLibrary(database).issues).toContainEqual(expect.objectContaining({ path: `/notes/${NOTE_ID}/bodyMarkdown` }));
+    expect(validateLibrary(database).ok).toBe(true);
   });
 
   it("allows literal rich references in reviews without isolating reviews from Markdown safety", () => {
@@ -103,9 +103,7 @@ describe("library validation", () => {
 
     database.games[GAME_ID] = { ...game(), reviewMarkdown: "Review [Label][?]." };
     database.notes[NOTE_ID] = { ...note(), bodyMarkdown: "Note [Label][?]." };
-    expect(validateLibrary(database).issues).toEqual([
-      { path: `/notes/${NOTE_ID}/bodyMarkdown`, message: "Rich tooltip [?Label]: определение не найдено" },
-    ]);
+    expect(validateLibrary(database).ok).toBe(true);
   });
 
   it("accepts platinum as a distinct game status", () => {

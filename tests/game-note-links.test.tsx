@@ -4,10 +4,10 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Game, Note } from "../src/domain";
 import { GamePage, type EditableNote, type GameSaveInput } from "../src/pages/GamePage";
-import { emitMonacoMarkdownChange } from "./mocks/MonacoMarkdownEditorMock";
+import { emitMonacoMarkdownChange } from "./mocks/MonacoNoteEditorMock";
 
-vi.mock("../src/components/MonacoMarkdownEditor", async () => (
-  import("./mocks/MonacoMarkdownEditorMock")
+vi.mock("../src/components/MonacoNoteEditor", async () => (
+  import("./mocks/MonacoNoteEditorMock")
 ));
 
 const CURRENT_GAME_ID = "11111111-1111-4111-8111-111111111111";
@@ -74,7 +74,7 @@ function storedNote(draft: EditableNote): Note {
   };
 }
 
-function ExistingNoteHarness({ note = existingNote, onSave }: { note?: Note; onSave: (input: GameSaveInput) => void }) {
+function ExistingNoteHarness({ note = existingNote, onSave }: { note?: Note; onSave: (input: GameSaveInput) => void | Promise<void> }) {
   const [notes, setNotes] = useState<Note[]>([note]);
   return (
     <GamePage
@@ -83,8 +83,8 @@ function ExistingNoteHarness({ note = existingNote, onSave }: { note?: Note; onS
       gameSuggestions={[currentGame, zelda]}
       mode="game"
       notes={notes}
-      onSave={(input) => {
-        onSave(input);
+      onSave={async (input) => {
+        await onSave(input);
         setNotes(input.notes.map(storedNote));
       }}
     />
@@ -176,5 +176,173 @@ describe("game links in notes", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0][0].notes).toHaveLength(2);
     expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(expectedMarkdown);
+  });
+});
+
+describe("rich tooltip save warnings", () => {
+  it("ignores button and Monaco submits during pending existing-note persistence and warns again after failure", async () => {
+    const user = userEvent.setup();
+    let rejectPersistence!: (reason: Error) => void;
+    const pendingPersistence = new Promise<void>((_resolve, reject) => {
+      rejectPersistence = reject;
+    });
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>()
+      .mockImplementationOnce(() => pendingPersistence)
+      .mockResolvedValueOnce();
+    render(<ExistingNoteHarness onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    fireEvent.change(editor, { target: { value: "[Missing body][?]" } });
+    const saveButton = screen.getByRole("button", { name: "Сохранить заметку" });
+
+    await user.click(saveButton);
+    expect(onSave).not.toHaveBeenCalled();
+    await user.click(saveButton);
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    expect(document.querySelector(".inline-alert")).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "Текст заметки" }), { key: "Enter", ctrlKey: true });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".inline-alert")).not.toBeInTheDocument();
+
+    await act(async () => {
+      rejectPersistence(new Error("Persistence failed"));
+      await pendingPersistence.catch(() => undefined);
+    });
+    await screen.findByText("Persistence failed");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".inline-alert")).toHaveTextContent("Нет тела для: «Missing body»");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+  });
+
+  it("warns before an explicit existing-note save and saves the unchanged source on repeat", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<ExistingNoteHarness onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    const source = "Сверить [Missing body][?].\n\n[?Unused body]:\n    Подробности";
+    fireEvent.change(editor, { target: { value: source } });
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    const warning = screen.getByRole("alert");
+    expect(warning).toHaveClass("inline-alert");
+    expect(warning).not.toHaveClass("inline-alert--error");
+    expect(warning).toHaveTextContent("Нет тела для: «Missing body»");
+    expect(warning).toHaveTextContent("Нет ссылки для: «Unused body»");
+    expect(warning).toHaveTextContent("Нажмите «Сохранить заметку» ещё раз, чтобы сохранить всё равно.");
+    const actions = warning.closest("article")!.querySelector(".note-editor-actions")!;
+    expect(warning.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toBe(source);
+  });
+
+  it("requires a fresh repeat submit after existing-note Markdown changes", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<ExistingNoteHarness onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    fireEvent.change(editor, { target: { value: "[First missing][?]" } });
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Нет тела для: «First missing»");
+
+    fireEvent.change(editor, { target: { value: "[Second missing][?]" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Нет тела для: «Second missing»");
+  });
+
+  it("saves paired rich-tooltip content without a warning", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<ExistingNoteHarness onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    fireEvent.change(editor, { target: { value: "[Paired][?]\n\n[?Paired]:\n    Body" } });
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("lets blocking parser errors reach the ordinary save error path", async () => {
+    const user = userEvent.setup();
+    const parserError = "Rich tooltip definitions должны находиться в конце Markdown";
+    const onSave = vi.fn<(input: GameSaveInput) => Promise<void>>().mockRejectedValue(new Error(parserError));
+    render(<GamePage assets={{}} game={currentGame} mode="game" notes={[existingNote]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("button", { name: "Редактировать заметку" }));
+    const editor = await screen.findByRole("textbox", { name: "Текст заметки" });
+    fireEvent.change(editor, { target: { value: "[Missing][?]\n\n[?Unused]:\n    Body\nInterrupted" } });
+    await user.click(screen.getByRole("button", { name: "Сохранить заметку" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("alert")).toHaveTextContent(parserError);
+    expect(document.querySelector(".inline-alert")).not.toBeInTheDocument();
+  });
+
+  it("aggregates new-game warnings and resets confirmation when any note Markdown changes", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    render(<GamePage assets={{}} mode="new" notes={[]} onSave={onSave} />);
+
+    await user.type(screen.getByRole("textbox", { name: "Название *" }), "Новая игра");
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в новую группу" }));
+    await user.click(screen.getByRole("button", { name: "Добавить заметку в группу 1" }));
+    const editors = await screen.findAllByRole("textbox", { name: "Текст заметки" });
+    fireEvent.change(editors[0], { target: { value: "[Alpha][?]\n\n[?Unused One]:\n    First" } });
+    fireEvent.change(editors[1], { target: { value: "[Alpha][?] [Beta][?]\n\n[?Unused One]:\n    Duplicate\n\n[?Unused Two]:\n    Second" } });
+
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    const firstWarning = screen.getByRole("alert");
+    expect(firstWarning).toHaveClass("inline-alert");
+    expect(firstWarning).toHaveTextContent("Нет тела для: «Alpha», «Beta»");
+    expect(firstWarning).toHaveTextContent("Нет ссылки для: «Unused One», «Unused Two»");
+    expect(firstWarning).toHaveTextContent("Нажмите «Сохранить» ещё раз, чтобы сохранить всё равно.");
+    const actions = document.querySelector(".form-actions")!;
+    expect(firstWarning.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.change(editors[1], { target: { value: "[Alpha][?] [Gamma][?]\n\n[?Unused One]:\n    Duplicate\n\n[?Unused Two]:\n    Second" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Нет тела для: «Alpha», «Gamma»");
+
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes.map((note) => note.bodyMarkdown)).toEqual([
+      "[Alpha][?]\n\n[?Unused One]:\n    First",
+      "[Alpha][?] [Gamma][?]\n\n[?Unused One]:\n    Duplicate\n\n[?Unused Two]:\n    Second",
+    ]);
+  });
+
+  it("persists checklist interactions without an orphan-confirmation warning", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const note = { ...existingNote, bodyMarkdown: "- [ ] Найти ключ\n\n[Missing body][?]" };
+    render(<GamePage assets={{}} game={currentGame} mode="game" notes={[note]} onSave={onSave} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Отметить: Найти ключ" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][0].notes[0].bodyMarkdown).toContain("- [x] Найти ключ");
+    expect(document.querySelector(".inline-alert")).not.toBeInTheDocument();
   });
 });

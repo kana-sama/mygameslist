@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  auditMarkdownRichTooltipLinks,
   markdownRichTooltipAnchor,
   parseMarkdownRichTooltipBody,
   parseMarkdownRichTooltipReference,
@@ -57,11 +58,61 @@ describe("Markdown rich tooltip source", () => {
     expect(validateInteractiveNoteField("bodyMarkdown", source)).toEqual([]);
   });
 
-  it("keeps rich-reference diagnostics out of generic Markdown while note interactions opt in", () => {
+  it("keeps orphan rich references out of blocking Markdown validation", () => {
     expect(validateMarkdown("Review [Label][?].")).toEqual([]);
-    expect(validateInteractiveNoteField("bodyMarkdown", "Note [Label][?].")).toEqual([
-      { path: "/bodyMarkdown", message: "Rich tooltip [?Label]: определение не найдено" },
-    ]);
+    expect(validateNoteMarkdown("Note [Label][?].")).toEqual([]);
+    expect(validateInteractiveNoteField("bodyMarkdown", "Note [Label][?].")).toEqual([]);
+  });
+
+  it("audits missing and unreferenced rich tooltip bodies in unique source order", () => {
+    const source = [
+      "Open [Missing second][?], [Missing first][?], and [Missing second][?] again with [Shared][?].",
+      "",
+      "[?Shared]:",
+      "    Used body",
+      "",
+      "[?Unused second]:",
+      "    Second unused body",
+      "",
+      "[?Unused first]:",
+      "    First unused body",
+    ].join("\n");
+
+    expect(auditMarkdownRichTooltipLinks(source)).toEqual({
+      missingBodyAnchors: ["Missing second", "Missing first"],
+      unreferencedBodyAnchors: ["Unused second", "Unused first"],
+    });
+    expect(validateNoteMarkdown(source)).toEqual([]);
+  });
+
+  it("returns an empty orphan audit when every active reference has one body", () => {
+    const source = [
+      "Open [One][?] and [Two][?].",
+      "",
+      "[?One]:",
+      "    First body",
+      "[?Two]:",
+      "    Second body",
+    ].join("\n");
+
+    expect(auditMarkdownRichTooltipLinks(source)).toEqual({
+      missingBodyAnchors: [],
+      unreferencedBodyAnchors: [],
+    });
+  });
+
+  it("excludes escaped, code, and link metadata lookalikes from the orphan audit", () => {
+    const source = [
+      "\\[Escaped][?] `[Code][?]` [Hint](https://example.test/[Path][?] \"[Title][?]\") [Visible][?]",
+      "",
+      "[?Visible]:",
+      "    Visible body",
+    ].join("\n");
+
+    expect(auditMarkdownRichTooltipLinks(source)).toEqual({
+      missingBodyAnchors: [],
+      unreferencedBodyAnchors: [],
+    });
   });
 
   it("extracts a terminal definition while preserving the visible source and suffix", () => {
@@ -158,9 +209,7 @@ describe("Markdown rich tooltip source", () => {
     const parsed = parseMarkdownRichTooltips(source);
 
     expect(parsed.duplicateAnchors).toEqual(new Set());
-    expect(parsed.errors).toEqual([
-      "Rich tooltip [?first]: определение не найдено",
-    ]);
+    expect(parsed.errors).toEqual([]);
     expect(parseMarkdownRichTooltips(source).definitions.get("Spaced")?.bodyMarkdown).toBe("Spaced body");
   });
 
@@ -168,13 +217,11 @@ describe("Markdown rich tooltip source", () => {
     const parsed = parseMarkdownRichTooltips("Prefix ` [Missing][?]");
 
     expect(parsed.references).toEqual([{ anchor: "Missing", sourceStart: 9, sourceEnd: 21 }]);
-    expect(parsed.errors).toEqual(["Rich tooltip [?Missing]: определение не найдено"]);
+    expect(parsed.errors).toEqual([]);
   });
 
-  it("validates a missing definition after an unmatched backtick", () => {
-    expect(validateNoteMarkdown("Prefix ` [Missing][?]")).toEqual([
-      "Rich tooltip [?Missing]: определение не найдено",
-    ]);
+  it("does not block a missing definition after an unmatched backtick", () => {
+    expect(validateNoteMarkdown("Prefix ` [Missing][?]")).toEqual([]);
   });
 
   it("matches renderer code spans that begin inside a longer backtick run", () => {
@@ -186,13 +233,11 @@ describe("Markdown rich tooltip source", () => {
     const parsed = parseMarkdownRichTooltips(source);
 
     expect(parsed.references).toEqual([{ anchor: "Visible", sourceStart: 18, sourceEnd: 30 }]);
-    expect(parsed.errors).toEqual(["Rich tooltip [?Visible]: определение не найдено"]);
-    expect(validateNoteMarkdown(source)).toEqual([
-      "Rich tooltip [?Visible]: определение не найдено",
-    ]);
+    expect(parsed.errors).toEqual([]);
+    expect(validateNoteMarkdown(source)).toEqual([]);
   });
 
-  it("reports empty anchors, duplicate anchors, missing definitions, empty definitions, and forbidden nested references", () => {
+  it("keeps malformed, empty, and duplicate definitions as blocking parser errors", () => {
     const source = [
       "[   ][?] [Missing][?] [Again][?Good]",
       "",
@@ -209,7 +254,6 @@ describe("Markdown rich tooltip source", () => {
     expect(parsed.duplicateAnchors).toEqual(new Set(["Good"]));
     expect(parsed.errors).toEqual([
       "Некорректный rich tooltip anchor: ",
-      "Rich tooltip [?Missing]: определение не найдено",
       "Некорректный rich tooltip anchor: ",
       "Rich tooltip [?Nested]: вложенные rich tooltip references запрещены",
       "Rich tooltip [?Good]: определение задано несколько раз",

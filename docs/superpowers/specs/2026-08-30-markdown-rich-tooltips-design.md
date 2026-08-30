@@ -391,9 +391,8 @@ Fullscreen modal закрывается только close button. Outside click
 
 Domain validation проверяет новый синтаксис независимо от реального authored corpus.
 
-Ошибки:
+Блокирующие ошибки:
 
-- reference указывает на отсутствующий plain-text anchor;
 - один anchor определён более одного раза;
 - reference или definition образует пустой anchor;
 - definition пусто;
@@ -401,14 +400,36 @@ Domain validation проверяет новый синтаксис незави�
 - definition содержит вложенный rich-tooltip reference;
 - definition body нарушает существующие правила Markdown safety.
 
-Неиспользуемое корректное definition разрешено: оно не рендерится и не блокирует сохранение. Это позволяет сначала написать definition, затем добавить reference в ходе одной редакторской сессии.
+Связность references и definitions не является блокирующей domain-ошибкой. Отдельный pure audit возвращает два списка anchors в порядке первого появления:
+
+- `missingBodyAnchors`: каждый уникальный reference, для которого нет корректного непустого definition;
+- `unreferencedBodyAnchors`: каждый уникальный корректный непустой definition, на который не ссылается ни один reference.
+
+Escaped syntax, inline/fenced code и metadata обычных links/legacy hints не создают save-warning. Если parser уже нашёл блокирующую ошибку, orphan-warning не перехватывает save-flow: submit проходит в обычную валидацию и показывает существующую ошибку. Повторные references одного anchor не дублируют строку предупреждения.
+
+### Предупреждение при сохранении
+
+Audit выполняется только перед явным авторским сохранением:
+
+- существующая заметка — кнопка или keyboard-submit `Сохранить заметку` в открытом note editor;
+- новая игра — общая кнопка или submit `Сохранить`, с агрегированием audit по всем draft notes.
+
+Если audit находит `missingBodyAnchors` или `unreferencedBodyAnchors`, первое нажатие не вызывает persistence и оставляет редактор открытым. Непосредственно над действиями сохранения появляется жёлтый inline-warning с конкретными anchors:
+
+- `Нет тела для: «Anchor»` для references без definition;
+- `Нет ссылки для: «Anchor»` для definitions без reference;
+- заключительная инструкция `Нажмите «Сохранить заметку» ещё раз, чтобы сохранить всё равно.` либо `Нажмите «Сохранить» ещё раз, чтобы сохранить всё равно.`.
+
+Повторный submit сохраняет только тот же неизменённый Markdown-draft. Любое изменение Markdown после предупреждения сбрасывает подтверждение; следующий submit снова является первым. Cancel/unmount также уничтожает подтверждение. Успешное или неуспешное persistence не оставляет подтверждение для следующей редакторской сессии.
+
+Жёлтый warning не обходит блокирующие Markdown/domain errors: повторный submit проходит обычный save pipeline и может получить красную ошибку. Checkbox/checklist interactions, collapse state, reorder, delete и другие неавторские/структурные сохранения не показывают это подтверждение и не блокируются им.
 
 Preview не падает на временно невалидном тексте:
 
 - missing или ambiguous reference отображает только отрендеренную подпись как обычный текст без dashed underline и click behavior;
 - rich-looking reference с пустым anchor остаётся буквальным неинтерактивным исходным текстом;
 - malformed definition, не распознанное как definition, остаётся обычным Markdown исходника;
-- диагностическое сообщение проходит через существующий validation/save flow; фича не добавляет persistent error badge или отдельный repair UI.
+- блокирующее диагностическое сообщение проходит через существующий validation/save flow; orphan audit добавляет только transient жёлтый warning внутри текущей authoring-сессии, без persistent badge или отдельного repair UI.
 
 ## Source ranges, редактирование и diff
 
@@ -435,6 +456,7 @@ Parser и validation fixtures, не связанные с реальными и�
 - escape и metadata boundaries для legacy hints и обычных links;
 - дефисы как обычную пунктуацию title anchor, включая дефисы в начале, конце и подряд;
 - missing, duplicate, empty и interrupted definitions;
+- audit references без bodies и bodies без references, включая deduplication и source order;
 - вложенный rich-tooltip reference как validation error;
 - сохранение legacy `[text]("description")`;
 - source roundtrip и CRLF/LF;
@@ -461,6 +483,10 @@ Component tests проверяют:
 - oversized body получает внутренний scroll и фиксированный header;
 - отсутствие места с обеих сторон включает fullscreen mode;
 - fullscreen modal имеет internal scroll, focus trap и закрывается только крестиком;
+- первый explicit save при orphan reference/definition показывает жёлтый warning и не вызывает persistence;
+- повторный save неизменённого Markdown вызывает persistence, а Markdown-изменение сбрасывает подтверждение;
+- new-game save агрегирует warnings по всем draft notes;
+- checklist и structural saves не требуют orphan-confirmation;
 - legacy native tooltip продолжает прежнее поведение.
 
 ### Визуальная проверка
@@ -496,4 +522,5 @@ Implementation plan должен включить focused tests изменённ
 11. Tooltip content не является дочерним элементом clipping-контейнеров заметки и не меняет layout заметок.
 12. Legacy `[text]("description")` работает без изменений и не мигрируется.
 13. Обычные Markdown links и остальной Markdown не получают регрессий.
-14. Generic tests и build проходят, а permanent tests не зависят от конкретного authored corpus.
+14. Первый explicit save orphan reference/definition показывает жёлтый warning, а повторный submit неизменённого Markdown сохраняет.
+15. Generic tests и build проходят, а permanent tests не зависят от конкретного authored corpus.

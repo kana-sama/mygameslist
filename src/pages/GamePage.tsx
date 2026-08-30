@@ -23,7 +23,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
 import { isMp4FileMetadata, makeFileAssetMetadata, optimizeNoteImage, withVideoPreviewFragment } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
-import { DEFAULT_NOTE_GROUP_RANK, STATUS_IDS, TIER_IDS, type Asset, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
+import { auditMarkdownRichTooltipLinks, DEFAULT_NOTE_GROUP_RANK, parseMarkdownRichTooltips, STATUS_IDS, TIER_IDS, type Asset, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { GameProgressGrid } from "../components/GameProgressGrid";
@@ -73,6 +73,45 @@ export interface GameSaveInput {
   reviewMarkdown: string;
   progressItems: EditableGameProgressItem[];
   notes: EditableNote[];
+}
+
+interface MarkdownRichTooltipSaveWarningModel {
+  missingBodyAnchors: readonly string[];
+  unreferencedBodyAnchors: readonly string[];
+}
+
+function markdownRichTooltipSaveWarning(markdowns: readonly string[]): MarkdownRichTooltipSaveWarningModel | null {
+  const missingBodyAnchors: string[] = [];
+  const unreferencedBodyAnchors: string[] = [];
+  const missingSeen = new Set<string>();
+  const unreferencedSeen = new Set<string>();
+  for (const markdown of markdowns) {
+    if (parseMarkdownRichTooltips(markdown).errors.length) return null;
+    const audit = auditMarkdownRichTooltipLinks(markdown);
+    for (const anchor of audit.missingBodyAnchors) {
+      if (!missingSeen.has(anchor)) { missingSeen.add(anchor); missingBodyAnchors.push(anchor); }
+    }
+    for (const anchor of audit.unreferencedBodyAnchors) {
+      if (!unreferencedSeen.has(anchor)) { unreferencedSeen.add(anchor); unreferencedBodyAnchors.push(anchor); }
+    }
+  }
+  return missingBodyAnchors.length || unreferencedBodyAnchors.length
+    ? { missingBodyAnchors, unreferencedBodyAnchors }
+    : null;
+}
+
+function MarkdownRichTooltipSaveWarning({ model, submitLabel }: { model: MarkdownRichTooltipSaveWarningModel; submitLabel: string }) {
+  const anchors = (values: readonly string[]) => values.map((anchor) => `«${anchor}»`).join(", ");
+  return (
+    <div className="inline-alert" role="alert">
+      <Icon name="warning" size={15} />
+      <div>
+        {model.missingBodyAnchors.length ? <div>Нет тела для: {anchors(model.missingBodyAnchors)}</div> : null}
+        {model.unreferencedBodyAnchors.length ? <div>Нет ссылки для: {anchors(model.unreferencedBodyAnchors)}</div> : null}
+        <div>Нажмите «{submitLabel}» ещё раз, чтобы сохранить всё равно.</div>
+      </div>
+    </div>
+  );
 }
 
 export interface EditableNoteGroup { groupRank: number; notes: EditableNote[] }
@@ -598,7 +637,7 @@ function PlainNoteEditor({
   onChange: (note: EditableNote) => void;
   onAutoFocusConsumed?: () => void;
   onProcessingChange?: (processing: boolean, draft: EditableNote) => void;
-  onSubmit?: (draft: EditableNote) => void;
+  onSubmit?: (draft: EditableNote) => void | Promise<void>;
   interactionActive?: boolean;
 }) {
   const completion = useContext(GameLinkSuggestionsContext);
@@ -620,6 +659,9 @@ function PlainNoteEditor({
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [currentTableWidth, setCurrentTableWidth] = useState(0);
   const [requiredTableWidth, setRequiredTableWidth] = useState(0);
+  const [saveWarning, setSaveWarning] = useState<MarkdownRichTooltipSaveWarningModel | null>(null);
+  const confirmedMarkdown = useRef<string | null>(null);
+  const submitPending = useRef(false);
   const youtubeInputId = useId();
   const attachmentPickerId = useId();
   noteRef.current = note;
@@ -738,7 +780,31 @@ function PlainNoteEditor({
   };
 
   const updateBodyMarkdown = (bodyMarkdown: string) => {
+    if (bodyMarkdown !== noteRef.current.bodyMarkdown) {
+      confirmedMarkdown.current = null;
+      setSaveWarning(null);
+    }
     publishNote({ ...noteRef.current, bodyMarkdown });
+  };
+  const submitNote = async () => {
+    if (!onSubmit || submitPending.current) return;
+    const draft = noteRef.current;
+    const warning = markdownRichTooltipSaveWarning([draft.bodyMarkdown]);
+    if (warning && confirmedMarkdown.current !== draft.bodyMarkdown) {
+      confirmedMarkdown.current = draft.bodyMarkdown;
+      setSaveWarning(warning);
+      return;
+    }
+    confirmedMarkdown.current = null;
+    setSaveWarning(null);
+    submitPending.current = true;
+    try {
+      await onSubmit(draft);
+    } finally {
+      submitPending.current = false;
+      confirmedMarkdown.current = null;
+      setSaveWarning(null);
+    }
   };
   const reportTableWidth = useCallback((width: number) => {
     const currentWidth = Number.isFinite(width) && width > 0 ? Math.ceil(width) : 0;
@@ -760,7 +826,7 @@ function PlainNoteEditor({
         onFileFiles={addFileFiles}
         onImageFiles={addImageFiles}
         onRequiredTableWidthChange={reportTableWidth}
-        onSubmit={onSubmit ? () => onSubmit(noteRef.current) : undefined}
+        onSubmit={onSubmit ? submitNote : undefined}
         submitDisabled={processingImages}
         value={note.bodyMarkdown}
       />
@@ -769,7 +835,8 @@ function PlainNoteEditor({
       <input accept="image/*" aria-label="Выбрать изображения" className="note-attachment-file-input" disabled={storageLocked || processingImages} hidden multiple onChange={(event) => selectFiles(event, "image")} ref={imageInput} type="file" />
       <input aria-label="Выбрать файлы" className="note-attachment-file-input" disabled={storageLocked || processingImages} hidden multiple onChange={(event) => selectFiles(event, "file")} ref={fileInput} type="file" />
       {attachmentPickerOpen ? <div className="note-attachment-picker-row" id={attachmentPickerId}><button disabled={storageLocked || processingImages} onClick={() => imageInput.current?.click()} ref={attachmentFirstAction} type="button"><Icon name="image" size={14} />Изображение</button><button disabled={storageLocked || processingImages} onClick={() => fileInput.current?.click()} type="button"><Icon name="note" size={14} />Файл</button></div> : null}
-      <footer className="note-editor-actions"><div>{extraActions}</div><div className="note-editor-size-actions"><button aria-label="Двойная высота заметки" aria-pressed={Boolean(note.doubleHeight)} onClick={() => toggleSize("doubleHeight")} title="Двойная высота" type="button"><Icon name="expand-vertical" size={16} /></button><button aria-label="Двойная ширина заметки" aria-pressed={Boolean(note.doubleWidth)} onClick={() => toggleSize("doubleWidth")} title="Двойная ширина" type="button"><Icon name="expand-horizontal" size={16} /></button></div><div><button aria-controls={attachmentPickerId} aria-expanded={attachmentPickerOpen} aria-label="Добавить вложение" disabled={storageLocked || processingImages} onClick={() => { setAttachmentPickerOpen((open) => !open); setAttachmentError(null); }} title="Добавить изображение или файл" type="button"><Icon name="plus" size={16} /></button><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={() => onSubmit(noteRef.current)} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
+      {saveWarning ? <MarkdownRichTooltipSaveWarning model={saveWarning} submitLabel="Сохранить заметку" /> : null}
+      <footer className="note-editor-actions"><div>{extraActions}</div><div className="note-editor-size-actions"><button aria-label="Двойная высота заметки" aria-pressed={Boolean(note.doubleHeight)} onClick={() => toggleSize("doubleHeight")} title="Двойная высота" type="button"><Icon name="expand-vertical" size={16} /></button><button aria-label="Двойная ширина заметки" aria-pressed={Boolean(note.doubleWidth)} onClick={() => toggleSize("doubleWidth")} title="Двойная ширина" type="button"><Icon name="expand-horizontal" size={16} /></button></div><div><button aria-controls={attachmentPickerId} aria-expanded={attachmentPickerOpen} aria-label="Добавить вложение" disabled={storageLocked || processingImages} onClick={() => { setAttachmentPickerOpen((open) => !open); setAttachmentError(null); }} title="Добавить изображение или файл" type="button"><Icon name="plus" size={16} /></button><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages} onClick={submitNote} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
       <NoteDropZones disabled={dropDisabled} indicatorEdge={dropIndicatorEdge} note={note} />
     </article>
   );
@@ -852,7 +919,7 @@ interface InlineNoteCardProps {
   takeInitialFiles?: () => File[];
   onEdit: () => void;
   onChange: (note: EditableNote) => void;
-  onSave: (note: EditableNote) => void;
+  onSave: (note: EditableNote) => void | Promise<void>;
   onTaskSave: (note: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration?: number) => void | Promise<void>;
   onCancel: () => void;
   onDelete: () => void;
@@ -1641,7 +1708,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
-          <MarkdownRichTooltipProvider><DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCardBoundary actionsDisabled={globalActionsDisabled} assets={assets} canAddBlob={canAddBlob} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterGeneration={completedChecklistFilterGeneration} completedChecklistFilterRevision={completedChecklistFilterRevisions.get(note.clientId) ?? 0} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} interactionActive={activeInteractionNoteId === note.clientId} key={note.clientId} note={note} noteInteractionSource={noteInteractionSource} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onCompletedChecklistReveal={() => markCompletedChecklistFilterPending(note.clientId)} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => void saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving || taskSaveNoteId === note.clientId} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><div className="note-group-actions"><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /><NoteGroupAddButton disabled={sortingDisabled || !groupInsertAvailable[groupIndex]} label={`Добавить группу после группы ${groupIndex + 1}`} onCreate={() => beginNewGroupAfter(group.groupRank)} text="Добавить группу" /></div></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled || !trailingGroupAvailable} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} showCreate={!noteGroups.length} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext></MarkdownRichTooltipProvider>
+          <MarkdownRichTooltipProvider><DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCardBoundary actionsDisabled={globalActionsDisabled} assets={assets} canAddBlob={canAddBlob} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterGeneration={completedChecklistFilterGeneration} completedChecklistFilterRevision={completedChecklistFilterRevisions.get(note.clientId) ?? 0} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} interactionActive={activeInteractionNoteId === note.clientId} key={note.clientId} note={note} noteInteractionSource={noteInteractionSource} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onCompletedChecklistReveal={() => markCompletedChecklistFilterPending(note.clientId)} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving || taskSaveNoteId === note.clientId} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><div className="note-group-actions"><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /><NoteGroupAddButton disabled={sortingDisabled || !groupInsertAvailable[groupIndex]} label={`Добавить группу после группы ${groupIndex + 1}`} onCreate={() => beginNewGroupAfter(group.groupRank)} text="Добавить группу" /></div></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled || !trailingGroupAvailable} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} showCreate={!noteGroups.length} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext></MarkdownRichTooltipProvider>
         </section>
       </div>
       {progressDraft ? <GameProgressItemDialog assets={assets} canAddBlob={canAddBlob} gameId={game.id} item={progressDraft} notes={notes} onCancel={closeProgressEditor} onDelete={editableProgressItems.some((item) => item.id === progressDraft.id) ? deleteProgressItem : undefined} onSave={saveProgressItem} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} /> : null}
@@ -1657,6 +1724,8 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   const [coverDraftDirty, setCoverDraftDirty] = useState(false);
   const coverPreview = useBlobUrl(pendingCover?.blob);
   const [dirty, setDirty] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [saveWarning, setSaveWarning] = useState<MarkdownRichTooltipSaveWarningModel | null>(null);
+  const confirmedNoteMarkdown = useRef<string | null>(null);
   const [activeDraftNoteId, setActiveDraftNoteId] = useState<string | null>(null);
   const [newDraftNoteId, setNewDraftNoteId] = useState<string | null>(null);
   const [draftDropIndicator, setDraftDropIndicator] = useState<{ clientId: string; edge: NoteDropEdge } | null>(null);
@@ -1671,7 +1740,14 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   );
   const change = <T,>(setter: (value: T) => void) => (value: T) => { setter(value); setDirty(true); };
   useUnsavedChangesGuard(dirty || coverDraftDirty);
-  const updateNote = (clientId: string, note: EditableNote) => { setDraftNotes((values) => values.map((value) => value.clientId === clientId ? note : value)); setDirty(true); };
+  const updateNote = (clientId: string, note: EditableNote) => {
+    if (draftNotes.find((value) => value.clientId === clientId)?.bodyMarkdown !== note.bodyMarkdown) {
+      confirmedNoteMarkdown.current = null;
+      setSaveWarning(null);
+    }
+    setDraftNotes((values) => values.map((value) => value.clientId === clientId ? note : value));
+    setDirty(true);
+  };
   const setNoteProcessing = (clientId: string, processing: boolean) => setProcessingNoteIds((current) => {
     if (current.has(clientId) === processing) return current;
     const next = new Set(current); if (processing) next.add(clientId); else next.delete(clientId); return next;
@@ -1739,7 +1815,17 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
   const submit = async () => {
     if (processingNoteIds.size || coverDraftDirty) return;
     if (!title.trim()) { setError("Укажите название игры."); return; }
-    setSaving(true); setError(null);
+    setError(null);
+    const markdownFingerprint = JSON.stringify(draftNotes.map((note) => note.bodyMarkdown));
+    const warning = markdownRichTooltipSaveWarning(draftNotes.map((note) => note.bodyMarkdown));
+    if (warning && confirmedNoteMarkdown.current !== markdownFingerprint) {
+      confirmedNoteMarkdown.current = markdownFingerprint;
+      setSaveWarning(warning);
+      return;
+    }
+    confirmedNoteMarkdown.current = null;
+    setSaveWarning(null);
+    setSaving(true);
     try { await onSave({ title: title.trim(), coverAssetId: null, pendingCover, platforms, tags, status, tierId, reviewMarkdown: "", progressItems: [], notes: draftNotes }); setDirty(false); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось сохранить игру"); }
     finally { setSaving(false); }
@@ -1768,7 +1854,9 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
             <DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} /> : null}</DragOverlay>
           </DndContext>
         </section>
-        {error ? <p className="field-error form-error" role="alert">{error}</p> : null}<footer className="form-actions"><button className="button button--secondary" onClick={() => { if ((!dirty && !coverDraftDirty) || window.confirm("Отменить несохранённые изменения?")) onCancel?.(); }} type="button">Отмена</button><button className="button button--primary" disabled={saving || processingNoteIds.size > 0 || coverDraftDirty} type="submit"><Icon name="check" size={18} />{saving ? "Сохраняем…" : "Сохранить"}</button></footer>
+        {error ? <p className="field-error form-error" role="alert">{error}</p> : null}
+        {saveWarning ? <MarkdownRichTooltipSaveWarning model={saveWarning} submitLabel="Сохранить" /> : null}
+        <footer className="form-actions"><button className="button button--secondary" onClick={() => { if ((!dirty && !coverDraftDirty) || window.confirm("Отменить несохранённые изменения?")) onCancel?.(); }} type="button">Отмена</button><button className="button button--primary" disabled={saving || processingNoteIds.size > 0 || coverDraftDirty} type="submit"><Icon name="check" size={18} />{saving ? "Сохраняем…" : "Сохранить"}</button></footer>
       </form>
     </div>
   );

@@ -121,9 +121,11 @@ describe("exact source note documents", () => {
     expect(parseNoteDocument(serialized, SOURCE_PATH, ASSET_NAMES)).toEqual({ metadata: ATTACHED_METADATA, bodyMarkdown });
   });
 
-  it("rejects a source note with a rich reference missing its terminal definition", () => {
-    expect(() => parseNoteDocument(`${MINIMAL_PREFIX}Note [Label][?].`, SOURCE_PATH, new Map()))
-      .toThrow(/definition|определение/i);
+  it("accepts a source note with a rich reference missing its terminal definition", () => {
+    expect(parseNoteDocument(`${MINIMAL_PREFIX}Note [Label][?].`, SOURCE_PATH, new Map())).toEqual({
+      metadata: MINIMAL_METADATA,
+      bodyMarkdown: "Note [Label][?].",
+    });
   });
 
   it.each([

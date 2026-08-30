@@ -11,6 +11,11 @@ export interface MarkdownRichTooltipReference {
   sourceStart: number;
 }
 
+export interface MarkdownRichTooltipLinkAudit {
+  missingBodyAnchors: readonly string[];
+  unreferencedBodyAnchors: readonly string[];
+}
+
 export interface ParsedMarkdownRichTooltips {
   definitions: ReadonlyMap<string, MarkdownRichTooltipDefinition>;
   definitionSectionStart: number | null;
@@ -281,8 +286,6 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
   for (const reference of references) {
     if (!reference.anchor) {
       addDiagnostic(reference.sourceStart, "Некорректный rich tooltip anchor: ");
-    } else if (!definitions.has(reference.anchor)) {
-      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.anchor}]: определение не найдено`);
     }
   }
 
@@ -294,6 +297,26 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
     references,
     source,
     visibleMarkdown,
+  };
+}
+
+export function auditMarkdownRichTooltipLinks(source: string): MarkdownRichTooltipLinkAudit {
+  const parsed = parseMarkdownRichTooltips(source);
+  const references = new Set<string>();
+  for (const reference of parsed.references) {
+    if (reference.anchor) references.add(reference.anchor);
+  }
+
+  const definitions = new Set<string>();
+  for (const definition of parsed.definitions.values()) {
+    if (definition.anchor && definition.bodyMarkdown && !parsed.duplicateAnchors.has(definition.anchor)) {
+      definitions.add(definition.anchor);
+    }
+  }
+
+  return {
+    missingBodyAnchors: [...references].filter((anchor) => !definitions.has(anchor)),
+    unreferencedBodyAnchors: [...definitions].filter((anchor) => !references.has(anchor)),
   };
 }
 
