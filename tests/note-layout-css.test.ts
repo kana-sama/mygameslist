@@ -24,6 +24,36 @@ describe("note column layout", () => {
     }
   });
 
+  it("contains wide rendered tables while keeping heading totals visible", () => {
+    const style = document.createElement("style");
+    style.dataset.noteLayoutTest = "true";
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    const text = document.createElement("div");
+    text.className = "note-card__text";
+    text.innerHTML = `
+      <div class="note-card__viewport-frame">
+        <div class="markdown-table-scroll"><table class="markdown-table"><tbody><tr><td>Wide table value</td></tr></tbody></table></div>
+      </div>
+      <h2 class="markdown-checklist-heading">
+        <span class="markdown-checklist-heading__title">A title that yields inline space</span>
+        <span class="markdown-checklist-progress">51/85</span>
+      </h2>
+    `;
+    document.body.append(text);
+
+    const frame = text.querySelector<HTMLElement>(".note-card__viewport-frame")!;
+    const tableScroll = text.querySelector<HTMLElement>(".markdown-table-scroll")!;
+    const title = text.querySelector<HTMLElement>(".markdown-checklist-heading__title")!;
+    const total = text.querySelector<HTMLElement>(".markdown-checklist-progress")!;
+
+    expect(getComputedStyle(frame).minWidth).toBe("0px");
+    expect(getComputedStyle(tableScroll).overflowX).toBe("auto");
+    expect(getComputedStyle(title).minWidth).toBe("0px");
+    expect(getComputedStyle(total).flexShrink).toBe("0");
+  });
+
   it("defines the exact desktop rich-tooltip card, arrow, header, body, and definition rows", () => {
     expect(productionStyles).toMatch(/\.markdown-rich-tooltip-trigger\s*\{[^}]*color:\s*inherit;[^}]*text-decoration-style:\s*dashed;[^}]*text-decoration-thickness:\s*1px;[^}]*text-underline-offset:\s*2px;[^}]*cursor:\s*pointer;/s);
     expect(productionStyles).toMatch(/\.markdown-rich-tooltip-trigger:hover,\s*\.markdown-rich-tooltip-trigger\[aria-expanded="true"\]\s*\{[^}]*color:\s*#f0f5f8;[^}]*text-decoration-color:\s*var\(--accent-strong\);/s);

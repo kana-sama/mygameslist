@@ -737,7 +737,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-card__text { --note-title-block-start: 6px; position: relative; min-width: 0; min-height: 0; display: grid; flex: 1; }
 .note-attachments + .note-card__text { border-top: 1px solid var(--line-soft); }
 .note-card__viewport-frame, .note-card__page-heading { grid-area: 1 / 1; }
-.note-card__viewport-frame { position: relative; max-height: var(--note-text-height); min-height: 0; }
+.note-card__viewport-frame { position: relative; max-height: var(--note-text-height); min-width: 0; min-height: 0; }
 .note-card__viewport { max-height: var(--note-text-height); overflow-y: auto; overscroll-behavior: none; scrollbar-color: #3a3c41 transparent; scrollbar-width: thin; }
 .notes-list > [data-shelf-position] .note-card__text { min-height: 0; display: grid; }
 .notes-list > [data-shelf-position] .note-card__viewport-frame { max-height: none; flex: 1; }
