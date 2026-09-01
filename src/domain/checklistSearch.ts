@@ -285,6 +285,7 @@ function collectTableEntries(
           sectionContext,
           richTooltips,
           checklistSearchStructuralGuard("table", cell.sourceValue ?? cell.value),
+          row.structuralId,
         ));
       }
     }

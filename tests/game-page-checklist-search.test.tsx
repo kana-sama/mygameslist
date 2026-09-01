@@ -86,15 +86,18 @@ interface SourceHarness {
   removeNote: (noteId: string) => void;
 }
 
-function renderGamePage(options: { checklistSearchBlocked?: boolean; completedFilter?: boolean } = {}): SourceHarness {
+function renderGamePage(options: { checklistSearchBlocked?: boolean; completedFilter?: boolean; tableBodyMarkdown?: string } = {}): SourceHarness {
+  const currentTableMarkdown = options.tableBodyMarkdown ?? tableMarkdown;
   const snapshots = new Map<string, NoteInteractionSnapshot>([
     [LIST_NOTE_ID, { bodyMarkdown: authoritativeListMarkdown }],
     [FILTERED_NOTE_ID, { bodyMarkdown: filteredMarkdown }],
     [COLLAPSED_NOTE_ID, { bodyMarkdown: collapsedMarkdown, collapsedChecklistSections: [collapsedStageId, collapsedGroupId] }],
-    [TABLE_NOTE_ID, { bodyMarkdown: tableMarkdown }],
+    [TABLE_NOTE_ID, { bodyMarkdown: currentTableMarkdown }],
   ]);
   let forceRender: (() => void) | null = null;
-  let currentNotes = fixtureNotes;
+  let currentNotes = fixtureNotes.map((currentNote) => currentNote.id === TABLE_NOTE_ID
+    ? { ...currentNote, bodyMarkdown: currentTableMarkdown }
+    : currentNote);
   let nextFailure: Error | null = null;
   let nextSaveGate: { onStart?: () => void; promise: Promise<void>; resolve: () => void } | null = null;
   const onSave = vi.fn();
@@ -434,6 +437,91 @@ describe("GamePage checklist search integration", () => {
 });
 
 describe("GamePage checklist search navigation", () => {
+  it.each([
+    {
+      kind: "ungrouped",
+      markdown: [
+        "# Table note",
+        "| Stage | Complete |",
+        "| --- | --- |",
+        "| Filtered table target | [x] Search focus target |",
+        "| Visible row | [ ] Keep table visible |",
+      ].join("\n"),
+    },
+    {
+      kind: "grouped",
+      markdown: [
+        "# Table note",
+        "| Stage | Complete |",
+        "| --- | --- |",
+        "| Filtered group |",
+        "| --- | --- |",
+        "| Filtered table target | [x] Search focus target |",
+        "| --- | --- |",
+        "| Visible group |",
+        "| --- | --- |",
+        "| Visible row | [ ] Keep table visible |",
+      ].join("\n"),
+    },
+  ])("waits for the normal table replica to settle before focusing a filtered $kind search result", async ({ markdown }) => {
+    let completedAnimationFrames = 0;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => {
+      completedAnimationFrames += 1;
+      callback(performance.now());
+    }, 0));
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => window.clearTimeout(id));
+    const animations: Array<Animation & { finish: () => void }> = [];
+    const originalAnimate = Object.getOwnPropertyDescriptor(Element.prototype, "animate");
+    Object.defineProperty(Element.prototype, "animate", {
+      configurable: true,
+      value: function animate(): Animation {
+        const animation = {
+          oncancel: null as Animation["oncancel"],
+          onfinish: null as Animation["onfinish"],
+          cancel() { this.oncancel?.(new Event("cancel") as AnimationPlaybackEvent); },
+          finish() { this.onfinish?.(new Event("finish") as AnimationPlaybackEvent); },
+        } as unknown as Animation & { finish: () => void };
+        animations.push(animation);
+        return animation;
+      },
+    });
+    const nativeFocus = HTMLElement.prototype.focus;
+    const focus = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function focusWhenVisible(options?: FocusOptions) {
+      const liveTableRow = this.closest<HTMLElement>(".markdown-table-row");
+      const motionKey = liveTableRow?.dataset.completedChecklistMotionKey;
+      const markdownRoot = liveTableRow?.closest(".markdown");
+      const activeReplica = motionKey && markdownRoot
+        ? [...markdownRoot.querySelectorAll<HTMLElement>(".markdown-completed-checklist-motion-replica [data-completed-checklist-motion-key]")]
+          .some((entry) => entry.dataset.completedChecklistMotionKey === motionKey)
+        : false;
+      if (this.closest("[hidden]") || liveTableRow?.style.visibility === "hidden" || activeReplica) return;
+      nativeFocus.call(this, options);
+    });
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+    try {
+      renderGamePage({ completedFilter: true, tableBodyMarkdown: markdown });
+
+      const result = queryPalette("search focus target");
+      const framesBeforeNavigation = completedAnimationFrames;
+      fireEvent.click(within(result).getByText("Search focus target"));
+      await waitFor(() => expect(document.querySelector(".markdown-completed-checklist-motion-replica")).toBeInTheDocument());
+      const target = document.querySelector<HTMLInputElement>(`.markdown-table-scroll [data-checklist-search-target-id] input[aria-label="Снять отметку: Search focus target"]`)!;
+      await waitFor(() => expect(completedAnimationFrames).toBeGreaterThanOrEqual(framesBeforeNavigation + 2));
+
+      act(() => {
+        for (const animation of [...animations]) animation.finish();
+      });
+
+      await waitFor(() => expect(document.activeElement).toBe(target));
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    } finally {
+      focus.mockRestore();
+      if (originalAnimate) Object.defineProperty(Element.prototype, "animate", originalAnimate);
+      else delete (Element.prototype as { animate?: typeof Element.prototype.animate }).animate;
+    }
+  });
+
   it("reveals a completed nested target, focuses and centers its exact row, then clears highlight", async () => {
     vi.useFakeTimers();
     const scrollIntoView = vi.fn();

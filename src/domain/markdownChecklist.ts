@@ -57,9 +57,11 @@ export interface MarkdownTableCell {
 export interface MarkdownTableRow {
   cells: MarkdownTableCell[];
   sourceLine: number;
+  structuralId?: string;
 }
 
 export interface MarkdownTableRows {
+  structuralId?: string;
   type: "rows";
   rows: MarkdownTableRow[];
 }
@@ -71,6 +73,7 @@ export interface MarkdownTableGroup {
   rows: MarkdownTableRow[];
   checklistProgress?: ChecklistProgress;
   collapseId?: string;
+  structuralId?: string;
 }
 
 export type MarkdownTableSection = MarkdownTableRows | MarkdownTableGroup;
@@ -79,6 +82,7 @@ export interface MarkdownTable {
   alignments: MarkdownTableAlignment[];
   headers: MarkdownTableCell[];
   sections: MarkdownTableSection[];
+  structuralId?: string;
 }
 
 export interface MarkdownSourceLine {
@@ -457,18 +461,39 @@ function annotateChecklistGroupIds(block: MarkdownBlock, parentPath: string, occ
   }
 }
 
-function annotateTableGroupIds(block: MarkdownBlock, parentPath: string, occurrences: Map<string, number>): void {
+function annotateTableGroupIds(
+  block: MarkdownBlock,
+  parentPath: string,
+  collapseOccurrences: Map<string, number>,
+  structuralOccurrences: Map<string, number>,
+): void {
   const table = block.table;
   if (!table) return;
-  const headerLabel = table.headers.map((header) => normalizedCollapsePathPart(header.value)).join("\u0000");
-  const tablePath = nextCollapsePath(`${parentPath}\u0000table\u0000${headerLabel}`, occurrences);
+  const collapseHeaderLabel = table.headers.map((header) => normalizedCollapsePathPart(header.value)).join("\u0000");
+  const collapseTablePath = nextCollapsePath(`${parentPath}\u0000table\u0000${collapseHeaderLabel}`, collapseOccurrences);
+  const structuralHeaderLabel = table.headers.map((header) => normalizedCollapsePathPart(header.sourceValue ?? header.value)).join("\u0000");
+  const structuralTablePath = nextCollapsePath(`${parentPath}\u0000table\u0000${structuralHeaderLabel}`, structuralOccurrences);
+  table.structuralId = `table:${hashCollapsePath(structuralTablePath)}`;
   for (const section of table.sections) {
-    if (section.type !== "group") continue;
-    const groupPath = nextCollapsePath(
-      `${tablePath}\u0000group\u0000${normalizedCollapsePathPart(section.title.value)}`,
-      occurrences,
-    );
-    section.collapseId = `table-group:${hashCollapsePath(groupPath)}`;
+    const structuralOwnerPath = section.type === "group"
+      ? nextCollapsePath(
+        `${structuralTablePath}\u0000group\u0000${normalizedCollapsePathPart(section.title.sourceValue ?? section.title.value)}`,
+        structuralOccurrences,
+      )
+      : nextCollapsePath(`${structuralTablePath}\u0000rows`, structuralOccurrences);
+    section.structuralId = `table-owner:${hashCollapsePath(structuralOwnerPath)}`;
+    if (section.type === "group") {
+      const collapseGroupPath = nextCollapsePath(
+        `${collapseTablePath}\u0000group\u0000${normalizedCollapsePathPart(section.title.value)}`,
+        collapseOccurrences,
+      );
+      section.collapseId = `table-group:${hashCollapsePath(collapseGroupPath)}`;
+    }
+    for (const row of section.rows) {
+      const rowLabel = row.cells.map((cell) => normalizedCollapsePathPart(cell.sourceValue ?? cell.value)).join("\u0000");
+      const rowPath = nextCollapsePath(`${structuralOwnerPath}\u0000row\u0000${rowLabel}`, structuralOccurrences);
+      row.structuralId = `table-row:${hashCollapsePath(rowPath)}`;
+    }
   }
 }
 
@@ -566,6 +591,7 @@ function analyzeMarkdownChecklistRoots(markdown: string): MarkdownChecklistAnaly
   const roots: ChecklistRoot[] = [];
   const activeHeadings: Array<{ block: MarkdownBlock; path: string }> = [];
   const collapsePathOccurrences = new Map<string, number>();
+  const tableStructuralPathOccurrences = new Map<string, number>();
   for (const block of blocks) {
     if (block.type === "heading") {
       const depth = block.depth ?? 0;
@@ -582,7 +608,12 @@ function analyzeMarkdownChecklistRoots(markdown: string): MarkdownChecklistAnaly
     if (block.type !== "list" && block.type !== "ordered-list" && block.type !== "table") continue;
 
     if (block.type === "table") {
-      annotateTableGroupIds(block, activeHeadings[activeHeadings.length - 1]?.path ?? "root", collapsePathOccurrences);
+      annotateTableGroupIds(
+        block,
+        activeHeadings[activeHeadings.length - 1]?.path ?? "root",
+        collapsePathOccurrences,
+        tableStructuralPathOccurrences,
+      );
     }
     const progress = getChecklistProgress(block);
     if (progress.total === 0 && !progress.open) continue;

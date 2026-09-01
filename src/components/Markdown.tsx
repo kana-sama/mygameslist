@@ -39,6 +39,9 @@ import { safeUrl } from "./libraryUi";
 import {
   completedChecklistItemIsHidden,
   completedChecklistSectionIsHidden,
+  completedChecklistTableGroupIsHidden,
+  completedChecklistTableRowIsHidden,
+  completedChecklistHiddenTableRowStructuralIds,
   createCompletedChecklistFilterSnapshot,
   emptyCompletedChecklistFilterSnapshot,
   type CompletedChecklistFilterSnapshot,
@@ -617,7 +620,7 @@ function completedChecklistIdsFingerprint(ids: ReadonlySet<string>, effectiveIds
 }
 
 function completedChecklistSnapshotFingerprint(snapshot: CompletedChecklistFilterSnapshot): string {
-  return `${[...snapshot.hiddenListItemStructuralIds].sort().join("\u0000")}\u0001${[...snapshot.hiddenSectionCollapseIds].sort().join("\u0000")}`;
+  return `${[...snapshot.hiddenListItemStructuralIds, ...snapshot.hiddenTableRowStructuralIds].sort().join("\u0000")}\u0001${[...snapshot.hiddenSectionCollapseIds, ...snapshot.hiddenTableGroupCollapseIds].sort().join("\u0000")}`;
 }
 
 function completedChecklistListMotionOwnerId(items: readonly MarkdownListItem[]): string {
@@ -698,8 +701,14 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
   useCompletedChecklistMotion(markdownMotionRoot, {
     enabled: completedChecklistFilterEnabled,
     revision: completedChecklistFilterRevision,
-    revealedItemIdsFingerprint: completedChecklistIdsFingerprint(completedChecklistRevealedItemIds, completedChecklistFilterSnapshot.hiddenListItemStructuralIds),
-    revealedSectionIdsFingerprint: completedChecklistIdsFingerprint(completedChecklistRevealedSectionIds, completedChecklistFilterSnapshot.hiddenSectionCollapseIds),
+    revealedItemIdsFingerprint: completedChecklistIdsFingerprint(completedChecklistRevealedItemIds, new Set([
+      ...completedChecklistFilterSnapshot.hiddenListItemStructuralIds,
+      ...completedChecklistFilterSnapshot.hiddenTableRowStructuralIds,
+    ])),
+    revealedSectionIdsFingerprint: completedChecklistIdsFingerprint(completedChecklistRevealedSectionIds, new Set([
+      ...completedChecklistFilterSnapshot.hiddenSectionCollapseIds,
+      ...completedChecklistFilterSnapshot.hiddenTableGroupCollapseIds,
+    ])),
     snapshotFingerprint: completedChecklistSnapshotFingerprint(completedChecklistFilterSnapshot),
   });
   useMarkdownChecklistCollapseMotion(
@@ -800,6 +809,14 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
     completedChecklistFilterEnabled
     && completedChecklistSectionIsHidden(completedChecklistFilterSnapshot, block)
     && Boolean(block.collapseId && !completedChecklistRevealedSectionIds.has(block.collapseId));
+  const completedChecklistTableRowIsEffectivelyHidden = (row: MarkdownTableRow): boolean =>
+    completedChecklistFilterEnabled
+    && completedChecklistTableRowIsHidden(completedChecklistFilterSnapshot, row)
+    && Boolean(row.structuralId && !completedChecklistRevealedItemIds.has(row.structuralId));
+  const completedChecklistTableGroupIsEffectivelyHidden = (collapseId: string | undefined, section: Parameters<typeof completedChecklistTableGroupIsHidden>[1]): boolean =>
+    completedChecklistFilterEnabled
+    && completedChecklistTableGroupIsHidden(completedChecklistFilterSnapshot, section)
+    && Boolean(collapseId && !completedChecklistRevealedSectionIds.has(collapseId));
   const validCollapseIds = new Set<string>();
   const collectListCollapseIds = (block: MarkdownBlock): void => {
     for (const item of block.items ?? []) {
@@ -1030,7 +1047,14 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
       return taskCells.length > 0 && taskCells.every((cell) => cell.taskState === "checked");
     });
 
-    const renderTableRow = (row: MarkdownTableRow, rowIndex: number, rowKey: string, rowCollapseMotionOwner?: string): ReactNode => {
+    const renderTableRow = (
+      row: MarkdownTableRow,
+      rowIndex: number,
+      rowKey: string,
+      rowCollapseMotionOwner?: string,
+      hidden = false,
+      completedMotionOwner?: string,
+    ): ReactNode => {
       const progress = getTableRowProgress(row);
       const rowComplete = progress.total > 0 && progress.checked === progress.total;
       const rowIndeterminate = row.cells.some((cell) => cell.taskState === "indeterminate");
@@ -1038,9 +1062,12 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
       const rowTaskLabel = rowLabel || `строка ${rowIndex + 1}`;
       return (
         <tr
-          className={`${rowComplete ? "markdown-table-row--complete" : ""}${rowIndeterminate ? " markdown-table-row--indeterminate" : ""}`.trim() || undefined}
-          key={`${rowKey}-row-${row.sourceLine}`}
+          className={`markdown-table-row${rowComplete ? " markdown-table-row--complete" : ""}${rowIndeterminate ? " markdown-table-row--indeterminate" : ""}`}
+          hidden={hidden}
+          key={row.structuralId ?? `${rowKey}-row-${row.sourceLine}`}
           {...diffVisualAttributes(row.sourceLine, row.cells.map((cell) => cell.value).join(" | "))}
+          data-completed-checklist-motion-key={completedChecklistMotionMarkupEnabled && completedMotionOwner ? row.structuralId : undefined}
+          data-completed-checklist-motion-target={completedChecklistMotionMarkupEnabled && completedMotionOwner && row.structuralId ? completedMotionOwner : undefined}
           {...checklistCollapseMotionAttributes(`table-row:${rowKey}:${row.sourceLine}`, rowCollapseMotionOwner)}
         >
           {row.cells.map((cell, cellIndex) => {
@@ -1107,6 +1134,23 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
       );
     };
 
+    const tableGroupSummaryOwner = `table-groups:${table.structuralId ?? key}`;
+    const renderTableSummary = (
+      kind: "rows" | "groups",
+      count: number,
+      owner: string,
+      onReveal: () => void,
+    ): ReactNode => count ? (
+      <tr className={`markdown-table-hidden-summary markdown-table-hidden-summary--${kind}`} data-completed-checklist-motion-summary={owner}>
+        <td colSpan={table.headers.length}>
+          <button onClick={onReveal} type="button">Скрыто {count} {kind === "rows" ? "строк" : "групп"}</button>
+        </td>
+      </tr>
+    ) : null;
+    const hiddenGroupCollapseIds = table.sections.flatMap((section) => section.type === "group"
+      && completedChecklistTableGroupIsEffectivelyHidden(section.collapseId, section)
+      && section.collapseId ? [section.collapseId] : []);
+
     return (
       <div className="markdown-table-scroll" key={key} {...checklistCollapseMotionAttributes(`table:${key}`, collapseMotionOwner)}>
         <table className="markdown-table">
@@ -1121,9 +1165,20 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
           </thead>
           {table.sections.map((section, sectionIndex) => {
             if (section.type === "rows") {
+              const hiddenRowIds = completedChecklistHiddenTableRowStructuralIds(completedChecklistFilterSnapshot, section.rows)
+                .filter((id) => !completedChecklistRevealedItemIds.has(id));
+              const rowSummaryOwner = `table-rows:${section.structuralId ?? `${key}-${sectionIndex}`}`;
               return (
                 <tbody key={`${key}-rows-${sectionIndex}`}>
-                  {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, `${key}-rows-${sectionIndex}`))}
+                  {section.rows.map((row, rowIndex) => renderTableRow(
+                    row,
+                    rowIndex,
+                    `${key}-rows-${sectionIndex}`,
+                    undefined,
+                    completedChecklistTableRowIsEffectivelyHidden(row),
+                    rowSummaryOwner,
+                  ))}
+                  {renderTableSummary("rows", hiddenRowIds.length, rowSummaryOwner, () => onRevealCompletedChecklistItems?.(hiddenRowIds))}
                 </tbody>
               );
             }
@@ -1131,8 +1186,13 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
             const complete = Boolean(progress && progress.total > 0 && progress.checked === progress.total);
             const collapseId = section.collapseId;
             const collapsed = Boolean(collapseId && collapsedSections.has(collapseId));
-            const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
             const groupKey = `${key}-group-${section.titleSourceLine}`;
+            const groupHidden = completedChecklistTableGroupIsEffectivelyHidden(collapseId, section);
+            const hiddenRowIds = completedChecklistHiddenTableRowStructuralIds(completedChecklistFilterSnapshot, section.rows)
+              .filter((id) => !completedChecklistRevealedItemIds.has(id));
+            const rowSummaryOwner = `table-rows:${section.structuralId ?? groupKey}`;
+            const completedMotionOwner = groupHidden ? tableGroupSummaryOwner : rowSummaryOwner;
+            const contentId = collapseId ? `${collapseDomIdPrefix}-markdown-${collapseId}-content` : undefined;
             const headerChildren = <>
               <span className="markdown-table-group__title">
                 {locatedInline(section.title.sourceValue ?? section.title.value, `${groupKey}-title`, section.title.sourceLine === undefined || section.title.sourceColumn === undefined ? undefined : { sourceColumn: section.title.sourceColumn, sourceLine: section.title.sourceLine })}
@@ -1145,8 +1205,14 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
                   className={`markdown-table-group${complete ? " markdown-table-group--complete" : ""}`}
                   data-checklist-section-id={collapseId}
                   data-markdown-source-line={section.titleSourceLine}
+                  hidden={groupHidden}
                 >
-                  <tr className="markdown-table-group__heading" {...diffVisualAttributes(section.titleSourceLine, section.title.value)}>
+                  <tr
+                    className="markdown-table-group__heading"
+                    data-completed-checklist-motion-key={completedChecklistMotionMarkupEnabled ? collapseId ?? section.structuralId : undefined}
+                    data-completed-checklist-motion-target={completedChecklistMotionMarkupEnabled ? tableGroupSummaryOwner : undefined}
+                    {...diffVisualAttributes(section.titleSourceLine, section.title.value)}
+                  >
                     <th colSpan={table.headers.length} scope="rowgroup">
                       {onCollapsedChecklistSectionsChange && collapseId ? (
                         <button
@@ -1165,12 +1231,21 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
                     </th>
                   </tr>
                 </tbody>
-                <tbody className="markdown-table-group__content" hidden={collapsed} id={contentId}>
-                  {section.rows.map((row, rowIndex) => renderTableRow(row, rowIndex, groupKey, collapseId))}
+                <tbody className="markdown-table-group__content" hidden={groupHidden || collapsed} id={contentId}>
+                  {section.rows.map((row, rowIndex) => renderTableRow(
+                    row,
+                    rowIndex,
+                    groupKey,
+                    collapseId,
+                    completedChecklistTableRowIsEffectivelyHidden(row),
+                    completedMotionOwner,
+                  ))}
+                  {renderTableSummary("rows", hiddenRowIds.length, rowSummaryOwner, () => onRevealCompletedChecklistItems?.(hiddenRowIds))}
                 </tbody>
               </Fragment>
             );
           })}
+          {hiddenGroupCollapseIds.length ? <tfoot>{renderTableSummary("groups", hiddenGroupCollapseIds.length, tableGroupSummaryOwner, () => onRevealCompletedChecklistSections?.(hiddenGroupCollapseIds))}</tfoot> : null}
         </table>
       </div>
     );

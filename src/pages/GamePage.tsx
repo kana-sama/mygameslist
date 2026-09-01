@@ -1010,6 +1010,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
     let firstFrame = 0;
     let secondFrame = 0;
     let highlightTimer = 0;
+    let revealObserver: MutationObserver | null = null;
     const { target } = checklistSearchNavigationRequest;
     const navigate = async () => {
       const nextCollapsedChecklistSections = (note.collapsedChecklistSections ?? [])
@@ -1028,20 +1029,39 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
       const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
       firstFrame = window.requestAnimationFrame(() => {
         secondFrame = window.requestAnimationFrame(() => {
-          if (cancelled) return;
-          const noteIdentity = target.noteClientId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-          const targetIdentity = target.id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-          const targetRow = document.querySelector<HTMLElement>(
-            `.note-card[data-note-id="${noteIdentity}"] [data-checklist-search-target-id="${targetIdentity}"]`,
-          );
-          const checkbox = targetRow?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
-          if (!targetRow || !checkbox || targetRow.dataset.checklistSearchStructuralGuard !== target.structuralGuard) return;
-          setHighlightedChecklistSearchTargetId(target.id);
-          checkbox.focus({ preventScroll: true });
-          targetRow.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
-          highlightTimer = window.setTimeout(() => {
-            setHighlightedChecklistSearchTargetId((current) => current === target.id ? null : current);
-          }, CHECKLIST_SEARCH_TARGET_HIGHLIGHT_MS);
+          const focusRevealedTarget = () => {
+            if (cancelled) return;
+            const noteIdentity = target.noteClientId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            const targetIdentity = target.id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            const targetRow = document.querySelector<HTMLElement>(
+              `.note-card[data-note-id="${noteIdentity}"] [data-checklist-search-target-id="${targetIdentity}"]`,
+            );
+            const checkbox = targetRow?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
+            if (!targetRow || !checkbox || targetRow.dataset.checklistSearchStructuralGuard !== target.structuralGuard) return;
+            const liveTableRow = targetRow.closest<HTMLElement>(".markdown-table-row");
+            const markdownRoot = targetRow.closest(".markdown");
+            const motionKey = liveTableRow?.dataset.completedChecklistMotionKey;
+            const activeReplica = motionKey && markdownRoot
+              ? [...markdownRoot.querySelectorAll<HTMLElement>(".markdown-completed-checklist-motion-replica [data-completed-checklist-motion-key]")]
+                .some((entry) => entry.dataset.completedChecklistMotionKey === motionKey)
+              : false;
+            if (targetRow.closest("[hidden]") || liveTableRow?.style.visibility === "hidden" || activeReplica) {
+              if (!revealObserver) {
+                revealObserver = new MutationObserver(focusRevealedTarget);
+                if (markdownRoot) revealObserver.observe(markdownRoot, { attributeFilter: ["hidden", "style"], attributes: true, childList: true, subtree: true });
+              }
+              return;
+            }
+            revealObserver?.disconnect();
+            revealObserver = null;
+            setHighlightedChecklistSearchTargetId(target.id);
+            checkbox.focus({ preventScroll: true });
+            targetRow.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
+            highlightTimer = window.setTimeout(() => {
+              setHighlightedChecklistSearchTargetId((current) => current === target.id ? null : current);
+            }, CHECKLIST_SEARCH_TARGET_HIGHLIGHT_MS);
+          };
+          focusRevealedTarget();
         });
       });
     };
@@ -1051,6 +1071,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
       window.cancelAnimationFrame(firstFrame);
       window.cancelAnimationFrame(secondFrame);
       window.clearTimeout(highlightTimer);
+      revealObserver?.disconnect();
     };
   }, [checklistSearchNavigationRequest?.sequence]);
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} interactionActive={interactionActive} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;

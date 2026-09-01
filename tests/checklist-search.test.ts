@@ -93,7 +93,8 @@ describe("checklist search index", () => {
       text: "Inspect Seal",
       textMarkdown: "Inspect [Seal][?]",
     });
-    expect(entries[2].structuralItemId).toBeUndefined();
+    expect(tableGroup.rows[0].structuralId).toBeDefined();
+    expect(entries[2].structuralItemId).toBe(tableGroup.rows[0].structuralId);
   });
 
   it("keeps list and table structural guards stable for marker-only changes but replaces them with item content", () => {
@@ -119,6 +120,31 @@ describe("checklist search index", () => {
     expect(replacements[2].id).toBe(before[2].id);
     expect(replacements[0].structuralGuard).not.toBe(before[0].structuralGuard);
     expect(replacements[2].structuralGuard).not.toBe(before[2].structuralGuard);
+  });
+
+  it("routes every table task cell through its stable row identity while retaining grouped ancestors", () => {
+    const markdown = [
+      "# Tables",
+      "| Stage | One | Two |",
+      "| --- | --- | --- |",
+      "| Group |",
+      "| --- | --- | --- |",
+      "| Target | [x] one | [ ] two |",
+    ].join("\n");
+    const blocks = parseMarkdownBlocks(markdown);
+    const heading = blocks[0];
+    const table = blocks.find((block) => block.type === "table")!.table!;
+    const group = table.sections[0];
+    const row = group.rows[0];
+
+    const entries = buildChecklistSearchIndex([{ bodyMarkdown: markdown, clientId: "table-rows" }]);
+
+    expect(entries).toHaveLength(2);
+    expect(row.structuralId).toBeDefined();
+    expect(entries.map((entry) => entry.structuralItemId)).toEqual([row.structuralId, row.structuralId]);
+    expect(entries.every((entry) => entry.ancestorCollapseIds.includes(heading.collapseId!))).toBe(true);
+    expect(group.type).toBe("group");
+    if (group.type === "group") expect(entries.every((entry) => entry.ancestorCollapseIds.includes(group.collapseId!))).toBe(true);
   });
 
   it("indexes even simple-annotation escapes but keeps odd escapes literal", () => {
