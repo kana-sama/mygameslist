@@ -146,11 +146,11 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     const arrowTop = clamp(sourceCenter - top, ARROW_EDGE_GAP, Math.max(ARROW_EDGE_GAP, tooltipHeight - ARROW_EDGE_GAP));
     const next: MarkdownRichTooltipPlacement = {
       arrowTop,
-      left: side === "right" ? noteRect.right + TOOLTIP_GAP : noteRect.left - TOOLTIP_GAP - TOOLTIP_WIDTH,
+      left: (side === "right" ? noteRect.right + TOOLTIP_GAP : noteRect.left - TOOLTIP_GAP - TOOLTIP_WIDTH) + window.scrollX,
       maxHeight: noteRect.height,
       mode: "desktop",
       side,
-      top,
+      top: top + window.scrollY,
     };
     placementRef.current = next;
     setPlacement(next);
@@ -173,12 +173,10 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePlacement);
     if (noteSurface) observer?.observe(noteSurface);
     if (tooltip) observer?.observe(tooltip);
-    document.addEventListener("scroll", updatePlacement, true);
     window.addEventListener("resize", updatePlacement);
     noteViewport?.addEventListener("scroll", updatePlacement, { passive: true });
     return () => {
       observer?.disconnect();
-      document.removeEventListener("scroll", updatePlacement, true);
       window.removeEventListener("resize", updatePlacement);
       noteViewport?.removeEventListener("scroll", updatePlacement);
     };

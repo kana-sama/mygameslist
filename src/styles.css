@@ -534,7 +534,7 @@ button.markdown-table-group__header:disabled { cursor: default; }
   --markdown-rich-tooltip-header-divider-top: 39px;
   --markdown-rich-tooltip-divider-height: 1px;
   --markdown-rich-tooltip-arrow-divider-top: calc(var(--markdown-rich-tooltip-header-divider-top) - var(--markdown-rich-tooltip-arrow-top) + var(--markdown-rich-tooltip-arrow-half-height));
-  position: fixed;
+  position: absolute;
   width: 344px;
   max-height: var(--markdown-rich-tooltip-max-height);
   overflow: visible;

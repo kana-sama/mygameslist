@@ -562,6 +562,29 @@ describe("Markdown rich tooltip rendering", () => {
     expect(dialog.style.left).toBe("242px");
   });
 
+  it("keeps desktop placement in document coordinates without rereading geometry on page scroll", async () => {
+    vi.stubGlobal("scrollX", 40);
+    vi.stubGlobal("scrollY", 300);
+    render(<RichTooltipHarness markdown={richMarkdown} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Archive Entry" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.style.left).toBe("654px");
+    expect(dialog.style.top).toBe("400px");
+
+    const geometryReadCount = vi.mocked(Element.prototype.getBoundingClientRect).mock.calls.length;
+    window.scrollX = 80;
+    window.scrollY = 440;
+    noteRect = rectangle(160, -40, 400, 500);
+    sourceRects.set("Archive Entry", rectangle(310, -20, 90, 20));
+    fireEvent.scroll(document);
+
+    expect(dialog.style.left).toBe("654px");
+    expect(dialog.style.top).toBe("400px");
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(vi.mocked(Element.prototype.getBoundingClientRect).mock.calls).toHaveLength(geometryReadCount);
+  });
+
   it("routes forward Tab from the active desktop trigger directly to X past intervening controls", async () => {
     render(<RichTooltipHarness markdown={richMarkdown} />);
     const trigger = screen.getByRole("button", { name: "Archive Entry" });
