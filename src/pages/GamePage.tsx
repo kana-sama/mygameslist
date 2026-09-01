@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent as ReactDragEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import {
   closestCenter,
   DndContext,
@@ -23,7 +23,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
 import { isMp4FileMetadata, makeFileAssetMetadata, optimizeNoteImage, withVideoPreviewFragment } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
-import { auditMarkdownRichTooltipLinks, DEFAULT_NOTE_GROUP_RANK, parseMarkdownRichTooltips, STATUS_IDS, TIER_IDS, type Asset, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
+import { auditMarkdownRichTooltipLinks, buildChecklistSearchIndex, DEFAULT_NOTE_GROUP_RANK, nextMarkdownTaskState, parseMarkdownRichTooltips, setMarkdownListTaskState, setMarkdownTableTaskState, STATUS_IDS, TIER_IDS, type Asset, type ChecklistSearchEntry, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { GameProgressGrid } from "../components/GameProgressGrid";
@@ -32,15 +32,37 @@ import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
+import { PageChecklistSearch, type ChecklistSearchNavigationTarget } from "../components/PageChecklistSearch";
 import { MarkdownRichTooltipProvider } from "../components/MarkdownRichTooltip";
 import { createCompletedChecklistFilterSnapshot, emptyCompletedChecklistFilterSnapshot, type CompletedChecklistFilterSnapshot } from "../components/markdownCompletedChecklistFilter";
-import { parseMarkdownBlocks } from "../domain/markdownChecklist";
+import { parseMarkdownBlocks, type MarkdownBlock, type MarkdownTaskState } from "../domain/markdownChecklist";
 import { LazyMonacoNoteEditor } from "../components/LazyMonacoNoteEditor";
 import { ShelfGrid } from "../components/ShelfGrid";
 import { TagInput } from "../components/TagInput";
 import { formatBytes, getAssetUrl, safeUrl, STATUS_LABELS, TIER_LABELS } from "../components/libraryUi";
 import { installNoteWheelGestureRouting } from "../components/noteWheelGesture";
 import type { SidebarLayoutMode } from "../state/sidebarLayoutPreference";
+import { createChecklistSearchHistoryStore } from "../state/checklistSearchHistory";
+const CHECKLIST_SEARCH_TARGET_HIGHLIGHT_MS = 1600;
+
+function checklistSearchAncestorStructuralItemIds(
+  blocks: readonly MarkdownBlock[],
+  ancestorCollapseIds: readonly string[],
+): string[] {
+  if (!ancestorCollapseIds.length) return [];
+  const ancestorIds = new Set(ancestorCollapseIds);
+  const result: string[] = [];
+  const collect = (block: MarkdownBlock): void => {
+    for (const item of block.items ?? []) {
+      if (item.collapseId && item.structuralId && ancestorIds.has(item.collapseId)) {
+        result.push(item.structuralId);
+      }
+      for (const child of item.children) collect(child);
+    }
+  };
+  for (const block of blocks) collect(block);
+  return result;
+}
 
 export interface PreparedFile {
   clientId: string;
@@ -468,6 +490,7 @@ function pendingAttachmentBytes(attachments: EditableAttachment[]): number {
 
 export interface GamePageProps {
   mode: "game" | "new";
+  checklistSearchBlocked?: boolean;
   game?: Game;
   gameSuggestions?: readonly Game[];
   notes: Note[];
@@ -920,7 +943,9 @@ interface InlineNoteCardProps {
   onEdit: () => void;
   onChange: (note: EditableNote) => void;
   onSave: (note: EditableNote) => void | Promise<void>;
-  onTaskSave: (note: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration?: number) => void | Promise<void>;
+  onTaskSave: (note: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration?: number) => void | boolean | Promise<void | boolean>;
+  acquireNoteInteraction?: (noteId: string) => symbol | null;
+  releaseNoteInteraction?: (noteId: string, owner: symbol) => void;
   onCancel: () => void;
   onDelete: () => void;
   onMove: (targetIndex: number) => void;
@@ -930,11 +955,16 @@ interface InlineNoteCardProps {
   completedChecklistFilterRevision?: number;
   interactionActive: boolean;
   onCompletedChecklistReveal: () => void;
+  checklistSearchNavigationRequest?: {
+    sequence: number;
+    target: ChecklistSearchNavigationTarget;
+  };
 }
 
-function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsDisabled, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove, taskError, completedChecklistFilterEnabled, completedChecklistFilterGeneration = 0, completedChecklistFilterRevision = 0, interactionActive, onCompletedChecklistReveal }: InlineNoteCardProps) {
+function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsDisabled, sortingDisabled, dropIndicatorEdge, assets, storageLocked, saving, canAddBlob, resolveAssetUrl, takeInitialFiles, onEdit, onChange, onSave, onTaskSave, onCancel, onDelete, onMove, taskError, completedChecklistFilterEnabled, completedChecklistFilterGeneration = 0, completedChecklistFilterRevision = 0, interactionActive, onCompletedChecklistReveal, checklistSearchNavigationRequest }: InlineNoteCardProps) {
   const completedChecklistFilterSnapshotCache = useRef<{ epoch: string; snapshot: CompletedChecklistFilterSnapshot } | null>(null);
   const [completedChecklistRevealed, setCompletedChecklistRevealed] = useState<{ epoch: string; itemIds: ReadonlySet<string>; sectionIds: ReadonlySet<string> } | null>(null);
+  const [highlightedChecklistSearchTargetId, setHighlightedChecklistSearchTargetId] = useState<string | null>(null);
   const completedChecklistFilterEpoch = `${completedChecklistFilterGeneration}:${completedChecklistFilterRevision}`;
   if (completedChecklistFilterEnabled && !editing && completedChecklistFilterSnapshotCache.current?.epoch !== completedChecklistFilterEpoch) {
     completedChecklistFilterSnapshotCache.current = {
@@ -966,7 +996,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
     onCompletedChecklistReveal();
   }, [completedChecklistFilterEpoch, onCompletedChecklistReveal]);
   const saveCollapsedChecklistSections = useCallback((collapsedChecklistSections: string[]) => {
-    void onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined });
+    return onTaskSave({ ...note, collapsedChecklistSections: collapsedChecklistSections.length ? collapsedChecklistSections : undefined });
   }, [note, onTaskSave]);
   const saveBodyMarkdown = useCallback((bodyMarkdown: string) => {
     void onTaskSave({ ...note, bodyMarkdown });
@@ -974,16 +1004,88 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
   const saveCheckboxBodyMarkdown = useCallback((bodyMarkdown: string) => {
     void onTaskSave({ ...note, bodyMarkdown }, "checkbox", completedChecklistFilterGeneration);
   }, [completedChecklistFilterGeneration, note, onTaskSave]);
+  useEffect(() => {
+    if (!checklistSearchNavigationRequest) return;
+    let cancelled = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    let highlightTimer = 0;
+    const { target } = checklistSearchNavigationRequest;
+    const navigate = async () => {
+      const nextCollapsedChecklistSections = (note.collapsedChecklistSections ?? [])
+        .filter((id) => !target.ancestorCollapseIds.includes(id));
+      if (nextCollapsedChecklistSections.length !== (note.collapsedChecklistSections ?? []).length) {
+        const saved = await saveCollapsedChecklistSections(nextCollapsedChecklistSections);
+        if (saved === false) return;
+      }
+      if (cancelled) return;
+      const structuralItemIds = [
+        ...checklistSearchAncestorStructuralItemIds(parseMarkdownBlocks(note.bodyMarkdown), target.ancestorCollapseIds),
+        ...(target.structuralItemId ? [target.structuralItemId] : []),
+      ];
+      if (structuralItemIds.length) revealCompletedChecklistItems(structuralItemIds);
+      if (target.ancestorCollapseIds.length) revealCompletedChecklistSections(target.ancestorCollapseIds);
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      firstFrame = window.requestAnimationFrame(() => {
+        secondFrame = window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          const noteIdentity = target.noteClientId.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const targetIdentity = target.id.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const targetRow = document.querySelector<HTMLElement>(
+            `.note-card[data-note-id="${noteIdentity}"] [data-checklist-search-target-id="${targetIdentity}"]`,
+          );
+          const checkbox = targetRow?.querySelector<HTMLInputElement>('input[type="checkbox"]') ?? null;
+          if (!targetRow || !checkbox || targetRow.dataset.checklistSearchStructuralGuard !== target.structuralGuard) return;
+          setHighlightedChecklistSearchTargetId(target.id);
+          checkbox.focus({ preventScroll: true });
+          targetRow.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
+          highlightTimer = window.setTimeout(() => {
+            setHighlightedChecklistSearchTargetId((current) => current === target.id ? null : current);
+          }, CHECKLIST_SEARCH_TARGET_HIGHLIGHT_MS);
+        });
+      });
+    };
+    void navigate();
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [checklistSearchNavigationRequest?.sequence]);
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} interactionActive={interactionActive} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
-  return <SortableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedForEpoch?.itemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedForEpoch?.sectionIds} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} interactionActive={interactionActive} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onRevealCompletedChecklistItems={revealCompletedChecklistItems} onRevealCompletedChecklistSections={revealCompletedChecklistSections} onTaskChange={saveBodyMarkdown} onTaskCheckboxChange={saveCheckboxBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
+  return <SortableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedForEpoch?.itemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedForEpoch?.sectionIds} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} interactionActive={interactionActive} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onRevealCompletedChecklistItems={revealCompletedChecklistItems} onRevealCompletedChecklistSections={revealCompletedChecklistSections} onTaskChange={saveBodyMarkdown} onTaskCheckboxChange={saveCheckboxBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
 }
 
-function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNoteCardProps & { noteInteractionSource: NoteInteractionSource; note: EditableNote & { id: string } }) {
+function ConnectedInlineNoteCard({
+  acquireNoteInteraction,
+  noteInteractionSource,
+  releaseNoteInteraction,
+  ...props
+}: InlineNoteCardProps & {
+  acquireNoteInteraction: (noteId: string) => symbol | null;
+  noteInteractionSource: NoteInteractionSource;
+  note: EditableNote & { id: string };
+  releaseNoteInteraction: (noteId: string, owner: symbol) => void;
+}) {
   const { note, onTaskSave: notifyTaskSave } = props;
   const snapshot = noteInteractionSource.useNoteInteractionSnapshot(note.id);
   const [interactionPending, setInteractionPending] = useState(false);
   const [interactionError, setInteractionError] = useState<string | null>(null);
+  const interactionPendingRef = useRef(false);
+  const interactionOwnerRef = useRef<{ noteId: string; owner: symbol } | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const activeOwner = interactionOwnerRef.current;
+      interactionOwnerRef.current = null;
+      interactionPendingRef.current = false;
+      if (activeOwner) releaseNoteInteraction(activeOwner.noteId, activeOwner.owner);
+    };
+  }, [releaseNoteInteraction]);
   const currentNote = useMemo<EditableNote>(() => {
     if (props.editing) return note;
     const collapsedChecklistSections = snapshot
@@ -998,7 +1100,7 @@ function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNote
     };
   }, [note, props.editing, snapshot?.bodyMarkdown, snapshot?.collapsedChecklistSections]);
   const saveInteraction = useCallback(async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration?: number) => {
-    if (interactionPending) return;
+    if (interactionPendingRef.current) return false;
     const update: InteractiveNoteFieldUpdate = draft.bodyMarkdown !== currentNote.bodyMarkdown
       ? { noteId: note.id, field: "bodyMarkdown", value: draft.bodyMarkdown }
       : {
@@ -1006,28 +1108,43 @@ function ConnectedInlineNoteCard({ noteInteractionSource, ...props }: InlineNote
         field: "collapsedChecklistSections",
         value: draft.collapsedChecklistSections?.length ? draft.collapsedChecklistSections : undefined,
       };
-    setInteractionPending(true);
-    setInteractionError(null);
+    const owner = acquireNoteInteraction(note.id);
+    if (owner === null) return false;
+    interactionOwnerRef.current = { noteId: note.id, owner };
+    interactionPendingRef.current = true;
     try {
+      flushSync(() => {
+        setInteractionPending(true);
+        setInteractionError(null);
+      });
       await noteInteractionSource.saveNoteInteraction(update);
       if (reason === "checkbox") void notifyTaskSave(draft, "checkbox-saved", filterGeneration);
+      return true;
     } catch (reason) {
-      setInteractionError(reason instanceof Error ? reason.message : "Не удалось сохранить изменение заметки");
+      if (mountedRef.current) {
+        setInteractionError(reason instanceof Error ? reason.message : "Не удалось сохранить изменение заметки");
+      }
+      return false;
     } finally {
-      setInteractionPending(false);
+      releaseNoteInteraction(note.id, owner);
+      if (interactionOwnerRef.current?.owner === owner) {
+        interactionOwnerRef.current = null;
+        interactionPendingRef.current = false;
+        if (mountedRef.current) flushSync(() => setInteractionPending(false));
+      }
     }
-  }, [currentNote.bodyMarkdown, interactionPending, note.id, noteInteractionSource, notifyTaskSave]);
+  }, [acquireNoteInteraction, currentNote.bodyMarkdown, note.id, noteInteractionSource, notifyTaskSave, releaseNoteInteraction]);
 
   return <InlineNoteCard {...props} note={currentNote} onTaskSave={saveInteraction} saving={props.saving || interactionPending} taskError={interactionError} />;
 }
 
 function InlineNoteCardBoundary({ noteInteractionSource, ...props }: InlineNoteCardProps & { noteInteractionSource?: NoteInteractionSource }) {
-  return noteInteractionSource && props.note.id
-    ? <ConnectedInlineNoteCard {...props} note={props.note as EditableNote & { id: string }} noteInteractionSource={noteInteractionSource} />
+  return noteInteractionSource && props.note.id && props.acquireNoteInteraction && props.releaseNoteInteraction
+    ? <ConnectedInlineNoteCard {...props} acquireNoteInteraction={props.acquireNoteInteraction} note={props.note as EditableNote & { id: string }} noteInteractionSource={noteInteractionSource} releaseNoteInteraction={props.releaseNoteInteraction} />
     : <InlineNoteCard {...props} />;
 }
 
-function SortableNoteCard({ note, assets, actionsDisabled, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, completedChecklistRevealedItemIds, completedChecklistRevealedSectionIds, disabled, dropIndicatorEdge, interactionActive, resolveAssetUrl, onEdit, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, taskError }: {
+function SortableNoteCard({ note, assets, actionsDisabled, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, completedChecklistRevealedItemIds, completedChecklistRevealedSectionIds, disabled, dropIndicatorEdge, highlightedChecklistSearchTargetId, interactionActive, resolveAssetUrl, onEdit, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, taskError }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   actionsDisabled: boolean;
@@ -1038,6 +1155,7 @@ function SortableNoteCard({ note, assets, actionsDisabled, completedChecklistFil
   completedChecklistRevealedSectionIds?: ReadonlySet<string>;
   disabled: boolean;
   dropIndicatorEdge?: NoteDropEdge | null;
+  highlightedChecklistSearchTargetId?: string | null;
   interactionActive: boolean;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
@@ -1057,10 +1175,10 @@ function SortableNoteCard({ note, assets, actionsDisabled, completedChecklistFil
     disabled,
   });
 
-  return <ScrollableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} interactionActive={interactionActive} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} taskError={taskError} />;
+  return <ScrollableNoteCard actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} dragActivatorRef={setActivatorNodeRef} dragAttributes={disabled ? undefined : attributes} dragging={isDragging} dragListeners={disabled ? undefined : listeners} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} dropTarget={!isDragging && isOver} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} interactionActive={interactionActive} nodeRef={setNodeRef} note={note} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onEdit={onEdit} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} resolveAssetUrl={resolveAssetUrl} sortable taskChangesDisabled={taskChangesDisabled} taskError={taskError} />;
 }
 
-function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, completedChecklistRevealedItemIds, completedChecklistRevealedSectionIds, interactionActive, resolveAssetUrl, onEdit, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false, taskError }: {
+function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, completedChecklistRevealedItemIds, completedChecklistRevealedSectionIds, highlightedChecklistSearchTargetId, interactionActive, resolveAssetUrl, onEdit, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, dragActivatorRef, dragAttributes, dragListeners, dragging = false, dropDisabled = true, dropIndicatorEdge, dropTarget = false, nodeRef, sortable = false, taskError }: {
   note: EditableNote;
   assets: Record<string, Asset>;
   actionsDisabled?: boolean;
@@ -1069,6 +1187,7 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedCh
   completedChecklistFilterSnapshot: CompletedChecklistFilterSnapshot;
   completedChecklistRevealedItemIds?: ReadonlySet<string>;
   completedChecklistRevealedSectionIds?: ReadonlySet<string>;
+  highlightedChecklistSearchTargetId?: string | null;
   interactionActive: boolean;
   resolveAssetUrl?: (assetId: string) => string | null;
   onEdit: () => void;
@@ -1131,7 +1250,7 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedCh
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
               <div className="note-card__content">
-                {note.bodyMarkdown.trim() ? <MarkdownView completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled={taskChangesDisabled} /> : null}
+                {note.bodyMarkdown.trim() ? <MarkdownView checklistSearchNoteIdentity={note.clientId} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled={taskChangesDisabled} /> : null}
               </div>
             </div>
           </div>
@@ -1396,9 +1515,14 @@ function SortableDraftNoteEditor({ note, autoFocus = false, disabled, dropIndica
   return createPortal(<PlainNoteEditor assets={assets} autoFocus={autoFocus} canAddBlob={canAddBlob} dropDisabled={disabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button {...attributes} {...listeners} aria-label="Перетащить заметку" disabled={disabled} ref={setActivatorNodeRef} title="Перетащить заметку" type="button"><Icon name="drag" size={14} /></button>{extraActions}</>} note={note} onAutoFocusConsumed={consumeAutoFocus} onChange={onChange} onProcessingChange={onProcessingChange} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />, host);
 }
 
-function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", completedChecklistFilterEnabled = false, noteInteractionSource }: GamePageProps & { game: Game }) {
+function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSuggestions = [], storageLocked = false, canAddBlob, resolveAssetUrl, onSave, onDelete, sidebarLayoutMode = "side", completedChecklistFilterEnabled = false, checklistSearchBlocked: checklistSearchExternallyBlocked = false, noteInteractionSource }: GamePageProps & { game: Game }) {
   const editableNotes = useMemo(() => editableNotesForGame(game, notes), [game, notes]);
   const editableProgressItems = useMemo<EditableGameProgressItem[]>(() => (game.progressItems ?? []).map((item) => ({ ...item, pendingIcon: null })), [game.progressItems]);
+  const [checklistSearchHistory] = useState(() => createChecklistSearchHistoryStore());
+  const [checklistSearchNavigationRequest, setChecklistSearchNavigationRequest] = useState<{
+    sequence: number;
+    target: ChecklistSearchNavigationTarget;
+  } | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<EditableNote | null>(null);
   const [prospectiveNotes, setProspectiveNotes] = useState<EditableNote[] | null>(null);
@@ -1409,6 +1533,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   const [saving, setSaving] = useState(false);
   const [optimisticTaskNote, setOptimisticTaskNote] = useState<EditableNote | null>(null);
   const [taskSaveNoteId, setTaskSaveNoteId] = useState<string | null>(null);
+  const noteInteractionOwners = useRef(new Map<string, symbol>());
   const [completedChecklistFilterRevisions, setCompletedChecklistFilterRevisions] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [error, setError] = useState<string | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -1440,6 +1565,39 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   );
   const cover = game.coverAssetId ? resolveAssetUrl?.(game.coverAssetId) ?? getAssetUrl(assets[game.coverAssetId]) : null;
   const globalActionsDisabled = saving || optimisticTaskNote !== null;
+  const acquireNoteInteraction = useCallback((noteId: string): symbol | null => {
+    if (noteInteractionOwners.current.has(noteId)) return null;
+    const owner = Symbol(noteId);
+    noteInteractionOwners.current.set(noteId, owner);
+    return owner;
+  }, []);
+  const releaseNoteInteraction = useCallback((noteId: string, owner: symbol) => {
+    if (noteInteractionOwners.current.get(noteId) === owner) {
+      noteInteractionOwners.current.delete(noteId);
+    }
+  }, []);
+  const isChecklistSearchInteractionPending = useCallback(
+    () => noteInteractionOwners.current.size > 0,
+    [],
+  );
+  useEffect(() => () => noteInteractionOwners.current.clear(), []);
+  const checklistSearchBlocked = !noteInteractionSource
+    || checklistSearchExternallyBlocked
+    || globalActionsDisabled
+    || editingField !== null
+    || editingDraft !== null
+    || coverEditing
+    || progressDraft !== null
+    || activeNoteId !== null
+    || noteFileDrag.active;
+  const getChecklistSearchEntries = useCallback((): readonly ChecklistSearchEntry[] => {
+    if (checklistSearchBlocked || !noteInteractionSource) return [];
+    return buildChecklistSearchIndex(editableNotes.flatMap((note) => {
+      if (!note.id) return [];
+      const snapshot = noteInteractionSource.readNoteInteractionSnapshot(note.id);
+      return snapshot ? [{ bodyMarkdown: snapshot.bodyMarkdown, clientId: note.clientId, id: note.id }] : [];
+    }));
+  }, [checklistSearchBlocked, editableNotes, noteInteractionSource]);
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
   const persist = async (overrides: Partial<GameSaveInput> = {}, { globalSaving = true, authoredNoteIds = new Set<string>() }: { globalSaving?: boolean; authoredNoteIds?: ReadonlySet<string> } = {}): Promise<boolean> => {
@@ -1573,6 +1731,78 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     completedChecklistFilterPendingNoteIds.current.add(noteId);
     if (activeInteractionNoteIdRef.current !== noteId) refreshCompletedChecklistFilter(noteId, generation);
   }, [refreshCompletedChecklistFilter]);
+  const toggleChecklistSearchEntry = useCallback(async (entry: ChecklistSearchEntry, state: MarkdownTaskState) => {
+    if (checklistSearchBlocked || !noteInteractionSource || !entry.noteId) {
+      throw new Error("Не удалось сохранить изменение заметки");
+    }
+    const owner = acquireNoteInteraction(entry.noteId);
+    if (owner === null) throw new Error("Сохранение заметки уже выполняется");
+    try {
+      const intendedTransition = state === nextMarkdownTaskState(entry.state, "regular")
+        ? "regular"
+        : state === nextMarkdownTaskState(entry.state, "partial")
+          ? "partial"
+          : null;
+      if (!intendedTransition) throw new Error("Недопустимое изменение пункта чеклиста");
+      const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
+      const snapshot = note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId) : undefined;
+      if (!note || !snapshot) throw new Error("Не удалось найти заметку");
+      const freshEntry = buildChecklistSearchIndex([{
+        bodyMarkdown: snapshot.bodyMarkdown,
+        clientId: note.clientId,
+        id: entry.noteId,
+      }]).find((candidate) => candidate.id === entry.id && candidate.structuralGuard === entry.structuralGuard);
+      if (!freshEntry) throw new Error("Пункт чеклиста больше не существует");
+      const freshState = nextMarkdownTaskState(freshEntry.state, intendedTransition);
+      let bodyMarkdown = setMarkdownListTaskState(
+        snapshot.bodyMarkdown,
+        freshEntry.sourceLine,
+        freshState,
+      );
+      if (bodyMarkdown === snapshot.bodyMarkdown) {
+        bodyMarkdown = setMarkdownTableTaskState(
+          snapshot.bodyMarkdown,
+          freshEntry.sourceLine,
+          freshEntry.sourceColumn,
+          freshState,
+        );
+      }
+      if (bodyMarkdown === snapshot.bodyMarkdown) throw new Error("Пункт чеклиста больше не существует");
+      await noteInteractionSource.saveNoteInteraction({
+        noteId: entry.noteId,
+        field: "bodyMarkdown",
+        value: bodyMarkdown,
+      });
+      markCompletedChecklistFilterPending(note.clientId);
+    } finally {
+      releaseNoteInteraction(entry.noteId, owner);
+    }
+  }, [acquireNoteInteraction, checklistSearchBlocked, editableNotes, markCompletedChecklistFilterPending, noteInteractionSource, releaseNoteInteraction]);
+  const navigateToChecklistSearchEntry = useCallback((target: ChecklistSearchNavigationTarget) => {
+    const freshEntry = getChecklistSearchEntries().find((entry) =>
+      entry.id === target.id
+      && entry.noteClientId === target.noteClientId
+      && entry.noteId === target.noteId
+      && entry.structuralGuard === target.structuralGuard
+    );
+    if (!freshEntry) return;
+    const freshTarget: ChecklistSearchNavigationTarget = {
+      ancestorCollapseIds: freshEntry.ancestorCollapseIds,
+      id: freshEntry.id,
+      noteClientId: freshEntry.noteClientId,
+      ...(freshEntry.noteId === undefined ? {} : { noteId: freshEntry.noteId }),
+      sourceColumn: freshEntry.sourceColumn,
+      sourceLine: freshEntry.sourceLine,
+      structuralGuard: freshEntry.structuralGuard,
+      ...(freshEntry.structuralItemId === undefined ? {} : { structuralItemId: freshEntry.structuralItemId }),
+    };
+    activeInteractionNoteIdRef.current = freshEntry.noteClientId;
+    setActiveInteractionNoteId(freshEntry.noteClientId);
+    setChecklistSearchNavigationRequest((current) => ({
+      sequence: (current?.sequence ?? 0) + 1,
+      target: freshTarget,
+    }));
+  }, [getChecklistSearchEntries]);
   useEffect(() => {
     const transferActivity = (event: Event) => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>(".note-card[data-note-id]") : null;
@@ -1687,7 +1917,17 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
   };
 
   return (
-    <div className="page game-view-page">
+    <>
+      <PageChecklistSearch
+        blocked={checklistSearchBlocked}
+        gameId={game.id}
+        getEntries={getChecklistSearchEntries}
+        history={checklistSearchHistory}
+        isInteractionPending={isChecklistSearchInteractionPending}
+        onNavigate={navigateToChecklistSearchEntry}
+        onToggle={toggleChecklistSearchEntry}
+      />
+      <div className="page game-view-page">
       <div className={`game-view-layout${sidebarLayoutMode === "top" ? " game-view-layout--sidebar-top" : ""}`}>
         <aside aria-label={game.title} className="game-sidebar">
           {coverEditing ? <div className="inline-cover-editor"><button aria-label="Закрыть редактор обложки" className="inline-cover-editor__close" onClick={() => { if (!coverDraftDirty || window.confirm("Закрыть без сохранения выбранной обложки?")) { setCoverEditing(false); setCoverDraftDirty(false); } }} type="button"><Icon name="close" size={15} /></button><ImagePicker alt={`Обложка ${game.title}`} canAddBlob={canAddBlob} currentPreviewUrl={cover} disabled={storageLocked || globalActionsDisabled} mode="cover" onDraftChange={setCoverDraftDirty} onPrepare={async (image) => { const saved = await persist({ coverAssetId: null, pendingCover: image }); if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } return saved; }} onRemove={() => { void persist({ coverAssetId: null }).then((saved) => { if (saved) { setCoverEditing(false); setCoverDraftDirty(false); } }); }} /></div> : <button aria-label="Изменить обложку" className={`game-sidebar__cover${game.status === "platinum" ? " cover--platinum" : ""}`} disabled={globalActionsDisabled} onClick={() => { setCoverDraftDirty(false); setCoverEditing(true); }} title="Изменить обложку" type="button">{cover ? <img alt={assets[game.coverAssetId!]?.alt || `Обложка ${game.title}`} src={cover} /> : <span className="game-sidebar__cover-placeholder"><Icon name="gamepad" size={56} /><span>Нет обложки</span></span>}</button>}
@@ -1708,11 +1948,120 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
           {error ? <p className="field-error inline-save-error" role="alert">{error}</p> : null}
         </aside>
         <section {...noteFileDrag.handlers} aria-label="Заметки" className={`game-notes${noteFileDrag.active ? " is-file-dragging" : ""}`}>
-          <MarkdownRichTooltipProvider><DndContext accessibility={{ announcements: { onDragStart: () => "Вы взяли заметку.", onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.", onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.", onDragCancel: () => "Перемещение отменено." } }} autoScroll collisionDetection={noteListCollisionDetection} onDragCancel={finishNoteDrag} onDragEnd={endNoteDrag} onDragOver={updateNoteDropIndicator} onDragStart={startNoteDrag} sensors={noteSensors}><SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}><div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>{noteGroups.map((group, groupIndex) => <DroppableNoteGroup count={group.notes.length} disabled={sortingDisabled} filesDisabled={storageLocked} groupRank={group.groupRank} key={group.groupRank} label={`Группа заметок ${groupIndex + 1}`} onFiles={(files) => beginNewNote(group.groupRank, files)}><ShelfGrid className="notes-list" layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`} packingFrozen={activeNoteId !== null || editingDraft !== null}>{group.notes.map((note, index) => <InlineNoteCardBoundary actionsDisabled={globalActionsDisabled} assets={assets} canAddBlob={canAddBlob} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterGeneration={completedChecklistFilterGeneration} completedChecklistFilterRevision={completedChecklistFilterRevisions.get(note.clientId) ?? 0} count={group.notes.length} dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null} editing={editingDraft?.clientId === note.clientId} editorAutoFocus={editingDraftAutoFocus} index={index} interactionActive={activeInteractionNoteId === note.clientId} key={note.clientId} note={note} noteInteractionSource={noteInteractionSource} onCancel={() => { initialNoteFiles.current.delete(note.clientId); setEditingDraft(null); setProspectiveNotes(null); setNoteDirty(false); }} onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }} onCompletedChecklistReveal={() => markCompletedChecklistFilterPending(note.clientId)} onDelete={() => void deleteNote(note.clientId)} onEdit={() => beginNoteEdit(note)} onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)} onSave={(draft) => saveNote(draft)} onTaskSave={saveTaskNote} resolveAssetUrl={resolveAssetUrl} saving={saving || taskSaveNoteId === note.clientId} sortingDisabled={sortingDisabled} storageLocked={storageLocked} takeInitialFiles={() => { const files = initialNoteFiles.current.get(note.clientId) ?? []; initialNoteFiles.current.delete(note.clientId); return files; }} />)}</ShelfGrid><div className="note-group-actions"><NoteGroupAddButton disabled={sortingDisabled} label={`Добавить заметку в группу ${groupIndex + 1}`} onCreate={() => beginNewNote(group.groupRank)} text="Добавить заметку" /><NoteGroupAddButton disabled={sortingDisabled || !groupInsertAvailable[groupIndex]} label={`Добавить группу после группы ${groupIndex + 1}`} onCreate={() => beginNewGroupAfter(group.groupRank)} text="Добавить группу" /></div></DroppableNoteGroup>)}<EmptyNoteGroup disabled={sortingDisabled || !trailingGroupAvailable} filesDisabled={storageLocked} groupRank={emptyGroupRank} onCreate={() => beginNewNote(emptyGroupRank)} onFiles={(files) => beginNewNote(emptyGroupRank, files)} showCreate={!noteGroups.length} /></div></SortableContext><DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay></DndContext></MarkdownRichTooltipProvider>
+          <MarkdownRichTooltipProvider>
+            <DndContext
+              accessibility={{
+                announcements: {
+                  onDragStart: () => "Вы взяли заметку.",
+                  onDragOver: ({ over }) => over ? "Выбрано новое место заметки." : "Заметка вне списка.",
+                  onDragEnd: ({ over }) => over ? "Заметка перемещена." : "Перемещение отменено.",
+                  onDragCancel: () => "Перемещение отменено.",
+                },
+              }}
+              autoScroll
+              collisionDetection={noteListCollisionDetection}
+              onDragCancel={finishNoteDrag}
+              onDragEnd={endNoteDrag}
+              onDragOver={updateNoteDropIndicator}
+              onDragStart={startNoteDrag}
+              sensors={noteSensors}
+            >
+              <SortableContext items={visibleNotes.map((note) => `note:${note.clientId}`)} strategy={NOTE_LIST_SORTING_STRATEGY}>
+                <div className={`note-groups${noteFileDrag.active ? " is-file-dragging" : ""}`}>
+                  {noteGroups.map((group, groupIndex) => (
+                    <DroppableNoteGroup
+                      count={group.notes.length}
+                      disabled={sortingDisabled}
+                      filesDisabled={storageLocked}
+                      groupRank={group.groupRank}
+                      key={group.groupRank}
+                      label={`Группа заметок ${groupIndex + 1}`}
+                      onFiles={(files) => beginNewNote(group.groupRank, files)}
+                    >
+                      <ShelfGrid
+                        className="notes-list"
+                        layoutKey={`${group.notes.map((note) => `${note.clientId}:${note.rank}:${note.doubleHeight ? 2 : 1}:${note.doubleWidth ? 2 : 1}`).join("|")}:${editingDraft?.clientId ?? "view"}`}
+                        packingFrozen={activeNoteId !== null || editingDraft !== null}
+                      >
+                        {group.notes.map((note, index) => (
+                          <InlineNoteCardBoundary
+                            acquireNoteInteraction={acquireNoteInteraction}
+                            actionsDisabled={globalActionsDisabled}
+                            assets={assets}
+                            canAddBlob={canAddBlob}
+                            checklistSearchNavigationRequest={checklistSearchNavigationRequest?.target.noteClientId === note.clientId ? checklistSearchNavigationRequest : undefined}
+                            completedChecklistFilterEnabled={completedChecklistFilterEnabled}
+                            completedChecklistFilterGeneration={completedChecklistFilterGeneration}
+                            completedChecklistFilterRevision={completedChecklistFilterRevisions.get(note.clientId) ?? 0}
+                            count={group.notes.length}
+                            dropIndicatorEdge={noteDropIndicator?.clientId === note.clientId ? noteDropIndicator.edge : null}
+                            editing={editingDraft?.clientId === note.clientId}
+                            editorAutoFocus={editingDraftAutoFocus}
+                            index={index}
+                            interactionActive={activeInteractionNoteId === note.clientId}
+                            key={note.clientId}
+                            note={note}
+                            noteInteractionSource={noteInteractionSource}
+                            onCancel={() => {
+                              initialNoteFiles.current.delete(note.clientId);
+                              setEditingDraft(null);
+                              setProspectiveNotes(null);
+                              setNoteDirty(false);
+                            }}
+                            onChange={(draft) => { setEditingDraft(draft); setNoteDirty(true); }}
+                            onCompletedChecklistReveal={() => markCompletedChecklistFilterPending(note.clientId)}
+                            onDelete={() => void deleteNote(note.clientId)}
+                            onEdit={() => beginNoteEdit(note)}
+                            onMove={(targetIndex) => void moveNote(note.clientId, group.groupRank, targetIndex)}
+                            onSave={(draft) => saveNote(draft)}
+                            onTaskSave={saveTaskNote}
+                            releaseNoteInteraction={releaseNoteInteraction}
+                            resolveAssetUrl={resolveAssetUrl}
+                            saving={saving || taskSaveNoteId === note.clientId}
+                            sortingDisabled={sortingDisabled}
+                            storageLocked={storageLocked}
+                            takeInitialFiles={() => {
+                              const files = initialNoteFiles.current.get(note.clientId) ?? [];
+                              initialNoteFiles.current.delete(note.clientId);
+                              return files;
+                            }}
+                          />
+                        ))}
+                      </ShelfGrid>
+                      <div className="note-group-actions">
+                        <NoteGroupAddButton
+                          disabled={sortingDisabled}
+                          label={`Добавить заметку в группу ${groupIndex + 1}`}
+                          onCreate={() => beginNewNote(group.groupRank)}
+                          text="Добавить заметку"
+                        />
+                        <NoteGroupAddButton
+                          disabled={sortingDisabled || !groupInsertAvailable[groupIndex]}
+                          label={`Добавить группу после группы ${groupIndex + 1}`}
+                          onCreate={() => beginNewGroupAfter(group.groupRank)}
+                          text="Добавить группу"
+                        />
+                      </div>
+                    </DroppableNoteGroup>
+                  ))}
+                  <EmptyNoteGroup
+                    disabled={sortingDisabled || !trailingGroupAvailable}
+                    filesDisabled={storageLocked}
+                    groupRank={emptyGroupRank}
+                    onCreate={() => beginNewNote(emptyGroupRank)}
+                    onFiles={(files) => beginNewNote(emptyGroupRank, files)}
+                    showCreate={!noteGroups.length}
+                  />
+                </div>
+              </SortableContext>
+              <DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay>
+            </DndContext>
+          </MarkdownRichTooltipProvider>
         </section>
       </div>
       {progressDraft ? <GameProgressItemDialog assets={assets} canAddBlob={canAddBlob} gameId={game.id} item={progressDraft} notes={notes} onCancel={closeProgressEditor} onDelete={editableProgressItems.some((item) => item.id === progressDraft.id) ? deleteProgressItem : undefined} onSave={saveProgressItem} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} /> : null}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -1,27 +1,19 @@
 import {
-  MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
-  MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE,
-  MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE,
   markdownRichTooltipAnchor,
   markdownRichTooltipBackslashRunIsEscaped,
   markdownRichTooltipLeadingBackslashCount,
   parseMarkdownRichTooltipReference,
 } from "../domain/markdownRichTooltips";
+import { markdownInlineTokenPattern } from "../domain/markdownInlineAnnotations";
+
+export { markdownInlineTokenPattern } from "../domain/markdownInlineAnnotations";
 
 export interface MarkdownSourceRange {
   end: number;
   start: number;
 }
 
-const INLINE_TOKEN_SOURCE_PREFIX = "(`[^`\\n]+`";
-const INLINE_RICH_TOOLTIP_TOKEN_SOURCE = `|${MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}|${MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}`;
-const INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE = "|\\[[^\\]\\n]*\\]\\[\\?[^\\]\\n]+\\]";
-const INLINE_TOKEN_SOURCE_SUFFIX = `${INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE}|\\[[^\\]\\n]+\\]\\(\"[^\"\\n]*\"\\)|\\[[^\\]\\n]+\\]\\([^\\s)]+(?:\\s+\"[^\"]*\")?\\)|${MARKDOWN_INLINE_PLAIN_TEXT_TOKEN_SOURCE})`;
 const LEGACY_TOOLTIP_TOKEN = /^\[([^\]\r\n]+)\]\("[^"\r\n]*"\)$/u;
-
-export function markdownInlineTokenPattern(): RegExp {
-  return new RegExp(`${INLINE_TOKEN_SOURCE_PREFIX}${INLINE_RICH_TOOLTIP_TOKEN_SOURCE}${INLINE_TOKEN_SOURCE_SUFFIX}`, "g");
-}
 
 interface MarkdownTooltipProjection {
   formattedText: string;

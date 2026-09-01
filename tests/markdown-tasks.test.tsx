@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,55 @@ vi.mock("../src/components/MonacoMarkdownEditor", async () => (
 vi.mock("../src/domain/markdownChecklist", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/domain/markdownChecklist")>();
   return { ...actual, parseMarkdownBlocks: vi.fn(actual.parseMarkdownBlocks) };
+});
+
+describe("checklist search target markup", () => {
+  it("assigns exact source identities and React-controlled highlight state to list and table targets", () => {
+    const view = render(
+      <MarkdownView
+        checklistSearchNoteIdentity="fixture:note"
+        highlightedChecklistSearchTargetId="checklist:fixture%3Anote:0:2"
+        markdown={[
+          "- [ ] Visible list target",
+          "",
+          "| Stage | Complete | Marker |",
+          "| --- | --- | --- |",
+          "| Row | [ ] Table target | [ ] |",
+        ].join("\n")}
+        onTaskCheckboxChange={vi.fn()}
+      />,
+    );
+
+    const listRow = screen.getByText("Visible list target").closest<HTMLElement>(".markdown-task-row")!;
+    const tableTarget = screen.getByText("Table target").closest<HTMLElement>(".markdown-table-task")!;
+    const markerOnlyTableTarget = view.container.querySelectorAll<HTMLElement>(".markdown-table-task")[1];
+    expect(listRow).toHaveAttribute("data-checklist-search-target-id", "checklist:fixture%3Anote:0:2");
+    expect(listRow).toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(tableTarget).toHaveAttribute("data-checklist-search-target-id", "checklist:fixture%3Anote:4:8");
+    expect(tableTarget).not.toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(markerOnlyTableTarget).toHaveAttribute("data-checklist-search-target-id", "checklist:fixture%3Anote:4:27");
+    expect(within(listRow).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:0:2");
+    expect(within(tableTarget).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:4:8");
+    expect(within(markerOnlyTableTarget).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:4:27");
+
+    view.rerender(
+      <MarkdownView
+        checklistSearchNoteIdentity="fixture:note"
+        highlightedChecklistSearchTargetId="checklist:fixture%3Anote:4:8"
+        markdown={[
+          "- [ ] Visible list target",
+          "",
+          "| Stage | Complete | Marker |",
+          "| --- | --- | --- |",
+          "| Row | [ ] Table target | [ ] |",
+        ].join("\n")}
+        onTaskCheckboxChange={vi.fn()}
+      />,
+    );
+
+    expect(listRow).not.toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(tableTarget).toHaveClass("markdown-checklist-search-target--highlighted");
+  });
 });
 
 const GAME_ID = "11111111-1111-4111-8111-111111111111";
@@ -2358,6 +2407,75 @@ describe("Markdown tasks", () => {
       "| --- | --- | --- |",
       "| Tower | [-] | [x] |",
     ].join("\n"));
+  });
+
+  it("applies identical partial transitions for Shift- and Command-clicked list tasks", () => {
+    const onTaskChange = vi.fn();
+    const markdown = ["- [ ] Open", "- [x] Done", "- [-] Mixed", "- [ ] Ctrl", "- [ ] Regular"].join("\n");
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Open" }), { shiftKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Снять отметку: Done" }), { metaKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Mixed" }), { shiftKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Ctrl" }), { ctrlKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Regular" }));
+
+    expect(onTaskChange).toHaveBeenNthCalledWith(1, ["- [-] Open", "- [x] Done", "- [-] Mixed", "- [ ] Ctrl", "- [ ] Regular"].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(2, ["- [ ] Open", "- [-] Done", "- [-] Mixed", "- [ ] Ctrl", "- [ ] Regular"].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(3, ["- [ ] Open", "- [x] Done", "- [ ] Mixed", "- [ ] Ctrl", "- [ ] Regular"].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(4, ["- [ ] Open", "- [x] Done", "- [-] Mixed", "- [x] Ctrl", "- [ ] Regular"].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(5, ["- [ ] Open", "- [x] Done", "- [-] Mixed", "- [ ] Ctrl", "- [x] Regular"].join("\n"));
+  });
+
+  it("applies identical partial transitions for Shift- and Command-clicked table tasks", () => {
+    const onTaskChange = vi.fn();
+    const markdown = [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [ ] | [x] | [-] | [ ] | [ ] |",
+    ].join("\n");
+    render(<MarkdownView markdown={markdown} onTaskChange={onTaskChange} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: строка 1 — First" }), { shiftKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Снять отметку: строка 1 — Second" }), { metaKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: строка 1 — Third" }), { metaKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: строка 1 — Ctrl" }), { ctrlKey: true });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: строка 1 — Regular" }));
+
+    expect(onTaskChange).toHaveBeenNthCalledWith(1, [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [-] | [x] | [-] | [ ] | [ ] |",
+    ].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(2, [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [ ] | [-] | [-] | [ ] | [ ] |",
+    ].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(3, [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [ ] | [x] | [ ] | [ ] | [ ] |",
+    ].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(4, [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [ ] | [x] | [-] | [x] | [ ] |",
+    ].join("\n"));
+    expect(onTaskChange).toHaveBeenNthCalledWith(5, [
+      "| First | Second | Third | Ctrl | Regular |",
+      "| --- | --- | --- | --- | --- |",
+      "| [ ] | [x] | [-] | [ ] | [x] |",
+    ].join("\n"));
+  });
+
+  it("does not change a task when Command-Space is pressed on the document", () => {
+    const onTaskChange = vi.fn();
+    render(<MarkdownView markdown="- [ ] Open" onTaskChange={onTaskChange} />);
+
+    fireEvent.keyDown(document, { key: " ", metaKey: true });
+
+    expect(onTaskChange).not.toHaveBeenCalled();
   });
 
   it("preserves nested unordered and ordered list structure", () => {

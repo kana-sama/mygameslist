@@ -54,6 +54,40 @@ describe("note column layout", () => {
     expect(getComputedStyle(total).flexShrink).toBe("0");
   });
 
+  it("defines the fixed two-pane checklist palette without forcing result row height", () => {
+    expect(productionStyles).toMatch(/\.page-checklist-search-layer\s*\{[^}]*position:\s*fixed;[^}]*inset:\s*0;[^}]*display:\s*grid;[^}]*place-items:\s*center;/s);
+    expect(productionStyles).toMatch(/\.page-checklist-search\s*\{[^}]*width:\s*690px;[^}]*height:\s*366px;[^}]*display:\s*grid;[^}]*grid-template-rows:\s*44px minmax\(0,\s*1fr\) 29px;/s);
+    expect(productionStyles).toMatch(/\.page-checklist-search__body\s*\{[^}]*min-height:\s*0;[^}]*display:\s*grid;[^}]*grid-template-columns:\s*44% 56%;/s);
+    expect(productionStyles).toMatch(/\.page-checklist-search__results\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s);
+    expect(productionStyles).toMatch(/\.page-checklist-search__preview\s*\{[^}]*min-width:\s*0;[^}]*overflow-y:\s*auto;/s);
+
+    const resultRule = productionStyles.match(/\.page-checklist-search__result\s*\{([^}]*)\}/s);
+    expect(resultRule).not.toBeNull();
+    expect(resultRule?.[1]).toMatch(/padding:\s*7px 10px;/);
+    expect(resultRule?.[1]).not.toMatch(/(?:^|;)\s*(?:min-)?height\s*:/);
+    expect(productionStyles).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.page-checklist-search-layer,\s*\.page-checklist-search\s*\{[^}]*animation:\s*none;/);
+    expect(productionStyles).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.markdown-checklist-search-target--highlighted\s*\{[^}]*transition:\s*none;/);
+
+    expect(productionStyles).toMatch(/\.page-checklist-search\s*\{[^}]*font-size:\s*12px;/s);
+    for (const selector of [
+      ".page-checklist-search__query",
+      ".page-checklist-search__item-text",
+      ".page-checklist-search__annotation-title",
+    ]) {
+      expect(productionStyles).toMatch(new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[^}]*font-size:\\s*inherit;`, "s"));
+    }
+    expect(productionStyles).toMatch(/\.page-checklist-search__annotation-plain,\s*\.page-checklist-search__annotation-rich\s*\{[^}]*font-size:\s*inherit;/s);
+    for (const selector of [
+      ".page-checklist-search__escape",
+      ".page-checklist-search__path",
+      ".page-checklist-search__footer",
+    ]) {
+      expect(productionStyles).toMatch(new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[^}]*font-size:\\s*9px;`, "s"));
+    }
+    expect(productionStyles).toMatch(/\.page-checklist-search__footer\s*\{[^}]*white-space:\s*nowrap;/s);
+    expect(productionStyles).toMatch(/\.page-checklist-search__error\s*\{[^}]*max-width:\s*210px;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;/s);
+  });
+
   it("defines the exact desktop rich-tooltip card, arrow, header, body, and definition rows", () => {
     expect(productionStyles).toMatch(/\.markdown-rich-tooltip-trigger\s*\{[^}]*color:\s*inherit;[^}]*text-decoration-style:\s*dashed;[^}]*text-decoration-thickness:\s*1px;[^}]*text-underline-offset:\s*2px;[^}]*cursor:\s*pointer;/s);
     expect(productionStyles).toMatch(/\.markdown-rich-tooltip-trigger:hover,\s*\.markdown-rich-tooltip-trigger\[aria-expanded="true"\]\s*\{[^}]*color:\s*#f0f5f8;[^}]*text-decoration-color:\s*var\(--accent-strong\);/s);

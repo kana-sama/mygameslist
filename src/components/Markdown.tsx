@@ -17,13 +17,23 @@ import {
   type MarkdownTextLocation,
 } from "../domain/markdownChecklist";
 import {
+  nextMarkdownTaskState,
+  setMarkdownListTaskState,
+  setMarkdownTableTaskState,
+} from "../domain/markdownTaskState";
+import { checklistSearchEntryId, checklistSearchStructuralGuard } from "../domain/checklistSearch";
+import {
   parseMarkdownRichTooltips,
   restoreMarkdownRichTooltipDefinitions,
   markdownRichTooltipBackslashRunIsEscaped,
   markdownRichTooltipLeadingBackslashCount,
-  parseMarkdownRichTooltipReference,
   type ParsedMarkdownRichTooltips,
 } from "../domain/markdownRichTooltips";
+import {
+  markdownInlineAnnotationEscapeBackslashCount,
+  markdownInlineAnnotationTokenIsEscaped,
+  parseMarkdownInlineAnnotationToken,
+} from "../domain/markdownInlineAnnotations";
 import { Icon } from "./Icon";
 import { safeUrl } from "./libraryUi";
 import {
@@ -257,9 +267,18 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
   let match: RegExpExecArray | null;
 
   while ((match = token.exec(source))) {
-    if (match.index > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, match.index), keyPrefix, cursor, location));
     const raw = match[0];
     const key = `${keyPrefix}-${match.index}`;
+    const inlineAnnotation = raw.startsWith("[") ? parseMarkdownInlineAnnotationToken(raw) : null;
+    const simpleEscapeSlashCount = inlineAnnotation?.kind === "simple"
+      ? markdownInlineAnnotationEscapeBackslashCount(source, match.index)
+      : 0;
+    const precedingEnd = match.index - simpleEscapeSlashCount;
+    if (precedingEnd > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, precedingEnd), keyPrefix, cursor, location));
+    if (simpleEscapeSlashCount > 0) {
+      const visibleSlashes = "\\".repeat(Math.floor(simpleEscapeSlashCount / 2));
+      if (visibleSlashes) nodes.push(...renderDecoratedText(visibleSlashes, `${key}-slashes`, precedingEnd, location));
+    }
     if (raw === "\\|") {
       nodes.push(...renderDecoratedText("|", key, match.index + 1, location));
     } else if (raw.startsWith("\\")) {
@@ -288,17 +307,18 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     } else if (raw.startsWith("`")) {
       nodes.push(<code key={key}>{renderDecoratedText(raw.slice(1, -1), key, match.index + 1, location)}</code>);
     } else if (raw.startsWith("[")) {
-      const richReference = parseMarkdownRichTooltipReference(raw);
-      const hintMatch = /^\[([^\]]+)\]\("([^"\n]*)"\)$/.exec(raw);
+      const annotation = inlineAnnotation;
       const linkMatch = /^\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/.exec(raw);
       const href = linkMatch ? safeUrl(linkMatch[2]) : null;
-      if (richReference) {
+      if (annotation?.kind === "simple" && markdownInlineAnnotationTokenIsEscaped(source, match.index)) {
+        nodes.push(...renderDecoratedText(raw, key, match.index, location));
+      } else if (annotation?.kind === "rich") {
         if (!richTooltipContext) {
           nodes.push(...renderDecoratedText(raw, key, match.index, location));
           cursor = match.index + raw.length;
           continue;
         }
-        const { anchor, label } = richReference;
+        const { anchor, labelMarkdown: label } = annotation;
         const definition = richTooltipContext.definitions.get(anchor);
         const triggerEnabled = Boolean(
           definition?.bodyMarkdown.trim()
@@ -317,11 +337,11 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
         } else {
           nodes.push(...labelNodes);
         }
-      } else if (hintMatch) {
+      } else if (annotation?.kind === "simple") {
         nodes.push(
-          <span className="markdown-hover-hint" key={key} title={hintMatch[2]}>
+          <span className="markdown-hover-hint" key={key} title={interactionsDisabled ? undefined : annotation.description}>
             {renderInline(
-              hintMatch[1],
+              annotation.labelMarkdown,
               `${key}-label`,
               location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined,
               forceRevealSpoilers,
@@ -359,41 +379,18 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
 }
 
 export interface MarkdownInlineViewProps {
+  interactionsDisabled?: boolean;
   markdown: string;
 }
 
-export function MarkdownInlineView({ markdown }: MarkdownInlineViewProps): ReactNode {
-  return <>{renderInline(markdown)}</>;
+export function MarkdownInlineView({ interactionsDisabled = false, markdown }: MarkdownInlineViewProps): ReactNode {
+  return <>{renderInline(markdown, "inline", undefined, false, undefined, interactionsDisabled)}</>;
 }
 
-export function setMarkdownTaskState(markdown: string, sourceLine: number, state: MarkdownTaskState): string {
-  const parts = markdown.split(/(\r\n?|\n)/);
-  const lineIndex = sourceLine * 2;
-  const line = parts[lineIndex];
-  if (line === undefined) return markdown;
-
-  const nextLine = line.replace(
-    /^([ \t]*(?:[-*+]|\d+[.)])[ \t]+\[)[ xX-](\])(?=[ \t]|$)/,
-    (_match, prefix: string, suffix: string) => `${prefix}${state === "checked" ? "x" : state === "indeterminate" ? "-" : " "}${suffix}`,
-  );
-  if (nextLine === line) return markdown;
-  parts[lineIndex] = nextLine;
-  return parts.join("");
-}
+export const setMarkdownTaskState = setMarkdownListTaskState;
 
 export function setMarkdownTaskChecked(markdown: string, sourceLine: number, checked: boolean): string {
   return setMarkdownTaskState(markdown, sourceLine, checked ? "checked" : "unchecked");
-}
-
-function setMarkdownTableTaskState(markdown: string, sourceLine: number, sourceColumn: number, state: MarkdownTaskState): string {
-  if (!Number.isInteger(sourceLine) || !Number.isInteger(sourceColumn) || sourceLine < 0 || sourceColumn < 0) return markdown;
-  const parts = markdown.split(/(\r\n?|\n)/);
-  const lineIndex = sourceLine * 2;
-  const line = parts[lineIndex];
-  if (line === undefined || !/^\[[ xX-]\]$/.test(line.slice(sourceColumn, sourceColumn + 3))) return markdown;
-
-  parts[lineIndex] = `${line.slice(0, sourceColumn + 1)}${state === "checked" ? "x" : state === "indeterminate" ? "-" : " "}${line.slice(sourceColumn + 2)}`;
-  return parts.join("");
 }
 
 function markdownSingleLine(value: string): string {
@@ -474,8 +471,14 @@ export function setMarkdownTaskItemText(markdown: string, sourceLine: number, va
 }
 
 
-export interface MarkdownViewProps {
+export interface MarkdownChecklistSearchTargetProps {
+  checklistSearchNoteIdentity?: string;
+  highlightedChecklistSearchTargetId?: string | null;
+}
+
+export interface MarkdownViewProps extends MarkdownChecklistSearchTargetProps {
   markdown: string;
+  interactionsDisabled?: boolean;
   richTooltipsEnabled?: boolean;
   richTooltipTriggersDisabled?: boolean;
   completedChecklistFilterEnabled?: boolean;
@@ -605,6 +608,10 @@ function taskStateLabel(state: MarkdownTaskState): string {
   return state === "checked" ? "Снять отметку" : "Отметить";
 }
 
+function isPartialTaskTransition(event: Pick<MouseEvent, "metaKey" | "shiftKey">): boolean {
+  return event.shiftKey || event.metaKey;
+}
+
 function completedChecklistIdsFingerprint(ids: ReadonlySet<string>, effectiveIds: ReadonlySet<string>): string {
   return [...ids].filter((id) => effectiveIds.has(id)).sort().join("\u0000");
 }
@@ -671,7 +678,7 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, inlineChanges = [], emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipParsed, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
+function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlightedChecklistSearchTargetId = null, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, inlineChanges = [], interactionsDisabled = false, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipParsed, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
   const latestBlocksRef = useRef(blocks);
   latestBlocksRef.current = blocks;
@@ -748,6 +755,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
         duplicateAnchors: richTooltipParsed.duplicateAnchors,
         triggersDisabled: richTooltipTriggersDisabled,
       } : undefined,
+      interactionsDisabled,
     );
   const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = [], forceRevealSpoilers = false): ReactNode => {
     if (!decorations && !inlineChanges.length) return renderInline(value, key, undefined, forceRevealSpoilers, richTooltipParsed ? {
@@ -755,7 +763,7 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
       definitions: richTooltipParsed.definitions,
       duplicateAnchors: richTooltipParsed.duplicateAnchors,
       triggersDisabled: richTooltipTriggersDisabled,
-    } : undefined);
+    } : undefined, interactionsDisabled);
     const lines = value.split("\n");
     return lines.map((line, index) => (
       <Fragment key={`${key}-line-${index}`}>
@@ -922,40 +930,52 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
               </li>
             );
           }
+          const taskState = item.taskState;
           const editing = activeTaskEditor?.kind === "edit" && activeTaskEditor.sourceLine === item.sourceLine;
-          const forceRevealSpoilers = Boolean(item.taskState === "checked" && markdownIsSingleSpoiler(item.value));
+          const forceRevealSpoilers = Boolean(taskState === "checked" && markdownIsSingleSpoiler(item.value));
           const taskLabel = markdownTaskLabel(item.firstLineValue, forceRevealSpoilers) || "пункт";
           const taskChange = taskChangeAt(item.sourceLine, item.taskSourceColumn);
+          const checklistSearchTargetId = checklistSearchNoteIdentity && item.taskSourceColumn !== undefined
+            ? checklistSearchEntryId(checklistSearchNoteIdentity, item.sourceLine, item.taskSourceColumn)
+            : undefined;
+          const checklistSearchTargetGuard = checklistSearchTargetId
+            ? checklistSearchStructuralGuard("list", item.value)
+            : undefined;
           return (
-            <li className={`markdown-task-item${item.taskState === "checked" ? " markdown-task-item--checked" : ""}${item.taskState === "indeterminate" ? " markdown-task-item--indeterminate" : ""}`} key={itemKey} {...motionAttributes(item)} {...collapseMotionRowAttributes}>
-              <div className="markdown-task-row">
+            <li className={`markdown-task-item${taskState === "checked" ? " markdown-task-item--checked" : ""}${taskState === "indeterminate" ? " markdown-task-item--indeterminate" : ""}`} key={itemKey} {...motionAttributes(item)} {...collapseMotionRowAttributes}>
+              <div
+                className={`markdown-task-row${checklistSearchTargetId === highlightedChecklistSearchTargetId ? " markdown-checklist-search-target--highlighted" : ""}`}
+                data-checklist-search-structural-guard={checklistSearchTargetGuard}
+                data-checklist-search-target-id={checklistSearchTargetId}
+              >
                 {taskChange ? <TaskDiffControl change={taskChange} /> : (
                   <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                     <MarkdownTaskCheckbox
                       aria-disabled={taskChangesDisabled || undefined}
-                      aria-label={`${taskStateLabel(item.taskState)}: ${taskLabel}`}
+                      aria-describedby={checklistSearchTargetId}
+                      aria-label={`${taskStateLabel(taskState)}: ${taskLabel}`}
                       className="markdown-task-checkbox"
                       disabled={!taskCheckboxChangesAvailable || activeTaskEditor !== null}
                       onChange={(event) => {
                         if (taskChangesDisabled) return;
-                        if ((event.nativeEvent as MouseEvent).metaKey) return;
-                        const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, event.currentTarget.checked ? "checked" : "unchecked");
+                        if (isPartialTaskTransition(event.nativeEvent as MouseEvent)) return;
+                        const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, nextMarkdownTaskState(taskState, "regular"));
                         if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                       }}
                       onClick={(event) => {
                         event.stopPropagation();
                         if (taskChangesDisabled) event.preventDefault();
-                        if (event.metaKey && !taskChangesDisabled) {
+                        if (isPartialTaskTransition(event) && !taskChangesDisabled) {
                           event.preventDefault();
-                          const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, "indeterminate");
+                          const nextMarkdown = setMarkdownTaskState(markdown, item.sourceLine, nextMarkdownTaskState(taskState, "partial"));
                           if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                         }
                       }}
-                      state={item.taskState}
+                      state={taskState}
                     />
                   </label>
                 )}
-                <span className="markdown-task-content">
+                <span className="markdown-task-content" id={checklistSearchTargetId}>
                   {editing ? (
                     <MarkdownSingleLineEditor
                       ariaLabel={`Текст пункта: ${taskLabel}`}
@@ -1029,42 +1049,56 @@ function MarkdownRenderBody({ markdown, className = "", collapsedChecklistSectio
             if (cell.taskState === undefined) {
               return <td className={alignmentClass(cellIndex)} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>{locatedInline(inlineSource, cellKey, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine })}</td>;
             }
-            const forceRevealSpoilers = Boolean(cell.taskState === "checked" && markdownIsSingleSpoiler(inlineSource));
+            const taskState = cell.taskState;
+            const forceRevealSpoilers = Boolean(taskState === "checked" && markdownIsSingleSpoiler(inlineSource));
             const columnLabel = markdownTaskLabel(table.headers[cellIndex]?.sourceValue ?? table.headers[cellIndex]?.value ?? "", false);
             const cellLabel = markdownTaskLabel(inlineSource, forceRevealSpoilers);
             const taskLabel = cellLabel || [rowTaskLabel, columnLabel].filter(Boolean).join(" — ") || `строка ${rowIndex + 1}, столбец ${cellIndex + 1}`;
             const taskChange = taskChangeAt(row.sourceLine, cell.taskSourceColumn);
+            const checklistSearchTargetId = checklistSearchNoteIdentity && cell.taskSourceColumn !== undefined
+              ? checklistSearchEntryId(checklistSearchNoteIdentity, row.sourceLine, cell.taskSourceColumn)
+              : undefined;
+            const checklistSearchTargetGuard = checklistSearchTargetId
+              ? checklistSearchStructuralGuard("table", cell.sourceValue ?? cell.value)
+              : undefined;
             return (
-              <td className={alignmentClass(cellIndex)} data-checklist-checked={cell.taskState === "checked" || undefined} data-checklist-indeterminate={cell.taskState === "indeterminate" || undefined} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>
-                <div className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}`}>
+              <td className={alignmentClass(cellIndex)} data-checklist-checked={taskState === "checked" || undefined} data-checklist-indeterminate={taskState === "indeterminate" || undefined} data-checklist-column-complete={completedColumns[cellIndex] || undefined} key={cellKey}>
+                <div
+                  className={`markdown-table-task${cell.value ? "" : " markdown-table-task--only"}${checklistSearchTargetId === highlightedChecklistSearchTargetId ? " markdown-checklist-search-target--highlighted" : ""}`}
+                  data-checklist-search-structural-guard={checklistSearchTargetGuard}
+                  data-checklist-search-target-id={checklistSearchTargetId}
+                >
                   {taskChange ? <TaskDiffControl change={taskChange} /> : (
                     <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                       <MarkdownTaskCheckbox
                         aria-disabled={taskChangesDisabled || undefined}
-                        aria-label={`${taskStateLabel(cell.taskState)}: ${taskLabel}`}
+                        aria-describedby={checklistSearchTargetId}
+                        aria-label={`${taskStateLabel(taskState)}: ${taskLabel}`}
                         className="markdown-task-checkbox"
                         disabled={!taskCheckboxChangesAvailable || activeTaskEditor !== null}
                         onChange={(event) => {
                           if (taskChangesDisabled) return;
-                          if ((event.nativeEvent as MouseEvent).metaKey) return;
+                          if (isPartialTaskTransition(event.nativeEvent as MouseEvent)) return;
                           if (cell.taskSourceColumn === undefined) return;
-                          const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, event.currentTarget.checked ? "checked" : "unchecked");
+                          const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, nextMarkdownTaskState(taskState, "regular"));
                           if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                         }}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (taskChangesDisabled) event.preventDefault();
-                          if (event.metaKey && !taskChangesDisabled && cell.taskSourceColumn !== undefined) {
+                          if (isPartialTaskTransition(event) && !taskChangesDisabled && cell.taskSourceColumn !== undefined) {
                             event.preventDefault();
-                            const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, "indeterminate");
+                            const nextMarkdown = setMarkdownTableTaskState(markdown, row.sourceLine, cell.taskSourceColumn, nextMarkdownTaskState(taskState, "partial"));
                             if (nextMarkdown !== markdown) saveCheckboxChange(nextMarkdown);
                           }
                         }}
-                        state={cell.taskState}
+                        state={taskState}
                       />
                     </label>
                   )}
-                  {cell.value ? <span>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, forceRevealSpoilers)}</span> : null}
+                  {cell.value
+                    ? <span id={checklistSearchTargetId}>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, forceRevealSpoilers)}</span>
+                    : checklistSearchTargetId ? <span id={checklistSearchTargetId} /> : null}
                 </div>
               </td>
             );
@@ -1332,6 +1366,8 @@ function sameStrings(left: readonly string[] | undefined, right: readonly string
 
 const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => (
   previous.markdown === next.markdown
+  && previous.checklistSearchNoteIdentity === next.checklistSearchNoteIdentity
+  && previous.highlightedChecklistSearchTargetId === next.highlightedChecklistSearchTargetId
   && previous.className === next.className
   && previous.completedChecklistFilterEnabled === next.completedChecklistFilterEnabled
   && previous.completedChecklistFilterRevision === next.completedChecklistFilterRevision
@@ -1343,6 +1379,7 @@ const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => 
   && sameStrings(previous.collapsedChecklistSections, next.collapsedChecklistSections)
   && previous.decorations === next.decorations
   && previous.inlineChanges === next.inlineChanges
+  && previous.interactionsDisabled === next.interactionsDisabled
   && previous.rowChanges === next.rowChanges
   && previous.taskChanges === next.taskChanges
   && previous.taskChangesDisabled === next.taskChangesDisabled

@@ -7,6 +7,7 @@ import {
   computeLibraryRevision,
   diffLibrary,
   gameMatchesFilters,
+  gameSearchScore,
   moveRanked,
   reconcilePatch,
   resolveConflict,
@@ -295,6 +296,11 @@ describe("ranks and catalogue filters", () => {
   it("finds a word when a short fuzzy query omits letters", () => {
     expect(gameMatchesFilters({ ...game(), title: "The Lost Vikings" }, { query: "lst" })).toBe(true);
     expect(gameMatchesFilters({ ...game(), title: "Super Mario Bros.: The Lost Levels" }, { query: "lst" })).toBe(true);
+  });
+
+  it("keeps game search scoring compatible with the shared omission tolerance", () => {
+    expect(gameSearchScore(game("Eternal"), "")).toBe(0);
+    expect(Number.isFinite(gameSearchScore(game("Eternal"), "etnl"))).toBe(true);
   });
 
   it("finds games by title initials", () => {

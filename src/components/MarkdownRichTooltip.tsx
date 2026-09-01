@@ -33,6 +33,12 @@ export interface MarkdownRichTooltipProviderProps {
   children: ReactNode;
 }
 
+export interface MarkdownRichTooltipBodyViewProps {
+  bodyMarkdown: string;
+  className?: string;
+  interactionsDisabled?: boolean;
+}
+
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
@@ -41,6 +47,33 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>(
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
   )].filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
+}
+
+export function MarkdownRichTooltipBodyView({ bodyMarkdown, className, interactionsDisabled = false }: MarkdownRichTooltipBodyViewProps): ReactNode {
+  const bodyParts = useMemo(() => parseMarkdownRichTooltipBody(bodyMarkdown), [bodyMarkdown]);
+  return (
+    <div className={className}>
+      {bodyParts.map((part, partIndex) => part.type === "definition-list" ? (
+        <dl className="markdown-rich-tooltip__definition-list" key={`definition-list-${partIndex}`}>
+          {part.items.map((item, itemIndex) => (
+            <div className="markdown-rich-tooltip__definition-row" key={`definition-row-${itemIndex}`}>
+              <dt><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.termMarkdown} /></dt>
+              <dd><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.descriptionMarkdown} /></dd>
+            </div>
+          ))}
+        </dl>
+      ) : part.markdown.trim() ? (
+        <MarkdownView
+          className="markdown-rich-tooltip__markdown"
+          interactionsDisabled={interactionsDisabled}
+          key={`markdown-${partIndex}`}
+          markdown={part.markdown}
+          richTooltipTriggersDisabled
+          taskChangesDisabled
+        />
+      ) : null)}
+    </div>
+  );
 }
 
 export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipProviderProps): ReactNode {
@@ -191,7 +224,6 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     }
   };
 
-  const bodyParts = useMemo(() => active ? parseMarkdownRichTooltipBody(active.bodyMarkdown) : [], [active]);
   const desktopPlacement = placement?.mode === "desktop" ? placement : null;
   const tooltipStyle = desktopPlacement ? {
     "--markdown-rich-tooltip-arrow-top": `${desktopPlacement.arrowTop}px`,
@@ -225,26 +257,7 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
             type="button"
           >×</button>
         </header>
-        <div className="markdown-rich-tooltip__body">
-          {bodyParts.map((part, partIndex) => part.type === "definition-list" ? (
-            <dl className="markdown-rich-tooltip__definition-list" key={`definition-list-${partIndex}`}>
-              {part.items.map((item, itemIndex) => (
-                <div className="markdown-rich-tooltip__definition-row" key={`definition-row-${itemIndex}`}>
-                  <dt><MarkdownInlineView markdown={item.termMarkdown} /></dt>
-                  <dd><MarkdownInlineView markdown={item.descriptionMarkdown} /></dd>
-                </div>
-              ))}
-            </dl>
-          ) : part.markdown.trim() ? (
-            <MarkdownView
-              className="markdown-rich-tooltip__markdown"
-              key={`markdown-${partIndex}`}
-              markdown={part.markdown}
-              richTooltipTriggersDisabled
-              taskChangesDisabled
-            />
-          ) : null)}
-        </div>
+        <MarkdownRichTooltipBodyView bodyMarkdown={active.bodyMarkdown} className="markdown-rich-tooltip__body" />
       </div>
     </aside>,
     document.body,

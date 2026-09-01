@@ -9,6 +9,7 @@ export * from "./Icon";
 export * from "./ImagePicker";
 export * from "./Markdown";
 export * from "./MarkdownRichTooltip";
+export * from "./PageChecklistSearch";
 export * from "./MarkdownDiffPreview";
 export * from "./monacoGameLinkCompletion";
 export * from "./monacoMarkdownListEditing";

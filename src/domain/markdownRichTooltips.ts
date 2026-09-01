@@ -5,6 +5,11 @@ export interface MarkdownRichTooltipDefinition {
   sourceStart: number;
 }
 
+export interface MarkdownRichTooltipDefinitionBodyRange {
+  sourceEnd: number;
+  sourceStart: number;
+}
+
 export interface MarkdownRichTooltipReference {
   anchor: string;
   sourceEnd: number;
@@ -228,6 +233,31 @@ function terminalDefinitionCandidates(source: string): {
     lines,
     terminal,
   };
+}
+
+export function markdownRichTooltipDefinitionBodyRanges(source: string): readonly MarkdownRichTooltipDefinitionBodyRange[] {
+  const { candidates, lines } = terminalDefinitionCandidates(source);
+  const candidateLines = new Set(candidates.map((candidate) => candidate.lineIndex));
+  return candidates.flatMap((candidate) => {
+    const bodyStartIndex = candidate.lineIndex + 1;
+    let bodyEndIndex = bodyStartIndex;
+    let hasIndentedBody = false;
+    while (bodyEndIndex < lines.length && !candidateLines.has(bodyEndIndex)) {
+      const line = lines[bodyEndIndex];
+      if (line.content.trim().length === 0) {
+        bodyEndIndex += 1;
+        continue;
+      }
+      if (!/^ {4}/.test(line.content)) break;
+      hasIndentedBody = true;
+      bodyEndIndex += 1;
+    }
+    if (!hasIndentedBody) return [];
+    return [{
+      sourceStart: lines[bodyStartIndex].start,
+      sourceEnd: bodyEndIndex < lines.length ? lines[bodyEndIndex].start : source.length,
+    }];
+  });
 }
 
 export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichTooltips {

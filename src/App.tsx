@@ -530,6 +530,7 @@ function LibraryRoutes() {
         />
         <Route path="/games/new" element={<GameRoute mode="new" />} />
         <Route path="/games/:id" element={<GameRoute
+          checklistSearchBlocked={diffOpen || settingsOpen}
           completedChecklistFilterEnabled={completedChecklistFilterEnabled}
           mode="game"
           sidebarLayoutMode={sidebarLayoutMode}
@@ -667,8 +668,9 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
   }, sameNoteInteractionSnapshot);
 }
 
-function GameRoute({ mode, completedChecklistFilterEnabled, sidebarLayoutMode }: {
+function GameRoute({ mode, checklistSearchBlocked, completedChecklistFilterEnabled, sidebarLayoutMode }: {
   mode: "new" | "game";
+  checklistSearchBlocked?: boolean;
   completedChecklistFilterEnabled?: boolean;
   sidebarLayoutMode?: SidebarLayoutMode;
 }) {
@@ -703,6 +705,7 @@ function GameRoute({ mode, completedChecklistFilterEnabled, sidebarLayoutMode }:
   return <GamePage
     assets={assets}
     canAddBlob={selection.canAddBlob}
+    checklistSearchBlocked={checklistSearchBlocked}
     completedChecklistFilterEnabled={completedChecklistFilterEnabled}
     game={game}
     gameSuggestions={gameSuggestions}
