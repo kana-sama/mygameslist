@@ -53,6 +53,7 @@ describe("checklist search index", () => {
           sourceOrder: 0,
         },
         {
+          anchor: "Map",
           bodyMarkdown: "Northern route",
           id: `${checklistSearchEntryId("client:a", 4, 4)}:annotation:1`,
           kind: "rich",
@@ -85,7 +86,7 @@ describe("checklist search index", () => {
     });
     expect(entries[2]).toMatchObject({
       ancestorCollapseIds: [titleHeading.collapseId, tablesHeading.collapseId, tableGroup.collapseId],
-      annotations: [{ bodyMarkdown: "Region\n: **Deep Vault**", kind: "rich", plainText: "Region Deep Vault" }],
+      annotations: [{ anchor: "Seal", bodyMarkdown: "Region\n: **Deep Vault**", kind: "rich", plainText: "Region Deep Vault" }],
       path: "Atlas › Tables › Vault",
       sourceColumn: 6,
       sourceLine: 11,
@@ -181,7 +182,7 @@ describe("checklist search index", () => {
     expect(entries.map((entry) => entry.text)).toEqual(["Ordinary task"]);
   });
 
-  it("ignores empty simple and invalid rich annotations without hiding their task item", () => {
+  it("ignores empty simple and invalid rich annotations while retaining nested rich references", () => {
     const markdown = [
       "# Validation",
       '- [ ] Keep [Empty]("") [Missing][?] [Duplicate][?] [Blank][?] [Nested][?] [Valid][?] [Broken]("unterminated)',
@@ -203,6 +204,17 @@ describe("checklist search index", () => {
     expect(entry.text).toContain("Keep Empty Missing Duplicate Blank Nested Valid");
     expect(entry.annotations).toEqual([
       {
+        anchor: "Nested",
+        bodyMarkdown: "Invalid [Inner][?] body",
+        id: `${entry.id}:annotation:4`,
+        kind: "rich",
+        labelMarkdown: "Nested",
+        labelText: "Nested",
+        plainText: "Invalid Inner body",
+        sourceOrder: 4,
+      },
+      {
+        anchor: "Valid",
         bodyMarkdown: "Searchable body",
         id: `${entry.id}:annotation:5`,
         kind: "rich",
@@ -212,6 +224,34 @@ describe("checklist search index", () => {
         sourceOrder: 5,
       },
     ]);
+  });
+
+  it("retains a direct rich annotation with a nested reference and indexes only its direct body and label", () => {
+    const markdown = [
+      "- [ ] Review [Parent][?]",
+      "",
+      "[?Parent]:",
+      "    Direct body for [Child label][?]",
+      "[?Child label]:",
+      "    Nested body that must not be inlined",
+    ].join("\n");
+
+    const [entry] = buildChecklistSearchIndex([{ bodyMarkdown: markdown, clientId: "nested-reference" }]);
+
+    expect(entry.annotations).toEqual([
+      {
+        anchor: "Parent",
+        bodyMarkdown: "Direct body for [Child label][?]",
+        id: `${entry.id}:annotation:0`,
+        kind: "rich",
+        labelMarkdown: "Parent",
+        labelText: "Parent",
+        plainText: "Direct body for Child label",
+        sourceOrder: 0,
+      },
+    ]);
+    expect(searchChecklistEntries([entry], "nested body")).toEqual([]);
+    expect(searchChecklistEntries([entry], "child label")).toHaveLength(1);
   });
 
   it("searches item text before annotations, resolves rich definition-list text, and reports matched annotations in scorer order", () => {

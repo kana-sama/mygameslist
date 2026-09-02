@@ -13,6 +13,7 @@ const LIST_NOTE_ID = "22222222-2222-4222-8222-222222222222";
 const FILTERED_NOTE_ID = "33333333-3333-4333-8333-333333333333";
 const COLLAPSED_NOTE_ID = "44444444-4444-4444-8444-444444444444";
 const TABLE_NOTE_ID = "55555555-5555-4555-8555-555555555555";
+const RICH_NOTE_ID = "66666666-6666-4666-8666-666666666666";
 const NOW = "2026-09-01T10:00:00.000Z";
 
 const game: Game = {
@@ -62,6 +63,54 @@ const tableMarkdown = [
   "| --- | --- |",
   "| Synthetic row | [ ] Table navigation target |",
 ].join("\n");
+const richPreviewMarkdown = [
+  "# Rich note",
+  "- [ ] Inspect [Primary details][?]",
+  "- [ ] Palette peer target",
+  "",
+  "[?Primary details]:",
+  "    - [ ] Direct preview control",
+  "",
+  "    Open [Nested details][?].",
+  "[?Nested details]:",
+  "    - [ ] Nested preview control",
+].join("\n");
+const richDirectCheckedMarkdown = [
+  "# Rich note",
+  "- [ ] Inspect [Primary details][?]",
+  "- [ ] Palette peer target",
+  "",
+  "[?Primary details]:",
+  "    - [x] Direct preview control",
+  "",
+  "    Open [Nested details][?].",
+  "[?Nested details]:",
+  "    - [ ] Nested preview control",
+].join("\n");
+const richDirectPartialMarkdown = [
+  "# Rich note",
+  "- [ ] Inspect [Primary details][?]",
+  "- [ ] Palette peer target",
+  "",
+  "[?Primary details]:",
+  "    - [-] Direct preview control",
+  "",
+  "    Open [Nested details][?].",
+  "[?Nested details]:",
+  "    - [ ] Nested preview control",
+].join("\n");
+const richNestedPartialMarkdown = [
+  "# Rich note",
+  "- [ ] Inspect [Primary details][?]",
+  "- [ ] Palette peer target",
+  "",
+  "[?Primary details]:",
+  "    - [ ] Direct preview control",
+  "",
+  "    Open [Nested details][?].",
+  "[?Nested details]:",
+  "    - [-] Nested preview control",
+].join("\n");
 const collapsedEntry = buildChecklistSearchIndex([{ bodyMarkdown: collapsedMarkdown, clientId: COLLAPSED_NOTE_ID, id: COLLAPSED_NOTE_ID }])
   .find((entry) => entry.text === "Collapsed heading target")!;
 const collapsedStageId = collapsedEntry.ancestorCollapseIds.at(-1)!;
@@ -86,18 +135,26 @@ interface SourceHarness {
   removeNote: (noteId: string) => void;
 }
 
-function renderGamePage(options: { checklistSearchBlocked?: boolean; completedFilter?: boolean; tableBodyMarkdown?: string } = {}): SourceHarness {
+function renderGamePage(options: { checklistSearchBlocked?: boolean; completedFilter?: boolean; richBodyMarkdown?: string; tableBodyMarkdown?: string } = {}): SourceHarness {
   const currentTableMarkdown = options.tableBodyMarkdown ?? tableMarkdown;
   const snapshots = new Map<string, NoteInteractionSnapshot>([
     [LIST_NOTE_ID, { bodyMarkdown: authoritativeListMarkdown }],
     [FILTERED_NOTE_ID, { bodyMarkdown: filteredMarkdown }],
     [COLLAPSED_NOTE_ID, { bodyMarkdown: collapsedMarkdown, collapsedChecklistSections: [collapsedStageId, collapsedGroupId] }],
     [TABLE_NOTE_ID, { bodyMarkdown: currentTableMarkdown }],
+    ...(options.richBodyMarkdown === undefined
+      ? []
+      : [[RICH_NOTE_ID, { bodyMarkdown: options.richBodyMarkdown }] as const]),
   ]);
   let forceRender: (() => void) | null = null;
-  let currentNotes = fixtureNotes.map((currentNote) => currentNote.id === TABLE_NOTE_ID
-    ? { ...currentNote, bodyMarkdown: currentTableMarkdown }
-    : currentNote);
+  let currentNotes = [
+    ...fixtureNotes.map((currentNote) => currentNote.id === TABLE_NOTE_ID
+      ? { ...currentNote, bodyMarkdown: currentTableMarkdown }
+      : currentNote),
+    ...(options.richBodyMarkdown === undefined
+      ? []
+      : [note(RICH_NOTE_ID, options.richBodyMarkdown, 5120)]),
+  ];
   let nextFailure: Error | null = null;
   let nextSaveGate: { onStart?: () => void; promise: Promise<void>; resolve: () => void } | null = null;
   const onSave = vi.fn();
@@ -302,6 +359,199 @@ describe("GamePage checklist search integration", () => {
 
     openPalette();
     expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it.each([
+    { intent: "regular", click: {}, expectedMarkdown: richDirectCheckedMarkdown, expectedState: "checked" },
+    { intent: "Shift partial", click: { shiftKey: true }, expectedMarkdown: richDirectPartialMarkdown, expectedState: "mixed" },
+    { intent: "Command partial", click: { metaKey: true }, expectedMarkdown: richDirectPartialMarkdown, expectedState: "mixed" },
+  ])("saves a $intent preview transition through the exact authoritative rich definition without recording history", async ({ click, expectedMarkdown, expectedState }) => {
+    const source = renderGamePage({ richBodyMarkdown: richPreviewMarkdown });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const palette = screen.getByRole("dialog", { name: "Поиск по чеклистам" });
+    const preview = palette.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    const control = within(preview).getByRole("checkbox", { name: /Direct preview control/ });
+
+    fireEvent.click(control, click);
+
+    await waitFor(() => expect(source.saveNoteInteraction).toHaveBeenCalledWith({
+      noteId: RICH_NOTE_ID,
+      field: "bodyMarkdown",
+      value: expectedMarkdown,
+    }));
+    const refreshedControl = within(preview).getByRole("checkbox", { name: /Direct preview control/ });
+    if (expectedState === "checked") expect(refreshedControl).toBeChecked();
+    else expect(refreshedControl).toBePartiallyChecked();
+    expect(source.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "" } });
+    expect(within(screen.getByRole("grid", { name: "Результаты поиска" })).queryAllByRole("row")).toHaveLength(0);
+  });
+
+  it("saves an interactive nested-tooltip checklist change to the nested definition rather than its parent", async () => {
+    const source = renderGamePage({ richBodyMarkdown: richPreviewMarkdown });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const palette = screen.getByRole("dialog", { name: "Поиск по чеклистам" });
+    const preview = palette.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+
+    fireEvent.click(within(preview).getByRole("button", { name: "Nested details" }));
+    const tooltip = await screen.findByRole("dialog", { name: "Nested details" });
+    fireEvent.click(within(tooltip).getByRole("checkbox", { name: /Nested preview control/ }), { metaKey: true });
+
+    await waitFor(() => expect(source.saveNoteInteraction).toHaveBeenCalledWith({
+      noteId: RICH_NOTE_ID,
+      field: "bodyMarkdown",
+      value: richNestedPartialMarkdown,
+    }));
+    expect(within(tooltip).getByRole("checkbox", { name: /Nested preview control/ })).toBePartiallyChecked();
+    expect(source.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      authority: [
+        "# Rich note",
+        "- [ ] Replaced [Primary details][?]",
+        "- [ ] Palette peer target",
+        "",
+        "[?Primary details]:",
+        "    - [ ] Direct preview control",
+        "",
+        "    Open [Nested details][?].",
+        "[?Nested details]:",
+        "    - [ ] Nested preview control",
+      ].join("\n"),
+      caseName: "same-coordinate checklist replacement",
+      error: /Пункт чеклиста/,
+    },
+    {
+      authority: [
+        "# Rich note",
+        "- [ ] Inspect [Primary details][?]",
+        "- [ ] Palette peer target",
+        "",
+        "[?Nested details]:",
+        "    - [ ] Nested preview control",
+      ].join("\n"),
+      caseName: "missing definition",
+      error: /аннотац/i,
+    },
+    {
+      authority: [
+        "# Rich note",
+        "- [ ] Inspect [Primary details][?]",
+        "- [ ] Palette peer target",
+        "",
+        "[?Primary details]:",
+        "    - [ ] Direct preview control",
+        "",
+        "    Open [Nested details][?].",
+        "[?Nested details]:",
+        "    - [ ] Nested preview control",
+        "[?Primary details]:",
+        "    Duplicate body",
+      ].join("\n"),
+      caseName: "duplicate definition",
+      error: /аннотац/i,
+    },
+    {
+      authority: [
+        "# Rich note",
+        "- [ ] Inspect [Primary details][?]",
+        "- [ ] Palette peer target",
+        "",
+        "[?Primary details]:",
+        "    - [-] Authoritative direct preview control",
+        "",
+        "    Open [Nested details][?].",
+        "[?Nested details]:",
+        "    - [ ] Nested preview control",
+      ].join("\n"),
+      caseName: "stale expected body",
+      error: /содержимое аннотации/i,
+    },
+  ])("rejects a $caseName before any rich-preview write and refreshes palette authority", async ({ authority, error }) => {
+    const source = renderGamePage({ richBodyMarkdown: richPreviewMarkdown });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const palette = screen.getByRole("dialog", { name: "Поиск по чеклистам" });
+    const preview = palette.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    const staleControl = within(preview).getByRole("checkbox", { name: /Direct preview control/ });
+    source.replaceSnapshotWithoutRender(RICH_NOTE_ID, { bodyMarkdown: authority });
+
+    fireEvent.click(staleControl);
+
+    expect(await within(palette).findByRole("status")).toHaveTextContent(error);
+    expect(within(palette).getAllByRole("status")).toHaveLength(1);
+    expect(source.saveNoteInteraction).not.toHaveBeenCalled();
+    expect(source.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it("rolls back rich-preview optimism to authoritative Markdown and retains one footer error after a durable failure", async () => {
+    const source = renderGamePage({ richBodyMarkdown: richPreviewMarkdown });
+    source.failNextSave(new Error("Хранилище аннотации недоступно"));
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const palette = screen.getByRole("dialog", { name: "Поиск по чеклистам" });
+    const preview = palette.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    const control = within(preview).getByRole("checkbox", { name: /Direct preview control/ });
+
+    fireEvent.click(control);
+    expect(control).toBeChecked();
+
+    await waitFor(() => expect(within(preview).getByRole("checkbox", { name: /Direct preview control/ })).not.toBeChecked());
+    expect(within(palette).getAllByRole("status")).toHaveLength(1);
+    expect(within(palette).getByRole("status")).toHaveTextContent("Хранилище аннотации недоступно");
+    expect(source.saveNoteInteraction).toHaveBeenCalledWith({
+      noteId: RICH_NOTE_ID,
+      field: "bodyMarkdown",
+      value: richDirectCheckedMarkdown,
+    });
+    expect(source.onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it("keeps GamePage as the durable rich-preview owner across palette dismissal and blocks every overlapping note write", async () => {
+    const source = renderGamePage({ richBodyMarkdown: richPreviewMarkdown });
+    const pendingSave = source.deferNextSave();
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const palette = screen.getByRole("dialog", { name: "Поиск по чеклистам" });
+    const preview = palette.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Direct preview control/ }));
+    await waitFor(() => expect(source.saveNoteInteraction).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(screen.getByRole("grid", { name: "Результаты поиска" })).getByRole("checkbox"));
+    expect(source.saveNoteInteraction).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    shiftCycle();
+    shiftCycle();
+    expect(screen.queryByRole("dialog", { name: "Поиск по чеклистам" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: Inspect [Primary details][?]" }));
+    await act(async () => { await Promise.resolve(); });
+    expect(source.saveNoteInteraction).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      pendingSave.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(source.saveNoteInteraction).toHaveBeenCalledWith({
+      noteId: RICH_NOTE_ID,
+      field: "bodyMarkdown",
+      value: richDirectCheckedMarkdown,
+    }));
+
+    const reopenedInput = openPalette();
+    fireEvent.change(reopenedInput, { target: { value: "inspect" } });
+    const reopenedPreview = screen.getByRole("dialog", { name: "Поиск по чеклистам" }).querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    expect(within(reopenedPreview).getByRole("checkbox", { name: /Direct preview control/ })).toBeChecked();
   });
 
   it("clears a connected-note pending blocker when its card unmounts", async () => {

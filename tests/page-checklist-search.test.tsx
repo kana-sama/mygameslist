@@ -3,9 +3,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PageChecklistSearch,
   type ChecklistSearchNavigationTarget,
+  type ChecklistSearchRichTooltipBodyChangeRequest,
   type PageChecklistSearchProps,
 } from "../src/components/PageChecklistSearch";
-import type { ChecklistSearchAnnotation, ChecklistSearchEntry, MarkdownTaskState } from "../src/domain";
+import {
+  buildChecklistSearchIndex,
+  setMarkdownRichTooltipDefinitionBody,
+  type ChecklistSearchAnnotation,
+  type ChecklistSearchEntry,
+  type MarkdownTaskState,
+} from "../src/domain";
 import {
   createChecklistSearchHistoryStore,
   type ChecklistSearchHistoryStore,
@@ -31,6 +38,7 @@ function annotation(
   return kind === "rich"
     ? {
       ...shared,
+      anchor: "anchor" in extra && typeof extra.anchor === "string" ? extra.anchor : id,
       bodyMarkdown: "bodyMarkdown" in extra && typeof extra.bodyMarkdown === "string"
         ? extra.bodyMarkdown
         : "Rich body",
@@ -91,6 +99,7 @@ function emptyHistory(): ChecklistSearchHistoryStore {
 interface PaletteHarness {
   getEntries: ReturnType<typeof vi.fn<() => readonly ChecklistSearchEntry[]>>;
   onNavigate: ReturnType<typeof vi.fn<(target: ChecklistSearchNavigationTarget) => void>>;
+  onRichTooltipBodyChange: ReturnType<typeof vi.fn<NonNullable<PageChecklistSearchProps["onRichTooltipBodyChange"]>>>;
   onToggle: ReturnType<typeof vi.fn<(entry: ChecklistSearchEntry, state: MarkdownTaskState) => Promise<void>>>;
   opener: HTMLButtonElement;
   rerender: (props: PageChecklistSearchProps) => void;
@@ -100,21 +109,26 @@ function renderPalette(options: {
   blocked?: boolean;
   entries?: readonly ChecklistSearchEntry[];
   getEntries?: () => readonly ChecklistSearchEntry[];
+  getRichTooltipSourceMarkdown?: PageChecklistSearchProps["getRichTooltipSourceMarkdown"];
   history?: ChecklistSearchHistoryStore;
   onNavigate?: (target: ChecklistSearchNavigationTarget) => void;
+  onRichTooltipBodyChange?: PageChecklistSearchProps["onRichTooltipBodyChange"];
   onToggle?: (entry: ChecklistSearchEntry, state: MarkdownTaskState) => Promise<void>;
 } = {}): PaletteHarness {
   const entries = options.entries ?? [];
   const getEntries = vi.fn(options.getEntries ?? (() => entries));
   const onNavigate = vi.fn(options.onNavigate ?? (() => undefined));
+  const onRichTooltipBodyChange = vi.fn(options.onRichTooltipBodyChange ?? (async () => undefined));
   const onToggle = vi.fn(options.onToggle ?? (async () => undefined));
   const history = options.history ?? emptyHistory();
   const props: PageChecklistSearchProps = {
     blocked: options.blocked ?? false,
     gameId: GAME_ID,
     getEntries,
+    getRichTooltipSourceMarkdown: options.getRichTooltipSourceMarkdown,
     history,
     onNavigate,
+    onRichTooltipBodyChange,
     onToggle,
   };
   const view = render(
@@ -128,6 +142,7 @@ function renderPalette(options: {
   return {
     getEntries,
     onNavigate,
+    onRichTooltipBodyChange,
     onToggle,
     opener,
     rerender: (nextProps) => view.rerender(
@@ -152,6 +167,36 @@ function openPalette(): HTMLInputElement {
 
 function resultRows(): HTMLElement[] {
   return screen.queryAllByRole("row");
+}
+
+function renderAuthoritativeRichPalette(initialSource: string): {
+  harness: PaletteHarness;
+  requests: ChecklistSearchRichTooltipBodyChangeRequest[];
+  source: () => string;
+} {
+  let source = initialSource;
+  const requests: ChecklistSearchRichTooltipBodyChangeRequest[] = [];
+  const getEntries = () => buildChecklistSearchIndex([{
+    bodyMarkdown: source,
+    clientId: "rich-note-client",
+    id: "rich-note-id",
+  }]);
+  const harness = renderPalette({
+    getEntries,
+    getRichTooltipSourceMarkdown: (target) => target.noteClientId === "rich-note-client" ? source : null,
+    onRichTooltipBodyChange: async (request) => {
+      requests.push(request);
+      const nextSource = setMarkdownRichTooltipDefinitionBody(
+        source,
+        request.anchor,
+        request.expectedBodyMarkdown,
+        request.nextBodyMarkdown,
+      );
+      if (nextSource === source) throw new Error("stale synthetic rich-tooltip target");
+      source = nextSource;
+    },
+  });
+  return { harness, requests, source: () => source };
 }
 
 afterEach(() => {
@@ -427,6 +472,27 @@ describe("PageChecklistSearch keyboard modes", () => {
 });
 
 describe("PageChecklistSearch preview and actions", () => {
+  const interactiveRichSource = [
+    "# Synthetic note",
+    "- [ ] Inspect [Primary details][?]",
+    "",
+    "[?Primary details]:",
+    "    Region",
+    "    : North",
+    "",
+    "    - [ ] Direct control",
+    "",
+    "    Open [Nested details][?], [Missing details][?], and [Duplicate details][?].",
+    "[?Nested details]:",
+    "    - [ ] Nested control",
+    "",
+    "    Return to [Primary details][?].",
+    "[?Duplicate details]:",
+    "    First duplicate",
+    "[?Duplicate details]:",
+    "    Second duplicate",
+  ].join("\n");
+
   it("keeps rows to checkbox, item text, and path while rendering annotations in source order", () => {
     const mixed = entry("mixed", "Inspect objective", {
       annotations: [
@@ -464,11 +530,15 @@ describe("PageChecklistSearch preview and actions", () => {
     expect(within(preview).getByText("North Wing").closest("dd")).toBeInTheDocument();
     expect(preview).not.toHaveAttribute("inert");
     expect(preview).toHaveTextContent("Guide");
-    expect(preview.querySelector("a")).toBeNull();
+    expect(within(preview).getByRole("link", { name: "Guide" })).toMatchObject({
+      href: "https://example.test/",
+      rel: "noreferrer noopener",
+      target: "_blank",
+    });
   });
 
-  it("renders rich preview content accessibly without nested tooltip, link, spoiler, or control interactions", () => {
-    const rich = entry("noninteractive", "Inspect interactions", {
+  it("keeps shared links, hover hints, spoilers, and controls interactive without navigating or closing", () => {
+    const rich = entry("interactive", "Inspect interactions", {
       annotations: [annotation("Interaction details", "rich", "Nested interaction content", 0, {
         bodyMarkdown: [
           "Nested [hint](\"native description\"), [**Guide**](https://example.test), and ||secret||.",
@@ -477,19 +547,277 @@ describe("PageChecklistSearch preview and actions", () => {
         ].join("\n"),
       })],
     });
-    renderPalette({ entries: [rich] });
+    const harness = renderPalette({ entries: [rich] });
     const input = openPalette();
     fireEvent.change(input, { target: { value: "interactions" } });
     const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
 
     const hint = within(preview).getByText("hint");
     expect(hint).toHaveClass("markdown-hover-hint");
-    expect(hint).not.toHaveAttribute("title");
-    expect(within(preview).getByText("Guide").closest("a")).toBeNull();
-    expect(within(preview).getByText("secret").closest(".markdown-spoiler")).not.toHaveAttribute("role");
-    expect(within(preview).getByRole("checkbox", { name: /Nested control/ })).toBeDisabled();
-    expect(preview.querySelector('a[href], [role="button"], button:not([disabled]), input:not([disabled])')).toBeNull();
+    expect(hint).toHaveAttribute("title", "native description");
+    const link = within(preview).getByRole("link", { name: "Guide" });
+    expect(link).toHaveAttribute("href", "https://example.test/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer noopener");
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+
+    const spoiler = within(preview).getByRole("button", { name: "Показать спойлер" });
+    fireEvent.click(spoiler);
+    expect(within(preview).getByText("secret").closest(".markdown-spoiler")).toHaveAttribute("data-revealed", "true");
+
+    const control = within(preview).getByRole("checkbox", { name: /Nested control/ });
+    expect(control).toBeEnabled();
+    control.focus();
+    fireEvent.keyDown(control, { key: "Tab" });
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(control).toHaveFocus();
+
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+    expect(harness.onNavigate).not.toHaveBeenCalled();
     expect(preview).toHaveTextContent("Nested hint, Guide, and secret.");
+  });
+
+  it("routes regular, Shift, and Command preview checklist transitions for the exact rich definition body", async () => {
+    const authority = renderAuthoritativeRichPalette(interactiveRichSource);
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Direct control/ }));
+    await waitFor(() => expect(within(preview).getByRole("checkbox", { name: /Direct control/ })).toBeChecked());
+    expect(authority.requests[0]).toEqual({
+      anchor: "Primary details",
+      annotationId: expect.stringMatching(/:annotation:0$/),
+      entry: expect.objectContaining({ noteClientId: "rich-note-client", text: "Inspect Primary details" }),
+      expectedBodyMarkdown: [
+        "Region",
+        ": North",
+        "",
+        "- [ ] Direct control",
+        "",
+        "Open [Nested details][?], [Missing details][?], and [Duplicate details][?].",
+      ].join("\n"),
+      nextBodyMarkdown: [
+        "Region",
+        ": North",
+        "",
+        "- [x] Direct control",
+        "",
+        "Open [Nested details][?], [Missing details][?], and [Duplicate details][?].",
+      ].join("\n"),
+    });
+
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Direct control/ }), { shiftKey: true });
+    await waitFor(() => expect(within(preview).getByRole("checkbox", { name: /Direct control/ })).toBePartiallyChecked());
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Direct control/ }), { metaKey: true });
+    await waitFor(() => expect(within(preview).getByRole("checkbox", { name: /Direct control/ })).not.toBeChecked());
+
+    expect(authority.requests.map((request) => request.nextBodyMarkdown.match(/\[[ x-]\] Direct control/)?.[0])).toEqual([
+      "[x] Direct control",
+      "[-] Direct control",
+      "[ ] Direct control",
+    ]);
+    expect(authority.source()).toContain("    - [ ] Direct control");
+    expect(authority.source()).toContain("    : North");
+    expect(within(preview).queryByRole("button", { name: /Редактировать пункт/ })).not.toBeInTheDocument();
+    expect(authority.harness.onNavigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it("projects a task edit through exact body ranges when its Markdown repeats a definition-list term", async () => {
+    const source = [
+      "# Synthetic note",
+      "- [ ] Inspect [Repeated details][?]",
+      "",
+      "[?Repeated details]:",
+      "    Term",
+      "    : first",
+      "",
+      "    - [ ] Same",
+      "    : listed meaning",
+      "",
+      "    - [ ] Same",
+    ].join("\n");
+    const getEntries = () => buildChecklistSearchIndex([{ bodyMarkdown: source, clientId: "repeat-note" }]);
+    const onRichTooltipBodyChange = vi.fn(async () => undefined);
+    renderPalette({
+      getEntries,
+      getRichTooltipSourceMarkdown: () => source,
+      onRichTooltipBodyChange,
+    });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Same/ }));
+
+    await waitFor(() => expect(onRichTooltipBodyChange).toHaveBeenCalledTimes(1));
+    expect(onRichTooltipBodyChange).toHaveBeenCalledWith(expect.objectContaining({
+      anchor: "Repeated details",
+      expectedBodyMarkdown: "Term\n: first\n\n- [ ] Same\n: listed meaning\n\n- [ ] Same",
+      nextBodyMarkdown: "Term\n: first\n\n- [ ] Same\n: listed meaning\n\n- [x] Same",
+    }));
+  });
+
+  it("resolves nested definitions from note authority, keeps cycles finite, and saves the nested anchor", async () => {
+    const authority = renderAuthoritativeRichPalette(interactiveRichSource);
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    const nestedTrigger = within(preview).getByRole("button", { name: "Nested details" });
+
+    expect(within(preview).queryByRole("button", { name: "Missing details" })).not.toBeInTheDocument();
+    expect(within(preview).queryByRole("button", { name: "Duplicate details" })).not.toBeInTheDocument();
+    nestedTrigger.focus();
+    fireEvent.click(nestedTrigger);
+
+    const nestedDialog = await screen.findByRole("dialog", { name: "Nested details" });
+    expect(nestedDialog).toHaveClass("markdown-rich-tooltip--palette");
+    expect(document.querySelectorAll(".markdown-rich-tooltip")).toHaveLength(1);
+    fireEvent.click(within(nestedDialog).getByRole("button", { name: "Закрыть" }));
+    expect(nestedTrigger).toHaveFocus();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+
+    fireEvent.click(nestedTrigger);
+    const reopened = await screen.findByRole("dialog", { name: "Nested details" });
+    fireEvent.click(within(reopened).getByRole("checkbox", { name: /Nested control/ }), { metaKey: true });
+    await waitFor(() => expect(within(reopened).getByRole("checkbox", { name: /Nested control/ })).toBePartiallyChecked());
+    expect(authority.requests.at(-1)).toEqual({
+      anchor: "Nested details",
+      annotationId: expect.stringMatching(/:annotation:0$/),
+      entry: expect.objectContaining({ noteClientId: "rich-note-client" }),
+      expectedBodyMarkdown: "- [ ] Nested control\n\nReturn to [Primary details][?].",
+      nextBodyMarkdown: "- [-] Nested control\n\nReturn to [Primary details][?].",
+    });
+    expect(authority.source()).toContain("    - [-] Nested control");
+
+    fireEvent.click(within(reopened).getByRole("button", { name: "Primary details" }));
+    const primaryDialog = await screen.findByRole("dialog", { name: "Primary details" });
+    expect(document.querySelectorAll(".markdown-rich-tooltip")).toHaveLength(1);
+    fireEvent.click(within(primaryDialog).getByRole("button", { name: "Nested details" }));
+    await screen.findByRole("dialog", { name: "Nested details" });
+    expect(document.querySelectorAll(".markdown-rich-tooltip")).toHaveLength(1);
+    expect(authority.harness.onNavigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+  });
+
+  it("keeps one current per-note pending owner across retained nested callbacks and palette interactions", async () => {
+    let source = interactiveRichSource;
+    let resolveSave: (() => void) | undefined;
+    const save = new Promise<void>((resolve) => { resolveSave = resolve; });
+    const history = emptyHistory();
+    const getEntries = () => buildChecklistSearchIndex([{
+      bodyMarkdown: source,
+      clientId: "rich-note-client",
+      id: "rich-note-id",
+    }]);
+    const onRichTooltipBodyChange = vi.fn(async (request: ChecklistSearchRichTooltipBodyChangeRequest) => {
+      await save;
+      source = setMarkdownRichTooltipDefinitionBody(
+        source,
+        request.anchor,
+        request.expectedBodyMarkdown,
+        request.nextBodyMarkdown,
+      );
+    });
+    const harness = renderPalette({
+      getEntries,
+      getRichTooltipSourceMarkdown: () => source,
+      history,
+      onRichTooltipBodyChange,
+    });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    fireEvent.click(within(preview).getByRole("button", { name: "Nested details" }));
+    const nestedDialog = await screen.findByRole("dialog", { name: "Nested details" });
+    const nestedControl = within(nestedDialog).getByRole("checkbox", { name: /Nested control/ });
+
+    fireEvent.click(nestedControl);
+    await waitFor(() => expect(nestedControl).toBeChecked());
+    fireEvent.click(nestedControl, { shiftKey: true });
+    fireEvent.click(within(preview).getByRole("checkbox", { name: /Direct control/ }));
+    fireEvent.click(within(resultRows()[0]).getByRole("checkbox"));
+
+    expect(onRichTooltipBodyChange).toHaveBeenCalledTimes(1);
+    expect(harness.onToggle).not.toHaveBeenCalled();
+    expect(history.list(GAME_ID, new Set(getEntries().map((item) => item.id)))).toEqual([]);
+
+    resolveSave?.();
+    await waitFor(() => expect(source).toContain("    - [x] Nested control"));
+    expect(source).toContain("    - [ ] Direct control");
+  });
+
+  it("closes a rejected active nested tooltip before exposing refreshed authority and keeps its footer error", async () => {
+    let source = interactiveRichSource;
+    let rejectSave: ((reason: Error) => void) | undefined;
+    const save = new Promise<void>((_resolve, reject) => { rejectSave = reject; });
+    const history = emptyHistory();
+    const getEntries = () => buildChecklistSearchIndex([{
+      bodyMarkdown: source,
+      clientId: "rich-note-client",
+      id: "rich-note-id",
+    }]);
+    const onRichTooltipBodyChange = vi.fn(() => save);
+    const harness = renderPalette({
+      getEntries,
+      getRichTooltipSourceMarkdown: () => source,
+      history,
+      onRichTooltipBodyChange,
+    });
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    fireEvent.click(within(preview).getByRole("button", { name: "Nested details" }));
+    const nestedDialog = await screen.findByRole("dialog", { name: "Nested details" });
+
+    fireEvent.click(within(nestedDialog).getByRole("checkbox", { name: /Nested control/ }));
+    await waitFor(() => expect(within(nestedDialog).getByRole("checkbox", { name: /Nested control/ })).toBeChecked());
+    source = setMarkdownRichTooltipDefinitionBody(
+      source,
+      "Nested details",
+      "- [ ] Nested control\n\nReturn to [Primary details][?].",
+      "- [-] Authoritative nested control\n\nReturn to [Primary details][?].",
+    );
+    rejectSave?.(new Error("stale authority"));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("stale authority");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Nested details" })).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: "Поиск по чеклистам" })).toBeInTheDocument();
+
+    const refreshedPreview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    fireEvent.click(within(refreshedPreview).getByRole("button", { name: "Nested details" }));
+    const refreshedDialog = await screen.findByRole("dialog", { name: "Nested details" });
+    expect(within(refreshedDialog).getByRole("checkbox", { name: /Authoritative nested control/ })).toBePartiallyChecked();
+    expect(screen.getByRole("status")).toHaveTextContent("stale authority");
+    expect(harness.onToggle).not.toHaveBeenCalled();
+    expect(history.list(GAME_ID, new Set(getEntries().map((item) => item.id)))).toEqual([]);
+  });
+
+  it("traps focus across the palette and its portaled rich tooltip in both directions", async () => {
+    renderAuthoritativeRichPalette(interactiveRichSource);
+    const input = openPalette();
+    fireEvent.change(input, { target: { value: "inspect" } });
+    const preview = document.querySelector<HTMLElement>(".page-checklist-search__preview")!;
+    const nestedTrigger = within(preview).getByRole("button", { name: "Nested details" });
+    nestedTrigger.focus();
+    fireEvent.click(nestedTrigger);
+    const nestedDialog = await screen.findByRole("dialog", { name: "Nested details" });
+    const close = within(nestedDialog).getByRole("button", { name: "Закрыть" });
+    const lastTooltipControl = within(nestedDialog).getByRole("button", { name: "Primary details" });
+
+    fireEvent.keyDown(nestedTrigger, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(nestedTrigger).toHaveFocus();
+
+    lastTooltipControl.focus();
+    fireEvent.keyDown(lastTooltipControl, { key: "Tab" });
+    expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(lastTooltipControl).toHaveFocus();
   });
 
   it("promotes matched annotations, leaves an annotation-free preview empty, and follows hover without blurring input", () => {

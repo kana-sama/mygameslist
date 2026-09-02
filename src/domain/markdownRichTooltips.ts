@@ -32,8 +32,13 @@ export interface ParsedMarkdownRichTooltips {
 }
 
 export type MarkdownRichTooltipBodyPart =
-  | { markdown: string; type: "markdown" }
-  | { items: readonly { descriptionMarkdown: string; termMarkdown: string }[]; type: "definition-list" };
+  | { markdown: string; sourceEnd: number; sourceStart: number; type: "markdown" }
+  | {
+    items: readonly { descriptionMarkdown: string; termMarkdown: string }[];
+    sourceEnd: number;
+    sourceStart: number;
+    type: "definition-list";
+  };
 
 interface SourceLine {
   content: string;
@@ -305,10 +310,6 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
     }
     if (!bodyMarkdown) addDiagnostic(line.start, `Rich tooltip [?${candidate.anchor}]: пустое определение`);
 
-    const nestedSourceStart = lines[candidate.lineIndex + 1]?.start ?? source.length;
-    for (const reference of collectRichTooltipReferences(source.slice(nestedSourceStart, definition.sourceEnd), nestedSourceStart, true)) {
-      addDiagnostic(reference.sourceStart, `Rich tooltip [?${reference.anchor}]: вложенные rich tooltip references запрещены`);
-    }
   }
 
   const visibleMarkdown = definitionSectionStart === null ? source : source.slice(0, definitionSectionStart);
@@ -330,10 +331,59 @@ export function parseMarkdownRichTooltips(source: string): ParsedMarkdownRichToo
   };
 }
 
+export function setMarkdownRichTooltipDefinitionBody(
+  source: string,
+  anchor: string,
+  expectedBodyMarkdown: string,
+  nextBodyMarkdown: string,
+): string {
+  if (!anchor || expectedBodyMarkdown === nextBodyMarkdown || !nextBodyMarkdown.trim()) return source;
+
+  const parsed = parseMarkdownRichTooltips(source);
+  const definition = parsed.definitions.get(anchor);
+  if (
+    parsed.definitionSectionStart === null
+    || !definition
+    || parsed.duplicateAnchors.has(anchor)
+    || !definition.bodyMarkdown.trim()
+    || definition.bodyMarkdown !== expectedBodyMarkdown
+  ) return source;
+
+  const lines = splitLines(source);
+  const definitionLineIndex = lines.findIndex((line) => line.start === definition.sourceStart);
+  if (definitionLineIndex === -1) return source;
+
+  const bodyLines = lines.filter((line) => line.start >= (lines[definitionLineIndex + 1]?.start ?? source.length) && line.start < definition.sourceEnd);
+  let lastNonblank = -1;
+  for (let index = 0; index < bodyLines.length; index += 1) {
+    if (bodyLines[index].content.trim()) lastNonblank = index;
+  }
+  if (lastNonblank === -1) return source;
+
+  const bodyStart = bodyLines[0]?.start;
+  const bodyEnd = bodyLines[lastNonblank].end;
+  if (bodyStart === undefined) return source;
+  const lineEnding = lines[definitionLineIndex].eol || bodyLines[0].eol || "\n";
+  const replacement = nextBodyMarkdown.split(/\r\n|\r|\n/).map((line) =>
+    line.trim().length === 0 ? line : `    ${line}`
+  ).join(lineEnding);
+  return `${source.slice(0, bodyStart)}${replacement}${source.slice(bodyEnd)}`;
+}
+
 export function auditMarkdownRichTooltipLinks(source: string): MarkdownRichTooltipLinkAudit {
   const parsed = parseMarkdownRichTooltips(source);
   const references = new Set<string>();
-  for (const reference of parsed.references) {
+  const auditReferences = [...parsed.references];
+  if (parsed.definitionSectionStart !== null) {
+    for (const range of markdownRichTooltipDefinitionBodyRanges(source)) {
+      auditReferences.push(...collectRichTooltipReferences(
+        source.slice(range.sourceStart, range.sourceEnd),
+        range.sourceStart,
+        true,
+      ));
+    }
+  }
+  for (const reference of auditReferences) {
     if (reference.anchor) references.add(reference.anchor);
   }
 
@@ -374,7 +424,14 @@ export function parseMarkdownRichTooltipBody(markdown: string): MarkdownRichTool
       lineCursor += 1;
       continue;
     }
-    if (sourceCursor < lines[lineCursor].start) parts.push({ type: "markdown", markdown: markdown.slice(sourceCursor, lines[lineCursor].start) });
+    if (sourceCursor < lines[lineCursor].start) {
+      parts.push({
+        type: "markdown",
+        markdown: markdown.slice(sourceCursor, lines[lineCursor].start),
+        sourceStart: sourceCursor,
+        sourceEnd: lines[lineCursor].start,
+      });
+    }
     const items = [first];
     let lastDescriptionIndex = lineCursor + 1;
     let nextLineIndex = lineCursor + 2;
@@ -387,10 +444,23 @@ export function parseMarkdownRichTooltipBody(markdown: string): MarkdownRichTool
       lastDescriptionIndex = candidateIndex + 1;
       nextLineIndex = candidateIndex + 2;
     }
-    parts.push({ type: "definition-list", items });
-    sourceCursor = lines[lastDescriptionIndex].end;
+    const sourceEnd = lines[lastDescriptionIndex].end;
+    parts.push({
+      type: "definition-list",
+      items,
+      sourceStart: lines[lineCursor].start,
+      sourceEnd,
+    });
+    sourceCursor = sourceEnd;
     lineCursor = lastDescriptionIndex + 1;
   }
-  if (sourceCursor < markdown.length || !parts.length) parts.push({ type: "markdown", markdown: markdown.slice(sourceCursor) });
+  if (sourceCursor < markdown.length || !parts.length) {
+    parts.push({
+      type: "markdown",
+      markdown: markdown.slice(sourceCursor),
+      sourceStart: sourceCursor,
+      sourceEnd: markdown.length,
+    });
+  }
   return parts;
 }

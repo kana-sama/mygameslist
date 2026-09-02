@@ -14,16 +14,24 @@ import { parseMarkdownRichTooltipBody } from "../domain";
 import { MarkdownInlineView, MarkdownView } from "./Markdown";
 import {
   MarkdownRichTooltipContext,
+  type MarkdownRichTooltipBodyChange,
+  type MarkdownRichTooltipBodyChangeHandler,
   type MarkdownRichTooltipController,
+  type MarkdownRichTooltipLayer,
   type MarkdownRichTooltipOpenRequest,
+  type MarkdownRichTooltipRegistry,
 } from "./markdownRichTooltipContext";
 
 const TOOLTIP_WIDTH = 344;
 const TOOLTIP_GAP = 14;
 const ARROW_NOMINAL_TOP = 31;
 const ARROW_EDGE_GAP = 18;
+const PALETTE_VIEWPORT_GAP = 8;
 
-type ActiveMarkdownRichTooltip = MarkdownRichTooltipOpenRequest;
+type ActiveMarkdownRichTooltip = MarkdownRichTooltipOpenRequest & {
+  paletteFocusScope: HTMLElement | null;
+  placementSourceElement: HTMLButtonElement;
+};
 
 type MarkdownRichTooltipPlacement =
   | { arrowTop: number; left: number; maxHeight: number; mode: "desktop"; side: "left" | "right"; top: number }
@@ -31,12 +39,18 @@ type MarkdownRichTooltipPlacement =
 
 export interface MarkdownRichTooltipProviderProps {
   children: ReactNode;
+  resetRevision?: number;
 }
 
 export interface MarkdownRichTooltipBodyViewProps {
   bodyMarkdown: string;
   className?: string;
+  definitionAnchor?: string;
   interactionsDisabled?: boolean;
+  nestedBodyChangeRoute?: MarkdownRichTooltipBodyChangeHandler;
+  onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  richTooltipLayer?: MarkdownRichTooltipLayer;
+  richTooltipRegistry?: MarkdownRichTooltipRegistry;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -49,34 +63,60 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
   )].filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
 }
 
-export function MarkdownRichTooltipBodyView({ bodyMarkdown, className, interactionsDisabled = false }: MarkdownRichTooltipBodyViewProps): ReactNode {
+export function MarkdownRichTooltipBodyView({
+  bodyMarkdown,
+  className,
+  definitionAnchor,
+  interactionsDisabled = false,
+  nestedBodyChangeRoute,
+  onBodyChange,
+  richTooltipLayer = "note",
+  richTooltipRegistry,
+}: MarkdownRichTooltipBodyViewProps): ReactNode {
   const bodyParts = useMemo(() => parseMarkdownRichTooltipBody(bodyMarkdown), [bodyMarkdown]);
+  const propagatedBodyChangeRoute = nestedBodyChangeRoute ?? onBodyChange;
   return (
     <div className={className}>
-      {bodyParts.map((part, partIndex) => part.type === "definition-list" ? (
-        <dl className="markdown-rich-tooltip__definition-list" key={`definition-list-${partIndex}`}>
-          {part.items.map((item, itemIndex) => (
-            <div className="markdown-rich-tooltip__definition-row" key={`definition-row-${itemIndex}`}>
-              <dt><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.termMarkdown} /></dt>
-              <dd><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.descriptionMarkdown} /></dd>
-            </div>
-          ))}
-        </dl>
-      ) : part.markdown.trim() ? (
-        <MarkdownView
-          className="markdown-rich-tooltip__markdown"
-          interactionsDisabled={interactionsDisabled}
-          key={`markdown-${partIndex}`}
-          markdown={part.markdown}
-          richTooltipTriggersDisabled
-          taskChangesDisabled
-        />
-      ) : null)}
+      {bodyParts.map((part, partIndex) => {
+        if (part.type === "definition-list") return (
+          <dl className="markdown-rich-tooltip__definition-list" key={`definition-list-${partIndex}`}>
+            {part.items.map((item, itemIndex) => (
+              <div className="markdown-rich-tooltip__definition-row" key={`definition-row-${itemIndex}`}>
+                <dt><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.termMarkdown} onRichTooltipBodyChange={propagatedBodyChangeRoute} richTooltipLayer={richTooltipLayer} richTooltipRegistry={richTooltipRegistry} /></dt>
+                <dd><MarkdownInlineView interactionsDisabled={interactionsDisabled} markdown={item.descriptionMarkdown} onRichTooltipBodyChange={propagatedBodyChangeRoute} richTooltipLayer={richTooltipLayer} richTooltipRegistry={richTooltipRegistry} /></dd>
+              </div>
+            ))}
+          </dl>
+        );
+        if (!part.markdown.trim()) return null;
+        const bodyChangesAvailable = Boolean(!interactionsDisabled && definitionAnchor && onBodyChange);
+        return (
+          <MarkdownView
+            className="markdown-rich-tooltip__markdown"
+            interactionsDisabled={interactionsDisabled}
+            key={`markdown-${partIndex}`}
+            markdown={part.markdown}
+            onRichTooltipBodyChange={propagatedBodyChangeRoute}
+            onTaskCheckboxChange={bodyChangesAvailable ? (nextPartMarkdown) => {
+              const change: MarkdownRichTooltipBodyChange = {
+                anchor: definitionAnchor!,
+                expectedBodyMarkdown: bodyMarkdown,
+                nextBodyMarkdown: `${bodyMarkdown.slice(0, part.sourceStart)}${nextPartMarkdown}${bodyMarkdown.slice(part.sourceEnd)}`,
+              };
+              void onBodyChange?.(change);
+            } : undefined}
+            richTooltipLayer={richTooltipLayer}
+            richTooltipRegistry={richTooltipRegistry}
+            richTooltipsEnabled
+            taskChangesDisabled={!bodyChangesAvailable}
+          />
+        );
+      })}
     </div>
   );
 }
 
-export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipProviderProps): ReactNode {
+export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: MarkdownRichTooltipProviderProps): ReactNode {
   const [active, setActive] = useState<ActiveMarkdownRichTooltip | null>(null);
   const [placement, setPlacement] = useState<MarkdownRichTooltipPlacement | null>(null);
   const activeRef = useRef<ActiveMarkdownRichTooltip | null>(null);
@@ -84,6 +124,7 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
   const tooltipRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const activeSourceListenersRef = useRef(new Set<() => void>());
+  const resetRevisionRef = useRef(resetRevision);
 
   const getActiveSource = useCallback(() => activeRef.current?.sourceElement ?? null, []);
   const subscribeActiveSource = useCallback((listener: () => void) => {
@@ -95,16 +136,67 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
   }, []);
 
   const open = useCallback((request: MarkdownRichTooltipOpenRequest) => {
-    const previousSource = activeRef.current?.sourceElement ?? null;
-    activeRef.current = request;
-    placementRef.current = null;
-    setPlacement(null);
-    setActive(request);
+    const previous = activeRef.current;
+    const previousSource = previous?.sourceElement ?? null;
+    const replacesTooltipBody = Boolean(previous && tooltipRef.current?.contains(request.sourceElement));
+    const next: ActiveMarkdownRichTooltip = {
+      ...request,
+      paletteFocusScope: request.layer === "palette"
+        ? replacesTooltipBody
+          ? previous?.paletteFocusScope ?? null
+          : request.sourceElement.closest<HTMLElement>(".page-checklist-search")
+        : null,
+      placementSourceElement: replacesTooltipBody
+        ? previous?.placementSourceElement ?? request.sourceElement
+        : request.sourceElement,
+    };
+    activeRef.current = next;
+    if (!replacesTooltipBody) {
+      placementRef.current = null;
+      setPlacement(null);
+    }
+    setActive(next);
     if (previousSource !== request.sourceElement) notifyActiveSource();
   }, [notifyActiveSource]);
 
+  const changeActiveBody = useCallback(async (change: MarkdownRichTooltipBodyChange): Promise<boolean> => {
+    const current = activeRef.current;
+    const definition = current?.registry.definitions.get(change.anchor);
+    if (
+      !current
+      || !current.onBodyChange
+      || current.anchor !== change.anchor
+      || current.bodyMarkdown !== change.expectedBodyMarkdown
+      || definition?.bodyMarkdown !== change.expectedBodyMarkdown
+    ) return false;
+
+    const definitions = new Map(current.registry.definitions);
+    definitions.set(change.anchor, { ...definition, bodyMarkdown: change.nextBodyMarkdown });
+    const optimistic: ActiveMarkdownRichTooltip = {
+      ...current,
+      bodyMarkdown: change.nextBodyMarkdown,
+      registry: { ...current.registry, definitions },
+    };
+    activeRef.current = optimistic;
+    setActive(optimistic);
+    try {
+      const saved = await current.onBodyChange(change);
+      if (saved) return true;
+    } catch {
+      // The route owns its user-facing error. The provider only restores its local optimistic body.
+    }
+    if (activeRef.current === optimistic) {
+      activeRef.current = current;
+      setActive(current);
+    }
+    return false;
+  }, []);
+
   const close = useCallback((restoreTriggerFocus: boolean) => {
-    const source = activeRef.current?.sourceElement ?? null;
+    const current = activeRef.current;
+    const source = current?.sourceElement.isConnected
+      ? current.sourceElement
+      : current?.placementSourceElement ?? null;
     activeRef.current = null;
     placementRef.current = null;
     setActive(null);
@@ -112,6 +204,12 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     if (source) notifyActiveSource();
     if (restoreTriggerFocus && source?.isConnected) source.focus({ preventScroll: true });
   }, [notifyActiveSource]);
+
+  useEffect(() => {
+    if (resetRevisionRef.current === resetRevision) return;
+    resetRevisionRef.current = resetRevision;
+    if (activeRef.current) close(false);
+  }, [close, resetRevision]);
 
   const controller = useMemo<MarkdownRichTooltipController>(() => ({
     getActiveSource,
@@ -123,7 +221,47 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     const current = activeRef.current;
     const tooltip = tooltipRef.current;
     if (!current || !tooltip) return;
-    const noteSurface = current.sourceElement.closest<HTMLElement>(".note-card__surface");
+    const placementSource = current.placementSourceElement;
+    if (current.layer === "palette") {
+      const sourceRect = placementSource.getBoundingClientRect();
+      const measuredHeight = tooltip.getBoundingClientRect().height;
+      const maxHeight = Math.max(0, window.innerHeight - PALETTE_VIEWPORT_GAP * 2);
+      const tooltipHeight = Math.min(measuredHeight, maxHeight);
+      const roomRight = window.innerWidth - sourceRect.right;
+      const roomLeft = sourceRect.left;
+      const side = roomRight >= TOOLTIP_WIDTH + TOOLTIP_GAP || roomRight >= roomLeft ? "right" : "left";
+      const unclampedLeft = side === "right"
+        ? sourceRect.right + TOOLTIP_GAP
+        : sourceRect.left - TOOLTIP_GAP - TOOLTIP_WIDTH;
+      const left = clamp(
+        unclampedLeft,
+        PALETTE_VIEWPORT_GAP,
+        Math.max(PALETTE_VIEWPORT_GAP, window.innerWidth - TOOLTIP_WIDTH - PALETTE_VIEWPORT_GAP),
+      );
+      const sourceCenter = sourceRect.top + sourceRect.height / 2;
+      const top = clamp(
+        sourceCenter - ARROW_NOMINAL_TOP,
+        PALETTE_VIEWPORT_GAP,
+        Math.max(PALETTE_VIEWPORT_GAP, window.innerHeight - tooltipHeight - PALETTE_VIEWPORT_GAP),
+      );
+      const arrowTop = clamp(
+        sourceCenter - top,
+        ARROW_EDGE_GAP,
+        Math.max(ARROW_EDGE_GAP, tooltipHeight - ARROW_EDGE_GAP),
+      );
+      const next: MarkdownRichTooltipPlacement = {
+        arrowTop,
+        left,
+        maxHeight,
+        mode: "desktop",
+        side,
+        top,
+      };
+      placementRef.current = next;
+      setPlacement(next);
+      return;
+    }
+    const noteSurface = placementSource.closest<HTMLElement>(".note-card__surface");
     if (!noteSurface) return;
 
     const noteRect = noteSurface.getBoundingClientRect();
@@ -137,7 +275,7 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     }
 
     const side = roomRight >= TOOLTIP_WIDTH + TOOLTIP_GAP ? "right" : "left";
-    const sourceRect = current.sourceElement.getBoundingClientRect();
+    const sourceRect = placementSource.getBoundingClientRect();
     const measuredHeight = tooltip.getBoundingClientRect().height;
     const tooltipHeight = Math.min(measuredHeight, noteRect.height);
     const sourceCenter = sourceRect.top + sourceRect.height / 2;
@@ -167,8 +305,8 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
 
   useEffect(() => {
     if (!active) return;
-    const noteSurface = active.sourceElement.closest<HTMLElement>(".note-card__surface");
-    const noteViewport = active.sourceElement.closest<HTMLElement>(".note-card__viewport");
+    const noteSurface = active.placementSourceElement.closest<HTMLElement>(".note-card__surface");
+    const noteViewport = active.placementSourceElement.closest<HTMLElement>(".note-card__viewport");
     const tooltip = tooltipRef.current;
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updatePlacement);
     if (noteSurface) observer?.observe(noteSurface);
@@ -197,14 +335,40 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
 
   useEffect(() => {
     if (!active) return;
-    const routeDesktopTriggerTab = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Tab" || event.shiftKey || placementRef.current?.mode !== "desktop") return;
-      if (event.target !== activeRef.current?.sourceElement) return;
+    const routeDesktopFocus = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Tab" || placementRef.current?.mode !== "desktop") return;
+      const current = activeRef.current;
+      const tooltip = tooltipRef.current;
+      if (!current || !tooltip) return;
+      if (current.layer !== "palette") {
+        if (event.shiftKey || event.target !== current.sourceElement) return;
+        event.preventDefault();
+        closeRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      const palette = current.paletteFocusScope;
+      if (!palette) return;
+      const paletteFocusable = focusableElements(palette);
+      const tooltipFocusable = focusableElements(tooltip);
+      if (!paletteFocusable.length || !tooltipFocusable.length) return;
+      const paletteFirst = paletteFocusable[0];
+      const paletteLast = paletteFocusable[paletteFocusable.length - 1];
+      const tooltipFirst = tooltipFocusable[0];
+      const tooltipLast = tooltipFocusable[tooltipFocusable.length - 1];
+      const target = event.target;
+      let destination: HTMLElement | null = null;
+      if (!event.shiftKey && target === current.sourceElement) destination = tooltipFirst;
+      else if (event.shiftKey && target === tooltipFirst) {
+        destination = current.sourceElement.isConnected ? current.sourceElement : paletteLast;
+      } else if (!event.shiftKey && target === tooltipLast) destination = paletteFirst;
+      else if (event.shiftKey && target === paletteFirst) destination = tooltipLast;
+      else if (!event.shiftKey && target === paletteLast) destination = tooltipFirst;
+      if (!destination) return;
       event.preventDefault();
-      closeRef.current?.focus({ preventScroll: true });
+      destination.focus({ preventScroll: true });
     };
-    document.addEventListener("keydown", routeDesktopTriggerTab);
-    return () => document.removeEventListener("keydown", routeDesktopTriggerTab);
+    document.addEventListener("keydown", routeDesktopFocus);
+    return () => document.removeEventListener("keydown", routeDesktopFocus);
   }, [active]);
 
   const trapFullscreenFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
@@ -235,7 +399,7 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
     <aside
       aria-labelledby="markdown-rich-tooltip-title"
       aria-modal={placement?.mode === "fullscreen" ? "true" : "false"}
-      className={`markdown-rich-tooltip markdown-rich-tooltip--${placement?.mode === "fullscreen" ? "fullscreen" : "desktop"}`}
+      className={`markdown-rich-tooltip markdown-rich-tooltip--${placement?.mode === "fullscreen" ? "fullscreen" : "desktop"}${active.layer === "palette" ? " markdown-rich-tooltip--palette" : ""}`}
       data-side={desktopPlacement?.side}
       id="markdown-rich-tooltip"
       onKeyDown={trapFullscreenFocus}
@@ -255,7 +419,15 @@ export function MarkdownRichTooltipProvider({ children }: MarkdownRichTooltipPro
             type="button"
           >×</button>
         </header>
-        <MarkdownRichTooltipBodyView bodyMarkdown={active.bodyMarkdown} className="markdown-rich-tooltip__body" />
+        <MarkdownRichTooltipBodyView
+          bodyMarkdown={active.bodyMarkdown}
+          className="markdown-rich-tooltip__body"
+          definitionAnchor={active.anchor}
+          nestedBodyChangeRoute={active.onBodyChange}
+          onBodyChange={active.onBodyChange ? changeActiveBody : undefined}
+          richTooltipLayer={active.layer}
+          richTooltipRegistry={active.registry}
+        />
       </div>
     </aside>,
     document.body,

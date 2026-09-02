@@ -142,11 +142,17 @@ describe("Markdown rich tooltip rendering", () => {
     );
     expect(screen.queryByText("[?Archive Entry]:")).not.toBeInTheDocument();
     fireEvent.click(trigger);
-    expect(controller.open).toHaveBeenCalledWith({
+    expect(controller.open).toHaveBeenCalledWith(expect.objectContaining({
+      anchor: "Archive Entry",
       bodyMarkdown: "Synthetic body",
+      layer: "note",
+      registry: expect.objectContaining({
+        definitions: expect.any(Map),
+        duplicateAnchors: expect.any(Set),
+      }),
       sourceElement: trigger,
       title: "Archive Entry",
-    });
+    }));
   });
 
   it("keeps escaped references literal and ignores rich-looking text in link metadata", () => {
@@ -382,11 +388,17 @@ describe("Markdown rich tooltip rendering", () => {
     expect(screen.queryByText("Body")).not.toBeInTheDocument();
     const trigger = screen.getByRole("button", { name: "Archive Entry" });
     fireEvent.click(trigger);
-    expect(controller.open).toHaveBeenCalledWith({
+    expect(controller.open).toHaveBeenCalledWith(expect.objectContaining({
+      anchor: "Archive Entry",
       bodyMarkdown: "**Body**",
+      layer: "note",
+      registry: expect.objectContaining({
+        definitions: expect.any(Map),
+        duplicateAnchors: expect.any(Set),
+      }),
       sourceElement: trigger,
       title: "Archive Entry",
-    });
+    }));
 
     fireEvent.click(screen.getByRole("checkbox", { name: "Отметить: [Archive Entry][?]" }));
     expect(onTaskCheckboxChange).toHaveBeenCalledWith(markdown.replace("[ ]", "[x]"));
@@ -425,6 +437,59 @@ describe("Markdown rich tooltip rendering", () => {
     expect(document.body).toHaveTextContent("Disabled");
     expect(screen.queryByRole("button", { name: "Disabled" })).not.toBeInTheDocument();
     expect(screen.queryByText("Body")).not.toBeInTheDocument();
+  });
+
+  it("resolves nested references from the source registry and replaces cyclic bodies in one dialog", async () => {
+    const markdown = [
+      "Open [Primary][?].",
+      "",
+      "[?Primary]:",
+      "    Open [Nested][?], [Missing][?], and [Duplicate][?].",
+      "[?Nested]:",
+      "    Back to [Primary][?].",
+      "[?Duplicate]:",
+      "    First duplicate",
+      "[?Duplicate]:",
+      "    Second duplicate",
+    ].join("\n");
+    render(<RichTooltipHarness markdown={markdown} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Primary" }));
+    const dialog = await screen.findByRole("dialog", { name: "Primary" });
+    const initialPlacement = {
+      arrowTop: dialog.style.getPropertyValue("--markdown-rich-tooltip-arrow-top"),
+      left: dialog.style.left,
+      side: dialog.getAttribute("data-side"),
+      top: dialog.style.top,
+    };
+    expect(initialPlacement).toEqual({
+      arrowTop: expect.stringMatching(/\d+px/),
+      left: expect.stringMatching(/\d+px/),
+      side: "right",
+      top: expect.stringMatching(/\d+px/),
+    });
+    expect(within(dialog).getByRole("button", { name: "Nested" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Missing" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Duplicate" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Nested" }));
+    expect(await screen.findByRole("dialog", { name: "Nested" })).toBe(dialog);
+    expect({
+      arrowTop: dialog.style.getPropertyValue("--markdown-rich-tooltip-arrow-top"),
+      left: dialog.style.left,
+      side: dialog.getAttribute("data-side"),
+      top: dialog.style.top,
+    }).toEqual(initialPlacement);
+    expect(document.querySelectorAll(".markdown-rich-tooltip")).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Primary" }));
+    expect(await screen.findByRole("dialog", { name: "Primary" })).toBe(dialog);
+    expect({
+      arrowTop: dialog.style.getPropertyValue("--markdown-rich-tooltip-arrow-top"),
+      left: dialog.style.left,
+      side: dialog.getAttribute("data-side"),
+      top: dialog.style.top,
+    }).toEqual(initialPlacement);
+    expect(document.querySelectorAll(".markdown-rich-tooltip")).toHaveLength(1);
   });
 
   it("renders an unresolved title anchor as a noninteractive label when a blank definition exists", () => {

@@ -1,7 +1,29 @@
 import { createContext, useContext, type Context } from "react";
+import type { MarkdownRichTooltipDefinition } from "../domain/markdownRichTooltips";
+
+export interface MarkdownRichTooltipRegistry {
+  definitions: ReadonlyMap<string, MarkdownRichTooltipDefinition>;
+  duplicateAnchors: ReadonlySet<string>;
+}
+
+export interface MarkdownRichTooltipBodyChange {
+  anchor: string;
+  expectedBodyMarkdown: string;
+  nextBodyMarkdown: string;
+}
+
+export type MarkdownRichTooltipBodyChangeHandler = (
+  change: MarkdownRichTooltipBodyChange,
+) => boolean | Promise<boolean>;
+
+export type MarkdownRichTooltipLayer = "note" | "palette";
 
 export interface MarkdownRichTooltipOpenRequest {
+  anchor: string;
   bodyMarkdown: string;
+  layer: MarkdownRichTooltipLayer;
+  onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  registry: MarkdownRichTooltipRegistry;
   sourceElement: HTMLButtonElement;
   title: string;
 }

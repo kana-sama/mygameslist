@@ -91,7 +91,8 @@ Anchor вычисляется из видимой подписи:
 - определение завершается перед следующим `[?Plain-text anchor]:` в первой колонке либо перед концом авторского тела;
 - пустое определение невалидно;
 - тело поддерживает существующий Markdown приложения: абзацы, emphasis, strong, code, spoilers, безопасные ссылки, изображения, списки, таблицы, block code и другие уже поддерживаемые блоки;
-- вложенный rich-tooltip reference внутри тела определения не поддерживается и считается невалидным, чтобы не создавать рекурсивные popover;
+- вложенный rich-tooltip reference внутри тела определения валиден и разрешается лениво по исходной note-level карте definitions при активации trigger;
+- новый nested trigger заменяет содержимое единственной открытой tooltip-карточки, а не встраивает следующую карточку в текущую; циклические ссылки поэтому не вызывают рекурсивный рендеринг и остаются конечными;
 - raw HTML и небезопасные URL продолжают запрещаться существующей валидацией.
 
 ### Расположение определений в файле
@@ -221,10 +222,12 @@ Tooltip layer рендерится через portal вне `.note-card__surface
 3. Inline-reference получает plain-text anchor/title из фактически отрендеренной подписи, неинтерактивно rendered label и source element ref. Внутри outer trigger не создаются вложенные links, buttons или интерактивные spoilers; безопасные inline-форматы вроде emphasis, strong и code сохраняются.
 4. Клик передаёт active reference, definition body, note surface и source element в tooltip layer.
 5. Tooltip layer выбирает desktop side либо mobile modal mode.
-6. Definition body рендерится существующими Markdown primitives в read-only tooltip context.
+6. Definition body рендерится существующими Markdown primitives с note-level definition registry, поэтому nested references разрешаются против исходной заметки и лениво заменяют active tooltip.
 7. Закрытие очищает active reference, но не меняет Markdown или scroll position заметки.
 
-Tooltip Markdown является представлением исходника. Интерактивные inline-элементы вроде безопасных ссылок и spoilers сохраняют своё поведение. Checklist controls внутри definition отображаются read-only и не изменяют исходный Markdown из popover.
+Tooltip Markdown является представлением исходника. Интерактивные inline-элементы вроде безопасных ссылок и spoilers сохраняют своё поведение. Checklist controls внутри definition обычной tooltip-карточки заметки отображаются read-only и не изменяют исходный Markdown из popover.
+
+Source-backed checklist controls являются отдельным исключением только для checklist-search preview и nested tooltip, открытой из этого preview. В этом контексте controls поддерживают обычные и partial transitions и сохраняют изменение в точное definition body исходной заметки через authoritative revalidation; failed или stale save откатывает optimistic state к перечитанному authoritative snapshot. Inline authoring chrome при этом не добавляется.
 
 ## Trigger: внешний вид и состояния
 
@@ -351,6 +354,7 @@ Fullscreen mode использует `role="dialog"` и `aria-modal="true"`, у�
 - hover, focus, mouseenter и touch preview сами по себе ничего не открывают;
 - повторный клик на уже активный trigger не закрывает карточку;
 - клик на другой rich-tooltip trigger заменяет содержимое единственной открытой карточки и перепозиционирует её к новому source;
+- rich-tooltip trigger внутри definition body действует так же: лениво заменяет current tooltip, сохраняя одну карточку даже для циклической цепочки references;
 - открытие не меняет scroll position заметки.
 
 ### Закрытие desktop-карточки
@@ -399,13 +403,14 @@ Domain validation проверяет новый синтаксис незави�
 - reference или definition образует пустой anchor;
 - definition пусто;
 - terminal definition section прерывается обычным неиндентированным Markdown;
-- definition содержит вложенный rich-tooltip reference;
 - definition body нарушает существующие правила Markdown safety.
 
 Связность references и definitions не является блокирующей domain-ошибкой. Отдельный pure audit возвращает два списка anchors в порядке первого появления:
 
 - `missingBodyAnchors`: каждый уникальный reference, для которого нет корректного непустого definition;
 - `unreferencedBodyAnchors`: каждый уникальный корректный непустой definition, на который не ссылается ни один reference.
+
+Audit учитывает references из видимого тела и каждый прямой reference внутри всех definition bodies в исходном порядке. Каждое body сканируется один раз: referenced definition bodies рекурсивно не раскрываются, поэтому cyclic graph остаётся конечным.
 
 Escaped syntax, inline/fenced code и metadata обычных links/legacy hints не создают save-warning. Если parser уже нашёл блокирующую ошибку, orphan-warning не перехватывает save-flow: submit проходит в обычную валидацию и показывает существующую ошибку. Повторные references одного anchor не дублируют строку предупреждения.
 
@@ -459,8 +464,8 @@ Parser и validation fixtures, не связанные с реальными и�
 - escape и metadata boundaries для legacy hints и обычных links;
 - дефисы как обычную пунктуацию title anchor, включая дефисы в начале, конце и подряд;
 - missing, duplicate, empty и interrupted definitions;
-- audit references без bodies и bodies без references, включая deduplication и source order;
-- вложенный rich-tooltip reference как validation error;
+- audit visible и direct definition-body references без bodies и bodies без references, включая deduplication, общий source order и отсутствие recursive expansion;
+- nested и cyclic rich-tooltip references как валидные конечные lazy replacement chains;
 - сохранение legacy `[text]("description")`;
 - source roundtrip и CRLF/LF;
 - definition list и обычный Markdown вокруг него.
@@ -477,6 +482,9 @@ Component tests проверяют:
 - click внутри, mouseleave и scroll не закрывают;
 - close button и desktop outside click закрывают;
 - второй trigger заменяет первый;
+- nested trigger заменяет current tooltip, cyclic references не создают вложенные карточки, а закрытие возвращает focus trigger текущего body;
+- checklist controls в обычной note tooltip, включая лениво открытую nested body, остаются read-only;
+- checklist controls в direct checklist-search preview и nested tooltip, открытой из этого preview, сохраняют точное source definition и откатываются к authority при stale/failed save;
 - открытие и закрытие не commit/reconstruct unrelated sibling `MarkdownView` body;
 - tooltip portal находится вне note DOM и не меняет note geometry;
 - right placement имеет приоритет;
@@ -527,3 +535,5 @@ Implementation plan должен включить focused tests изменённ
 13. Обычные Markdown links и остальной Markdown не получают регрессий.
 14. Первый explicit save orphan reference/definition показывает жёлтый warning, а повторный submit неизменённого Markdown сохраняет.
 15. Generic tests и build проходят, а permanent tests не зависят от конкретного authored corpus.
+16. Nested rich-tooltip references валидны, лениво заменяют единственную открытую карточку и остаются конечными при циклах.
+17. Checklist controls в обычной note tooltip остаются read-only; source-backed сохранение точного definition без authoring chrome и с authoritative rollback действует только в checklist-search preview и nested tooltip, открытой из него.

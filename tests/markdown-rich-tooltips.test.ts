@@ -6,10 +6,57 @@ import {
   parseMarkdownRichTooltipReference,
   parseMarkdownRichTooltips,
   restoreMarkdownRichTooltipDefinitions,
+  setMarkdownRichTooltipDefinitionBody,
 } from "../src/domain/markdownRichTooltips";
 import { validateInteractiveNoteField, validateMarkdown, validateNoteMarkdown } from "../src/domain/validation";
 
 describe("Markdown rich tooltip source", () => {
+  it("replaces only the validated unique definition body while preserving surrounding LF source", () => {
+    const source = [
+      "Visible [Target][?].",
+      "",
+      "[?Target]:",
+      "    First line",
+      "",
+      "    - [ ] Original task",
+      "",
+      "[?Neighbor]:",
+      "    Neighbor body",
+    ].join("\n");
+    expect(setMarkdownRichTooltipDefinitionBody(source, "Target", "First line\n\n- [ ] Original task", "Updated line\n\n- [x] Updated task")).toBe([
+      "Visible [Target][?].",
+      "",
+      "[?Target]:",
+      "    Updated line",
+      "",
+      "    - [x] Updated task",
+      "",
+      "[?Neighbor]:",
+      "    Neighbor body",
+    ].join("\n"));
+  });
+
+  it("preserves CRLF, the opener, indentation, and following definitions when replacing a body", () => {
+    const source = "Visible\r\n\r\n[?Target]:\r\n    Before\r\n\r\n[?Next]:\r\n    Keep\r\n";
+    expect(setMarkdownRichTooltipDefinitionBody(source, "Target", "Before", "After\n\n- [ ] New task")).toBe(
+      "Visible\r\n\r\n[?Target]:\r\n    After\r\n\r\n    - [ ] New task\r\n\r\n[?Next]:\r\n    Keep\r\n",
+    );
+  });
+
+  it("leaves source untouched when the expected definition cannot be safely targeted", () => {
+    const unique = "Visible\n\n[?Target]:\n    Current\n[?Other]:\n    Other";
+    const duplicate = "Visible\n\n[?Target]:\n    First\n[?Target]:\n    Second";
+    const missingAnchor = "Visible\n\n[?]:\n    Current";
+    const nonterminal = "Visible\n\n[?Target]:\n    Current\nOrdinary tail";
+
+    expect(setMarkdownRichTooltipDefinitionBody(unique, "Target", "Stale", "Replacement")).toBe(unique);
+    expect(setMarkdownRichTooltipDefinitionBody(unique, "Missing", "Current", "Replacement")).toBe(unique);
+    expect(setMarkdownRichTooltipDefinitionBody(unique, "Target", "Current", "Current")).toBe(unique);
+    expect(setMarkdownRichTooltipDefinitionBody(duplicate, "Target", "First", "Replacement")).toBe(duplicate);
+    expect(setMarkdownRichTooltipDefinitionBody(missingAnchor, "", "Current", "Replacement")).toBe(missingAnchor);
+    expect(setMarkdownRichTooltipDefinitionBody(nonterminal, "Target", "Current", "Replacement")).toBe(nonterminal);
+  });
+
   it("derives a trimmed plain-text anchor from supported inline Markdown labels", () => {
     expect(markdownRichTooltipAnchor("  **Archive _Entry_** and `Cache`  ")).toBe("Archive Entry and Cache");
     expect(parseMarkdownRichTooltipReference("[**Archive Entry**][?]")).toEqual({
@@ -97,6 +144,41 @@ describe("Markdown rich tooltip source", () => {
 
     expect(auditMarkdownRichTooltipLinks(source)).toEqual({
       missingBodyAnchors: [],
+      unreferencedBodyAnchors: [],
+    });
+  });
+
+  it("does not report orphan warnings for a valid nested cyclic reference graph", () => {
+    const source = [
+      "Open [Primary][?].",
+      "",
+      "[?Primary]:",
+      "    Continue to [Nested][?].",
+      "[?Nested]:",
+      "    Return to [Primary][?].",
+    ].join("\n");
+
+    expect(parseMarkdownRichTooltips(source).references).toEqual([
+      { anchor: "Primary", sourceStart: 5, sourceEnd: 17 },
+    ]);
+    expect(auditMarkdownRichTooltipLinks(source)).toEqual({
+      missingBodyAnchors: [],
+      unreferencedBodyAnchors: [],
+    });
+  });
+
+  it("reports missing direct references from every definition body in source order", () => {
+    const source = [
+      "Open [Primary][?].",
+      "",
+      "[?Primary]:",
+      "    Continue to [Missing first][?] and [Nested][?].",
+      "[?Nested]:",
+      "    Continue to [Missing second][?] and [Missing first][?] again.",
+    ].join("\n");
+
+    expect(auditMarkdownRichTooltipLinks(source)).toEqual({
+      missingBodyAnchors: ["Missing first", "Missing second"],
       unreferencedBodyAnchors: [],
     });
   });
@@ -237,7 +319,7 @@ describe("Markdown rich tooltip source", () => {
     expect(validateNoteMarkdown(source)).toEqual([]);
   });
 
-  it("keeps malformed, empty, and duplicate definitions as blocking parser errors", () => {
+  it("keeps malformed, empty, and duplicate definitions as blocking parser errors while allowing nested references", () => {
     const source = [
       "[   ][?] [Missing][?] [Again][?Good]",
       "",
@@ -255,7 +337,6 @@ describe("Markdown rich tooltip source", () => {
     expect(parsed.errors).toEqual([
       "Некорректный rich tooltip anchor: ",
       "Некорректный rich tooltip anchor: ",
-      "Rich tooltip [?Nested]: вложенные rich tooltip references запрещены",
       "Rich tooltip [?Good]: определение задано несколько раз",
       "Rich tooltip [?Good]: пустое определение",
     ]);
@@ -308,21 +389,45 @@ describe("Markdown rich tooltip source", () => {
 describe("Markdown rich tooltip definition lists", () => {
   it("coalesces adjacent term-description pairs and preserves surrounding Markdown exactly", () => {
     expect(parseMarkdownRichTooltipBody("Before\nName\n: **Value**\n\nLevel\n: Two\n\nAfter\n")).toEqual([
-      { type: "markdown", markdown: "Before\n" },
+      { type: "markdown", markdown: "Before\n", sourceStart: 0, sourceEnd: 7 },
       {
         type: "definition-list",
         items: [
           { termMarkdown: "Name", descriptionMarkdown: "**Value**" },
           { termMarkdown: "Level", descriptionMarkdown: "Two" },
         ],
+        sourceStart: 7,
+        sourceEnd: 36,
       },
-      { type: "markdown", markdown: "\n\nAfter\n" },
+      { type: "markdown", markdown: "\n\nAfter\n", sourceStart: 36, sourceEnd: 44 },
     ]);
   });
 
   it("leaves incomplete definition-list candidates as Markdown", () => {
     expect(parseMarkdownRichTooltipBody("Term\n:\n\nOther\n")).toEqual([
-      { type: "markdown", markdown: "Term\n:\n\nOther\n" },
+      { type: "markdown", markdown: "Term\n:\n\nOther\n", sourceStart: 0, sourceEnd: 14 },
+    ]);
+  });
+
+  it("reports exact consumed ranges when a later Markdown task repeats a definition-list term", () => {
+    const markdown = "Term\n: first\n\n- [ ] Same\n: listed meaning\n\n- [ ] Same";
+
+    expect(parseMarkdownRichTooltipBody(markdown)).toEqual([
+      {
+        type: "definition-list",
+        items: [
+          { termMarkdown: "Term", descriptionMarkdown: "first" },
+          { termMarkdown: "- [ ] Same", descriptionMarkdown: "listed meaning" },
+        ],
+        sourceStart: 0,
+        sourceEnd: 41,
+      },
+      {
+        type: "markdown",
+        markdown: "\n\n- [ ] Same",
+        sourceStart: 41,
+        sourceEnd: 53,
+      },
     ]);
   });
 
@@ -332,12 +437,16 @@ describe("Markdown rich tooltip definition lists", () => {
   ])("keeps definition-like text inside a %s fence as ordinary Markdown", (_name, opener, closer) => {
     const markdown = `${opener}\nTerm\n: Value\n${closer}`;
 
-    expect(parseMarkdownRichTooltipBody(markdown)).toEqual([{ type: "markdown", markdown }]);
+    expect(parseMarkdownRichTooltipBody(markdown)).toEqual([
+      { type: "markdown", markdown, sourceStart: 0, sourceEnd: markdown.length },
+    ]);
   });
 
   it("does not close a tooltip-body fence with a shorter marker run", () => {
     const markdown = "~~~~md\nTerm\n: Value\n~~~\nOutside\n: Still fenced";
 
-    expect(parseMarkdownRichTooltipBody(markdown)).toEqual([{ type: "markdown", markdown }]);
+    expect(parseMarkdownRichTooltipBody(markdown)).toEqual([
+      { type: "markdown", markdown, sourceStart: 0, sourceEnd: markdown.length },
+    ]);
   });
 });

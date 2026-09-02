@@ -27,6 +27,7 @@ export type ChecklistSearchAnnotation =
     sourceOrder: number;
   }
   | {
+    anchor: string;
     bodyMarkdown: string;
     id: string;
     kind: "rich";
@@ -123,7 +124,6 @@ function richAnnotationIsValid(annotation: Extract<MarkdownInlineAnnotation, { k
     annotation.anchor
     && definition?.bodyMarkdown.trim()
     && !parsed.duplicateAnchors.has(annotation.anchor)
-    && !collectMarkdownInlineAnnotations(definition.bodyMarkdown).some((nested) => nested.kind === "rich"),
   );
 }
 
@@ -150,6 +150,7 @@ function checklistAnnotations(
     if (!richAnnotationIsValid(annotation, richTooltips)) continue;
     const definition = richTooltips.definitions.get(annotation.anchor)!;
     result.push({
+      anchor: annotation.anchor,
       bodyMarkdown: definition.bodyMarkdown,
       id,
       kind: "rich",

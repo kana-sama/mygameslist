@@ -23,7 +23,7 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, type SortingStrategy } from "@dnd-kit/sortable";
 import { isMp4FileMetadata, makeFileAssetMetadata, optimizeNoteImage, withVideoPreviewFragment } from "../domain/assets";
 import { moveRanked } from "../domain/ranks";
-import { auditMarkdownRichTooltipLinks, buildChecklistSearchIndex, DEFAULT_NOTE_GROUP_RANK, nextMarkdownTaskState, parseMarkdownRichTooltips, setMarkdownListTaskState, setMarkdownTableTaskState, STATUS_IDS, TIER_IDS, type Asset, type ChecklistSearchEntry, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
+import { auditMarkdownRichTooltipLinks, buildChecklistSearchIndex, DEFAULT_NOTE_GROUP_RANK, nextMarkdownTaskState, parseMarkdownRichTooltips, setMarkdownListTaskState, setMarkdownRichTooltipDefinitionBody, setMarkdownTableTaskState, STATUS_IDS, TIER_IDS, type Asset, type ChecklistSearchEntry, type Game, type InteractiveNoteFieldUpdate, type Note, type NoteAttachment, type StatusId, type TierId } from "../domain";
 import { getYouTubeEmbedUrl, normalizeYouTubeUrl } from "../domain/youtube";
 import { Icon } from "../components/Icon";
 import { GameProgressGrid } from "../components/GameProgressGrid";
@@ -32,7 +32,7 @@ import { GameProgressItemDialog } from "../components/GameProgressItemDialog";
 import { hasFilePayload, isImageFile, snapshotFiles } from "../components/fileTransfer";
 import { ImagePicker, type PreparedImage } from "../components/ImagePicker";
 import { MarkdownView } from "../components/Markdown";
-import { PageChecklistSearch, type ChecklistSearchNavigationTarget } from "../components/PageChecklistSearch";
+import { PageChecklistSearch, type ChecklistSearchNavigationTarget, type ChecklistSearchRichTooltipBodyChangeRequest } from "../components/PageChecklistSearch";
 import { MarkdownRichTooltipProvider } from "../components/MarkdownRichTooltip";
 import { createCompletedChecklistFilterSnapshot, emptyCompletedChecklistFilterSnapshot, type CompletedChecklistFilterSnapshot } from "../components/markdownCompletedChecklistFilter";
 import { parseMarkdownBlocks, type MarkdownBlock, type MarkdownTaskState } from "../domain/markdownChecklist";
@@ -1619,6 +1619,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       return snapshot ? [{ bodyMarkdown: snapshot.bodyMarkdown, clientId: note.clientId, id: note.id }] : [];
     }));
   }, [checklistSearchBlocked, editableNotes, noteInteractionSource]);
+  const getChecklistSearchRichTooltipSourceMarkdown = useCallback((entry: ChecklistSearchEntry): string | null => {
+    if (!noteInteractionSource || !entry.noteId) return null;
+    const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
+    return note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId)?.bodyMarkdown ?? null : null;
+  }, [editableNotes, noteInteractionSource]);
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
   const persist = async (overrides: Partial<GameSaveInput> = {}, { globalSaving = true, authoredNoteIds = new Set<string>() }: { globalSaving?: boolean; authoredNoteIds?: ReadonlySet<string> } = {}): Promise<boolean> => {
@@ -1799,6 +1804,70 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       releaseNoteInteraction(entry.noteId, owner);
     }
   }, [acquireNoteInteraction, checklistSearchBlocked, editableNotes, markCompletedChecklistFilterPending, noteInteractionSource, releaseNoteInteraction]);
+  const changeChecklistSearchRichTooltipBody = useCallback(async (request: ChecklistSearchRichTooltipBodyChangeRequest) => {
+    const { annotationId, anchor, entry, expectedBodyMarkdown, nextBodyMarkdown } = request;
+    if (!noteInteractionSource || !entry.noteId) throw new Error("Не удалось сохранить изменение аннотации");
+    const owner = acquireNoteInteraction(entry.noteId);
+    if (owner === null) throw new Error("Сохранение заметки уже выполняется");
+    try {
+      const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
+      const snapshot = note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId) : undefined;
+      if (!note || !snapshot) throw new Error("Заметка больше не существует. Откройте поиск повторно.");
+
+      const freshEntry = buildChecklistSearchIndex([{
+        bodyMarkdown: snapshot.bodyMarkdown,
+        clientId: note.clientId,
+        id: entry.noteId,
+      }]).find((candidate) =>
+        candidate.id === entry.id
+        && candidate.noteClientId === entry.noteClientId
+        && candidate.noteId === entry.noteId
+        && candidate.structuralGuard === entry.structuralGuard
+      );
+      if (!freshEntry) throw new Error("Пункт чеклиста изменился. Повторите действие.");
+
+      const requestedAnnotation = entry.annotations.find((annotation) => annotation.id === annotationId);
+      const freshAnnotation = freshEntry.annotations.find((annotation) => annotation.id === annotationId);
+      if (
+        !requestedAnnotation
+        || requestedAnnotation.kind !== "rich"
+        || !freshAnnotation
+        || freshAnnotation.kind !== "rich"
+        || freshAnnotation.anchor !== requestedAnnotation.anchor
+      ) {
+        throw new Error("Аннотация пункта изменилась. Повторите действие.");
+      }
+
+      const richTooltips = parseMarkdownRichTooltips(snapshot.bodyMarkdown);
+      const targetDefinition = richTooltips.definitions.get(anchor);
+      if (!anchor || !targetDefinition?.bodyMarkdown.trim() || richTooltips.duplicateAnchors.has(anchor)) {
+        throw new Error("Определение аннотации недоступно или неоднозначно. Повторите действие.");
+      }
+      if (targetDefinition.bodyMarkdown !== expectedBodyMarkdown) {
+        throw new Error("Содержимое аннотации изменилось. Повторите действие.");
+      }
+      if (expectedBodyMarkdown === nextBodyMarkdown || !nextBodyMarkdown.trim()) {
+        throw new Error("Новое содержимое аннотации не задано.");
+      }
+
+      const bodyMarkdown = setMarkdownRichTooltipDefinitionBody(
+        snapshot.bodyMarkdown,
+        anchor,
+        expectedBodyMarkdown,
+        nextBodyMarkdown,
+      );
+      if (bodyMarkdown === snapshot.bodyMarkdown) {
+        throw new Error("Не удалось применить изменение аннотации. Повторите действие.");
+      }
+      await noteInteractionSource.saveNoteInteraction({
+        noteId: entry.noteId,
+        field: "bodyMarkdown",
+        value: bodyMarkdown,
+      });
+    } finally {
+      releaseNoteInteraction(entry.noteId, owner);
+    }
+  }, [acquireNoteInteraction, editableNotes, noteInteractionSource, releaseNoteInteraction]);
   const navigateToChecklistSearchEntry = useCallback((target: ChecklistSearchNavigationTarget) => {
     const freshEntry = getChecklistSearchEntries().find((entry) =>
       entry.id === target.id
@@ -1943,9 +2012,11 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
         blocked={checklistSearchBlocked}
         gameId={game.id}
         getEntries={getChecklistSearchEntries}
+        getRichTooltipSourceMarkdown={getChecklistSearchRichTooltipSourceMarkdown}
         history={checklistSearchHistory}
         isInteractionPending={isChecklistSearchInteractionPending}
         onNavigate={navigateToChecklistSearchEntry}
+        onRichTooltipBodyChange={changeChecklistSearchRichTooltipBody}
         onToggle={toggleChecklistSearchEntry}
       />
       <div className="page game-view-page">

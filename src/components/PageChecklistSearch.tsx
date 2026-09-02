@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   nextMarkdownTaskState,
+  parseMarkdownRichTooltips,
   searchChecklistEntries,
   type ChecklistSearchAnnotation,
   type ChecklistSearchEntry,
@@ -20,7 +21,11 @@ import {
 import type { MarkdownTaskState } from "../domain/markdownChecklist";
 import type { ChecklistSearchHistoryStore } from "../state/checklistSearchHistory";
 import { MarkdownInlineView } from "./Markdown";
-import { MarkdownRichTooltipBodyView } from "./MarkdownRichTooltip";
+import { MarkdownRichTooltipBodyView, MarkdownRichTooltipProvider } from "./MarkdownRichTooltip";
+import type {
+  MarkdownRichTooltipBodyChange,
+  MarkdownRichTooltipRegistry,
+} from "./markdownRichTooltipContext";
 
 const SHORTCUT_WINDOW_MS = 400;
 
@@ -39,10 +44,17 @@ export interface PageChecklistSearchProps {
   blocked: boolean;
   gameId: string;
   getEntries: () => readonly ChecklistSearchEntry[];
+  getRichTooltipSourceMarkdown?: (entry: ChecklistSearchEntry) => string | null;
   history: ChecklistSearchHistoryStore;
   isInteractionPending?: () => boolean;
   onNavigate: (target: ChecklistSearchNavigationTarget) => void;
+  onRichTooltipBodyChange?: (request: ChecklistSearchRichTooltipBodyChangeRequest) => Promise<void>;
   onToggle: (entry: ChecklistSearchEntry, state: MarkdownTaskState) => Promise<void>;
+}
+
+export interface ChecklistSearchRichTooltipBodyChangeRequest extends MarkdownRichTooltipBodyChange {
+  annotationId: string;
+  entry: ChecklistSearchEntry;
 }
 
 interface ProjectedResult {
@@ -96,6 +108,10 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
   )].filter((element) => !element.hasAttribute("hidden") && element.getAttribute("aria-hidden") !== "true");
 }
 
+function richTooltipBodyKey(entry: ChecklistSearchEntry, anchor: string): string {
+  return `${entry.noteClientId}\u0000${anchor}`;
+}
+
 function anotherModalOwnsFocus(): boolean {
   return document.activeElement instanceof Element
     && document.activeElement.closest('[role="dialog"][aria-modal="true"]') !== null;
@@ -137,9 +153,11 @@ export function PageChecklistSearch({
   blocked,
   gameId,
   getEntries,
+  getRichTooltipSourceMarkdown,
   history,
   isInteractionPending,
   onNavigate,
+  onRichTooltipBodyChange,
   onToggle,
 }: PageChecklistSearchProps): ReactNode {
   const reactId = useId().replace(/:/g, "");
@@ -151,7 +169,8 @@ export function PageChecklistSearch({
   const [mode, setMode] = useState<KeyboardMode>("input");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [optimisticStates, setOptimisticStates] = useState<ReadonlyMap<string, MarkdownTaskState>>(new Map());
-  const [pendingNoteIds, setPendingNoteIds] = useState<ReadonlySet<string>>(new Set());
+  const [optimisticRichTooltipBodies, setOptimisticRichTooltipBodies] = useState<ReadonlyMap<string, string>>(new Map());
+  const [richTooltipResetRevision, setRichTooltipResetRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -159,12 +178,35 @@ export function PageChecklistSearch({
   const openerRef = useRef<HTMLElement | null>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const requestedFocusIdRef = useRef<string | null>(null);
+  const pendingNoteOwnersRef = useRef(new Map<string, symbol>());
 
   const results = useMemo(
     () => open ? projectResults(entries, query, gameId, history) : [],
     [entries, gameId, history, historyRevision, open, query],
   );
   const selectedResult = results.find((result) => result.entry.id === selectedId) ?? null;
+  const selectedRichTooltipRegistry = useMemo<MarkdownRichTooltipRegistry | undefined>(() => {
+    if (!selectedResult) return undefined;
+    const entry = selectedResult.entry;
+    const source = getRichTooltipSourceMarkdown?.(entry);
+    const parsed = source === undefined || source === null ? null : parseMarkdownRichTooltips(source);
+    const definitions = new Map(parsed?.definitions ?? entry.annotations.flatMap((annotation) =>
+      annotation.kind === "rich" ? [[annotation.anchor, {
+        anchor: annotation.anchor,
+        bodyMarkdown: annotation.bodyMarkdown,
+        sourceEnd: 0,
+        sourceStart: 0,
+      }] as const] : []
+    ));
+    for (const [anchor, definition] of definitions) {
+      const optimisticBody = optimisticRichTooltipBodies.get(richTooltipBodyKey(entry, anchor));
+      if (optimisticBody !== undefined) definitions.set(anchor, { ...definition, bodyMarkdown: optimisticBody });
+    }
+    return {
+      definitions,
+      duplicateAnchors: parsed?.duplicateAnchors ?? new Set(),
+    };
+  }, [getRichTooltipSourceMarkdown, optimisticRichTooltipBodies, selectedResult]);
 
   const requestRowFocus = useCallback((id: string) => {
     requestedFocusIdRef.current = id;
@@ -182,7 +224,8 @@ export function PageChecklistSearch({
     setMode("input");
     setSelectedId(null);
     setOptimisticStates(new Map());
-    setPendingNoteIds(new Set());
+    setOptimisticRichTooltipBodies(new Map());
+    pendingNoteOwnersRef.current.clear();
     setError(null);
     if (restoreFocus && opener?.isConnected) opener.focus({ preventScroll: true });
   }, []);
@@ -197,7 +240,8 @@ export function PageChecklistSearch({
     setMode("input");
     setSelectedId(null);
     setOptimisticStates(new Map());
-    setPendingNoteIds(new Set());
+    setOptimisticRichTooltipBodies(new Map());
+    pendingNoteOwnersRef.current.clear();
     setError(null);
     setOpen(true);
   }, [blocked, getEntries, isInteractionPending, open]);
@@ -304,11 +348,12 @@ export function PageChecklistSearch({
 
   const toggle = useCallback(async (entry: ChecklistSearchEntry, transition: "partial" | "regular") => {
     const noteIdentity = entry.noteClientId;
-    if (pendingNoteIds.has(noteIdentity)) return;
+    if (pendingNoteOwnersRef.current.has(noteIdentity)) return;
+    const pendingOwner = Symbol(noteIdentity);
+    pendingNoteOwnersRef.current.set(noteIdentity, pendingOwner);
     const currentState = optimisticStates.get(entry.id) ?? entry.state;
     const nextState = nextMarkdownTaskState(currentState, transition);
     setOptimisticStates((current) => new Map(current).set(entry.id, nextState));
-    setPendingNoteIds((current) => new Set(current).add(noteIdentity));
     try {
       await onToggle(entry, nextState);
       const freshEntries = getEntries();
@@ -341,13 +386,50 @@ export function PageChecklistSearch({
         ? reason.message
         : "Не удалось сохранить");
     } finally {
-      setPendingNoteIds((current) => {
-        const next = new Set(current);
-        next.delete(noteIdentity);
+      if (pendingNoteOwnersRef.current.get(noteIdentity) === pendingOwner) {
+        pendingNoteOwnersRef.current.delete(noteIdentity);
+      }
+    }
+  }, [gameId, getEntries, history, onToggle, optimisticStates]);
+
+  const changeRichTooltipBody = useCallback(async (
+    entry: ChecklistSearchEntry,
+    annotationId: string,
+    change: MarkdownRichTooltipBodyChange,
+  ): Promise<boolean> => {
+    const noteIdentity = entry.noteClientId;
+    if (!onRichTooltipBodyChange || pendingNoteOwnersRef.current.has(noteIdentity)) return false;
+    const pendingOwner = Symbol(noteIdentity);
+    pendingNoteOwnersRef.current.set(noteIdentity, pendingOwner);
+    const bodyKey = richTooltipBodyKey(entry, change.anchor);
+    setOptimisticRichTooltipBodies((current) => new Map(current).set(bodyKey, change.nextBodyMarkdown));
+    try {
+      await onRichTooltipBodyChange({ ...change, annotationId, entry });
+      setEntries(getEntries());
+      setError(null);
+      return true;
+    } catch (reason) {
+      try {
+        setEntries(getEntries());
+      } catch {
+        // The original save failure remains the user-facing error if the recovery read also fails.
+      }
+      setError(reason instanceof Error && reason.message.trim()
+        ? reason.message
+        : "Не удалось сохранить");
+      setRichTooltipResetRevision((revision) => revision + 1);
+      return false;
+    } finally {
+      setOptimisticRichTooltipBodies((current) => {
+        const next = new Map(current);
+        next.delete(bodyKey);
         return next;
       });
+      if (pendingNoteOwnersRef.current.get(noteIdentity) === pendingOwner) {
+        pendingNoteOwnersRef.current.delete(noteIdentity);
+      }
     }
-  }, [gameId, getEntries, history, onToggle, optimisticStates, pendingNoteIds]);
+  }, [getEntries, onRichTooltipBodyChange]);
 
   const handleInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") {
@@ -424,12 +506,13 @@ export function PageChecklistSearch({
     ? orderedAnnotations(selectedResult.entry.annotations, selectedResult.matchedAnnotationIds)
     : [];
   const portal = (
-    <div
-      className="page-checklist-search-layer"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) close(true);
-      }}
-    >
+    <MarkdownRichTooltipProvider resetRevision={richTooltipResetRevision}>
+      <div
+        className="page-checklist-search-layer"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) close(true);
+        }}
+      >
       <div
         aria-label="Поиск по чеклистам"
         aria-modal="true"
@@ -519,9 +602,12 @@ export function PageChecklistSearch({
                   <p className="page-checklist-search__annotation-plain">{annotation.plainText}</p>
                 ) : (
                   <MarkdownRichTooltipBodyView
-                    bodyMarkdown={annotation.bodyMarkdown}
+                    bodyMarkdown={optimisticRichTooltipBodies.get(richTooltipBodyKey(selectedResult!.entry, annotation.anchor)) ?? annotation.bodyMarkdown}
                     className="page-checklist-search__annotation-rich"
-                    interactionsDisabled
+                    definitionAnchor={annotation.anchor}
+                    onBodyChange={onRichTooltipBodyChange ? (change) => changeRichTooltipBody(selectedResult!.entry, annotation.id, change) : undefined}
+                    richTooltipLayer="palette"
+                    richTooltipRegistry={selectedRichTooltipRegistry}
                   />
                 )}
               </section>
@@ -535,8 +621,9 @@ export function PageChecklistSearch({
           <span><b>↑↓</b> выбрать</span>
           {error ? <span className="page-checklist-search__error" role="status">{error}</span> : null}
         </footer>
+        </div>
       </div>
-    </div>
+    </MarkdownRichTooltipProvider>
   );
   return createPortal(portal, document.body);
 }

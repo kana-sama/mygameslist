@@ -27,7 +27,6 @@ import {
   restoreMarkdownRichTooltipDefinitions,
   markdownRichTooltipBackslashRunIsEscaped,
   markdownRichTooltipLeadingBackslashCount,
-  type ParsedMarkdownRichTooltips,
 } from "../domain/markdownRichTooltips";
 import {
   markdownInlineAnnotationEscapeBackslashCount,
@@ -54,7 +53,13 @@ import type {
   RenderedTaskChange,
 } from "./markdownDiffRenderModel";
 import { markdownInlineTokenPattern, markdownIsSingleSpoiler } from "./markdownInlineSyntax";
-import { type MarkdownRichTooltipController, useMarkdownRichTooltipController } from "./markdownRichTooltipContext";
+import {
+  type MarkdownRichTooltipBodyChangeHandler,
+  type MarkdownRichTooltipController,
+  type MarkdownRichTooltipLayer,
+  type MarkdownRichTooltipRegistry,
+  useMarkdownRichTooltipController,
+} from "./markdownRichTooltipContext";
 
 export { hasMarkdownTasks } from "../domain/markdownChecklist";
 
@@ -227,20 +232,29 @@ function renderDecoratedText(
 
 interface MarkdownRichTooltipInlineContext {
   controller: MarkdownRichTooltipController | null;
-  definitions: ParsedMarkdownRichTooltips["definitions"];
-  duplicateAnchors: ParsedMarkdownRichTooltips["duplicateAnchors"];
+  layer: MarkdownRichTooltipLayer;
+  onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  registry: MarkdownRichTooltipRegistry;
   triggersDisabled: boolean;
 }
 
 function MarkdownRichTooltipTrigger({
+  anchor,
   bodyMarkdown,
   children,
   controller,
+  layer,
+  onBodyChange,
+  registry,
   title,
 }: {
+  anchor: string;
   bodyMarkdown: string;
   children: ReactNode;
   controller: MarkdownRichTooltipController;
+  layer: MarkdownRichTooltipLayer;
+  onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  registry: MarkdownRichTooltipRegistry;
   title: string;
 }) {
   const [sourceElement, setSourceElement] = useState<HTMLButtonElement | null>(null);
@@ -254,7 +268,15 @@ function MarkdownRichTooltipTrigger({
       aria-controls="markdown-rich-tooltip"
       aria-expanded={active}
       className="markdown-rich-tooltip-trigger"
-      onClick={(event) => controller.open({ bodyMarkdown, sourceElement: event.currentTarget, title })}
+      onClick={(event) => controller.open({
+        anchor,
+        bodyMarkdown,
+        layer,
+        onBodyChange,
+        registry,
+        sourceElement: event.currentTarget,
+        title,
+      })}
       ref={setSourceElement}
       type="button"
     >
@@ -322,10 +344,10 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
           continue;
         }
         const { anchor, labelMarkdown: label } = annotation;
-        const definition = richTooltipContext.definitions.get(anchor);
+        const definition = richTooltipContext.registry.definitions.get(anchor);
         const triggerEnabled = Boolean(
           definition?.bodyMarkdown.trim()
-          && !richTooltipContext.duplicateAnchors.has(anchor)
+          && !richTooltipContext.registry.duplicateAnchors.has(anchor)
           && !richTooltipContext.triggersDisabled
           && richTooltipContext.controller
           && !interactionsDisabled,
@@ -333,7 +355,16 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
         const labelNodes = renderInline(label, `${key}-label`, location ? { ...location, sourceColumn: location.sourceColumn + match.index + 1 } : undefined, forceRevealSpoilers, richTooltipContext, triggerEnabled);
         if (triggerEnabled && definition && richTooltipContext.controller) {
           nodes.push(
-            <MarkdownRichTooltipTrigger bodyMarkdown={definition.bodyMarkdown} controller={richTooltipContext.controller} key={key} title={anchor}>
+            <MarkdownRichTooltipTrigger
+              anchor={anchor}
+              bodyMarkdown={definition.bodyMarkdown}
+              controller={richTooltipContext.controller}
+              key={key}
+              layer={richTooltipContext.layer}
+              onBodyChange={richTooltipContext.onBodyChange}
+              registry={richTooltipContext.registry}
+              title={anchor}
+            >
               {labelNodes}
             </MarkdownRichTooltipTrigger>,
           );
@@ -384,10 +415,26 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
 export interface MarkdownInlineViewProps {
   interactionsDisabled?: boolean;
   markdown: string;
+  onRichTooltipBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  richTooltipLayer?: MarkdownRichTooltipLayer;
+  richTooltipRegistry?: MarkdownRichTooltipRegistry;
 }
 
-export function MarkdownInlineView({ interactionsDisabled = false, markdown }: MarkdownInlineViewProps): ReactNode {
-  return <>{renderInline(markdown, "inline", undefined, false, undefined, interactionsDisabled)}</>;
+export function MarkdownInlineView({
+  interactionsDisabled = false,
+  markdown,
+  onRichTooltipBodyChange,
+  richTooltipLayer = "note",
+  richTooltipRegistry,
+}: MarkdownInlineViewProps): ReactNode {
+  const richTooltipController = useMarkdownRichTooltipController();
+  return <>{renderInline(markdown, "inline", undefined, false, richTooltipRegistry ? {
+    controller: richTooltipController,
+    layer: richTooltipLayer,
+    onBodyChange: onRichTooltipBodyChange,
+    registry: richTooltipRegistry,
+    triggersDisabled: false,
+  } : undefined, interactionsDisabled)}</>;
 }
 
 export const setMarkdownTaskState = setMarkdownListTaskState;
@@ -498,8 +545,11 @@ export interface MarkdownViewProps extends MarkdownChecklistSearchTargetProps {
   onCollapsedChecklistSectionsChange?: (sections: string[]) => void;
   onRevealCompletedChecklistItems?: (structuralIds: readonly string[]) => void;
   onRevealCompletedChecklistSections?: (collapseIds: readonly string[]) => void;
+  onRichTooltipBodyChange?: MarkdownRichTooltipBodyChangeHandler;
   onTaskChange?: (markdown: string) => void;
   onTaskCheckboxChange?: (markdown: string) => void;
+  richTooltipLayer?: MarkdownRichTooltipLayer;
+  richTooltipRegistry?: MarkdownRichTooltipRegistry;
   rowChanges?: readonly RenderedRowChange[];
   taskChanges?: readonly RenderedTaskChange[];
   taskChangesDisabled?: boolean;
@@ -507,7 +557,6 @@ export interface MarkdownViewProps extends MarkdownChecklistSearchTargetProps {
 
 interface MarkdownRenderBodyProps extends MarkdownViewProps {
   richTooltipController: MarkdownRichTooltipController | null;
-  richTooltipParsed: ParsedMarkdownRichTooltips | null;
 }
 
 interface MarkdownSingleLineEditorProps {
@@ -681,7 +730,7 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlightedChecklistSearchTargetId = null, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, inlineChanges = [], interactionsDisabled = false, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipParsed, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
+function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlightedChecklistSearchTargetId = null, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, inlineChanges = [], interactionsDisabled = false, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onRichTooltipBodyChange, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipLayer = "note", richTooltipRegistry, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
   const latestBlocksRef = useRef(blocks);
   latestBlocksRef.current = blocks;
@@ -747,6 +796,13 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
       "data-testid": "diff-visual-row",
     };
   };
+  const richTooltipInlineContext: MarkdownRichTooltipInlineContext | undefined = richTooltipRegistry ? {
+    controller: richTooltipController,
+    layer: richTooltipLayer,
+    onBodyChange: onRichTooltipBodyChange,
+    registry: richTooltipRegistry,
+    triggersDisabled: richTooltipTriggersDisabled,
+  } : undefined;
   const locatedInline = (value: string, key: string, location?: MarkdownTextLocation, forceRevealSpoilers = false): ReactNode[] =>
     renderInline(
       value,
@@ -758,21 +814,11 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
         ...location,
       } : undefined,
       forceRevealSpoilers,
-      richTooltipParsed ? {
-        controller: richTooltipController,
-        definitions: richTooltipParsed.definitions,
-        duplicateAnchors: richTooltipParsed.duplicateAnchors,
-        triggersDisabled: richTooltipTriggersDisabled,
-      } : undefined,
+      richTooltipInlineContext,
       interactionsDisabled,
     );
   const locatedLines = (value: string, key: string, locations: readonly MarkdownTextLocation[] = [], forceRevealSpoilers = false): ReactNode => {
-    if (!decorations && !inlineChanges.length) return renderInline(value, key, undefined, forceRevealSpoilers, richTooltipParsed ? {
-      controller: richTooltipController,
-      definitions: richTooltipParsed.definitions,
-      duplicateAnchors: richTooltipParsed.duplicateAnchors,
-      triggersDisabled: richTooltipTriggersDisabled,
-    } : undefined, interactionsDisabled);
+    if (!decorations && !inlineChanges.length) return renderInline(value, key, undefined, forceRevealSpoilers, richTooltipInlineContext, interactionsDisabled);
     const lines = value.split("\n");
     return lines.map((line, index) => (
       <Fragment key={`${key}-line-${index}`}>
@@ -1459,9 +1505,11 @@ const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => 
   && previous.taskChanges === next.taskChanges
   && previous.taskChangesDisabled === next.taskChangesDisabled
   && previous.richTooltipsEnabled === next.richTooltipsEnabled
+  && previous.richTooltipLayer === next.richTooltipLayer
+  && previous.richTooltipRegistry === next.richTooltipRegistry
   && previous.richTooltipTriggersDisabled === next.richTooltipTriggersDisabled
   && previous.richTooltipController === next.richTooltipController
-  && previous.richTooltipParsed === next.richTooltipParsed
+  && previous.onRichTooltipBodyChange === next.onRichTooltipBodyChange
   && previous.onTaskChange === next.onTaskChange
   && previous.onTaskCheckboxChange === next.onTaskCheckboxChange
   && previous.onCollapsedChecklistSectionsChange === next.onCollapsedChecklistSectionsChange
@@ -1472,9 +1520,16 @@ const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => 
 export function MarkdownView({ onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, ...renderProps }: MarkdownViewProps) {
   const richTooltipController = useMarkdownRichTooltipController();
   const richTooltipParsed = useMemo(
-    () => renderProps.richTooltipsEnabled ? parseMarkdownRichTooltips(renderProps.markdown) : null,
-    [renderProps.markdown, renderProps.richTooltipsEnabled],
+    () => renderProps.richTooltipsEnabled && !renderProps.richTooltipRegistry
+      ? parseMarkdownRichTooltips(renderProps.markdown)
+      : null,
+    [renderProps.markdown, renderProps.richTooltipRegistry, renderProps.richTooltipsEnabled],
   );
+  const parsedRichTooltipRegistry = useMemo<MarkdownRichTooltipRegistry | null>(() => richTooltipParsed ? ({
+    definitions: richTooltipParsed.definitions,
+    duplicateAnchors: richTooltipParsed.duplicateAnchors,
+  }) : null, [richTooltipParsed]);
+  const richTooltipRegistry = renderProps.richTooltipRegistry ?? parsedRichTooltipRegistry;
   const taskChangeRef = useRef(onTaskChange);
   const taskCheckboxChangeRef = useRef(onTaskCheckboxChange);
   const richTooltipParsedRef = useRef(richTooltipParsed);
@@ -1510,7 +1565,7 @@ export function MarkdownView({ onTaskChange, onTaskCheckboxChange, onCollapsedCh
       {...renderProps}
       markdown={richTooltipParsed?.visibleMarkdown ?? renderProps.markdown}
       richTooltipController={richTooltipController}
-      richTooltipParsed={richTooltipParsed}
+      richTooltipRegistry={richTooltipRegistry ?? undefined}
       onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange ? stableCollapsedSectionsChange : undefined}
       onRevealCompletedChecklistItems={onRevealCompletedChecklistItems ? stableRevealCompletedChecklistItems : undefined}
       onRevealCompletedChecklistSections={onRevealCompletedChecklistSections ? stableRevealCompletedChecklistSections : undefined}

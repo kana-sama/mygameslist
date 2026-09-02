@@ -71,7 +71,9 @@
 - Rich tooltip отображается с anchor/inline-подписью как заголовком и с полным отрендеренным Markdown definition body.
 - Если запрос совпал с одной из нескольких аннотаций, эта аннотация располагается первой, а остальные сохраняют исходный относительный порядок.
 - Для пункта без непустых simple/rich-аннотаций правая колонка остаётся пустой; отдельное сообщение или декоративный placeholder не добавляется.
-- Rich preview переиспользует существующее представление rich-tooltip body, включая обычный Markdown и definition lists. Вся preview остаётся неинтерактивной: ссылки, вложенные действия и новые tooltip trigger не открываются.
+- Rich preview переиспользует общий Markdown renderer и существующее представление rich-tooltip body, включая обычный Markdown и definition lists. Preview является live source-backed представлением: безопасные ссылки, simple hover hints и spoilers сохраняют обычное поведение, а checklist controls поддерживают те же regular/partial transitions, что и чеклисты заметки.
+- Rich-tooltip references внутри definition body валидны и открывают tooltip поверх palette. Каждый новый trigger лениво заменяет содержимое единственной открытой tooltip-карточки вместо рекурсивного вложения, поэтому циклические ссылки остаются конечными. Checklist controls внутри такой nested tooltip также изменяют соответствующее исходное definition body.
+- В preview не добавляется authoring chrome: кнопки добавления или редактирования пунктов и другие элементы note editor отсутствуют. Интерактивный preview не меняет правило навигации: только клик по телу result row или `Enter` переходят к исходному пункту; взаимодействие с preview не закрывает palette.
 - В preview отсутствуют status chip чекбокса, отдельная таблица служебных метаданных и пояснение источника fuzzy-совпадения.
 
 ### Нижняя строка
@@ -237,6 +239,8 @@ Edit-distance tolerance остаётся зависящей от длины, н�
 
 При ошибке optimistic state откатывается к последнему authoritative snapshot. Palette остаётся открытой, фокус и выбранный result сохраняются, а в нижней области появляется одна компактная строка ошибки. Следующая успешная операция очищает ошибку.
 
+Checklist changes внутри rich preview сохраняются в точное definition body исходной заметки. Перед сохранением GamePage перечитывает authoritative snapshot, заново строит checklist index и повторно проверяет checklist entry, annotation identity, anchor и актуальное definition body. Мутация заменяет только проверенное definition body, сохраняя line endings и четырёхпробельную indentation definitions; существующее per-note interaction ownership не допускает пересечения с palette item toggle или обычным note save. Pending preview может быть optimistic, но success обновляет его из authoritative index, а stale/failed save полностью откатывает optimism, перечитывает authority и показывает ту же одну строку ошибки. Такая ошибка не создаёт recent-history entry и никогда не изменяет одноимённое definition с другими source coordinates.
+
 ## Переход к исходному пункту
 
 Search result передаёт странице структурную цель: note identity, source location, structural item id и ancestor collapse ids.
@@ -261,6 +265,7 @@ Search navigation request передаётся note component явным prop/st
 - Search input использует combobox/grid pattern с `aria-controls` и `aria-activedescendant` в input mode: grid допускает отдельный интерактивный checkbox cell без вложения control в listbox option.
 - Result rows и cells сообщают item text, путь и checkbox state, включая `aria-checked="mixed"` для `[-]`.
 - Preview связан с выбранным option через доступное описание, но не дублирует весь длинный текст в имени option.
+- Нативные links и buttons внутри preview входят в существующий focus trap palette. Tooltip, открытый из preview, имеет существующие dialog semantics, находится над overlay и после закрытия возвращает focus своему trigger; закрытие palette по-прежнему возвращает focus исходному opener.
 - Фокус остаётся внутри palette до закрытия; `Tab` не уходит под overlay.
 - Checkbox mouse targets не теряют доступное имя после optimistic update.
 - Save error объявляется один раз через спокойный `aria-live` region.
@@ -319,7 +324,11 @@ Component tests проверяют:
 - input/result focus modes, пробел в query и `ArrowUp` с первого результата обратно в input;
 - ввод символа и `Backspace` из result mode;
 - mouse hover preview, body click navigation и checkbox click без закрытия;
+- interactive preview links, simple hints и spoilers без row navigation или закрытия palette;
+- regular/partial transitions checklist controls в direct definition body с сохранением точного source body;
+- nested rich-tooltip replacement поверх palette, checklist mutation в nested definition и возврат focus trigger;
 - optimistic save, pending guard, success refresh и error rollback;
+- authoritative stale-target rejection и rollback без записи recent history или изменения одноимённого definition;
 - сохранение результата в palette при включённом completed filter;
 - reveal collapsed/filter-hidden target, persisted collapse update, scroll, checkbox focus и transient highlight;
 - focus restoration, outside click, `Escape`, focus trap и reduced motion.
@@ -336,7 +345,8 @@ Implementer и reviewer сравнивают финальную palette напр
 - отсутствие `height`/`min-height` у result row;
 - симметричные вертикальные padding `7px`;
 - input, recent-history, result-focus, hover, unchecked, checked, indeterminate, empty-history, no-results, saving и error states;
-- preview без status chip, match-source labels, counters и metadata table;
+- live preview со ссылкой, spoiler, direct checkbox и nested tooltip без authoring chrome, status chip, match-source labels, counters и metadata table;
+- palette сохраняет геометрию `690×366px`, колонки `44% / 56%`, прежнюю плотность строк и footer во всех состояниях интерактивного preview;
 - переход к пункту в idle, collapsed, completed-filter-hidden и reduced-motion states.
 
 ## Критерии готовности

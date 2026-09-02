@@ -526,6 +526,8 @@ button.markdown-table-group__header:disabled { cursor: default; }
   color: #d6d7da;
   animation: markdown-rich-tooltip-enter 120ms ease-out;
 }
+.markdown-rich-tooltip--palette { z-index: 130; }
+.markdown-rich-tooltip--palette.markdown-rich-tooltip--desktop { position: fixed; }
 .markdown-rich-tooltip--desktop {
   --markdown-rich-tooltip-gap: 14px;
   --markdown-rich-tooltip-arrow-width: 10px;
