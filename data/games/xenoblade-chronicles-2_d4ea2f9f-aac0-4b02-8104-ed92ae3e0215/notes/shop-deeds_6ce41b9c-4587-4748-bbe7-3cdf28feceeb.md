@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "6ce41b9c-4587-4748-bbe7-3cdf28feceeb"
 groupRank: 2048
-rank: 896
+rank: 14080
 doubleHeight: true
 collapsedChecklistSections:
   - "group:13vfedn-2c"
@@ -57,11 +57,10 @@ collapsedChecklistSections:
   - "group:zuo2j7-23"
   - "heading:17lrvy2-1d"
   - "heading:1ejpocg-1j"
-  - "heading:1u4gwz0-1c"
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-30T13:32:12.229Z"
+updatedAt: "2026-09-04T18:36:57.496Z"
 -->
 # Shop Deeds
 
@@ -459,9 +458,9 @@ updatedAt: "2026-08-30T13:32:12.229Z"
   - [x] Odifa
   - [x] Indoline Tea
   - [x] Frozen Odifa
-  - [ ] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
-  - [ ] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
-  - [ ] **Lutino Deeds**
+  - [x] Pipestraw Smoothie — открывается после Merc Mission `Merchant Ship`.
+  - [x] Armu Milk Earl Grey — открывается после Merc Mission `Wagon Guard`.
+  - [x] **Lutino Deeds**
 
 ## Theosoir
 
@@ -541,9 +540,9 @@ updatedAt: "2026-08-30T13:32:12.229Z"
 
 - Memoria Art
 
-  - [ ] The Girl on the Hill — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
-  - [ ] Final Chorus — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
+  - [x] The Girl on the Hill — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
+  - [x] Final Chorus — открывается после сюжетной сцены `Amalthus's Ambition` в Chapter 8.
   - [x] Ancient King's Portrait
   - [x] Snow-Crystal Vase
   - [x] Portrait of Ger the Hero
-  - [ ] **Memoria Deeds**
+  - [x] **Memoria Deeds**

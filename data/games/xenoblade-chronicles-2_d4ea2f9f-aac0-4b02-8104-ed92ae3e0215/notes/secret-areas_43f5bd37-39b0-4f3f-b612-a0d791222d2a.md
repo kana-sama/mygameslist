@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "43f5bd37-39b0-4f3f-b612-a0d791222d2a"
 groupRank: 2048
-rank: 1504
+rank: 13440
 doubleHeight: true
 collapsedChecklistSections:
   - "heading:1irkbgk-1n"
@@ -9,10 +9,9 @@ collapsedChecklistSections:
   - "heading:6al93y-1h"
   - "heading:omtvm-1m"
   - "heading:oxxgn0-1m"
-  - "heading:xcrsji-1g"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-08-30T09:27:00.549Z"
+updatedAt: "2026-09-04T18:37:02.116Z"
 -->
 # Secret Areas
 
@@ -58,4 +57,4 @@ updatedAt: "2026-08-30T09:27:00.549Z"
 
 ## World Tree
 
-- [ ] [7th Perimeter Entrance]("Mid Level; Исследуйте Mid Level и найдите вход за внешним периметром.")
+- [x] [7th Perimeter Entrance]("Mid Level; Исследуйте Mid Level и найдите вход за внешним периметром.")
