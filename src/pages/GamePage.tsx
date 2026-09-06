@@ -967,9 +967,12 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
   const [highlightedChecklistSearchTargetId, setHighlightedChecklistSearchTargetId] = useState<string | null>(null);
   const completedChecklistFilterEpoch = `${completedChecklistFilterGeneration}:${completedChecklistFilterRevision}`;
   if (completedChecklistFilterEnabled && !editing && completedChecklistFilterSnapshotCache.current?.epoch !== completedChecklistFilterEpoch) {
+    const snapshotMarkdown = note.clientId.startsWith("legacy-review:")
+      ? note.bodyMarkdown
+      : parseMarkdownRichTooltips(note.bodyMarkdown).visibleMarkdown;
     completedChecklistFilterSnapshotCache.current = {
       epoch: completedChecklistFilterEpoch,
-      snapshot: createCompletedChecklistFilterSnapshot(parseMarkdownBlocks(note.bodyMarkdown)),
+      snapshot: createCompletedChecklistFilterSnapshot(parseMarkdownBlocks(snapshotMarkdown)),
     };
   }
   const completedChecklistFilterSnapshot = completedChecklistFilterEnabled
