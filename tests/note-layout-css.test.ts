@@ -10,6 +10,60 @@ afterEach(() => {
 });
 
 describe("note column layout", () => {
+  it.each(["top", "middle", "bottom"])("uses vertical drop zones for a %s stack member", (position) => {
+    const style = document.createElement("style");
+    style.dataset.noteLayoutTest = "true";
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    const card = document.createElement("article");
+    card.dataset.shelfPosition = position;
+    card.innerHTML = `
+      <div class="note-drop-zone note-drop-zone--before"></div>
+      <div class="note-drop-zone note-drop-zone--after"></div>
+    `;
+    document.body.append(card);
+
+    const before = card.querySelector<HTMLElement>(".note-drop-zone--before")!;
+    const after = card.querySelector<HTMLElement>(".note-drop-zone--after")!;
+
+    expect(getComputedStyle(before).top).toBe("0px");
+    expect(getComputedStyle(before).left).toBe("0px");
+    expect(getComputedStyle(before).right).toBe("0px");
+    expect(getComputedStyle(before).height).toBe("50%");
+    expect(getComputedStyle(after).bottom).toBe("0px");
+    expect(getComputedStyle(after).left).toBe("0px");
+    expect(getComputedStyle(after).right).toBe("0px");
+    expect(getComputedStyle(after).height).toBe("50%");
+  });
+
+  it("uses horizontal drop zones for a single card", () => {
+    const style = document.createElement("style");
+    style.dataset.noteLayoutTest = "true";
+    style.textContent = productionStyles;
+    document.head.append(style);
+
+    const card = document.createElement("article");
+    card.dataset.shelfPosition = "single";
+    card.innerHTML = `
+      <div class="note-drop-zone note-drop-zone--before"></div>
+      <div class="note-drop-zone note-drop-zone--after"></div>
+    `;
+    document.body.append(card);
+
+    const before = card.querySelector<HTMLElement>(".note-drop-zone--before")!;
+    const after = card.querySelector<HTMLElement>(".note-drop-zone--after")!;
+
+    expect(getComputedStyle(before).top).toBe("0px");
+    expect(getComputedStyle(before).bottom).toBe("0px");
+    expect(getComputedStyle(before).left).toBe("0px");
+    expect(getComputedStyle(before).width).toBe("50%");
+    expect(getComputedStyle(after).top).toBe("0px");
+    expect(getComputedStyle(after).right).toBe("0px");
+    expect(getComputedStyle(after).bottom).toBe("0px");
+    expect(getComputedStyle(after).width).toBe("50%");
+  });
+
   it("lets rendered and editing note columns shrink to 350px before wrapping", () => {
     const style = document.createElement("style");
     style.dataset.noteLayoutTest = "true";

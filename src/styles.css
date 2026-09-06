@@ -798,13 +798,13 @@ button.markdown-table-group__header:disabled { cursor: default; }
 .note-drop-zone { position: absolute; z-index: 5; pointer-events: none; }
 [data-shelf-position="single"] .note-drop-zone--before { top: 0; bottom: 0; left: 0; width: 50%; }
 [data-shelf-position="single"] .note-drop-zone--after { top: 0; right: 0; bottom: 0; width: 50%; }
-[data-shelf-position="top"] .note-drop-zone--before, [data-shelf-position="bottom"] .note-drop-zone--before { top: 0; right: 0; left: 0; height: 50%; }
-[data-shelf-position="top"] .note-drop-zone--after, [data-shelf-position="bottom"] .note-drop-zone--after { right: 0; bottom: 0; left: 0; height: 50%; }
+[data-shelf-position="top"] .note-drop-zone--before, [data-shelf-position="middle"] .note-drop-zone--before, [data-shelf-position="bottom"] .note-drop-zone--before { top: 0; right: 0; left: 0; height: 50%; }
+[data-shelf-position="top"] .note-drop-zone--after, [data-shelf-position="middle"] .note-drop-zone--after, [data-shelf-position="bottom"] .note-drop-zone--after { right: 0; bottom: 0; left: 0; height: 50%; }
 .note-drop-zone.is-indicator::after { content: ""; position: absolute; border-radius: 2px; background: var(--accent); box-shadow: 0 0 0 2px rgba(110, 145, 170, .16); }
 [data-shelf-position="single"] .note-drop-zone--before.is-indicator::after { top: 0; bottom: 0; left: -1px; width: 2px; }
 [data-shelf-position="single"] .note-drop-zone--after.is-indicator::after { top: 0; right: -1px; bottom: 0; width: 2px; }
-[data-shelf-position="top"] .note-drop-zone--before.is-indicator::after, [data-shelf-position="bottom"] .note-drop-zone--before.is-indicator::after { top: -1px; right: 0; left: 0; height: 2px; }
-[data-shelf-position="top"] .note-drop-zone--after.is-indicator::after, [data-shelf-position="bottom"] .note-drop-zone--after.is-indicator::after { right: 0; bottom: -1px; left: 0; height: 2px; }
+[data-shelf-position="top"] .note-drop-zone--before.is-indicator::after, [data-shelf-position="middle"] .note-drop-zone--before.is-indicator::after, [data-shelf-position="bottom"] .note-drop-zone--before.is-indicator::after { top: -1px; right: 0; left: 0; height: 2px; }
+[data-shelf-position="top"] .note-drop-zone--after.is-indicator::after, [data-shelf-position="middle"] .note-drop-zone--after.is-indicator::after, [data-shelf-position="bottom"] .note-drop-zone--after.is-indicator::after { right: 0; bottom: -1px; left: 0; height: 2px; }
 .note-editor-sortable { min-width: 0; height: 100%; }
 .note-editor-sortable > .note-card { height: 100%; }
 .note-editor-sortable.is-dragging { opacity: .28; }

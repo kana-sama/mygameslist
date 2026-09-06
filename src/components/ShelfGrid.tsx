@@ -5,7 +5,7 @@ const DEFAULT_COLUMN_GAP = 8;
 const DEFAULT_ROW_GAP = 12;
 const DEFAULT_STACK_GAP = 6;
 
-export type ShelfStackPosition = "single" | "top" | "bottom";
+export type ShelfStackPosition = "single" | "top" | "middle" | "bottom";
 
 export interface ShelfPlacement {
   index: number;
@@ -150,15 +150,24 @@ function layoutComposition(
         return;
       }
 
-      const topNaturalHeight = heights[slot.indexes[0]];
-      const bottomNaturalHeight = heights[slot.indexes[1]];
-      const extra = Math.max(0, shelfHeight - topNaturalHeight - bottomNaturalHeight - stackGap);
-      const naturalTotal = topNaturalHeight + bottomNaturalHeight;
-      const topExtra = naturalTotal > 0 ? Math.floor(extra * topNaturalHeight / naturalTotal) : Math.floor(extra / 2);
-      const topHeight = topNaturalHeight + topExtra;
-      const bottomHeight = shelfHeight - stackGap - topHeight;
-      placements.push({ index: slot.indexes[0], shelf, column: slot.column, columnSpan: slot.columnSpan, top: shelfTop, height: topHeight, shelfHeight, stackPosition: "top" });
-      placements.push({ index: slot.indexes[1], shelf, column: slot.column, columnSpan: slot.columnSpan, top: shelfTop + topHeight + stackGap, height: bottomHeight, shelfHeight, stackPosition: "bottom" });
+      const naturalTotal = slot.indexes.reduce((total, index) => total + heights[index], 0);
+      const extra = Math.max(0, shelfHeight - naturalTotal - stackGap * (slot.indexes.length - 1));
+      let naturalPrefix = 0;
+      let allocatedExtra = 0;
+      let top = shelfTop;
+      slot.indexes.forEach((index, position) => {
+        naturalPrefix += heights[index];
+        const nextExtra = position === slot.indexes.length - 1
+          ? extra
+          : Math.floor(extra * naturalPrefix / naturalTotal);
+        const height = heights[index] + nextExtra - allocatedExtra;
+        const stackPosition: ShelfStackPosition = position === 0
+          ? "top"
+          : position === slot.indexes.length - 1 ? "bottom" : "middle";
+        placements.push({ index, shelf, column: slot.column, columnSpan: slot.columnSpan, top, height, shelfHeight, stackPosition });
+        top += height + stackGap;
+        allocatedExtra = nextExtra;
+      });
     });
     shelfTop += shelfHeight + rowGap;
   });
@@ -195,19 +204,21 @@ function packShelfItems(
     while (column < capacity && itemOffset < items.length) {
       const item = items[itemOffset];
       if (column + item.columnSpan > capacity) break;
-      const nextItem = items[itemOffset + 1];
-      const canStack = item.columnSpan === 1
-        && totalColumns > 1
-        && nextItem !== undefined
-        && nextItem.columnSpan === 1
-        && heights[item.index] + stackGap + heights[nextItem.index] <= shelfHeight;
-      if (canStack) {
-        slots.push({ column: columnOffset + column, columnSpan: 1, indexes: [item.index, nextItem.index] });
-        itemOffset += 2;
-      } else {
-        slots.push({ column: columnOffset + column, columnSpan: item.columnSpan, indexes: [item.index] });
-        itemOffset += 1;
+      const indexes = [item.index];
+      let usedHeight = heights[item.index];
+      itemOffset += 1;
+      if (item.columnSpan === 1 && totalColumns > 1) {
+        while (itemOffset < items.length) {
+          const next = items[itemOffset];
+          if (next.columnSpan !== 1) break;
+          const nextHeight = usedHeight + stackGap + heights[next.index];
+          if (nextHeight > shelfHeight) break;
+          indexes.push(next.index);
+          usedHeight = nextHeight;
+          itemOffset += 1;
+        }
       }
+      slots.push({ column: columnOffset + column, columnSpan: item.columnSpan, indexes });
       column += item.columnSpan;
     }
 
@@ -464,6 +475,7 @@ export function ShelfGrid({
   const compositionRef = useRef<ShelfComposition | null>(null);
   const columnCountRef = useRef(0);
   const cardsRef = useRef<HTMLElement[]>([]);
+  const naturalHeightsRef = useRef<readonly number[] | null>(null);
   const columnSpanSignatureRef = useRef("");
   const automaticSpansRef = useRef(new WeakMap<HTMLElement, { editor: HTMLElement; span: number }>());
   const pendingRepackRef = useRef(true);
@@ -493,12 +505,17 @@ export function ShelfGrid({
       const gridWidth = grid.getBoundingClientRect().width || grid.clientWidth || minimumColumnWidth;
       const columnCount = Math.max(1, Math.floor((gridWidth + columnGap) / (minimumColumnWidth + columnGap)));
       const heights = measureNaturalHeights(grid, cards, gridWidth);
+      const previousHeights = naturalHeightsRef.current;
+      const heightsChanged = previousHeights === null
+        || previousHeights.length !== heights.length
+        || heights.some((height, index) => height !== previousHeights[index]);
       const packedCardCount = compositionSize(compositionRef.current);
       const childOrderChanged = previousCards.length !== cards.length
         || cards.some((card, index) => card !== previousCards[index]);
       const structureChanged = childOrderChanged || packedCardCount !== cards.length;
       const columnCountChanged = columnCountRef.current !== columnCount;
-      const shouldRepack = requestRepack || pendingRepackRef.current || !compositionRef.current || columnCountChanged || structureChanged;
+      const shouldRepack = requestRepack || pendingRepackRef.current
+        || !compositionRef.current || columnCountChanged || structureChanged || heightsChanged;
       const compositionUsable = Boolean(compositionRef.current && packedCardCount === cards.length);
       const repackNow = !compositionUsable
         || spanChanged
@@ -556,6 +573,7 @@ export function ShelfGrid({
       const columnWidth = (gridWidth - columnGap * Math.max(0, columnCount - 1)) / columnCount;
 
       cardsRef.current = cards;
+      naturalHeightsRef.current = heights;
       columnSpanSignatureRef.current = columnSpanSignature;
       grid.style.gridAutoRows = "1px";
       grid.style.rowGap = "0px";

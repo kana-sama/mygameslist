@@ -199,7 +199,7 @@ describe("ordered shelf layout", () => {
     ]);
   });
 
-  it("stacks only two adjacent cards and makes their combined height exact", () => {
+  it("preserves exact sizing for a pair of stacked cards", () => {
     const layout = buildShelfLayout([40, 50, 140, 60], 3);
     const [top, bottom, tallest, trailing] = layout.placements;
 
@@ -208,6 +208,65 @@ describe("ordered shelf layout", () => {
     expect(top.height + 6 + bottom.height).toBe(140);
     expect(tallest).toMatchObject({ index: 2, column: 1, height: 140, stackPosition: "single" });
     expect(trailing).toMatchObject({ index: 3, column: 2, height: 140, stackPosition: "single" });
+  });
+
+  it("stacks every adjacent short card that fits the shelf", () => {
+    const heights = [600, 70, 80, 90, 100];
+    const layout = buildShelfLayout(heights, 3);
+    expect(layout.placements.map(({ shelf, column }) => [shelf, column]))
+      .toEqual([[0, 0], [0, 1], [0, 1], [0, 1], [0, 1]]);
+    expect(layout.placements.map(({ stackPosition }) => stackPosition))
+      .toEqual(["single", "top", "middle", "middle", "bottom"]);
+    expect(layout.placements.map(({ index }) => index)).toEqual([0, 1, 2, 3, 4]);
+    const stack = layout.placements.slice(1);
+    expect(stack.reduce((sum, card) => sum + card.height, 0) + 3 * 6).toBe(600);
+    stack.forEach((card, index) => {
+      expect(card.height).toBeGreaterThanOrEqual(heights[card.index]);
+      if (index > 0) expect(card.top).toBe(stack[index - 1].top + stack[index - 1].height + 6);
+    });
+    expect(stack.at(-1)!.top + stack.at(-1)!.height).toBe(600);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("does not replace the pair limit with another fixed limit", () => {
+    const layout = buildShelfLayout([600, ...Array(50).fill(5)], 3);
+    expect(layout.placements).toHaveLength(51);
+    expect(layout.placements.slice(1).every((p) => p.shelf === 0 && p.column === 1)).toBe(true);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it.each([
+    { last: 104, columns: [0, 1, 1, 1] },
+    { last: 105, columns: [0, 1, 1, 2] },
+  ])("honors the exact height boundary for $last", ({ last, columns }) => {
+    const layout = buildShelfLayout([300, 90, 94, last], 3);
+    expect(layout.placements.map((p) => p.column)).toEqual(columns);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("revisits earlier stacks when a newly admitted tall card raises the shelf", () => {
+    const layout = buildShelfLayout([40, 40, 100, 220, 50], 3);
+    expect(layout.placements.map((p) => [p.shelf, p.column]))
+      .toEqual([[0, 0], [0, 0], [0, 0], [0, 1], [0, 2]]);
+    expect(layout.height).toBe(220);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("stops a stack at a wide card without skipping ahead", () => {
+    const layout = buildShelfLayout([600, 40, 40, 40, 70, 40], 4,
+      { columnSpans: [1, 1, 1, 1, 2, 1] });
+    expect(layout.placements.map((p) => [p.shelf, p.column, p.columnSpan]))
+      .toEqual([[0, 0, 1], [0, 1, 1], [0, 1, 1], [0, 1, 1], [0, 2, 2], [1, 0, 1]]);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("uses custom gaps and a later shelf's top for a long stack", () => {
+    const layout = buildShelfLayout([500, 500, 300, 90, 94, 96], 2,
+      { rowGap: 17, stackGap: 10 });
+    expect(layout.placements.slice(2).map((p) => [p.shelf, p.column, p.top, p.height]))
+      .toEqual([[1, 0, 517, 300], [1, 1, 517, 90], [1, 1, 617, 94], [1, 1, 721, 96]]);
+    expect(layout.height).toBe(817);
+    expectNoPlacementOverlaps(layout);
   });
 
   it("pulls another card into a freed column and repeats packing when it raises the row", () => {
@@ -334,6 +393,51 @@ describe("ordered shelf layout", () => {
     expectNoPlacementOverlaps(expanded);
   });
 
+  it.each([0, 1, 2])("pins stack member %i when it expands rightward", (index) => {
+    const heights = [40, 40, 40, 300, 100, 100];
+    const initial = buildShelfLayout(heights, 4);
+    expect(initial.placements.slice(0, 3).map((placement) => placement.stackPosition))
+      .toEqual(["top", "middle", "bottom"]);
+    const anchor = initial.placements[index];
+    const snapshot = structuredClone(initial);
+
+    const expanded = expandShelfLayout(heights, 4, initial, {
+      columnSpans: heights.map(() => 1),
+      expansion: { index, requestedSpan: 3 },
+    });
+
+    expect(expanded.placements[index]).toMatchObject({
+      shelf: anchor.shelf,
+      column: anchor.column,
+      top: anchor.top,
+      columnSpan: 3,
+    });
+    expect(expanded.placements.map((placement) => placement.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(initial).toEqual(snapshot);
+    expectNoPlacementOverlaps(expanded);
+  });
+
+  it("keeps a displaced triple in the last free column", () => {
+    const heights = [300, 40, 40, 40, 300];
+    const initial = buildShelfLayout(heights, 4);
+
+    const expanded = expandShelfLayout(heights, 4, initial, {
+      expansion: { index: 0, requestedSpan: 3 },
+    });
+
+    expect(expanded.placements.slice(1, 4).map((placement) => [
+      placement.shelf,
+      placement.column,
+      placement.stackPosition,
+    ])).toEqual([
+      [0, 3, "top"],
+      [0, 3, "middle"],
+      [0, 3, "bottom"],
+    ]);
+    expect(expanded.placements.map((placement) => placement.index)).toEqual([0, 1, 2, 3, 4]);
+    expectNoPlacementOverlaps(expanded);
+  });
+
   it("keeps a bottom stack member's absolute top while displacing its former partner exactly once", () => {
     const heights = [40, 40, 150, 100, 100];
     const initial = buildShelfLayout(heights, 4);
@@ -385,6 +489,41 @@ describe("ordered shelf layout", () => {
       column: secondAnchorBefore.column,
       top: secondAnchorBefore.top,
     });
+    expectNoPlacementOverlaps(second);
+  });
+
+  it("preserves a widened middle anchor's offset when a next-row card expands later", () => {
+    const heights = [40, 40, 40, 300, 100, 100];
+    const initial = buildShelfLayout(heights, 4);
+    const snapshot = structuredClone(initial);
+    expect(initial.placements[1]).toMatchObject({ stackPosition: "middle" });
+
+    const first = expandShelfLayout(heights, 4, initial, {
+      columnSpans: heights.map(() => 1),
+      expansion: { index: 1, requestedSpan: 4 },
+    });
+    const firstAnchorBefore = first.placements[1];
+    const secondAnchorBefore = first.placements[3];
+    expect(firstAnchorBefore.top).toBeGreaterThan(0);
+    expect(secondAnchorBefore.shelf).toBeGreaterThan(firstAnchorBefore.shelf);
+
+    const second = expandShelfLayout(heights, 4, first, {
+      columnSpans: heights.map(() => 1),
+      expansion: { index: 3, requestedSpan: 3 },
+    });
+
+    expect(second.placements[1]).toMatchObject({
+      shelf: firstAnchorBefore.shelf,
+      column: firstAnchorBefore.column,
+      top: firstAnchorBefore.top,
+    });
+    expect(second.placements[3]).toMatchObject({
+      shelf: secondAnchorBefore.shelf,
+      column: secondAnchorBefore.column,
+      top: secondAnchorBefore.top,
+    });
+    expect(second.placements.map((placement) => placement.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(initial).toEqual(snapshot);
     expectNoPlacementOverlaps(second);
   });
 
@@ -603,6 +742,186 @@ describe("ordered shelf layout", () => {
       </ShelfGrid>,
     )).toThrow("synthetic measurement failure");
     expect(document.querySelectorAll("[data-shelf-measuring]")).toHaveLength(0);
+  });
+
+  it("repacks changed natural heights without changing the layout key", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 1100, height: 600 } as DOMRect;
+      return { width: 360, height: Number(this.dataset.height ?? 1) } as DOMRect;
+    });
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = async () => {
+      await act(async () => {
+        await Promise.resolve();
+        let rounds = 0;
+        while (frames.size > 0) {
+          expect(++rounds).toBeLessThan(10);
+          const callbacks = [...frames.values()];
+          frames.clear();
+          callbacks.forEach((callback) => callback(0));
+          await Promise.resolve();
+        }
+      });
+    };
+    const view = render(
+      <ShelfGrid className="notes-list" layoutKey="height-change">
+        <article data-height="600" />
+        <article data-height="300"><button aria-expanded="true">Toggle</button></article>
+        <article data-height="300" />
+        <article data-height="300" />
+        <article data-height="300" />
+      </ShelfGrid>,
+    );
+    const grid = view.container.querySelector(".notes-list")!;
+    const originals = Array.from(grid.children) as HTMLElement[];
+    const toggle = originals[1].querySelector("button")!;
+    toggle.focus();
+
+    [70, 80, 90, 100].forEach((height, index) => {
+      originals[index + 1].dataset.height = String(height);
+    });
+    toggle.setAttribute("aria-expanded", "false");
+    await flush();
+
+    expect(Array.from(grid.children)).toEqual(originals);
+    expect(document.activeElement).toBe(toggle);
+    expect(originals.map((card) => [card.dataset.shelfIndex, card.style.gridColumnStart]))
+      .toEqual([["0", "1"], ["0", "2"], ["0", "2"], ["0", "2"], ["0", "2"]]);
+    expect(originals.map((card) => card.dataset.shelfPosition))
+      .toEqual(["single", "top", "middle", "middle", "bottom"]);
+
+    const collapsedPlacements = originals.map((card) => card.getAttribute("style"));
+    toggle.classList.add("geometry-change");
+    await flush();
+    expect(originals.map((card) => card.getAttribute("style"))).toEqual(collapsedPlacements);
+    expect(Array.from(grid.children)).toEqual(originals);
+    expect(document.activeElement).toBe(toggle);
+    expect(frames.size).toBe(0);
+
+    [300, 300, 300, 300].forEach((height, index) => {
+      originals[index + 1].dataset.height = String(height);
+    });
+    toggle.setAttribute("aria-expanded", "true");
+    await flush();
+
+    expect(Array.from(grid.children)).toEqual(originals);
+    expect(document.activeElement).toBe(toggle);
+    expect(originals.map((card) => [card.dataset.shelfIndex, card.style.gridColumnStart, card.dataset.shelfPosition]))
+      .toEqual([
+        ["0", "1", "single"],
+        ["0", "2", "single"],
+        ["0", "3", "single"],
+        ["1", "1", "single"],
+        ["1", "2", "single"],
+      ]);
+    expect(frames.size).toBe(0);
+  });
+
+  it.each([
+    {
+      name: "defers a newly fitting stack until thaw",
+      initialHeights: [600, 300, 300, 300, 300],
+      frozenHeights: [600, 70, 80, 90, 100],
+      frozenPositions: ["single", "single", "single", "single", "single"],
+      thawedPositions: ["single", "top", "middle", "middle", "bottom"],
+      frozenFirstRowEnd: "span 600",
+      frozenLastRowEnd: "span 100",
+    },
+    {
+      name: "keeps a growing stack together while frozen",
+      initialHeights: [600, 70, 80, 90, 100],
+      frozenHeights: [600, 70, 80, 90, 500],
+      frozenPositions: ["single", "top", "middle", "middle", "bottom"],
+      thawedPositions: ["single", "top", "middle", "bottom", "single"],
+      frozenFirstRowEnd: "span 758",
+      frozenLastRowEnd: "span 500",
+    },
+  ])("$name", async ({
+    initialHeights,
+    frozenHeights,
+    frozenPositions,
+    thawedPositions,
+    frozenFirstRowEnd,
+    frozenLastRowEnd,
+  }) => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 1100, height: 600 } as DOMRect;
+      return { width: 360, height: Number(this.dataset.height ?? 1) } as DOMRect;
+    });
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = async () => {
+      await act(async () => {
+        await Promise.resolve();
+        const callbacks = [...frames.values()];
+        frames.clear();
+        callbacks.forEach((callback) => callback(0));
+        await Promise.resolve();
+      });
+      expect(frames.size).toBe(0);
+    };
+    const cards = (heights: readonly number[]) => heights.map((height, index) => (
+      <article data-height={height} key={index}>
+        {index === 1 ? <button aria-expanded="true">Toggle</button> : null}
+      </article>
+    ));
+    const view = render(
+      <ShelfGrid className="notes-list" layoutKey="frozen-height-change">
+        {cards(initialHeights)}
+      </ShelfGrid>,
+    );
+    const grid = view.container.querySelector(".notes-list")!;
+    const originals = Array.from(grid.children) as HTMLElement[];
+    const beforeFreeze = originals.map((card) => [
+      card.dataset.shelfIndex,
+      card.style.gridColumnStart,
+      card.dataset.shelfPosition,
+    ]);
+
+    view.rerender(
+      <ShelfGrid className="notes-list" layoutKey="frozen-height-change" packingFrozen>
+        {cards(initialHeights)}
+      </ShelfGrid>,
+    );
+    frozenHeights.forEach((height, index) => {
+      originals[index].dataset.height = String(height);
+    });
+    originals[1].querySelector("button")!.setAttribute("aria-expanded", "false");
+    await flush();
+
+    expect(Array.from(grid.children)).toEqual(originals);
+    expect(originals.map((card) => [
+      card.dataset.shelfIndex,
+      card.style.gridColumnStart,
+      card.dataset.shelfPosition,
+    ])).toEqual(beforeFreeze);
+    expect(originals.map((card) => card.dataset.shelfPosition)).toEqual(frozenPositions);
+    expect(originals[0].style.gridRowEnd).toBe(frozenFirstRowEnd);
+    expect(originals.at(-1)?.style.gridRowEnd).toBe(frozenLastRowEnd);
+
+    view.rerender(
+      <ShelfGrid className="notes-list" layoutKey="frozen-height-change">
+        {cards(frozenHeights)}
+      </ShelfGrid>,
+    );
+
+    expect(Array.from(grid.children)).toEqual(originals);
+    expect(originals.map((card) => card.dataset.shelfPosition)).toEqual(thawedPositions);
   });
 
   it("keeps the same card nodes while a frozen composition changes height, then repacks once thawed", () => {
