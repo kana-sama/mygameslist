@@ -727,7 +727,7 @@ describe("deterministic artifact roots", () => {
     await mkdir(join(cachedShell, "assets"), { recursive: true });
     await mkdir(join(cachedShell, "data", "stale"), { recursive: true });
     await mkdir(join(cachedShell, "media", "nested"), { recursive: true });
-    await writeFile(join(cachedShell, "index.html"), "<main>cached shell</main>");
+    await writeFile(join(cachedShell, "index.html"), "<!doctype html><html><head></head><body><main>cached shell</main></body></html>");
     await writeFile(join(cachedShell, ".nojekyll"), "");
     await writeFile(join(cachedShell, "assets", "cached.js"), "cached shell bytes");
     await writeFile(join(cachedShell, "data", "stale", "source.yaml"), "stale");
@@ -736,7 +736,7 @@ describe("deterministic artifact roots", () => {
     const viteRoot = join(sandbox, "vite-shell");
     await mkdir(join(viteRoot, "public", "data"), { recursive: true });
     await mkdir(join(viteRoot, "public", "media"), { recursive: true });
-    await writeFile(join(viteRoot, "index.html"), "<main id=app></main><script type=module src=/main.js></script>");
+    await writeFile(join(viteRoot, "index.html"), "<!doctype html><html><head></head><body><main id=app></main><script type=module src=/main.js></script></body></html>");
     await writeFile(join(viteRoot, "main.js"), "document.querySelector('#app').textContent = 'vite shell';");
     await writeFile(join(viteRoot, "public", ".nojekyll"), "");
     await writeFile(join(viteRoot, "public", "data", "library.json"), "stale legacy database");
@@ -774,7 +774,7 @@ describe("deterministic artifact roots", () => {
     const entrypoint = fileURLToPath(new URL("../scripts/build-pages-artifact.ts", import.meta.url));
     await mkdir(join(projectRoot, ".git"), { recursive: true });
     await writeFile(join(projectRoot, ".git", "HEAD"), `${SOURCE_SHA}\n`);
-    await writeFile(join(projectRoot, "index.html"), "<main id=app></main><script type=module src=/main.js></script>");
+    await writeFile(join(projectRoot, "index.html"), "<!doctype html><html><head></head><body><main id=app></main><script type=module src=/main.js></script></body></html>");
     await writeFile(join(projectRoot, "main.js"), "document.querySelector('#app').textContent = 'Pages artifact';");
     await symlink(
       await realpath(new URL("../node_modules", import.meta.url)),

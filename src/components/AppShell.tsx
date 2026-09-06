@@ -3,6 +3,7 @@ import type { Game } from "../domain/types";
 import { Icon } from "./Icon";
 import { GlobalGameSearch } from "./GlobalGameSearch";
 import { formatBytes } from "./libraryUi";
+import { DeploymentStatusIndicator, passiveDeploymentStatus } from "./DeploymentStatusIndicator";
 import { RandomGameButton } from "./RandomGameButton";
 
 export type AppRoute = "tiers" | "catalog" | "game" | "new";
@@ -30,6 +31,7 @@ export interface AppShellProps {
   onNavigate?: (href: string) => void;
   resolveAssetUrl?: (assetId: string) => string | null;
   localChangesIndicator?: ReactNode;
+  deploymentStatusIndicator?: ReactNode;
 }
 
 function NavLink({
@@ -106,6 +108,7 @@ export function AppShell({
   onNavigate,
   resolveAssetUrl,
   localChangesIndicator,
+  deploymentStatusIndicator,
 }: AppShellProps) {
   return (
     <div className="app-shell" data-route={route}>
@@ -117,6 +120,7 @@ export function AppShell({
         </nav>
         <GlobalGameSearch games={games} onNavigate={onNavigate} />
         <div className="app-header__actions">
+          {deploymentStatusIndicator ?? <DeploymentStatusIndicator snapshot={passiveDeploymentStatus} />}
           <RandomGameButton games={games} onNavigate={onNavigate} resolveAssetUrl={resolveAssetUrl} />
           {localChangesIndicator ?? <LocalChangesIndicator onOpenDiff={onOpenDiff} storage={storage} />}
           <a className="button button--primary button--new-game" href="#/games/new" onClick={onNavigate ? (event) => { event.preventDefault(); onNavigate("#/games/new"); } : undefined}>

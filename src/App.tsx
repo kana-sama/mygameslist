@@ -32,6 +32,8 @@ import {
   type PatchOperation,
 } from "./domain";
 import { CatalogPage, GamePage, TierListPage, type NoteInteractionSnapshot, type NoteInteractionSource } from "./pages";
+import { DeploymentStatusIndicator } from "./components/DeploymentStatusIndicator";
+import { useDeploymentStatus } from "./state/useDeploymentStatus";
 import { LibraryProvider, useLibrarySelector, type LibraryContextValue } from "./state/LibraryContext";
 import { loadSidebarLayoutMode, setSidebarLayoutMode as persistSidebarLayoutMode, type SidebarLayoutMode } from "./state/sidebarLayoutPreference";
 import { loadCompletedChecklistFilterEnabled, setCompletedChecklistFilterEnabled as persistCompletedChecklistFilterEnabled } from "./state/completedChecklistFilterPreference";
@@ -226,6 +228,15 @@ function SubscribedLocalChangesIndicator({ actionError, onOpenDiff }: { actionEr
   return <LocalChangesIndicator onOpenDiff={onOpenDiff} storage={storage} />;
 }
 
+function SubscribedDeploymentStatusIndicator({ token }: { token: string | null }) {
+  const version = useLibrarySelector((library) => ({
+    loading: library.loading,
+    sourceCommitSha: library.sourceCommitSha,
+  }), (left, right) => left.loading === right.loading && left.sourceCommitSha === right.sourceCommitSha);
+  const snapshot = useDeploymentStatus({ ready: !version.loading, dataCommitSha: version.sourceCommitSha, token });
+  return <DeploymentStatusIndicator snapshot={snapshot} />;
+}
+
 function LibraryRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -239,6 +250,7 @@ function LibraryRoutes() {
   const [explicitSelectionIds, setExplicitSelectionIds] = useState<ReadonlySet<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const githubPatRef = useRef<string | null>(null);
+  const [statusPat, setStatusPat] = useState<string | null>(null);
   const [githubPatPersistence, setGitHubPatPersistence] = useState<GitHubPatPersistence | null>(null);
   const [githubSyncState, setGitHubSyncState] = useState<{
     busy: boolean;
@@ -252,6 +264,7 @@ function LibraryRoutes() {
     const loaded = loadGitHubPat();
     if (loaded.ok) {
       githubPatRef.current = loaded.token;
+      setStatusPat(loaded.token);
       setGitHubPatPersistence(loaded.persistence);
     } else {
       setGitHubSyncState((current) => ({ ...current, error: loaded.error === "invalid-token" ? "Сохранённый PAT повреждён" : "Safari не разрешил прочитать сохранённый PAT" }));
@@ -356,6 +369,7 @@ function LibraryRoutes() {
       if (message.startsWith("GitHub отклонил PAT")) {
         clearGitHubPat();
         githubPatRef.current = null;
+        setStatusPat(null);
         setGitHubPatPersistence(null);
       }
       setGitHubSyncState((current) => ({ ...current, busy: false, stage: "idle", error: message }));
@@ -389,10 +403,12 @@ function LibraryRoutes() {
     }
     if (library.publicationState.status !== "none") {
       githubPatRef.current = loaded.token;
+      setStatusPat(loaded.token);
       setGitHubPatPersistence(loaded.persistence);
       await library.retryPublicationCheck(loaded.token);
     } else if (operationEntries.length) {
       githubPatRef.current = loaded.token;
+      setStatusPat(loaded.token);
       setGitHubPatPersistence(loaded.persistence);
       await syncWithGitHub(loaded.token, selectedPaths);
     } else {
@@ -402,6 +418,7 @@ function LibraryRoutes() {
         throw reason;
       }
       githubPatRef.current = loaded.token;
+      setStatusPat(loaded.token);
       setGitHubPatPersistence(loaded.persistence);
     }
   };
@@ -410,6 +427,7 @@ function LibraryRoutes() {
     const cleared = clearGitHubPat();
     if (!cleared.ok) throw new Error("Safari не разрешил удалить сохранённый PAT");
     githubPatRef.current = null;
+    setStatusPat(null);
     setGitHubPatPersistence(null);
     setGitHubSyncState({ busy: false, stage: "idle", error: null });
   };
@@ -486,6 +504,7 @@ function LibraryRoutes() {
 
   return (
     <AppShell
+      deploymentStatusIndicator={<SubscribedDeploymentStatusIndicator token={statusPat} />}
       games={games}
       localChangesIndicator={<SubscribedLocalChangesIndicator actionError={actionError} onOpenDiff={openDiff} />}
       onNavigate={navigateHref}

@@ -21,6 +21,7 @@ import {
   recoverArtifactPromotion,
   validateArtifactRoot,
 } from "./artifact-root";
+import { stampDeploymentVersion, validateDeploymentVersion } from "./deployment-version";
 
 export type SiteShellInput =
   | {
@@ -395,7 +396,11 @@ export async function buildSite(options: BuildSiteOptions): Promise<BuildSiteRes
     const assembly = await buildArtifactData(sourceRoot, artifactRoot, options.sourceCommitSha);
     await assertDirectoryChain(artifactParentIdentity, "Artifact staging parent");
     await assertSameEntry(freshRootIdentity, "Fresh artifact staging root");
+    await stampDeploymentVersion(artifactRoot, options.sourceCommitSha);
+    await assertDirectoryChain(artifactParentIdentity, "Artifact staging parent");
+    await assertSameEntry(freshRootIdentity, "Fresh artifact staging root");
     await validateArtifactRoot(artifactRoot, assembly);
+    await validateDeploymentVersion(artifactRoot, options.sourceCommitSha);
     await flushCompleteRoot(artifactRoot);
     await assertDirectoryChain(artifactParentIdentity, "Artifact staging parent");
     await assertSameEntry(freshRootIdentity, "Fresh artifact staging root");

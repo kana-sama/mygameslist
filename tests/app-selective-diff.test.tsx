@@ -1,4 +1,5 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+// @vitest-environment-options { "url": "https://fixture.example.test/library/" }
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +33,7 @@ vi.mock("../src/components/MonacoMarkdownEditor", async () => (
 ));
 
 import App from "../src/App";
+import { saveGitHubPat, loadGitHubPat } from "../src/state/githubPat";
 
 const GAME_A_ID = "00000000-0000-4000-8000-000000000001";
 const GAME_B_ID = "00000000-0000-4000-8000-000000000002";
@@ -214,6 +216,7 @@ async function openDiff(user: ReturnType<typeof userEvent.setup>): Promise<HTMLE
 }
 
 beforeEach(() => {
+  document.head.innerHTML = `<meta name="mygameslist-deployment-commit" content="${SOURCE_COMMIT_SHA}">`;
   window.location.hash = "#/";
   window.localStorage.clear();
   window.sessionStorage.clear();
@@ -222,6 +225,104 @@ beforeEach(() => {
 afterEach(() => {
   libraryHarness.current = null;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe("App deployment status integration", () => {
+  it("passes the stored PAT to monitoring and preserves the document/controller across routes and database updates", async () => {
+    vi.stubEnv("DEV", false);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(SOURCE_COMMIT_SHA));
+    vi.stubGlobal("fetch", fetch);
+    saveGitHubPat(PAT, false);
+    const base = database();
+    base.games[GAME_A_ID] = game(GAME_A_ID, "Version fixture");
+    libraryHarness.current = libraryValue(base, base);
+    const view = render(<App />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Версия сайта: Открыта последняя версия" })).toBeInTheDocument());
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get("Authorization")).toBe(`Bearer ${PAT}`);
+    const indicator = screen.getByRole("button", { name: /^Версия сайта:/ });
+    for (const route of ["#/games", "#/games/new", `#/games/${GAME_A_ID}`, "#/"]) {
+      act(() => { window.location.hash = route; });
+      await waitFor(() => expect(document.querySelector(".app-shell")).toHaveAttribute("data-route", route === "#/" ? "tiers" : route.endsWith("new") ? "new" : route.endsWith(GAME_A_ID) ? "game" : "catalog"));
+      expect(screen.getByRole("button", { name: /^Версия сайта:/ })).toBe(indicator);
+      expect(document.querySelectorAll(".app-header__actions .deployment-status")).toHaveLength(1);
+    }
+    libraryHarness.current = { ...libraryHarness.current!, sourceCommitSha: "b".repeat(40) };
+    document.querySelector('meta[name="mygameslist-deployment-commit"]')!.setAttribute("content", "b".repeat(40));
+    view.rerender(<App />);
+    await userEvent.setup().click(indicator);
+    expect(within(screen.getByRole("tooltip")).getAllByText("fffffff")).toHaveLength(2);
+    expect(within(screen.getByRole("tooltip")).getByText("bbbbbbb")).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("updates monitoring credentials on disconnect and reconnect through the existing sync panel", async () => {
+    vi.stubEnv("DEV", false);
+    let now = 1_800_000_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(SOURCE_COMMIT_SHA));
+    vi.stubGlobal("fetch", fetch);
+    saveGitHubPat(PAT, false);
+    libraryHarness.current = libraryValue(database(), database());
+    render(<App />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const user = userEvent.setup();
+    const dialog = await openDiff(user);
+    await user.click(within(dialog).getByRole("button", { name: "Синхронизировать всё" }));
+    now += 300_001;
+    await user.click(within(dialog).getByRole("button", { name: "Отключить" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).get("Authorization")).toBeNull();
+    now += 300_001;
+    fireEvent.change(within(dialog).getByLabelText("Fine-grained PAT"), { target: { value: "github_pat_replacement123" } });
+    expect(within(dialog).getByLabelText("Fine-grained PAT")).toHaveValue("github_pat_replacement123");
+    expect(within(dialog).getByRole("button", { name: "Подключить" })).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: "Подключить" }));
+    await waitFor(() => expect(libraryHarness.current!.verifyGitHubAccess).toHaveBeenCalledWith("github_pat_replacement123"));
+    expect(loadGitHubPat()).toMatchObject({ token: "github_pat_replacement123" });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+    expect(new Headers(fetch.mock.calls[2][1]?.headers).get("Authorization")).toBe("Bearer github_pat_replacement123");
+    expect(libraryHarness.current.verifyGitHubAccess).toHaveBeenCalledWith("github_pat_replacement123");
+  });
+
+  it("clears the monitoring credential when the existing synchronization rejects its PAT", async () => {
+    vi.stubEnv("DEV", false);
+    let now = 1_800_000_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(SOURCE_COMMIT_SHA));
+    vi.stubGlobal("fetch", fetch);
+    saveGitHubPat(PAT, false);
+    libraryHarness.current = dependencyFixture().context;
+    vi.mocked(libraryHarness.current.syncToGitHub).mockRejectedValue(new Error("GitHub отклонил PAT"));
+    render(<App />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const user = userEvent.setup();
+    const dialog = await openDiff(user);
+    await user.click(within(dialog).getByRole("button", { name: "Синхронизировать всё" }));
+    now += 300_001;
+    const panel = within(dialog).getByRole("region", { name: "Синхронизация с GitHub" });
+    await user.click(within(panel).getByRole("button", { name: "Синхронизировать всё" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).get("Authorization")).toBeNull();
+    expect(loadGitHubPat()).toMatchObject({ token: null });
+  });
+
+  it("keeps synchronization connected after monitoring rejects its PAT", async () => {
+    vi.stubEnv("DEV", false);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 401 })));
+    saveGitHubPat(PAT, false);
+    libraryHarness.current = libraryValue(database(), database());
+    render(<App />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Версия сайта: Не удалось проверить версию/ })).toBeInTheDocument());
+    expect(loadGitHubPat()).toMatchObject({ token: PAT });
+    const user = userEvent.setup();
+    const dialog = await openDiff(user);
+    await user.click(within(dialog).getByRole("button", { name: "Синхронизировать всё" }));
+    expect(within(dialog).getByRole("button", { name: "Отключить" })).toBeInTheDocument();
+    expect(libraryHarness.current.syncToGitHub).not.toHaveBeenCalled();
+  });
 });
 
 describe("App selective diff integration", () => {

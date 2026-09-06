@@ -115,10 +115,14 @@ describe("AppShell", () => {
   it("keeps global settings as the final header action after adding a game", async () => {
     const user = userEvent.setup();
     const onOpenSettings = vi.fn();
-    render(<AppShell onOpenDiff={vi.fn()} onOpenSettings={onOpenSettings} route="tiers" storage={{ bytes: 0, operationCount: 0 }}><div>Тирлист</div></AppShell>);
+    render(<AppShell games={[makeGame()]} onOpenDiff={vi.fn()} onOpenSettings={onOpenSettings} route="tiers" storage={{ bytes: 0, operationCount: 0 }}><div>Тирлист</div></AppShell>);
     const actions = document.querySelector(".app-header__actions")!;
     const settings = screen.getByRole("button", { name: "Настройки" });
     const newGame = screen.getByRole("link", { name: "Добавить игру" });
+    const indicator = screen.getByRole("button", { name: /^Версия сайта:/ });
+    const picker = screen.getByRole("button", { name: "Случайная игра" }).closest(".random-game-picker")!;
+    expect(actions.querySelectorAll(".deployment-status")).toHaveLength(1);
+    expect(picker.previousElementSibling).toBe(indicator.closest(".deployment-status"));
     expect(actions.lastElementChild).toBe(settings);
     expect(newGame.nextElementSibling).toBe(settings);
     await user.click(settings);
