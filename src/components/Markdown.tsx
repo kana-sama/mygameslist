@@ -1145,7 +1145,7 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
                     <label className="markdown-task-control" onClick={(event) => event.stopPropagation()}>
                       <MarkdownTaskCheckbox
                         aria-disabled={taskChangesDisabled || undefined}
-                        aria-describedby={checklistSearchTargetId}
+                        aria-describedby={cell.value ? checklistSearchTargetId : undefined}
                         aria-label={`${taskStateLabel(taskState)}: ${taskLabel}`}
                         className="markdown-task-checkbox"
                         disabled={!taskCheckboxChangesAvailable || activeTaskEditor !== null}
@@ -1171,7 +1171,7 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
                   )}
                   {cell.value
                     ? <span id={checklistSearchTargetId}>{locatedInline(inlineSource, `${cellKey}-content`, cell.sourceLine === undefined || cell.sourceColumn === undefined ? undefined : { sourceColumn: cell.sourceColumn, sourceLine: cell.sourceLine }, forceRevealSpoilers)}</span>
-                    : checklistSearchTargetId ? <span id={checklistSearchTargetId} /> : null}
+                    : null}
                 </div>
               </td>
             );

@@ -21,7 +21,31 @@ vi.mock("../src/domain/markdownChecklist", async (importOriginal) => {
 });
 
 describe("checklist search target markup", () => {
+  it.each([
+    ["unchecked", "[ ]"],
+    ["checked", "[x]"],
+    ["indeterminate", "[-]"],
+  ])("renders a %s marker-only table task as a single control with and without search identity", (_state, marker) => {
+    for (const checklistSearchNoteIdentity of [undefined, "fixture:note"]) {
+      const view = render(
+        <MarkdownView
+          checklistSearchNoteIdentity={checklistSearchNoteIdentity}
+          markdown={["| Row | Marker |", "| --- | --- |", `| Context | ${marker} |`].join("\n")}
+          onTaskCheckboxChange={vi.fn()}
+        />,
+      );
+
+      const target = view.container.querySelector<HTMLElement>(".markdown-table-task--only")!;
+      expect(target.children).toHaveLength(1);
+      expect(target.firstElementChild?.tagName).toBe("LABEL");
+      expect(target.querySelector("span")).toBeNull();
+      expect(within(target).getByRole("checkbox")).not.toHaveAttribute("aria-describedby");
+      view.unmount();
+    }
+  });
+
   it("assigns exact source identities and React-controlled highlight state to list and table targets", () => {
+    const onTaskCheckboxChange = vi.fn();
     const view = render(
       <MarkdownView
         checklistSearchNoteIdentity="fixture:note"
@@ -33,7 +57,7 @@ describe("checklist search target markup", () => {
           "| --- | --- | --- |",
           "| Row | [ ] Table target | [ ] |",
         ].join("\n")}
-        onTaskCheckboxChange={vi.fn()}
+        onTaskCheckboxChange={onTaskCheckboxChange}
       />,
     );
 
@@ -45,14 +69,18 @@ describe("checklist search target markup", () => {
     expect(tableTarget).toHaveAttribute("data-checklist-search-target-id", "checklist:fixture%3Anote:4:8");
     expect(tableTarget).not.toHaveClass("markdown-checklist-search-target--highlighted");
     expect(markerOnlyTableTarget).toHaveAttribute("data-checklist-search-target-id", "checklist:fixture%3Anote:4:27");
+    const markerOnlyGuard = markerOnlyTableTarget.getAttribute("data-checklist-search-structural-guard");
+    expect(markerOnlyGuard).toBeTruthy();
     expect(within(listRow).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:0:2");
     expect(within(tableTarget).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:4:8");
-    expect(within(markerOnlyTableTarget).getByRole("checkbox")).toHaveAttribute("aria-describedby", "checklist:fixture%3Anote:4:27");
+    expect(within(markerOnlyTableTarget).getByRole("checkbox", { name: "Отметить: Row — Marker" })).not.toHaveAttribute("aria-describedby");
+    expect(document.getElementById("checklist:fixture%3Anote:4:8")).toBe(tableTarget.querySelector("span"));
+    expect(tableTarget.querySelector("span")).toHaveTextContent("Table target");
 
     view.rerender(
       <MarkdownView
         checklistSearchNoteIdentity="fixture:note"
-        highlightedChecklistSearchTargetId="checklist:fixture%3Anote:4:8"
+        highlightedChecklistSearchTargetId="checklist:fixture%3Anote:4:27"
         markdown={[
           "- [ ] Visible list target",
           "",
@@ -60,12 +88,23 @@ describe("checklist search target markup", () => {
           "| --- | --- | --- |",
           "| Row | [ ] Table target | [ ] |",
         ].join("\n")}
-        onTaskCheckboxChange={vi.fn()}
+        onTaskCheckboxChange={onTaskCheckboxChange}
       />,
     );
 
     expect(listRow).not.toHaveClass("markdown-checklist-search-target--highlighted");
-    expect(tableTarget).toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(tableTarget).not.toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(markerOnlyTableTarget).toHaveClass("markdown-checklist-search-target--highlighted");
+    expect(markerOnlyTableTarget).toHaveAttribute("data-checklist-search-structural-guard", markerOnlyGuard!);
+
+    fireEvent.click(within(markerOnlyTableTarget).getByRole("checkbox"));
+    expect(onTaskCheckboxChange).toHaveBeenCalledWith([
+      "- [ ] Visible list target",
+      "",
+      "| Stage | Complete | Marker |",
+      "| --- | --- | --- |",
+      "| Row | [ ] Table target | [x] |",
+    ].join("\n"));
   });
 });
 
