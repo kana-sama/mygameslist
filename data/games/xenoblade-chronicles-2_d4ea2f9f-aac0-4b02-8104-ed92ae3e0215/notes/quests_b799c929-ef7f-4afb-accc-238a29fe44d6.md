@@ -6,7 +6,7 @@ doubleHeight: true
 collapsedChecklistSections:
   - "heading:16oz515-18"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-04T19:49:20.166Z"
+updatedAt: "2026-09-07T07:12:20.770Z"
 -->
 # Quests
 
@@ -166,7 +166,7 @@ updatedAt: "2026-09-04T19:49:20.166Z"
 
 ## Chapter 9
 - [x] [The Driver in Ice][?]
-- [ ] [A Helping Hand][?]
+- [x] [A Helping Hand][?]
 - [x] [World Tree Disaster][?]
 - [x] [Follow Your Passion][?]
 - [x] [Farewell, Good Friend][?]
@@ -174,20 +174,20 @@ updatedAt: "2026-09-04T19:49:20.166Z"
 
 
 ## Chapter 10
-- [ ] [Nopon Doubloons Ahoy][?]
-- [ ] [Bana's Revenge][?]
-- [ ] [A Secret Cure][?]
-- [ ] [A Mercenary's Honor][?]
-- [ ] [School is in Session][?]
-  - [ ] [Language Teacher][?]
-  - [ ] [Science Teacher][?]
-  - [ ] [History Teacher][?]
-- [ ] [The Lone Watchman][?]
-- [ ] [Most Awful News?!][?]
-- [ ] [Artificial Intelligence][?]
-- [ ] [Bright Spark][?]
+- [x] [Nopon Doubloons Ahoy][?]
+- [x] [Bana's Revenge][?]
+- [x] [A Secret Cure][?]
+- [x] [A Mercenary's Honor][?]
+- [x] [School is in Session][?]
+  - [x] [Language Teacher][?]
+  - [x] [Science Teacher][?]
+  - [x] [History Teacher][?]
+- [x] [The Lone Watchman][?]
+- [x] [Most Awful News?!][?]
+- [x] [Artificial Intelligence][?]
+- [x] [Bright Spark][?]
 - [ ] [Merclibay's Mightiest][?]
-- [ ] [Mystery Launch Codes][?]
+- [-] [Mystery Launch Codes][?]
 - [ ] [Hot Spring Bonanza][?]
   - [ ] [Search for Tekuteku][?]
   - [ ] [Search for Alec][?]
