@@ -194,43 +194,53 @@ function packShelfItems(
   }
   if (baselineEnd === 0) return { slots: [], consumed: 0 };
 
-  let shelfHeight = Math.max(minimumShelfHeight, ...items.slice(0, baselineEnd).map((item) => heights[item.index]));
-  let slots: ShelfSlot[] = [];
-  let consumed = 0;
-  while (true) {
-    slots = [];
-    let itemOffset = 0;
+  const packAtHeight = (limit: number): { slots: ShelfSlot[]; consumed: number } => {
+    const slots: ShelfSlot[] = [];
+    let consumed = 0;
     let column = 0;
-    while (column < capacity && itemOffset < items.length) {
-      const item = items[itemOffset];
+    while (column < capacity && consumed < items.length) {
+      const item = items[consumed];
       if (column + item.columnSpan > capacity) break;
       const indexes = [item.index];
       let usedHeight = heights[item.index];
-      itemOffset += 1;
+      consumed += 1;
       if (item.columnSpan === 1 && totalColumns > 1) {
-        while (itemOffset < items.length) {
-          const next = items[itemOffset];
+        while (consumed < items.length) {
+          const next = items[consumed];
           if (next.columnSpan !== 1) break;
           const nextHeight = usedHeight + stackGap + heights[next.index];
-          if (nextHeight > shelfHeight) break;
+          if (nextHeight > limit) break;
           indexes.push(next.index);
           usedHeight = nextHeight;
-          itemOffset += 1;
+          consumed += 1;
         }
       }
       slots.push({ column: columnOffset + column, columnSpan: item.columnSpan, indexes });
       column += item.columnSpan;
     }
 
-    consumed = itemOffset;
+    return { slots, consumed };
+  };
+
+  let shelfHeight = Math.max(minimumShelfHeight, ...items.slice(0, baselineEnd).map((item) => heights[item.index]));
+  while (true) {
+    const packed = packAtHeight(shelfHeight);
     const nextShelfHeight = Math.max(
       minimumShelfHeight,
-      ...slots.map((slot) => slot.indexes.reduce((total, index) => total + heights[index], 0) + stackGap * Math.max(0, slot.indexes.length - 1)),
+      ...packed.slots.map((slot) => slot.indexes.reduce((total, index) => total + heights[index], 0) + stackGap * Math.max(0, slot.indexes.length - 1)),
     );
-    if (nextShelfHeight <= shelfHeight) break;
-    shelfHeight = nextShelfHeight;
+    if (nextShelfHeight > shelfHeight) {
+      shelfHeight = nextShelfHeight;
+      continue;
+    }
+
+    const boundary = items[packed.consumed];
+    if (!boundary || heights[boundary.index] <= shelfHeight) return packed;
+    const trialHeight = heights[boundary.index];
+    const trial = packAtHeight(trialHeight);
+    if (trial.consumed <= packed.consumed) return packed;
+    shelfHeight = trialHeight;
   }
-  return { slots, consumed };
 }
 
 function appendTailToComposition(

@@ -73,6 +73,162 @@ afterEach(() => {
 });
 
 describe("ordered shelf layout", () => {
+  it("keeps a fitting left pair when only the third card grows", () => {
+    const collapsed = buildShelfLayout([250, 300, 160, 500, 600], 4);
+    const expanded = buildShelfLayout([250, 300, 210, 500, 600], 4);
+    for (const layout of [collapsed, expanded]) {
+      expect(layout.placements.map((p) => [p.shelf, p.column]))
+        .toEqual([[0, 0], [0, 0], [0, 1], [0, 2], [0, 3]]);
+      expect(layout.height).toBe(600);
+      expect(new Set(layout.placements.map((p) => p.shelf)).size).toBe(1);
+      expect(new Set(layout.placements.map((p) => `${p.shelf}:${p.column}`)).size).toBe(4);
+      expect(layout.placements.map((p) => p.index)).toEqual([0, 1, 2, 3, 4]);
+      expectNoPlacementOverlaps(layout);
+    }
+    expect(expanded.placements.slice(0, 2)).toEqual(collapsed.placements.slice(0, 2));
+    expect(expanded.placements[0]).toMatchObject({ top: 0, height: 270 });
+    expect(expanded.placements[1]).toMatchObject({ top: 276, height: 324 });
+  });
+
+  it("admits a boundary height witness in a three-column row", () => {
+    const layout = buildShelfLayout([100, 100, 150, 220, 220], 3);
+    expect(layout.placements.map((p) => [p.shelf, p.column]))
+      .toEqual([[0, 0], [0, 0], [0, 1], [0, 2], [1, 0]]);
+    expect(layout.placements[0].shelfHeight).toBe(220);
+    expect(layout.placements[4].top).toBe(232);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("does not borrow a distant height past the first unplaced card", () => {
+    const layout = buildShelfLayout([100, 100, 150, 140, 600], 3);
+    expect(layout.placements.slice(0, 3).map((p) => [p.shelf, p.column, p.shelfHeight]))
+      .toEqual([[0, 0, 150], [0, 1, 150], [0, 2, 150]]);
+    expect(layout.placements[3].shelf).toBe(1);
+    expect(layout.placements[4].shelf).toBe(1);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("rejects a height witness whose width still cannot fit", () => {
+    const layout = buildShelfLayout([100, 100, 150, 220], 3,
+      { columnSpans: [1, 1, 1, 2] });
+    expect(layout.placements.slice(0, 3).map((p) => [p.shelf, p.column, p.shelfHeight]))
+      .toEqual([[0, 0, 150], [0, 1, 150], [0, 2, 150]]);
+    expect(layout.placements.map((p) => p.index)).toEqual([0, 1, 2, 3]);
+    expect(layout.placements[3]).toMatchObject({ shelf: 1, column: 0, columnSpan: 2, top: 162 });
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it.each([
+    { witness: 556, fits: true },
+    { witness: 555, fits: false },
+  ])("honors the left-pair boundary at $witness pixels", ({ witness, fits }) => {
+    const layout = buildShelfLayout([250, 300, 210, 500, witness], 4);
+    const [first, second] = layout.placements;
+    expect(first.shelf === second.shelf && first.column === second.column).toBe(fits);
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it.each([0, 6, 10])("keeps the boundary-supported pair with a stack gap of %i", (stackGap) => {
+    const layout = buildShelfLayout([250, 300, 210, 500, 600], 4, { stackGap });
+    expect(layout.placements.map((p) => [p.shelf, p.column]))
+      .toEqual([[0, 0], [0, 0], [0, 1], [0, 2], [0, 3]]);
+    expect(layout.height).toBe(600);
+    const [first, second] = layout.placements;
+    expect(second.top).toBe(first.top + first.height + stackGap);
+    expect(second.top + second.height).toBe(600);
+    layout.placements.slice(2).forEach((p) => expect(p.top + p.height).toBe(600));
+    expectNoPlacementOverlaps(layout);
+  });
+
+  it("keeps the boundary fixture sequential in one column and accepts empty input", () => {
+    const layout = buildShelfLayout([250, 300, 160, 500, 600], 1);
+    expect(layout.placements.map((p) => [p.shelf, p.column, p.top, p.height]))
+      .toEqual([[0, 0, 0, 250], [1, 0, 262, 300], [2, 0, 574, 160], [3, 0, 746, 500], [4, 0, 1258, 600]]);
+    expect(layout.height).toBe(1858);
+    expectNoPlacementOverlaps(layout);
+    expect(buildShelfLayout([], 4)).toEqual({ placements: [], height: 0 });
+  });
+
+  it("packs boundary witnesses independently of call history without mutating inputs", () => {
+    const expandedHeights = Object.freeze([250, 300, 210, 500, 600]);
+    const collapsedHeights = Object.freeze([250, 300, 160, 500, 600]);
+    const columnSpans = Object.freeze([1, 1, 1, 1, 1]);
+    const options = Object.freeze({ columnSpans });
+    const first = buildShelfLayout(expandedHeights, 4, options);
+    const snapshot = structuredClone(first);
+    const collapsed = buildShelfLayout(collapsedHeights, 4, options);
+    const third = buildShelfLayout(expandedHeights, 4, options);
+    expect(third).toEqual(first);
+    expect(buildShelfLayout(expandedHeights, 4, options)).toEqual(first);
+    expect(first).toEqual(snapshot);
+    expect(collapsed).toEqual(first);
+    expect(expandedHeights).toEqual([250, 300, 210, 500, 600]);
+    expect(collapsedHeights).toEqual([250, 300, 160, 500, 600]);
+    expect(columnSpans).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it("pins an expanding anchor in a boundary-supported shelf without losing its tail", () => {
+    const heights = [250, 300, 210, 500, 600];
+    const initial = buildShelfLayout(heights, 4);
+    const snapshot = structuredClone(initial);
+    const expanded = expandShelfLayout(heights, 4, initial, {
+      expansion: { index: 2, requestedSpan: 2 },
+    });
+    expect(initial.placements[2]).toMatchObject({ shelf: 0, column: 1, top: 0 });
+    expect(expanded.placements[2]).toMatchObject({ shelf: 0, column: 1, top: 0, columnSpan: 2 });
+    expect(expanded.placements.map((p) => p.index)).toEqual([0, 1, 2, 3, 4]);
+    expect(expanded.placements.every((p) => p.column >= 0 && p.column + p.columnSpan <= 4)).toBe(true);
+    expect(initial).toEqual(snapshot);
+    expectNoPlacementOverlaps(expanded);
+  });
+
+  it("preserves ordered complete integer geometry across seeded boundary candidates", () => {
+    let seed = 0x5e1f;
+    const next = (limit: number) => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed % limit;
+    };
+    for (let sample = 0; sample < 100; sample += 1) {
+      const columns = 1 + next(6);
+      const heights = Array.from({ length: 5 + next(36) }, () => 1 + next(800));
+      const columnSpans = heights.map(() => next(4) === 0 ? 1 + next(columns) : 1);
+      const stackGap = next(11);
+      const rowGap = next(18);
+      const layout = buildShelfLayout(heights, columns, { columnSpans, stackGap, rowGap });
+      expect(layout.placements.map((p) => p.index)).toEqual(heights.map((_, index) => index));
+      layout.placements.forEach((p, index) => {
+        expect([p.shelf, p.column, p.columnSpan, p.top, p.height, p.shelfHeight].every(Number.isInteger)).toBe(true);
+        expect(p.height).toBeGreaterThanOrEqual(heights[index]);
+        expect(p.top).toBeGreaterThanOrEqual(0);
+        expect(p.column).toBeGreaterThanOrEqual(0);
+        expect(p.columnSpan).toBe(columnSpans[index]);
+        expect(p.column + p.columnSpan).toBeLessThanOrEqual(columns);
+        const previous = layout.placements[index - 1];
+        if (previous) {
+          expect(p.shelf).toBeGreaterThanOrEqual(previous.shelf);
+          if (p.shelf === previous.shelf) expect(p.column).toBeGreaterThanOrEqual(previous.column);
+          if (p.shelf === previous.shelf && p.column === previous.column) {
+            expect(p.columnSpan).toBe(1);
+            expect(p.top).toBe(previous.top + previous.height + stackGap);
+          }
+        }
+      });
+      let shelfTop = 0;
+      for (let shelf = 0; shelf <= layout.placements.at(-1)!.shelf; shelf += 1) {
+        const row = layout.placements.filter((p) => p.shelf === shelf);
+        const shelfHeight = row[0].shelfHeight;
+        for (const column of new Set(row.map((p) => p.column))) {
+          const stack = row.filter((p) => p.column === column);
+          expect(stack[0].top).toBe(shelfTop);
+          expect(stack.at(-1)!.top + stack.at(-1)!.height).toBe(shelfTop + shelfHeight);
+        }
+        shelfTop += shelfHeight + rowGap;
+      }
+      expect(layout.height).toBe(shelfTop - rowGap);
+      expectNoPlacementOverlaps(layout);
+    }
+  });
+
   it("does not remeasure cards for note visual-state mutations but remeasures geometry mutations", async () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     const frames = new Map<number, FrameRequestCallback>();
@@ -742,6 +898,103 @@ describe("ordered shelf layout", () => {
       </ShelfGrid>,
     )).toThrow("synthetic measurement failure");
     expect(document.querySelectorAll("[data-shelf-measuring]")).toHaveLength(0);
+  });
+
+  it.each([
+    { initialThird: 160, frozen: false },
+    { initialThird: 210, frozen: false },
+    { initialThird: 160, frozen: true },
+    { initialThird: 210, frozen: true },
+  ])("keeps a boundary-supported DOM pair from height $initialThird with frozen=$frozen", async ({ initialThird, frozen }) => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    let measurements = 0;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 1464, height: 600 } as DOMRect;
+      expect(this.parentElement).toHaveAttribute("data-shelf-measuring", "true");
+      measurements += 1;
+      return { width: 360, height: Number(this.dataset.height) } as DOMRect;
+    });
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 1;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      const id = nextFrame++;
+      frames.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => frames.delete(id));
+    const flush = async () => {
+      await act(async () => {
+        await Promise.resolve();
+        let rounds = 0;
+        while (frames.size > 0) {
+          expect(++rounds).toBeLessThan(10);
+          const callbacks = [...frames.values()];
+          frames.clear();
+          callbacks.forEach((callback) => callback(0));
+          await Promise.resolve();
+        }
+      });
+      expect(frames.size).toBe(0);
+      expect(document.querySelector("[data-shelf-measuring]")).toBeNull();
+    };
+    const cards = [250, 300, initialThird, 500, 600].map((height, index) => (
+      <article data-height={height} key={index}>
+        {index === 2 ? <button aria-expanded={initialThird === 210}>Toggle</button> : null}
+      </article>
+    ));
+    const renderGrid = (packingFrozen: boolean) => (
+      <ShelfGrid className="notes-list" layoutKey="boundary-height-change" packingFrozen={packingFrozen}>
+        {cards}
+      </ShelfGrid>
+    );
+    const view = render(renderGrid(false));
+    const grid = view.container.querySelector<HTMLElement>(".notes-list")!;
+    const originals = Array.from(grid.children) as HTMLElement[];
+    const before = originals.slice(0, 2).map((card) => card.getAttribute("style"));
+    const toggle = originals[2].querySelector("button")!;
+    toggle.focus();
+    const expectStableShelf = () => {
+      expect(Array.from(grid.children)).toEqual(originals);
+      originals.forEach((card, index) => expect(grid.children[index]).toBe(card));
+      expect(originals[2].querySelector("button")).toBe(toggle);
+      expect(document.activeElement).toBe(toggle);
+      expect(originals.map((card) => [card.dataset.shelfIndex, card.style.gridColumnStart]))
+        .toEqual([["0", "1"], ["0", "1"], ["0", "2"], ["0", "3"], ["0", "4"]]);
+      expect(originals.map((card) => [card.style.gridRowStart, card.style.gridRowEnd]))
+        .toEqual([["1", "span 270"], ["277", "span 324"], ["1", "span 600"], ["1", "span 600"], ["1", "span 600"]]);
+      expect(originals.slice(0, 2).map((card) => card.getAttribute("style"))).toEqual(before);
+      expect(new Set(originals.map((card) => card.style.gridColumnStart)).size).toBe(4);
+      expect(frames.size).toBe(0);
+    };
+    await flush();
+    expectStableShelf();
+    if (frozen) {
+      view.rerender(renderGrid(true));
+      await flush();
+      expectStableShelf();
+    }
+
+    for (const height of [210, 160, 210]) {
+      measurements = 0;
+      originals[2].dataset.height = String(height);
+      toggle.setAttribute("aria-expanded", String(height === 210));
+      await flush();
+      expect(measurements).toBeGreaterThan(0);
+      expectStableShelf();
+    }
+    if (frozen) {
+      view.rerender(renderGrid(false));
+      await flush();
+      expectStableShelf();
+    }
+
+    const styles = originals.map((card) => card.getAttribute("style"));
+    measurements = 0;
+    toggle.classList.add("geometry-change");
+    await flush();
+    expect(measurements).toBeGreaterThan(0);
+    expect(originals.map((card) => card.getAttribute("style"))).toEqual(styles);
+    expectStableShelf();
   });
 
   it("repacks changed natural heights without changing the layout key", async () => {
