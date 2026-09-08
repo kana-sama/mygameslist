@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "6ce41b9c-4587-4748-bbe7-3cdf28feceeb"
 groupRank: 2048
-rank: 14080
+rank: 888
 doubleHeight: true
 collapsedChecklistSections:
   - "group:13vfedn-2c"
@@ -47,6 +47,7 @@ collapsedChecklistSections:
   - "group:pa0674-26"
   - "group:rkoooi-26"
   - "group:sbs9yt-21"
+  - "group:st0tbv-29"
   - "group:t1hzrz-2e"
   - "group:tfw7ad-26"
   - "group:tg4jd5-29"
@@ -55,12 +56,11 @@ collapsedChecklistSections:
   - "group:uoy8yy-29"
   - "group:zbbahv-2b"
   - "group:zuo2j7-23"
-  - "heading:17lrvy2-1d"
   - "heading:1ejpocg-1j"
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-04T18:36:57.496Z"
+updatedAt: "2026-09-08T16:32:11.887Z"
 -->
 # Shop Deeds
 

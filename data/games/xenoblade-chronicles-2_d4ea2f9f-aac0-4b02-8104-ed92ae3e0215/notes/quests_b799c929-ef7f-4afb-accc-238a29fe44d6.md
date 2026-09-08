@@ -3,10 +3,8 @@ id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
 groupRank: 2048
 rank: 512
 doubleHeight: true
-collapsedChecklistSections:
-  - "heading:16oz515-18"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-07T07:12:20.770Z"
+updatedAt: "2026-09-08T16:21:49.317Z"
 -->
 # Quests
 
@@ -186,16 +184,16 @@ updatedAt: "2026-09-07T07:12:20.770Z"
 - [x] [Most Awful News?!][?]
 - [x] [Artificial Intelligence][?]
 - [x] [Bright Spark][?]
-- [ ] [Merclibay's Mightiest][?]
-- [-] [Mystery Launch Codes][?]
-- [ ] [Hot Spring Bonanza][?]
-  - [ ] [Search for Tekuteku][?]
-  - [ ] [Search for Alec][?]
-  - [ ] [Search for Sarrac][?]
+- [x] [Merclibay's Mightiest][?]
+- [x] [Mystery Launch Codes][?]
+- [x] [Hot Spring Bonanza][?]
+  - [x] [Search for Tekuteku][?]
+  - [x] [Search for Alec][?]
+  - [x] [Search for Sarrac][?]
 
 
 ## Postgame
-- [ ] [Lingering Resentment][?]
+- [x] [Lingering Resentment][?]
 
 [?Big Job Preparations]:
     Тип

@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "43f5bd37-39b0-4f3f-b612-a0d791222d2a"
 groupRank: 2048
-rank: 13440
+rank: 908
 doubleHeight: true
 collapsedChecklistSections:
   - "heading:1irkbgk-1n"
@@ -11,7 +11,7 @@ collapsedChecklistSections:
   - "heading:oxxgn0-1m"
   - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-04T18:37:02.116Z"
+updatedAt: "2026-09-08T13:55:15.133Z"
 -->
 # Secret Areas
 
