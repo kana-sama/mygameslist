@@ -651,6 +651,13 @@ describe("GameProgressGrid", () => {
 });
 
 describe("GameProgressItemDialog", () => {
+  it("labels graph links from the root label and resolves descendant task progress", () => {
+    const graphNote = note(NOTE_VALID, 'digraph { label="Graph path"; subgraph g {a[state=done]; b; info[task=false];}}', { format: "graph" });
+    render(<GameProgressItemDialog assets={{ [ICON_ID]: iconAsset() }} gameId={GAME_ID} item={existingItem()} notes={[graphNote]} onCancel={vi.fn()} onSave={vi.fn()} storageLocked={false} />);
+    expect(screen.getByRole("option", {name:"Graph path"})).toHaveValue(NOTE_VALID);
+    expect(screen.getByText("1/2")).toBeInTheDocument();
+  });
+
   it("uses one optimized image pipeline for file selection, the visible paste button, and dialog paste", async () => {
     const user = userEvent.setup();
     const canAddBlob = vi.fn(() => null);

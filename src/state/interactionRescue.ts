@@ -12,6 +12,7 @@ import {
   webkitStorageBytes,
   webkitStringBytes,
   type InteractiveNoteFieldUpdate,
+  type NoteFormat,
   type PatchEnvelope,
   type StorageUsage,
   type ValidatedInteractionPatchWriteResult,
@@ -27,6 +28,7 @@ export const INTERACTION_RESCUE_STORAGE_KEY = "my-game-library.note-interaction-
 type InteractionRescueStorage = Pick<Storage, "length" | "key" | "getItem" | "setItem" | "removeItem">;
 
 export type RescuedNoteInteraction = {
+  noteFormat?: NoteFormat;
   noteId: string;
   field: "bodyMarkdown" | "collapsedChecklistSections";
   source: "patch" | "fallback";
@@ -83,6 +85,10 @@ function parseEntry(value: unknown): RescuedNoteInteraction {
   const expectedKeys = setFallback
     ? ["noteId", "field", "source", "fallbackOperation", "fallbackValue", "changedAt", "transactionId"]
     : ["noteId", "field", "source", "fallbackOperation", "changedAt", "transactionId"];
+  if (value.noteFormat !== undefined) {
+    if (value.field !== "bodyMarkdown" || value.noteFormat !== "graph" && value.noteFormat !== "markdown") throw new Error("Некорректный формат rescue-записи");
+    expectedKeys.push("noteFormat");
+  }
   if (!exactKeys(value, expectedKeys)) throw new Error("Некорректные поля rescue-записи взаимодействия");
   if (typeof value.noteId !== "string" || value.noteId.length === 0) throw new Error("Некорректный noteId rescue-записи");
   if (value.field !== "bodyMarkdown" && value.field !== "collapsedChecklistSections") throw new Error("Некорректное поле rescue-записи");
@@ -106,7 +112,11 @@ function parseEntry(value: unknown): RescuedNoteInteraction {
         fallbackValue = value.fallbackValue as string[];
       }
     }
-    if (validateInteractiveNoteField(value.field, fallbackValue).length) throw new Error("Некорректное fallback-значение rescue-записи");
+    // The rescue record has no note format. Replay validates content against the authoritative note.
+    const invalid = value.field === "bodyMarkdown"
+      ? typeof fallbackValue !== "string" || fallbackValue.length > 2_000_000
+      : validateInteractiveNoteField(value.field, fallbackValue).length > 0;
+    if (invalid) throw new Error("Некорректное fallback-значение rescue-записи");
   }
   return structuredClone(value) as unknown as RescuedNoteInteraction;
 }
@@ -184,6 +194,7 @@ function rescueEntry(
     noteId: update.noteId,
     field: update.field,
     source: "fallback",
+    ...(update.field === "bodyMarkdown" && update.expectedFormat === "graph" ? { noteFormat: "graph" as const } : {}),
     fallbackOperation: update.value === undefined ? "delete" : "set",
     ...(update.value === undefined ? {} : { fallbackValue: structuredClone(update.value) }),
     changedAt,
@@ -399,7 +410,7 @@ export function resolveRescuedNoteInteraction(
 ): InteractiveNoteFieldUpdate | null {
   if (entry.source === "fallback") {
     return entry.field === "bodyMarkdown"
-      ? { noteId: entry.noteId, field: entry.field, value: String(entry.fallbackValue ?? "") }
+      ? { noteId: entry.noteId, field: entry.field, value: String(entry.fallbackValue ?? ""), expectedFormat: entry.noteFormat ?? "markdown" }
       : {
         noteId: entry.noteId,
         field: entry.field,
@@ -411,14 +422,14 @@ export function resolveRescuedNoteInteraction(
   if (root?.operation === "set" && isObject(root.value)) {
     const value = root.value[entry.field];
     return entry.field === "bodyMarkdown"
-      ? typeof value === "string" ? { noteId: entry.noteId, field: entry.field, value } : null
+      ? typeof value === "string" ? { noteId: entry.noteId, field: entry.field, value, expectedFormat: root.value.format === "graph" ? "graph" : "markdown" } : null
       : { noteId: entry.noteId, field: entry.field, value: value === undefined ? undefined : structuredClone(value as string[]) };
   }
   const operation = ordinaryPatch.operations[entityPath("notes", entry.noteId, entry.field)];
   if (!operation) return null;
   if (entry.field === "bodyMarkdown") {
     return operation.operation === "set" && typeof operation.value === "string"
-      ? { noteId: entry.noteId, field: entry.field, value: operation.value }
+      ? { noteId: entry.noteId, field: entry.field, value: operation.value, expectedFormat: operation.noteFormat ?? "markdown" }
       : null;
   }
   return {

@@ -1,5 +1,5 @@
 import { canonicalHash, canonicalStringify, MISSING_VALUE_HASH, withComputedRevision } from "./canonical";
-import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch } from "./types";
+import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch, type NoteFormat } from "./types";
 import { DomainValidationError, assertSourceRepresentable, assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, patchOperationSourceIssues, validateInteractiveNoteField, validateInteractiveNoteOperationMetadata, type EntityMapName } from "./validation";
 import { deriveImageAssetAlt } from "./assetOwnership";
 import { normalizeLibraryDatabase } from "./libraryNormalization";
@@ -19,9 +19,12 @@ export interface ApplyPatchOptions {
   validateResult?: boolean;
 }
 
-export type InteractiveNoteFieldUpdate =
+export type InteractiveNoteFieldUpdate = {
+  expectedBodyMarkdown?: string;
+  expectedFormat?: NoteFormat;
+} & (
   | { noteId: string; field: "bodyMarkdown"; value: string }
-  | { noteId: string; field: "collapsedChecklistSections"; value: string[] | undefined };
+  | { noteId: string; field: "collapsedChecklistSections"; value: string[] | undefined });
 
 function clone<T>(value: T): T { return structuredClone(value); }
 function hasOwn(value: object, key: string): boolean { return Object.prototype.hasOwnProperty.call(value, key); }
@@ -86,9 +89,10 @@ function isCompatiblePublishedAsset(path: string, operation: PatchOperation, act
   return localKind !== null && localKind === assetKind(actual.value);
 }
 
-function freshOperation(base: { exists: boolean; value?: unknown }, operation: "set" | "delete", value: unknown, changedAt: string, transactionId: string): PatchOperation {
+function freshOperation(base: { exists: boolean; value?: unknown }, operation: "set" | "delete", value: unknown, changedAt: string, transactionId: string, noteFormat?: NoteFormat): PatchOperation {
   return {
     operation,
+    ...(noteFormat === "graph" ? { noteFormat } : {}),
     ...(operation === "set" ? { value: clone(value) } : {}),
     baseExists: base.exists,
     baseHash: base.exists ? canonicalHash(base.value) : MISSING_VALUE_HASH,
@@ -97,8 +101,8 @@ function freshOperation(base: { exists: boolean; value?: unknown }, operation: "
   };
 }
 
-function assertInteractiveNoteFieldIsValid(update: InteractiveNoteFieldUpdate): void {
-  const issues = validateInteractiveNoteField(update.field, update.value);
+function assertInteractiveNoteFieldIsValid(update: InteractiveNoteFieldUpdate, format?: NoteFormat): void {
+  const issues = validateInteractiveNoteField(update.field, update.value, format);
   if (issues.length) throw new DomainValidationError(issues, "Некорректное значение интерактивной заметки");
 }
 
@@ -113,7 +117,7 @@ function assertTargetOperationIsSourceRepresentable(path: string, operation: Pat
 }
 
 function hasOverlappingInteractiveNoteConflict(conflicts: readonly PatchConflict[], rootPath: string, fieldPath: string): boolean {
-  return conflicts.some((conflict) => conflict.path === rootPath || conflict.path === fieldPath);
+  return conflicts.some((conflict) => conflict.path === rootPath || conflict.path === fieldPath || conflict.path === `${rootPath}/format`);
 }
 
 /** Applies one note interaction without reprocessing the rest of the library. */
@@ -127,7 +131,6 @@ export function updateInteractiveNoteField(input: {
   transactionId: string;
 }): { effective: LibraryDatabase; patch: PatchEnvelope } {
   const { base, effective, patch, conflicts, update, changedAt, transactionId } = input;
-  assertInteractiveNoteFieldIsValid(update);
   assertInteractiveNoteOperationMetadataIsValid(changedAt, transactionId);
   const rootPath = entityPath("notes", update.noteId);
   const fieldPath = entityPath("notes", update.noteId, update.field);
@@ -137,6 +140,11 @@ export function updateInteractiveNoteField(input: {
 
   const effectiveNote = effective.notes[update.noteId];
   if (!effectiveNote) throw new Error(`Заметка не найдена: ${update.noteId}`);
+  if (update.expectedBodyMarkdown !== undefined && update.expectedBodyMarkdown !== effectiveNote.bodyMarkdown
+    || update.expectedFormat !== undefined && update.expectedFormat !== (effectiveNote.format ?? "markdown")) {
+    throw new Error("Заметка изменилась. Повторите действие с актуальным содержимым.");
+  }
+  assertInteractiveNoteFieldIsValid(update, effectiveNote.format);
   const baseNote = base.notes[update.noteId];
   const baseFieldExists = baseNote !== undefined && hasOwn(baseNote, update.field);
   const baseValue = baseNote?.[update.field];
@@ -177,7 +185,7 @@ export function updateInteractiveNoteField(input: {
     };
     assertTargetOperationIsSourceRepresentable(rootPath, operation);
     operations = { ...patch.operations, [rootPath]: operation };
-  } else if (matchesBase) {
+  } else if (matchesBase && !(update.field === "bodyMarkdown" && patch.operations[entityPath("notes", update.noteId, "format")])) {
     operations = { ...patch.operations };
     delete operations[fieldPath];
   } else {
@@ -187,6 +195,7 @@ export function updateInteractiveNoteField(input: {
       update.value,
       changedAt,
       transactionId,
+      update.field === "bodyMarkdown" ? effectiveNote.format : undefined,
     );
     assertTargetOperationIsSourceRepresentable(fieldPath, operation);
     operations = { ...patch.operations, [fieldPath]: operation };
@@ -198,6 +207,7 @@ export function updateInteractiveNoteField(input: {
 function retainTimestamp(path: string, candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {
   if (!previous || previous.operation !== candidate.operation || previous.baseExists !== candidate.baseExists || previous.baseHash !== candidate.baseHash) return candidate;
   if (candidate.operation === "set" && !sameTargetValue(path, candidate, candidate.value, previous.value)) return candidate;
+  if ((previous.noteFormat ?? "markdown") !== (candidate.noteFormat ?? "markdown")) return candidate;
   return clone(previous);
 }
 
@@ -254,7 +264,8 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
           const afterExists = hasOwn(currentEntity, field);
           const before = baseEntity[field];
           const after = currentEntity[field];
-          if (beforeExists === afterExists && (!beforeExists || same(before, after))) continue;
+          const requiredContentSnapshot = mapName === "notes" && field === "bodyMarkdown" && baseEntity.format !== currentEntity.format;
+          if (!requiredContentSnapshot && beforeExists === afterExists && (!beforeExists || same(before, after))) continue;
           const path = entityPath(mapName, id, field);
           const candidate = freshOperation(
             { exists: beforeExists, ...(beforeExists ? { value: before } : {}) },
@@ -262,6 +273,7 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
             after,
             changedAt,
             transactionId,
+            mapName === "notes" && field === "bodyMarkdown" ? currentEntity.format as NoteFormat | undefined : undefined,
           );
           operations[path] = retainTimestamp(path, candidate, options.previousPatch?.operations[path]);
         }
@@ -353,10 +365,23 @@ export function applyPatch(base: LibraryDatabase, patch: PatchEnvelope, options:
   if (options.validateResult ?? true) assertOperationPayloadsSourceRepresentable(patch.operations, "Локальный патч содержит данные, не представимые в source tree");
   const normalizedResult = normalizeLibraryDatabase(result);
   if (options.validateResult ?? true) {
+    assertNoteSourceFormats(normalizedResult, patch.operations);
     assertDirectImageAssetAltsAreDerived(normalizedBase, result, patch.operations);
     assertSourceRepresentable(normalizedResult);
   }
   return normalizedResult;
+}
+
+function assertNoteSourceFormats(database: LibraryDatabase, operations: Record<string, PatchOperation>): void {
+  for (const [path, operation] of Object.entries(operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") continue;
+    const pairedFormat = operations[entityPath("notes", parsed.id, "format")];
+    const expected = operation.noteFormat ?? (pairedFormat?.operation === "set" ? pairedFormat.value : "markdown");
+    if (expected !== (database.notes[parsed.id]?.format ?? "markdown")) {
+      throw new DomainValidationError([{ path, message: "Формат заметки отличается от формата сохранённого текста" }]);
+    }
+  }
 }
 
 function applyBestEffort(base: LibraryDatabase, operations: Record<string, PatchOperation>): LibraryDatabase {
@@ -367,21 +392,55 @@ function applyBestEffort(base: LibraryDatabase, operations: Record<string, Patch
   applyUpdatedAt(result, base, applied); return result;
 }
 
+/** Format and source form one content candidate whenever both operations are present. */
+function noteContentOperationPaths(operations: Record<string, PatchOperation>, path: string): string[] {
+  const parsed = parsePatchPath(path);
+  if (parsed?.map !== "notes" || (parsed.field !== "format" && parsed.field !== "bodyMarkdown")) return [path];
+  const partner = entityPath("notes", parsed.id, parsed.field === "format" ? "bodyMarkdown" : "format");
+  return hasOwn(operations, partner) ? [path, partner] : [path];
+}
+
 /** Rebases clean operations, prunes already-published values, and reports same-field conflicts. */
 export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchEnvelope): ReconciledPatch {
   const normalizedIncoming = prunePatchBlobs(incoming);
   assertValidLibrary(staticDatabase); assertValidPatch(normalizedIncoming);
   const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
   assertOperationPayloadsSourceRepresentable(normalizedIncoming.operations, "Патч содержит данные, не представимые в source tree");
+  // Body-only edits retain their original interpretation across a remote mode change.
+  for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") continue;
+    const formatPath = entityPath("notes", parsed.id, "format");
+    const note = normalizedStatic.notes[parsed.id];
+    if (!note || hasOwn(normalizedIncoming.operations, formatPath)) continue;
+    const format = operation.noteFormat ?? "markdown";
+    if (format === (note.format ?? "markdown")) continue;
+    const original = format === "graph" ? { exists: true, value: "graph" } : { exists: false };
+    normalizedIncoming.operations[formatPath] = freshOperation(original, format === "graph" ? "set" : "delete", format === "graph" ? "graph" : undefined, operation.changedAt, operation.transactionId);
+  }
   const intended = applyBestEffort(normalizedStatic, normalizedIncoming.operations);
   assertDirectImageAssetAltsAreDerived(normalizedStatic, intended, normalizedIncoming.operations);
   assertSourceRepresentable(normalizeLibraryDatabase(intended));
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
+  const contentConflicts = new Set<string>();
+  const pendingContent = new Set<string>();
+  for (const path of Object.keys(normalizedIncoming.operations)) {
+    const coupled = noteContentOperationPaths(normalizedIncoming.operations, path);
+    if (coupled.length < 2) continue;
+    if (coupled.some(candidate => !opTargetMatches(candidate, normalizedIncoming.operations[candidate], readPatchPath(normalizedStatic, candidate)))) {
+      coupled.forEach(candidate => pendingContent.add(candidate));
+    }
+    if (coupled.some(candidate => {
+      const operation = normalizedIncoming.operations[candidate];
+      const actual = readPatchPath(normalizedStatic, candidate);
+      return !opTargetMatches(candidate, operation, actual) && !baseMatches(operation, actual);
+    })) coupled.forEach(candidate => contentConflicts.add(candidate));
+  }
   for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
     const actual = readPatchPath(normalizedStatic, path);
-    if (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual)) { prunedCount += 1; continue; }
+    if (!pendingContent.has(path) && (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual))) { prunedCount += 1; continue; }
     operations[path] = clone(operation);
-    if (!baseMatches(operation, actual)) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
+    if (contentConflicts.has(path) || (!opTargetMatches(path, operation, actual) && !baseMatches(operation, actual))) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
     else applicable[path] = clone(operation);
   }
   let patch = prunePatchBlobs({ ...clone(normalizedIncoming), baseRevision: staticDatabase.revision, operations });
@@ -398,6 +457,13 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
       transactionId: latestApplicable.transactionId,
       blobs: patch.blobs,
     });
+    // Keep a matching partner as a source/format snapshot until the complete candidate is published.
+    for (const [path, operation] of Object.entries(applicable)) {
+      if (pendingContent.has(path) && !hasOwn(canonicalApplicable.operations, path)) {
+        const actual = readPatchPath(normalizedStatic, path);
+        canonicalApplicable.operations[path] = { ...clone(operation), baseExists: actual.exists, baseHash: actual.exists ? canonicalHash(actual.value) : MISSING_VALUE_HASH };
+      }
+    }
     const conflicted = Object.fromEntries(Object.entries(operations).filter(([path]) => !(path in applicable)));
     patch = prunePatchBlobs({ ...patch, operations: { ...canonicalApplicable.operations, ...conflicted } });
   }
@@ -409,14 +475,21 @@ export type ConflictResolution = { choice: "static" } | { choice: "local" } | { 
 export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnvelope, path: string, resolution: ConflictResolution): ReconciledPatch {
   const next = clone(patch); const operation = next.operations[path];
   if (!operation) throw new Error(`Операция ${path} не найдена`);
-  const actual = readPatchPath(normalizeLibraryDatabase(staticDatabase), path);
-  if (resolution.choice === "static") delete next.operations[path];
+  const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
+  const coupledPaths = noteContentOperationPaths(next.operations, path);
+  const actual = readPatchPath(normalizedStatic, path);
+  if (resolution.choice === "static") coupledPaths.forEach(candidate => { delete next.operations[candidate]; });
   else {
     if (resolution.choice === "manual" && !resolution.delete && !("value" in resolution)) throw new Error("Для ручного разрешения нужно значение либо delete=true");
     const target: PatchOperation = resolution.choice === "manual"
-      ? freshOperation(actual, resolution.delete ? "delete" : "set", resolution.value, new Date().toISOString(), operation.transactionId)
+      ? freshOperation(actual, resolution.delete ? "delete" : "set", resolution.value, new Date().toISOString(), operation.transactionId, resolution.delete ? undefined : operation.noteFormat)
       : { ...operation, baseExists: actual.exists, baseHash: actual.exists ? canonicalHash(actual.value) : MISSING_VALUE_HASH };
     next.operations[path] = target;
+    for (const candidate of coupledPaths) {
+      if (candidate === path) continue;
+      const partnerActual = readPatchPath(normalizedStatic, candidate);
+      next.operations[candidate] = { ...next.operations[candidate], baseExists: partnerActual.exists, baseHash: partnerActual.exists ? canonicalHash(partnerActual.value) : MISSING_VALUE_HASH };
+    }
   }
   return reconcilePatch(staticDatabase, next);
 }

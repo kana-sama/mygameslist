@@ -99,6 +99,23 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("MonacoMarkdownEditor", () => {
+  it("disposes old mode extensions and preserves source bytes on language changes", () => {
+    const markdownDispose = vi.fn();
+    const graphDispose = vi.fn();
+    const source = 'digraph { a[label="Literal  text"]; }';
+    const onChange = vi.fn();
+    const view = render(<MonacoMarkdownEditor ariaLabel="Текст заметки" modelKey="switching" value={source} onChange={onChange} onReady={() => ({dispose:markdownDispose})} />);
+    const oldModel = fakeMonaco.models[0];
+    view.rerender(<MonacoMarkdownEditor ariaLabel="Текст заметки" language="graph-note" modelKey="switching" value={source} onChange={onChange} onReady={() => ({dispose:graphDispose})} />);
+    expect(markdownDispose).toHaveBeenCalledOnce();
+    expect(oldModel.dispose).toHaveBeenCalledOnce();
+    expect(fakeMonaco.models[1].getValue()).toBe(source);
+    expect(monacoSpies.createModel).toHaveBeenLastCalledWith(source, "graph-note", expect.anything());
+    expect(onChange).not.toHaveBeenCalled();
+    view.unmount();
+    expect(graphDispose).toHaveBeenCalledOnce();
+  });
+
   it("creates one accessible Markdown model and a compact editor", () => {
     const view = render(
       <MonacoMarkdownEditor

@@ -15,6 +15,7 @@ export function normalizeLibraryDatabase(database: LibraryDatabase): LibraryData
     if (game.progressItems?.length === 0) delete game.progressItems;
   }
   for (const note of Object.values(normalized.notes)) {
+    if (note.format === "markdown") delete note.format;
     if (note.groupRank === 1024) delete note.groupRank;
     if (note.doubleWidth === false) delete note.doubleWidth;
     if (note.doubleHeight === false) delete note.doubleHeight;

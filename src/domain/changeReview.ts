@@ -1,7 +1,7 @@
+import { noteContentTitle, noteFormat } from "./noteContent";
 import { referencedAssetIds } from "./assetReferences";
 import {
   createMarkdownDiff,
-  deriveMarkdownTitle,
   summarizeMarkdownDiff,
   type MarkdownDiffModel,
 } from "./markdownDiff";
@@ -24,6 +24,7 @@ export type ChangeEvidence =
   | { type: "scalar"; before: string; after: string }
   | { type: "chips"; added: string[]; removed: string[] }
   | { type: "move"; before: string; after: string }
+  | { type: "source"; before: string; after: string }
   | { type: "markdown"; before: string; after: string; diff: MarkdownDiffModel }
   | ProgressChangeEvidence
   | { type: "asset"; assetId: string; originalName: string; mime: string; byteLength: number; width?: number; height?: number };
@@ -120,6 +121,7 @@ const FIELD_LABELS: Record<string, string> = {
   placement: "Место в тирлисте",
   reviewMarkdown: "Отзыв",
   bodyMarkdown: "Текст заметки",
+  format: "Формат заметки",
   attachments: "Вложения",
   collapsedChecklistSections: "Свёрнутые разделы",
   doubleHeight: "Высота заметки",
@@ -130,6 +132,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 const FIELD_ORDER = [
   "title",
+  "format",
   "bodyMarkdown",
   "reviewMarkdown",
   "placement",
@@ -170,7 +173,7 @@ function entity(database: LibraryDatabase, map: EntityMapName, id: string): Game
 function operationFields(unit: SemanticUnit): string[] {
   if (unit.operations.some((item) => item.field === undefined)) {
     if (unit.map === "games") return ["title", "platforms", "tags", "status", "placement", "reviewMarkdown", "coverAssetId", "progressItems"];
-    if (unit.map === "notes") return ["bodyMarkdown", "attachments", "groupRank", "rank", "collapsedChecklistSections", "doubleHeight", "doubleWidth"];
+    if (unit.map === "notes") return ["format", "bodyMarkdown", "attachments", "groupRank", "rank", "collapsedChecklistSections", "doubleHeight", "doubleWidth"];
     return [];
   }
   return [...new Set(unit.operations.map((item) => item.field).filter((field): field is string => Boolean(field)))]
@@ -415,7 +418,7 @@ function progressEvidenceItem(item: GameProgressItem, database: LibraryDatabase)
   return {
     itemId: item.id,
     iconAssetId: item.iconAssetId,
-    noteTitle: note ? deriveMarkdownTitle(note.bodyMarkdown) : "Заметка недоступна",
+    noteTitle: note ? noteContentTitle(note) ?? "Заметка" : "Заметка недоступна",
   };
 }
 
@@ -473,7 +476,11 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
   for (const field of operationFields(unit)) {
     const before = beforeEntity ? (beforeEntity as unknown as Record<string, unknown>)[field] : undefined;
     const after = afterEntity ? (afterEntity as unknown as Record<string, unknown>)[field] : undefined;
-    if (field === "bodyMarkdown" || field === "reviewMarkdown") {
+    if (field === "format") {
+      if (before !== after) result.push({ type: "scalar", before: `Формат: ${before === "graph" ? "Граф" : "Markdown"}`, after: `Формат: ${after === "graph" ? "Граф" : "Markdown"}` });
+    } else if (field === "bodyMarkdown" && ((beforeEntity && "bodyMarkdown" in beforeEntity && noteFormat(beforeEntity) === "graph") || (afterEntity && "bodyMarkdown" in afterEntity && noteFormat(afterEntity) === "graph"))) {
+      result.push({ type: "source", before: typeof before === "string" ? before : "", after: typeof after === "string" ? after : "" });
+    } else if (field === "bodyMarkdown" || field === "reviewMarkdown") {
       result.push(markdownEvidence(before, after));
     } else if (field === "progressItems" && unit.map === "games") {
       result.push(progressEvidence(before, after, base, effective));
@@ -525,8 +532,8 @@ function unitTitle(unit: SemanticUnit, base: LibraryDatabase, effective: Library
     return effective.games[unit.entityId]?.title ?? base.games[unit.entityId]?.title ?? "Игра без названия";
   }
   if (unit.map === "notes") {
-    const markdown = effective.notes[unit.entityId]?.bodyMarkdown ?? base.notes[unit.entityId]?.bodyMarkdown ?? "";
-    return deriveMarkdownTitle(markdown);
+    const note = effective.notes[unit.entityId] ?? base.notes[unit.entityId];
+    return note ? noteContentTitle(note) ?? "Заметка" : "Заметка";
   }
   return effective.assets[unit.entityId]?.originalName ?? base.assets[unit.entityId]?.originalName ?? "Файл без имени";
 }

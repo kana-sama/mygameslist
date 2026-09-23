@@ -1,3 +1,5 @@
+import type { NoteInteractionSource } from "../pages/GamePage";
+import { resolveNoteContentProgress } from "../domain/noteContent";
 import {
   DndContext,
   DragOverlay,
@@ -14,7 +16,7 @@ import {
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useId, useMemo, useRef, useState, type CSSProperties } from "react";
-import { resolveNoteChecklistProgress, type NoteChecklistResolution } from "../domain/markdownChecklist";
+import { type NoteChecklistResolution } from "../domain/markdownChecklist";
 import type { Asset, GameProgressItem, Note } from "../domain/types";
 import { Icon } from "./Icon";
 import { getAssetUrl } from "./libraryUi";
@@ -23,6 +25,7 @@ export interface GameProgressGridProps {
   gameId: string;
   items: readonly GameProgressItem[];
   notes: readonly Note[];
+  noteInteractionSource?: NoteInteractionSource;
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   disabled?: boolean;
@@ -147,10 +150,17 @@ function SortableProgressItem({ iconUrl, item, onEdit, resolution, sortingDisabl
   );
 }
 
+function ConnectedProgressItem({ noteInteractionSource, ...props }: SortableProgressItemProps & { noteInteractionSource: NoteInteractionSource }) {
+  const snapshot = noteInteractionSource.useNoteInteractionSnapshot(props.item.noteId);
+  const resolution = useMemo(() => snapshot ? resolveNoteContentProgress(snapshot) : props.resolution, [snapshot, props.resolution]);
+  return <SortableProgressItem {...props} resolution={resolution} />;
+}
+
 export function GameProgressGrid({
   gameId,
   items,
   notes,
+  noteInteractionSource,
   assets,
   resolveAssetUrl,
   disabled = false,
@@ -180,10 +190,11 @@ export function GameProgressGrid({
         resolutions.set(item.id, { status: "error" });
         continue;
       }
-      let resolution = resolutionsByBody.get(note.bodyMarkdown);
+      const contentKey = `${note.format ?? "markdown"}\0${note.bodyMarkdown}`;
+      let resolution = resolutionsByBody.get(contentKey);
       if (!resolution) {
-        resolution = resolveNoteChecklistProgress(note.bodyMarkdown);
-        resolutionsByBody.set(note.bodyMarkdown, resolution);
+        resolution = resolveNoteContentProgress(note);
+        resolutionsByBody.set(contentKey, resolution);
       }
       resolutions.set(item.id, resolution);
     }
@@ -228,7 +239,12 @@ export function GameProgressGrid({
       >
         <div className="game-progress__grid">
           <SortableContext items={items.map((item) => `progress:${item.id}`)} strategy={rectSortingStrategy}>
-            {renderedItems.map(({ iconUrl, item, resolution }) => <SortableProgressItem iconUrl={iconUrl} item={item} key={item.id} onEdit={onEdit} resolution={resolution} sortingDisabled={sortingDisabled} suppressEditFor={suppressEditFor} />)}
+            {renderedItems.map(({ iconUrl, item, resolution }) => {
+              const props = { iconUrl, item, onEdit, resolution, sortingDisabled, suppressEditFor };
+              return noteInteractionSource && notes.some(note => note.id === item.noteId && note.gameId === gameId)
+                ? <ConnectedProgressItem {...props} key={item.id} noteInteractionSource={noteInteractionSource} />
+                : <SortableProgressItem {...props} key={item.id} />;
+            })}
           </SortableContext>
           <button aria-label="Добавить элемент прогресса" className="game-progress__add" disabled={disabled} onClick={(event) => {
             event.currentTarget.focus();

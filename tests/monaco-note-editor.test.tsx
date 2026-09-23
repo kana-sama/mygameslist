@@ -14,6 +14,7 @@ const boundary = vi.hoisted(() => ({
   list: vi.fn(),
   actions: vi.fn(),
   completion: vi.fn(),
+  graph: vi.fn((..._args: unknown[]) => ({ dispose: vi.fn() })),
   props: undefined as MonacoMarkdownEditorProps | undefined,
 }));
 
@@ -47,6 +48,8 @@ vi.mock("../src/components/monacoGameLinkCompletion", () => ({
 vi.mock("../src/components/monacoNoteActions", () => ({
   installMonacoNoteActions: (...args: unknown[]) => boundary.actions(...args),
 }));
+
+vi.mock("../src/components/monacoGraphLanguage", () => ({ installMonacoGraphLanguage: (...args: unknown[]) => boundary.graph(...args) }));
 
 function disposable(name: string, throws = false) {
   return {
@@ -99,6 +102,15 @@ describe("MonacoNoteEditor", () => {
       boundary.actionOptions = options;
       return disposable("actions");
     });
+  });
+
+  it("uses graph language and skips every Markdown extension", () => {
+    render(<MonacoNoteEditor {...props({ format: "graph", value: "digraph {}" })} />);
+    boundary.props?.onReady?.(context);
+    expect(boundary.props?.language).toBe("graph-note");
+    expect(boundary.graph).toHaveBeenCalled();
+    for (const extension of [boundary.table, boundary.width, boundary.overflowWrap, boundary.list, boundary.completion]) expect(extension).not.toHaveBeenCalled();
+    expect(boundary.actions).toHaveBeenCalled();
   });
 
   it("renders the note transfer boundary, forwards base props, and routes captured image files", () => {

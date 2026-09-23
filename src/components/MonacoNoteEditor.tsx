@@ -10,10 +10,12 @@ import { installMonacoMarkdownListEditing } from "./monacoMarkdownListEditing";
 import { installMonacoMarkdownTableTyping } from "./monacoMarkdownTableFormatting";
 import { installMonacoMarkdownTableOverflowWrap } from "./monacoMarkdownTableOverflowWrap";
 import { installMonacoMarkdownTableWidth } from "./monacoMarkdownTableWidth";
+import { installMonacoGraphLanguage } from "./monacoGraphLanguage";
 import { installMonacoNoteActions } from "./monacoNoteActions";
 import { useNoteFileTransferCapture } from "./useNoteFileTransferCapture";
 
 export interface MonacoNoteEditorProps {
+  format?: "markdown" | "graph";
   modelKey: string;
   value: string;
   gameSuggestions: readonly Game[];
@@ -55,6 +57,7 @@ export function MonacoNoteEditor({
   autoFocus,
   excludeGameId,
   filesDisabled,
+  format = "markdown",
   gameSuggestions,
   modelKey,
   onCancel,
@@ -98,6 +101,8 @@ export function MonacoNoteEditor({
   const onReady: MonacoMarkdownEditorExtension = (context) => {
     const extensions: Monaco.IDisposable[] = [];
     try {
+      if (format === "graph") extensions.push(installMonacoGraphLanguage(context));
+      else {
       extensions.push(installMonacoMarkdownTableTyping(context));
       extensions.push(installMonacoMarkdownTableWidth(context, {
         onRequiredWidthChange: (width) => {
@@ -110,6 +115,7 @@ export function MonacoNoteEditor({
         excludeGameId: live.current.excludeGameId,
         getGames: () => live.current.gameSuggestions,
       }));
+      }
       const installSubmit = Boolean(live.current.onSubmit);
       const installCancel = Boolean(live.current.onCancel);
       if (installSubmit || installCancel) {
@@ -133,6 +139,7 @@ export function MonacoNoteEditor({
       {...transfer.captureHandlers}
     >
       <MonacoMarkdownEditor
+        language={format === "graph" ? "graph-note" : "markdown"}
         ariaLabel="Текст заметки"
         autoFocus={autoFocus}
         modelKey={modelKey}

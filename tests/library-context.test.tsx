@@ -2636,3 +2636,40 @@ describe("LibraryProvider v3 source-tree publication", () => {
     expect(loadPendingPublicationJournal(localStorage)).toMatchObject({ status: "valid", journal: { phase: "awaiting-deployment" } });
   });
 });
+
+function GraphNotePersistenceProbe() {
+  const library = useLibrary();
+  const [result, setResult] = useState("");
+  const current = library.effective.games[GAME_ID];
+  return <div>
+    <span data-testid="graph-loading">{String(library.loading)}</span>
+    <span data-testid="graph-note-result">{result}</span>
+    <span data-testid="graph-note-state">{JSON.stringify(library.effective.notes)}</span>
+    <button type="button" onClick={() => {
+      if (!current) return;
+      void library.saveGame({ id: current.id, title: current.title, coverAssetId: null, pendingCover: null,
+        platforms: [], tags: [], status: current.status, tierId: current.placement.tierId, reviewMarkdown: "", progressItems: [],
+        notes: [{ id: NOTE_ID, clientId: NOTE_ID, format: "graph", bodyMarkdown: "", attachments: [], rank: 1024 },
+          { clientId: "empty-markdown", bodyMarkdown: "", attachments: [], rank: 2048 }],
+      }).then(() => setResult("saved")).catch(error => setResult(String(error)));
+    }}>Save empty graph</button>
+  </div>;
+}
+
+it("preserves a new empty graph through saves and reloads while cleaning up empty Markdown", async () => {
+  const draft = empty();
+  draft.games[GAME_ID] = game("Graph fixture");
+  const base = withComputedRevision(draft);
+  mockStaticDatabase(base);
+  const first = render(<LibraryProvider><GraphNotePersistenceProbe /></LibraryProvider>);
+  await waitFor(() => expect(screen.getByTestId("graph-loading")).toHaveTextContent("false"));
+  fireEvent.click(screen.getByRole("button", { name: "Save empty graph" }));
+  await waitFor(() => expect(screen.getByTestId("graph-note-result")).toHaveTextContent("saved"));
+  const saved = JSON.parse(screen.getByTestId("graph-note-state").textContent!);
+  expect(Object.values(saved)).toHaveLength(1);
+  expect(Object.values(saved)[0]).toMatchObject({ format: "graph", bodyMarkdown: "" });
+  first.unmount();
+  render(<LibraryProvider><GraphNotePersistenceProbe /></LibraryProvider>);
+  await waitFor(() => expect(screen.getByTestId("graph-loading")).toHaveTextContent("false"));
+  expect(Object.values(JSON.parse(screen.getByTestId("graph-note-state").textContent!))[0]).toMatchObject({ format: "graph", bodyMarkdown: "" });
+});

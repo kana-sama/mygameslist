@@ -42,7 +42,7 @@ export interface SourceFileAttachmentV1 extends FileAttachment {
 export type SourceLinkAttachmentV1 = LinkAttachment;
 export type SourceNoteAttachmentV1 = SourceImageAttachmentV1 | SourceFileAttachmentV1 | SourceLinkAttachmentV1;
 
-export interface SourceNoteMetadataV1 extends Pick<Note, "id" | "rank" | "createdAt" | "updatedAt"> {
+export interface SourceNoteMetadataV1 extends Pick<Note, "id" | "format" | "rank" | "createdAt" | "updatedAt"> {
   groupRank?: NonNullable<Note["groupRank"]>;
   doubleWidth?: NonNullable<Note["doubleWidth"]>;
   doubleHeight?: NonNullable<Note["doubleHeight"]>;

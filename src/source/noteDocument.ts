@@ -1,4 +1,5 @@
-import { validateNoteMarkdown } from "../domain/validation";
+import { validateNoteContent } from "../domain/noteContent";
+import type { NoteFormat } from "../domain/types";
 import { parseNoteMetadataYaml, serializeNoteMetadataYaml } from "./metadata";
 import type { SourceNoteMetadataV1 } from "./types";
 
@@ -18,9 +19,9 @@ function fail(context: string, message: string): never {
   throw new Error(`${context}: ${message}`);
 }
 
-function validateBodyMarkdown(bodyMarkdown: string, context: string): void {
-  const errors = validateNoteMarkdown(bodyMarkdown);
-  if (errors.length) fail(context, `invalid Markdown: ${errors.join("; ")}`);
+function validateBodyMarkdown(bodyMarkdown: string, context: string, format?: NoteFormat): void {
+  const errors = validateNoteContent(bodyMarkdown, format);
+  if (errors.length) fail(context, `invalid ${format === "graph" ? "graph" : "Markdown"}: ${errors.join("; ")}`);
 }
 
 function escapeLiteralText(value: string): string {
@@ -119,9 +120,6 @@ export function parseNoteDocument(
   if (!text.startsWith(NOTE_ENVELOPE_OPEN)) {
     fail(sourcePath, "invalid or unsupported note envelope opening line");
   }
-  if (text.indexOf(NOTE_ENVELOPE_OPEN, NOTE_ENVELOPE_OPEN.length) !== -1) {
-    fail(sourcePath, "a second note envelope is not allowed");
-  }
 
   const closeIndex = text.indexOf(NOTE_ENVELOPE_CLOSE, NOTE_ENVELOPE_OPEN.length);
   if (closeIndex === -1) fail(sourcePath, "note envelope comment is malformed or unterminated");
@@ -139,6 +137,9 @@ export function parseNoteDocument(
   }
 
   const remainder = text.slice(closeIndex + NOTE_ENVELOPE_CLOSE.length);
+  if (metadata.format !== "graph" && remainder.includes(NOTE_ENVELOPE_OPEN)) {
+    fail(sourcePath, "a second note envelope is not allowed");
+  }
   let projection: string;
   try {
     projection = renderAttachmentProjection(metadata, assetNames);
@@ -153,7 +154,7 @@ export function parseNoteDocument(
     bodyMarkdown = remainder.slice(0, -suffix.length);
   }
 
-  validateBodyMarkdown(bodyMarkdown, sourcePath);
+  validateBodyMarkdown(bodyMarkdown, sourcePath, metadata.format);
   return { metadata, bodyMarkdown };
 }
 
@@ -161,8 +162,8 @@ export function serializeNoteDocument(
   document: ParsedNoteDocument,
   assetNames: ReadonlyMap<string, string>,
 ): string {
-  validateBodyMarkdown(document.bodyMarkdown, "note document");
-  if (document.bodyMarkdown.includes(NOTE_ENVELOPE_OPEN)) {
+  validateBodyMarkdown(document.bodyMarkdown, "note document", document.metadata.format);
+  if (document.metadata.format !== "graph" && document.bodyMarkdown.includes(NOTE_ENVELOPE_OPEN)) {
     fail("note document", "a second note envelope is not allowed");
   }
   const metadataYaml = serializeNoteMetadataYaml(document.metadata);

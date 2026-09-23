@@ -52,7 +52,10 @@ export interface FileAttachment {
 
 export type NoteAttachment = ImageAttachment | LinkAttachment | FileAttachment;
 
+export type NoteFormat = "markdown" | "graph";
+
 export interface Note {
+  format?: NoteFormat;
   id: string;
   gameId: string;
   bodyMarkdown: string;
@@ -116,6 +119,8 @@ export interface LibraryDatabase {
 }
 
 export interface PatchOperation {
+  /** Interpretation of a note body set; absence retains legacy Markdown semantics. */
+  noteFormat?: NoteFormat;
   operation: "set" | "delete";
   value?: unknown;
   baseExists: boolean;

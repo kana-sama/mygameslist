@@ -1,3 +1,4 @@
+import { noteContentTitle, noteFormat } from "../domain/noteContent";
 import type { Root } from "mdast";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
@@ -140,7 +141,7 @@ function deriveNoteSlugText(bodyMarkdown: string): string {
 }
 
 export function deriveNoteFilename(note: Note): string {
-  const slug = slugifySourceName(deriveNoteSlugText(note.bodyMarkdown), "note");
+  const slug = slugifySourceName(noteFormat(note) === "graph" ? noteContentTitle(note) ?? "" : deriveNoteSlugText(note.bodyMarkdown), "note");
   return `${slug}_${note.id.toLowerCase()}.md`;
 }
 

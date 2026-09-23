@@ -1,6 +1,7 @@
+import { validateNoteContent } from "./noteContent";
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
 import { parseMarkdownRichTooltips } from "./markdownRichTooltips";
-import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope } from "./types";
+import { LIBRARY_SCHEMA_VERSION, STATUS_IDS, TIER_IDS, type Asset, type LibraryDatabase, type PatchEnvelope, type NoteFormat } from "./types";
 import { computeLibraryRevision, MISSING_VALUE_HASH, sha256Bytes } from "./canonical";
 import { deriveImageAssetAltFromOwners, indexAssetOwners } from "./assetOwnership";
 
@@ -20,13 +21,13 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
-  notes: ["id", "gameId", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
+  notes: ["id", "gameId", "format", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS = {
   games: ["title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown"],
-  notes: ["bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
+  notes: ["format", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
   assets: [],
 } as const satisfies Record<EntityMapName, readonly string[]>;
 
@@ -125,9 +126,10 @@ export function validateNoteMarkdown(value: string): string[] {
 export function validateInteractiveNoteField(
   field: "bodyMarkdown" | "collapsedChecklistSections",
   value: string | string[] | undefined,
+  format?: NoteFormat,
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  if (field === "bodyMarkdown") markdown(value, "/bodyMarkdown", issues, true);
+  if (field === "bodyMarkdown") noteBody(value, format, "/bodyMarkdown", issues);
   else if (value !== undefined) stringList(value, "/collapsedChecklistSections", issues);
   return issues;
 }
@@ -144,6 +146,11 @@ function markdown(value: unknown, path: string, issues: ValidationIssue[], richT
   if (!string(value, path, issues, true, 2_000_000)) return;
   const messages = richTooltipsEnabled ? validateNoteMarkdown(value) : validateMarkdown(value);
   for (const message of messages) issue(issues, path, message);
+}
+
+function noteBody(value: unknown, format: NoteFormat | undefined, path: string, issues: ValidationIssue[]): void {
+  if (!string(value, path, issues, true, 2_000_000)) return;
+  for (const message of validateNoteContent(value, format)) issue(issues, path, message);
 }
 
 function record(value: unknown, path: string, issues: ValidationIssue[]): value is Record<string, unknown> {
@@ -191,10 +198,11 @@ function validateGame(value: unknown, path: string, issues: ValidationIssue[]): 
 
 function validateNote(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект заметки"); return; }
-  const optionalFields = ["collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
+  const optionalFields = ["format", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
   exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
-  markdown(value.bodyMarkdown, `${path}/bodyMarkdown`, issues, true);
+  if (value.format !== undefined && value.format !== "markdown" && value.format !== "graph") issue(issues, `${path}/format`, "Неизвестный формат заметки");
+  else noteBody(value.bodyMarkdown, value.format, `${path}/bodyMarkdown`, issues);
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
   else value.attachments.forEach((attachment, index) => {
     const attachmentPath = `${path}/attachments/${index}`;
@@ -449,6 +457,7 @@ const SOURCE_PATCH_FIELD_VALIDATORS = {
     reviewMarkdown: recursivelySourceSafe,
   },
   notes: {
+    format: recursivelySourceSafe,
     bodyMarkdown: recursivelySourceSafe,
     attachments: sourceAttachments,
     collapsedChecklistSections: sourceCollapsedSections,
@@ -629,10 +638,12 @@ function validatePatchSetValue(parsed: ParsedPatchPath, value: unknown, path: st
     return;
   }
   if (parsed.field === undefined) { validateNote(value, entityPath, issues); return; }
+  // A field patch has no format context. Validate its text after merging the candidate.
+  if (parsed.field === "bodyMarkdown") { string(value, entityPath, issues, true, 2_000_000); return; }
   const candidate: Record<string, unknown> = {
     id: parsed.id,
     gameId: "00000000-0000-4000-8000-000000000000",
-    bodyMarkdown: "",
+    bodyMarkdown: parsed.field === "format" && value === "graph" ? "digraph {}" : "",
     attachments: [],
     rank: 1024,
     createdAt: "2000-01-01T00:00:00.000Z",
@@ -658,7 +669,17 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     if (!parsed) issue(issues, `/operations/${path}`, "Недопустимый путь");
     if (!isObject(operation)) { issue(issues, `/operations/${path}`, "Ожидалась операция"); continue; }
     const allowedKeys = operation.operation === "set" ? ["operation", "value", "baseExists", "baseHash", "changedAt", "transactionId"] : ["operation", "baseExists", "baseHash", "changedAt", "transactionId"];
-    exactKeys(operation, allowedKeys, `/operations/${path}`, issues);
+    exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat"]);
+    if (operation.noteFormat !== undefined) {
+      if (operation.noteFormat !== "graph" && operation.noteFormat !== "markdown" || parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") {
+        issue(issues, `/operations/${path}/noteFormat`, "Формат операции допустим только для записи текста заметки");
+      }
+      const partner = value.operations[`/notes/${parsed?.id}/format`];
+      if (isObject(partner)) {
+        const format = partner.operation === "delete" ? "markdown" : partner.value;
+        if (format !== operation.noteFormat) issue(issues, `/operations/${path}/noteFormat`, "Формат текста противоречит операции формата заметки");
+      }
+    }
     if (operation.operation !== "set" && operation.operation !== "delete") issue(issues, `/operations/${path}/operation`, "Неизвестная операция");
     if (operation.operation === "set" && operation.value === undefined) issue(issues, `/operations/${path}/value`, "Set требует JSON-значение");
     if (typeof operation.baseExists !== "boolean") issue(issues, `/operations/${path}/baseExists`, "Ожидался boolean");

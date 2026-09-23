@@ -1134,7 +1134,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         localStorage,
         current.patch,
         updated.patch,
-        update,
+        { ...update, expectedFormat: current.effective.notes[update.noteId]?.format ?? "markdown" },
         changedAt,
         transactionId,
       );
@@ -1204,6 +1204,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const note = libraryStore.getSnapshot().effective.notes[noteId];
     return note ? {
       bodyMarkdown: note.bodyMarkdown,
+      ...(note.format === undefined ? {} : { format: note.format }),
       ...(note.collapsedChecklistSections === undefined
         ? {}
         : { collapsedChecklistSections: [...note.collapsedChecklistSections] }),
@@ -1275,7 +1276,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       const retainedNoteIds = new Set<string>();
       input.notes.forEach((draft, index) => {
-        if (!draft.bodyMarkdown.trim() && !draft.attachments.length) return;
+        if (draft.format !== "graph" && !draft.bodyMarkdown.trim() && !draft.attachments.length) return;
         const noteId = draft.id && database.notes[draft.id]?.gameId === id ? draft.id : crypto.randomUUID();
         retainedNoteIds.add(noteId);
         const attachments: NoteAttachment[] = draft.attachments.map((attachment: EditableAttachment) => {
@@ -1299,6 +1300,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           id: noteId,
           gameId: id,
           bodyMarkdown: draft.bodyMarkdown,
+          ...(draft.format === undefined ? {} : { format: draft.format }),
           attachments,
           ...(draft.collapsedChecklistSections?.length ? { collapsedChecklistSections: [...new Set(draft.collapsedChecklistSections)] } : {}),
           ...(draft.doubleHeight ? { doubleHeight: true } : {}),

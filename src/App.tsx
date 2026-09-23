@@ -670,7 +670,7 @@ function sameGameRouteSelection(left: GameRouteSelection, right: GameRouteSelect
 
 function sameNoteInteractionSnapshot(left: NoteInteractionSnapshot | undefined, right: NoteInteractionSnapshot | undefined): boolean {
   if (Object.is(left, right)) return true;
-  if (!left || !right || left.bodyMarkdown !== right.bodyMarkdown) return false;
+  if (!left || !right || left.format !== right.format || left.bodyMarkdown !== right.bodyMarkdown) return false;
   const leftSections = left.collapsedChecklistSections ?? [];
   const rightSections = right.collapsedChecklistSections ?? [];
   return leftSections.length === rightSections.length
@@ -682,6 +682,7 @@ function useRouteNoteInteractionSnapshot(noteId: string): NoteInteractionSnapsho
     const note = library.effective.notes[noteId];
     return note ? {
       bodyMarkdown: note.bodyMarkdown,
+      ...(note.format === undefined ? {} : { format: note.format }),
       collapsedChecklistSections: note.collapsedChecklistSections,
     } : undefined;
   }, sameNoteInteractionSnapshot);

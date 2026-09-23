@@ -20,3 +20,4 @@ export * from "./changeReview";
 export * from "./patchSelection";
 export * from "./assetOwnership";
 export * from "./libraryNormalization";
+export * from "./noteContent";

@@ -19,6 +19,7 @@ export type MonacoMarkdownEditorExtension = (
 ) => Monaco.IDisposable | void;
 
 export interface MonacoMarkdownEditorProps {
+  language?: string;
   modelKey: string;
   value: string;
   onChange(value: string): void;
@@ -44,6 +45,7 @@ export function MonacoMarkdownEditor({
   ariaLabel,
   autoFocus = false,
   className,
+  language = "markdown",
   modelKey,
   onChange,
   onError,
@@ -81,14 +83,14 @@ export function MonacoMarkdownEditor({
 
     try {
       const uri = monacoEditor.Uri.parse(
-        `inmemory://mygameslist/markdown/${encodeURIComponent(modelKey)}.md`,
+        `inmemory://mygameslist/${language}/${encodeURIComponent(modelKey)}.${language === "markdown" ? "md" : "dot"}`,
       );
       if (monacoEditor.editor.getModel(uri)) {
         throw new Error(`Monaco modelKey "${modelKey}" is already mounted.`);
       }
 
       defineCompactMarkdownTheme(monacoEditor);
-      model = monacoEditor.editor.createModel(valueRef.current, "markdown", uri);
+      model = monacoEditor.editor.createModel(valueRef.current, language, uri);
       editor = monacoEditor.editor.create(
         surface,
         createCompactMarkdownEditorOptions({ ariaLabel, model, readOnly }),
@@ -131,7 +133,7 @@ export function MonacoMarkdownEditor({
       editorRef.current = null;
       modelRef.current = null;
     };
-  }, [modelKey]);
+  }, [modelKey, language]);
 
   useEffect(() => {
     const editor = editorRef.current;

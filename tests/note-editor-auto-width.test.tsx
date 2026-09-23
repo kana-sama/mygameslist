@@ -95,6 +95,18 @@ describe("note editor automatic table width", () => {
     expect(freshEditingCard).not.toHaveAttribute("data-shelf-required-width");
   });
 
+  it("clears Markdown table width demand when switching to graph mode", async () => {
+    const user = userEvent.setup();
+    render(<GamePage assets={{}} game={game} mode="game" notes={[makeNote(NOTE_ID, "Plain text", 1024)]} onSave={vi.fn()} />);
+    await user.click(screen.getByRole("button", {name: "Редактировать заметку"}));
+    const card = (await screen.findByRole("textbox", {name:"Текст заметки"})).closest("article")!;
+    act(() => widthReports.get(`note:${NOTE_ID}`)?.(900));
+    expect(card).toHaveAttribute("data-shelf-required-width", "900");
+    await user.selectOptions(screen.getByRole("combobox", {name:"Формат заметки"}), "graph");
+    expect(card).not.toHaveAttribute("data-shelf-required-width");
+    expect(card).not.toHaveAttribute("data-shelf-current-table-width");
+  });
+
   it("keeps a prose-only note at its saved span after a zero report", async () => {
     const user = userEvent.setup();
     const note = makeNote(NOTE_ID, "Prose only", 1024, { doubleWidth: true });

@@ -1,3 +1,4 @@
+import { diffSourceLines } from "../domain/markdownDiff";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react";
 import type { ChangeEvidence, ChangeReviewModel, GameChangeGroup, ProgressEvidenceItem, ReviewChange } from "../domain";
 import { Icon } from "./Icon";
@@ -144,6 +145,11 @@ function ChangeEvidenceView({ evidence, resolveAssetUrl }: { evidence: ChangeEvi
         {!evidence.added.length && !evidence.removed.length && !evidence.reordered ? <ProgressEvidenceSection items={evidence.after} label="Изменено" resolveAssetUrl={resolveAssetUrl} /> : null}
       </div>
     );
+  }
+  if (evidence.type === "source") {
+    return <pre className="markdown-diff-source" aria-label="Изменения исходного текста графа">{diffSourceLines(evidence.before, evidence.after).map(line => (
+      <span className={`markdown-diff-source-row markdown-diff-source-row--${line.kind}`} key={line.id} aria-label={line.kind === "added" ? `Добавлено: ${line.value}` : line.kind === "removed" ? `Удалено: ${line.value}` : undefined}>{line.value}</span>
+    ))}</pre>;
   }
   return <MarkdownDiffPreview model={evidence.diff} />;
 }

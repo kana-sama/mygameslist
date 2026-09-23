@@ -204,6 +204,7 @@ function runtimeNote(metadata: SourceNoteMetadataV1, gameId: string, bodyMarkdow
     createdAt: metadata.createdAt,
     updatedAt: metadata.updatedAt,
   };
+  if (metadata.format === "graph") note.format = "graph";
   if (metadata.groupRank !== undefined) note.groupRank = metadata.groupRank;
   if (metadata.doubleWidth !== undefined) note.doubleWidth = metadata.doubleWidth;
   if (metadata.doubleHeight !== undefined) note.doubleHeight = metadata.doubleHeight;

@@ -116,6 +116,7 @@ function noteSourceValue(database: LibraryDatabase, note: Note): SourceNoteMetad
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
   };
+  if (note.format === "graph") metadata.format = "graph";
   if (note.groupRank !== undefined) metadata.groupRank = note.groupRank;
   if (note.doubleWidth !== undefined) metadata.doubleWidth = note.doubleWidth;
   if (note.doubleHeight !== undefined) metadata.doubleHeight = note.doubleHeight;

@@ -1,7 +1,7 @@
 import { canonicalStringify } from "./canonical";
 import { deriveImageAssetAlt, indexAssetOwners, type AssetOwner } from "./assetOwnership";
 import { normalizeLibraryDatabase } from "./libraryNormalization";
-import { deriveMarkdownTitle } from "./markdownDiff";
+import { noteContentTitle } from "./noteContent";
 import { applyPatch, prunePatchBlobs } from "./patch";
 import type { Game, LibraryDatabase, Note, PatchEnvelope, PatchOperation } from "./types";
 import { assertValidLibrary, parsePatchPath, type EntityMapName } from "./validation";
@@ -70,7 +70,7 @@ function referencedAssets(value: unknown): Set<string> {
 }
 
 function noteTitle(note: Note | undefined): string {
-  return deriveMarkdownTitle(note?.bodyMarkdown ?? "") || "Заметка";
+  return note ? noteContentTitle(note) || "Заметка" : "Заметка";
 }
 
 function locatedOperations(patch: PatchEnvelope): LocatedOperation[] {
@@ -260,6 +260,11 @@ export function resolvePatchSelection(
       const current = operationsByPath.get(path);
       const changeId = pathOrigins.get(path) ?? fallbackChangeId;
       if (!current) throw new PatchSelectionError(changeId, `Операция ${path} не найдена в локальном патче`);
+
+      if (current.map === "notes" && (current.field === "format" || current.field === "bodyMarkdown")) {
+        const partner = `/notes/${current.id}/${current.field === "format" ? "bodyMarkdown" : "format"}`;
+        if (operationsByPath.has(partner)) changed = addDependency(partner, path, "Формат и текст заметки публикуются вместе") || changed;
+      }
 
       if (current.field !== undefined && !entityAt(normalizedBase, current.map, current.id)) {
         const rootPath = `/${current.map}/${current.id}`;

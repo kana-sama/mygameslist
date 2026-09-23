@@ -256,7 +256,7 @@ function decodeNoteMetadata(value: unknown): SourceNoteMetadataV1 {
     sourceKind,
     "",
     ["id", "rank", "createdAt", "updatedAt"],
-    ["groupRank", "doubleWidth", "doubleHeight", "collapsedChecklistSections", "attachments"],
+    ["format", "groupRank", "doubleWidth", "doubleHeight", "collapsedChecklistSections", "attachments"],
   );
   const result: SourceNoteMetadataV1 = {
     id: uuid(record.id, sourceKind, "/id"),
@@ -264,6 +264,8 @@ function decodeNoteMetadata(value: unknown): SourceNoteMetadataV1 {
     createdAt: isoDate(record.createdAt, sourceKind, "/createdAt"),
     updatedAt: isoDate(record.updatedAt, sourceKind, "/updatedAt"),
   };
+  if (record.format !== undefined && record.format !== "markdown" && record.format !== "graph") throw new Error("note metadata: unknown format");
+  if (record.format === "graph") result.format = "graph";
   if (record.groupRank !== undefined) {
     const value = rank(record.groupRank, sourceKind, "/groupRank");
     if (value !== DEFAULT_NOTE_GROUP_RANK) result.groupRank = value;
@@ -364,6 +366,7 @@ function noteString(value: string): string {
 export function serializeNoteMetadataYaml(value: SourceNoteMetadataV1): string {
   const metadata = decodeNoteMetadata(value);
   const lines = [`id: ${noteString(metadata.id)}`];
+  if (metadata.format === "graph") lines.push("format: graph");
   if (metadata.groupRank !== undefined) lines.push(`groupRank: ${metadata.groupRank}`);
   lines.push(`rank: ${metadata.rank}`);
   if (metadata.doubleWidth) lines.push("doubleWidth: true");

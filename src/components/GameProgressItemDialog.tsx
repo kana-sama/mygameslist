@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent as ReactClipboardEvent } from "react";
-import { firstMarkdownHeading, resolveNoteChecklistProgress } from "../domain/markdownChecklist";
+import { firstMarkdownHeading } from "../domain/markdownChecklist";
+import { noteContentTitle, resolveNoteContentProgress } from "../domain/noteContent";
 import { optimizeProgressIcon } from "../domain/progressIcon";
 import { DEFAULT_NOTE_GROUP_RANK, type Asset, type Note } from "../domain/types";
-import type { EditableGameProgressItem } from "../pages/GamePage";
+import type { EditableGameProgressItem, NoteInteractionSource } from "../pages/GamePage";
 import { clipboardImageFile, readClipboardImage } from "./clipboardImage";
 import { Icon } from "./Icon";
 import type { PreparedImage } from "./ImagePicker";
@@ -12,6 +13,7 @@ export interface GameProgressItemDialogProps {
   gameId: string;
   item: EditableGameProgressItem;
   notes: readonly Note[];
+  noteInteractionSource?: NoteInteractionSource;
   assets: Record<string, Asset>;
   storageLocked: boolean;
   canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
@@ -47,6 +49,7 @@ export function GameProgressItemDialog({
   gameId,
   item,
   notes,
+  noteInteractionSource,
   assets,
   storageLocked,
   canAddBlob,
@@ -69,9 +72,13 @@ export function GameProgressItemDialog({
   busyRef.current = busy;
   dirtyRef.current = dirty;
   onCancelRef.current = onCancel;
-  const availableNotes = useMemo(() => orderedNotes(notes, gameId), [gameId, notes]);
+  const ordered = useMemo(() => orderedNotes(notes, gameId), [gameId, notes]);
+  const availableNotes = ordered.map(note => {
+    const snapshot = noteInteractionSource?.readNoteInteractionSnapshot(note.id);
+    return snapshot ? { ...note, format: snapshot.format, bodyMarkdown: snapshot.bodyMarkdown } : note;
+  });
   const linkedNote = availableNotes.find((note) => note.id === draft.noteId);
-  const resolution = linkedNote ? resolveNoteChecklistProgress(linkedNote.bodyMarkdown) : { status: "error" as const };
+  const resolution = linkedNote ? resolveNoteContentProgress(linkedNote) : { status: "error" as const };
   const hasIcon = Boolean(draft.pendingIcon || draft.iconAssetId);
   const valid = hasIcon && resolution.status === "ok" && Number.isFinite(resolution.checked) && Number.isFinite(resolution.total);
   const currentAsset = draft.iconAssetId ? assets[draft.iconAssetId] : undefined;
@@ -223,7 +230,7 @@ export function GameProgressItemDialog({
               setError(null);
             }} value={draft.noteId}>
               <option value="">Выберите заметку</option>
-              {availableNotes.map((note, index) => <option key={note.id} value={note.id}>{firstMarkdownHeading(note.bodyMarkdown) ?? `Заметка ${index + 1}`}</option>)}
+              {availableNotes.map((note, index) => <option key={note.id} value={note.id}>{(note.format === "graph" ? noteContentTitle(note) : firstMarkdownHeading(note.bodyMarkdown)) ?? `Заметка ${index + 1}`}</option>)}
             </select>
           </label>
           <div aria-live="polite" className={`game-progress-dialog__progress${resolution.status === "ok" && resolution.checked === resolution.total ? " is-complete" : ""}${resolution.status === "error" ? " is-error" : ""}`}>
