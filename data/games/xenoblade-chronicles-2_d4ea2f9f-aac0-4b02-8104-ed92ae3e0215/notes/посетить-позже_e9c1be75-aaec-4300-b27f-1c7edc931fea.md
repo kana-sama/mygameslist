@@ -3,7 +3,7 @@ id: "e9c1be75-aaec-4300-b27f-1c7edc931fea"
 groupRank: 1536
 rank: 512
 createdAt: "2026-08-15T11:10:49.672Z"
-updatedAt: "2026-09-07T18:42:12.333Z"
+updatedAt: "2026-09-08T21:20:57.546Z"
 -->
 # Посетить позже
 
@@ -17,7 +17,7 @@ updatedAt: "2026-09-07T18:42:12.333Z"
 - [x] [Carolline Sanctum - что-то под водой]("Crown of Sanctuary")
 
 ## Temperantia
-- [ ] Jagron's Citadel (lvl 90)
+- [x] Jagron's Citadel (lvl 90)
 
 ## Kingdom of Tantal
 - [ ] Zalmor's Crevice (lvl 80) - щель с сундуком

@@ -1,7 +1,7 @@
 <!-- mygameslist-note:v1
 id: "6ce41b9c-4587-4748-bbe7-3cdf28feceeb"
 groupRank: 2048
-rank: 888
+rank: 15872
 doubleHeight: true
 collapsedChecklistSections:
   - "group:13vfedn-2c"
@@ -60,7 +60,7 @@ collapsedChecklistSections:
   - "heading:g71tso-1e"
   - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-08T16:32:11.887Z"
+updatedAt: "2026-09-08T19:20:48.451Z"
 -->
 # Shop Deeds
 

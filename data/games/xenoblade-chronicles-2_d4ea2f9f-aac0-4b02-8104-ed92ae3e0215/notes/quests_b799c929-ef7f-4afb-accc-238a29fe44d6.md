@@ -1,10 +1,12 @@
 <!-- mygameslist-note:v1
 id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
 groupRank: 2048
-rank: 512
+rank: 13824
 doubleHeight: true
+collapsedChecklistSections:
+  - "heading:178zra3-n"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-08T16:21:49.317Z"
+updatedAt: "2026-09-08T19:20:36.665Z"
 -->
 # Quests
 

@@ -25,6 +25,11 @@ progressItems:
       assetId: "862bcaed1fa44419524c14db1495d35f81cd8cad3c2fdc200b7a60a21228ae9f"
       originalName: "clipboard-image.png"
     noteId: "f85b6c11-f686-4569-941e-b776e514e768"
+  - id: "d5e290b9-5772-471b-9d16-a07b88d96477"
+    icon:
+      assetId: "e15301cc6f7fe056bf124796fd4caf8d4ed11a48886d628c279f06b13ac1a397"
+      originalName: "clipboard-image.png"
+    noteId: "96e435c8-cee0-4569-ab4b-8be5c5758643"
 platforms:
   - Nintendo Switch 2
   - Nintendo Switch
@@ -36,4 +41,4 @@ placement:
   rank: 24576
 reviewMarkdown: |2-
 createdAt: "2026-07-17T06:01:20.175Z"
-updatedAt: "2026-09-08T16:34:19.092Z"
+updatedAt: "2026-09-09T12:29:19.756Z"
