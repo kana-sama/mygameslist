@@ -110,6 +110,37 @@ export async function layoutGraph(
         (e) => included.has(e.from) && included.has(e.to) && e.from !== e.to,
       );
   };
+  const simplePath = (
+    ids: string[],
+    scope: string | null,
+    edges: { from: string; to: string }[],
+  ): string[] | null => {
+    if (ids.length < 2 || edges.length !== ids.length - 1) return null;
+    const included = new Set(ids);
+    // Preserve the existing routing space for labeled edges, including those
+    // crossing this scope. Projected edges omit self loops, so check them here.
+    if (graph.edges.some((edge) =>
+      (edge.label || edge.from === edge.to) &&
+      (included.has(representative(edge.from, scope)) ||
+        included.has(representative(edge.to, scope))),
+    )) return null;
+    const next = new Map<string, string>();
+    const incoming = new Set<string>();
+    for (const edge of edges) {
+      if (next.has(edge.from) || incoming.has(edge.to)) return null;
+      next.set(edge.from, edge.to);
+      incoming.add(edge.to);
+    }
+    const starts = ids.filter((id) => !incoming.has(id));
+    if (starts.length !== 1) return null;
+    const path: string[] = [];
+    let current: string | undefined = starts[0];
+    while (current !== undefined && !path.includes(current)) {
+      path.push(current);
+      current = next.get(current);
+    }
+    return path.length === ids.length && current === undefined ? path : null;
+  };
   const nodeRegion = (node: GraphNode, budget: number): Region => {
     const nodeWidth = Math.max(116, Math.min(220, budget));
     const textWidth = nodeWidth - (node.task ? 42 : 20);
@@ -211,6 +242,24 @@ export async function layoutGraph(
         return item(id, childBudget, depth);
       }),
     );
+    const path = simplePath(ids, scope, edges);
+    if (path) {
+      // Use normally measured cards and the existing flow gap; a row must fit
+      // this scope's actual inner budget without squeezing any of its children.
+      const rowWidth = regions.reduce((sum, region) => sum + region.width, 0) +
+        22 * (regions.length - 1);
+      if (rowWidth <= budget) {
+        const rowHeight = Math.max(...regions.map((region) => region.height));
+        let x = (budget - rowWidth) / 2;
+        const placed = path.map((id) => {
+          const region = regions[ids.indexOf(id)];
+          const result = shift(region, x, (rowHeight - region.height) / 2);
+          x += region.width + 22;
+          return result;
+        });
+        return combine(placed, budget, rowHeight);
+      }
+    }
     const placement = enginePositions(ids, regions, edges);
     const rows = new Map<number, number[]>();
     regions.forEach((_, i) => {
