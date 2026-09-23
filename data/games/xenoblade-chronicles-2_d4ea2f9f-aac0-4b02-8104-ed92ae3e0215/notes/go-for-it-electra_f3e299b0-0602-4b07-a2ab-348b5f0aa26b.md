@@ -2,11 +2,8 @@
 id: "f3e299b0-0602-4b07-a2ab-348b5f0aa26b"
 groupRank: 4096
 rank: 2048
-collapsedChecklistSections:
-  - "heading:10lvit5-20"
-  - "heading:1ja2xi0-20"
 createdAt: "2026-08-25T07:39:25.408Z"
-updatedAt: "2026-08-27T06:31:22.779Z"
+updatedAt: "2026-09-23T20:48:00.198Z"
 -->
 # Go for it, Electra!
 

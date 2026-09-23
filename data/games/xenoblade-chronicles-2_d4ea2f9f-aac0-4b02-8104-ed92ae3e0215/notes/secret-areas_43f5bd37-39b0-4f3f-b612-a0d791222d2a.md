@@ -3,15 +3,8 @@ id: "43f5bd37-39b0-4f3f-b612-a0d791222d2a"
 groupRank: 2048
 rank: 16896
 doubleHeight: true
-collapsedChecklistSections:
-  - "heading:1irkbgk-1n"
-  - "heading:59c9mk-1q"
-  - "heading:6al93y-1h"
-  - "heading:omtvm-1m"
-  - "heading:oxxgn0-1m"
-  - "heading:zpwxqf-1r"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-08T19:20:50.918Z"
+updatedAt: "2026-09-23T20:47:57.222Z"
 -->
 # Secret Areas
 

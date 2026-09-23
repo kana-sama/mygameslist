@@ -56,11 +56,8 @@ collapsedChecklistSections:
   - "group:uoy8yy-29"
   - "group:zbbahv-2b"
   - "group:zuo2j7-23"
-  - "heading:1ejpocg-1j"
-  - "heading:g71tso-1e"
-  - "heading:ll5154-1j"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-08T19:20:48.451Z"
+updatedAt: "2026-09-23T20:48:29.540Z"
 -->
 # Shop Deeds
 

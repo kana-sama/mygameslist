@@ -3,10 +3,8 @@ id: "b799c929-ef7f-4afb-accc-238a29fe44d6"
 groupRank: 2048
 rank: 13824
 doubleHeight: true
-collapsedChecklistSections:
-  - "heading:178zra3-n"
 createdAt: "2026-08-12T00:33:42.000Z"
-updatedAt: "2026-09-08T19:20:36.665Z"
+updatedAt: "2026-09-23T20:47:09.024Z"
 -->
 # Quests
 
