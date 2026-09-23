@@ -1,3 +1,5 @@
+import { wrapGraphText } from "./textWrap";
+export { wrapGraphText } from "./textWrap";
 import type { GraphDocument, GraphNode } from "../../domain/graph";
 import type {
   GraphBox,
@@ -61,36 +63,6 @@ function textMeasurer(font: string) {
       0,
     );
   };
-}
-export function wrapGraphText(
-  text: string,
-  width: number,
-  size: number,
-  measure: (text: string, size: number) => number,
-): string[] {
-  const result: string[] = [];
-  for (const paragraph of text.split("\n")) {
-    let line = "";
-    for (const word of paragraph.split(/\s+/)) {
-      if (line && measure(`${line} ${word}`, size) <= width) {
-        line += ` ${word}`;
-        continue;
-      }
-      if (line) {
-        result.push(line);
-        line = "";
-      }
-      for (const char of word) {
-        if (line && measure(line + char, size) > width) {
-          result.push(line);
-          line = "";
-        }
-        line += char;
-      }
-    }
-    result.push(line);
-  }
-  return result;
 }
 function shift(region: Region, dx: number, dy: number): Region {
   return {
