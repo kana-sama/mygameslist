@@ -8,6 +8,18 @@ const layout = async (source: string, width: number) =>
   layoutGraph(parseGraph(source), width, await engine);
 
 describe("adaptive horizontal flow paths", () => {
+  it("equalizes direct horizontal node heights and routes through their centers", async () => {
+    const result = await layout(
+      'digraph { a[label="A long label that wraps across lines"]; b[label="B"]; a->b; }',
+      318,
+    );
+    const [a, b] = result.nodes;
+    expect(a.height).toBe(b.height);
+    expect(a.y).toBe(b.y);
+    expect(result.edges[0].points[0][1]).toBeCloseTo(a.y + a.height / 2, 0);
+    expect(result.edges[0].points.at(-1)![1]).toBeCloseTo(b.y + b.height / 2, 0);
+  });
+
   it("fits three short task cards in a 717px group by adapting their widths", async () => {
     const source = `digraph { before[task=false]; subgraph g {
       a[label="A",subtitle="Shelter"]; b[label="B"]; c[label="C",kind=milestone];
@@ -93,7 +105,7 @@ describe("adaptive horizontal flow paths", () => {
     }
   });
 
-  it("supports sections and nested groups, aligning unequal card centers", async () => {
+  it("supports sections and nested groups, equalizing card heights", async () => {
     const source = `digraph { subgraph chapter { kind=section; label="Chapter";
       subgraph outer { subgraph inner {
         a[label="First",subtitle="A long explanatory subtitle that wraps across several lines"];
@@ -104,7 +116,7 @@ describe("adaptive horizontal flow paths", () => {
     const narrow = await layout(source, 317);
     const full = await layout(source, 526);
     const [a, b] = wide.nodes;
-    expect(a.height).toBeGreaterThan(b.height);
+    expect(a.height).toBe(b.height);
     expect(a.y + a.height / 2).toBe(b.y + b.height / 2);
     expect(a.x).toBeLessThan(b.x);
     expect(a.subtitleLines.length).toBeGreaterThan(1);

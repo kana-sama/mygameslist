@@ -259,7 +259,22 @@ export async function layoutGraph(
         let x = (budget - rowWidth) / 2;
         const placed = path.map((id) => {
           const region = rowRegions[ids.indexOf(id)];
-          const result = shift(region, x, (rowHeight - region.height) / 2);
+          const normalized = fittedNodes
+            ? {
+                ...region,
+                height: rowHeight,
+                nodes: region.nodes.map((node) => ({
+                  ...node,
+                  y: 0,
+                  height: rowHeight,
+                })),
+              }
+            : region;
+          const result = shift(
+            normalized,
+            x,
+            fittedNodes ? 0 : (rowHeight - region.height) / 2,
+          );
           x += region.width + 22;
           return result;
         });
