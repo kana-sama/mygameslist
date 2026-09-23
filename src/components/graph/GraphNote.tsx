@@ -98,10 +98,7 @@ export function GraphNote({
     if (!element) return;
     setFont(getComputedStyle(element).fontFamily);
     const update = (next: number) => {
-      if (next > 0)
-        setWidth((previous) =>
-          Math.abs(previous - next) >= 4 ? Math.round(next) : previous,
-        );
+      if (next > 0) setWidth(Math.round(next));
     };
     update(element.getBoundingClientRect().width);
     if (typeof ResizeObserver === "undefined") return;

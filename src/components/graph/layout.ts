@@ -244,15 +244,21 @@ export async function layoutGraph(
     );
     const path = simplePath(ids, scope, edges);
     if (path) {
-      // Use normally measured cards and the existing flow gap; a row must fit
-      // this scope's actual inner budget without squeezing any of its children.
-      const rowWidth = regions.reduce((sum, region) => sum + region.width, 0) +
-        22 * (regions.length - 1);
-      if (rowWidth <= budget) {
-        const rowHeight = Math.max(...regions.map((region) => region.height));
+      // Direct node chains share the available row width. Remeasure their text
+      // at the fitted width, but keep group containers at their measured size.
+      const slotWidth = (budget - 22 * (ids.length - 1)) / ids.length;
+      const fittedNodes = slotWidth >= 116 && ids.every((id) => nodes.has(id));
+      const rowRegions = fittedNodes
+        ? ids.map((id) => nodeRegion(nodes.get(id)!, slotWidth))
+        : regions;
+      const rowWidth = rowRegions.reduce((sum, region) => sum + region.width, 0) +
+        22 * (rowRegions.length - 1);
+      // Equal fractional slots can sum a fraction of a pixel beyond the budget.
+      if (fittedNodes || rowWidth <= budget) {
+        const rowHeight = Math.max(...rowRegions.map((region) => region.height));
         let x = (budget - rowWidth) / 2;
         const placed = path.map((id) => {
-          const region = regions[ids.indexOf(id)];
+          const region = rowRegions[ids.indexOf(id)];
           const result = shift(region, x, (rowHeight - region.height) / 2);
           x += region.width + 22;
           return result;

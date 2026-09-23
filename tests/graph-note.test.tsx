@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GraphNote } from "../src/components/graph/GraphNote";
 import { parseGraph } from "../src/domain/graph";
 const state = vi.hoisted(() => ({ fail: false }));
@@ -20,9 +20,42 @@ vi.mock("../src/components/graph/layoutClient", async () => {
 beforeEach(() => {
   state.fail = false;
 });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 const source =
   'digraph { label="Synthetic map"; subgraph g { label="Chapter"; a[label="Alpha"]; b[label="Beta",state=doing]; info[label="<img src=x onerror=alert(1)>",task=false,kind=note]; a->b; } }';
 describe("graph note controls", () => {
+  it("uses the measured initial width and switches chain direction on a one-pixel resize", async () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(new DOMRect(0, 0, 717, 100));
+    let resize!: (width: number) => void;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: (entries: { contentRect: { width: number } }[]) => void) {
+        resize = (width) => callback([{ contentRect: { width } }]);
+      }
+      observe() {}
+      disconnect() {}
+    });
+    const { container } = render(<GraphNote source="digraph { before; subgraph g { a;b;c; a->b->c; } after; before->g->after; }" />);
+    await screen.findByText("a");
+    const canvas = container.querySelector(".graph-note__canvas") as HTMLElement;
+    const a = container.querySelector("[data-graph-node=a]") as HTMLElement;
+    const b = container.querySelector("[data-graph-node=b]") as HTMLElement;
+    expect(canvas.style.width).toBe("717px");
+    expect(a.style.top).toBe(b.style.top);
+    act(() => resize(424));
+    await waitFor(() => expect(canvas.style.width).toBe("424px"));
+    expect(a.style.top).toBe(b.style.top);
+    act(() => resize(423));
+    await waitFor(() => expect(canvas.style.width).toBe("423px"));
+    expect(a.style.top).not.toBe(b.style.top);
+    act(() => resize(424));
+    await waitFor(() => expect(canvas.style.width).toBe("424px"));
+    expect(a.style.top).toBe(b.style.top);
+  });
+
   it("renders inert text and emits source-preserving node and group edits", async () => {
     const onChange = vi.fn();
     const { container } = render(
