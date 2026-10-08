@@ -264,8 +264,8 @@ function decodeNoteMetadata(value: unknown): SourceNoteMetadataV1 {
     createdAt: isoDate(record.createdAt, sourceKind, "/createdAt"),
     updatedAt: isoDate(record.updatedAt, sourceKind, "/updatedAt"),
   };
-  if (record.format !== undefined && record.format !== "markdown" && record.format !== "graph") throw new Error("note metadata: unknown format");
-  if (record.format === "graph") result.format = "graph";
+  if (record.format !== undefined && record.format !== "markdown" && record.format !== "graph" && record.format !== "tierlist") throw new Error("note metadata: unknown format");
+  if (record.format === "graph" || record.format === "tierlist") result.format = record.format;
   if (record.groupRank !== undefined) {
     const value = rank(record.groupRank, sourceKind, "/groupRank");
     if (value !== DEFAULT_NOTE_GROUP_RANK) result.groupRank = value;
@@ -366,7 +366,7 @@ function noteString(value: string): string {
 export function serializeNoteMetadataYaml(value: SourceNoteMetadataV1): string {
   const metadata = decodeNoteMetadata(value);
   const lines = [`id: ${noteString(metadata.id)}`];
-  if (metadata.format === "graph") lines.push("format: graph");
+  if (metadata.format === "graph" || metadata.format === "tierlist") lines.push(`format: ${metadata.format}`);
   if (metadata.groupRank !== undefined) lines.push(`groupRank: ${metadata.groupRank}`);
   lines.push(`rank: ${metadata.rank}`);
   if (metadata.doubleWidth) lines.push("doubleWidth: true");

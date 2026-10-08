@@ -1,3 +1,4 @@
+import { parseTierList, tierListImageAssetIds } from "./tierList";
 import { canonicalStringify } from "./canonical";
 import { deriveImageAssetAlt, indexAssetOwners, type AssetOwner } from "./assetOwnership";
 import { normalizeLibraryDatabase } from "./libraryNormalization";
@@ -264,6 +265,26 @@ export function resolvePatchSelection(
       if (current.map === "notes" && (current.field === "format" || current.field === "bodyMarkdown")) {
         const partner = `/notes/${current.id}/${current.field === "format" ? "bodyMarkdown" : "format"}`;
         if (operationsByPath.has(partner)) changed = addDependency(partner, path, "Формат и текст заметки публикуются вместе") || changed;
+      }
+
+      // Close over the existing attachment pool only when a selected content/pool change
+      // would leave a tier-list card without its same-note image attachment.
+      if (current.map === "notes" && current.field !== undefined) {
+        const beforeNote = normalizedBase.notes[current.id], afterNote = normalizedEffective.notes[current.id];
+        if ((current.field === "format" || current.field === "bodyMarkdown") && afterNote?.format === "tierlist") {
+          const pool = new Set((beforeNote?.attachments ?? []).filter(item => item.type === "image").map(item => item.assetId));
+          if ([...tierListImageAssetIds(parseTierList(afterNote.bodyMarkdown))].some(id => !pool.has(id))) {
+            changed = addDependency(`/notes/${current.id}/attachments`, path, "Изображения карточек публикуются вместе с вложениями заметки") || changed;
+          }
+        }
+        if (current.field === "attachments" && beforeNote?.format === "tierlist" && afterNote) {
+          const pool = new Set(afterNote.attachments.filter(item => item.type === "image").map(item => item.assetId));
+          if ([...tierListImageAssetIds(parseTierList(beforeNote.bodyMarkdown))].some(id => !pool.has(id))) {
+            const contentPath = [`/notes/${current.id}/bodyMarkdown`, `/notes/${current.id}/format`].find(candidate => operationsByPath.has(candidate));
+            if (!contentPath) throw new PatchSelectionError(changeId, "Удаляемое изображение используется карточкой тирлиста");
+            changed = addDependency(contentPath, path, "Удаление изображения требует обновления карточек тирлиста") || changed;
+          }
+        }
       }
 
       if (current.field !== undefined && !entityAt(normalizedBase, current.map, current.id)) {

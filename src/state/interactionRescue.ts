@@ -86,7 +86,7 @@ function parseEntry(value: unknown): RescuedNoteInteraction {
     ? ["noteId", "field", "source", "fallbackOperation", "fallbackValue", "changedAt", "transactionId"]
     : ["noteId", "field", "source", "fallbackOperation", "changedAt", "transactionId"];
   if (value.noteFormat !== undefined) {
-    if (value.field !== "bodyMarkdown" || value.noteFormat !== "graph" && value.noteFormat !== "markdown") throw new Error("Некорректный формат rescue-записи");
+    if (value.field !== "bodyMarkdown" || value.noteFormat !== "graph" && value.noteFormat !== "markdown" && value.noteFormat !== "tierlist") throw new Error("Некорректный формат rescue-записи");
     expectedKeys.push("noteFormat");
   }
   if (!exactKeys(value, expectedKeys)) throw new Error("Некорректные поля rescue-записи взаимодействия");
@@ -194,7 +194,7 @@ function rescueEntry(
     noteId: update.noteId,
     field: update.field,
     source: "fallback",
-    ...(update.field === "bodyMarkdown" && update.expectedFormat === "graph" ? { noteFormat: "graph" as const } : {}),
+    ...(update.field === "bodyMarkdown" && update.expectedFormat !== undefined && update.expectedFormat !== "markdown" ? { noteFormat: update.expectedFormat } : {}),
     fallbackOperation: update.value === undefined ? "delete" : "set",
     ...(update.value === undefined ? {} : { fallbackValue: structuredClone(update.value) }),
     changedAt,
@@ -422,7 +422,7 @@ export function resolveRescuedNoteInteraction(
   if (root?.operation === "set" && isObject(root.value)) {
     const value = root.value[entry.field];
     return entry.field === "bodyMarkdown"
-      ? typeof value === "string" ? { noteId: entry.noteId, field: entry.field, value, expectedFormat: root.value.format === "graph" ? "graph" : "markdown" } : null
+      ? typeof value === "string" ? { noteId: entry.noteId, field: entry.field, value, expectedFormat: root.value.format === "graph" || root.value.format === "tierlist" ? root.value.format : "markdown" } : null
       : { noteId: entry.noteId, field: entry.field, value: value === undefined ? undefined : structuredClone(value as string[]) };
   }
   const operation = ordinaryPatch.operations[entityPath("notes", entry.noteId, entry.field)];

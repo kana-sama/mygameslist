@@ -477,8 +477,8 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
     const before = beforeEntity ? (beforeEntity as unknown as Record<string, unknown>)[field] : undefined;
     const after = afterEntity ? (afterEntity as unknown as Record<string, unknown>)[field] : undefined;
     if (field === "format") {
-      if (before !== after) result.push({ type: "scalar", before: `Формат: ${before === "graph" ? "Граф" : "Markdown"}`, after: `Формат: ${after === "graph" ? "Граф" : "Markdown"}` });
-    } else if (field === "bodyMarkdown" && ((beforeEntity && "bodyMarkdown" in beforeEntity && noteFormat(beforeEntity) === "graph") || (afterEntity && "bodyMarkdown" in afterEntity && noteFormat(afterEntity) === "graph"))) {
+      if (before !== after) result.push({ type: "scalar", before: `Формат: ${before === "tierlist" ? "Тирлист" : before === "graph" ? "Граф" : "Markdown"}`, after: `Формат: ${after === "tierlist" ? "Тирлист" : after === "graph" ? "Граф" : "Markdown"}` });
+    } else if (field === "bodyMarkdown" && ((beforeEntity && "bodyMarkdown" in beforeEntity && noteFormat(beforeEntity) !== "markdown") || (afterEntity && "bodyMarkdown" in afterEntity && noteFormat(afterEntity) !== "markdown"))) {
       result.push({ type: "source", before: typeof before === "string" ? before : "", after: typeof after === "string" ? after : "" });
     } else if (field === "bodyMarkdown" || field === "reviewMarkdown") {
       result.push(markdownEvidence(before, after));

@@ -2637,7 +2637,7 @@ describe("LibraryProvider v3 source-tree publication", () => {
   });
 });
 
-function GraphNotePersistenceProbe() {
+function StructuredNotePersistenceProbe({ format }: { format: "graph" | "tierlist" }) {
   const library = useLibrary();
   const [result, setResult] = useState("");
   const current = library.effective.games[GAME_ID];
@@ -2649,27 +2649,27 @@ function GraphNotePersistenceProbe() {
       if (!current) return;
       void library.saveGame({ id: current.id, title: current.title, coverAssetId: null, pendingCover: null,
         platforms: [], tags: [], status: current.status, tierId: current.placement.tierId, reviewMarkdown: "", progressItems: [],
-        notes: [{ id: NOTE_ID, clientId: NOTE_ID, format: "graph", bodyMarkdown: "", attachments: [], rank: 1024 },
+        notes: [{ id: NOTE_ID, clientId: NOTE_ID, format, bodyMarkdown: "", attachments: [], rank: 1024 },
           { clientId: "empty-markdown", bodyMarkdown: "", attachments: [], rank: 2048 }],
       }).then(() => setResult("saved")).catch(error => setResult(String(error)));
-    }}>Save empty graph</button>
+    }}>Save empty {format}</button>
   </div>;
 }
 
-it("preserves a new empty graph through saves and reloads while cleaning up empty Markdown", async () => {
+it.each(["graph", "tierlist"] as const)("preserves a new empty %s through saves and reloads while cleaning up empty Markdown", async format => {
   const draft = empty();
-  draft.games[GAME_ID] = game("Graph fixture");
+  draft.games[GAME_ID] = game("Structured note fixture");
   const base = withComputedRevision(draft);
   mockStaticDatabase(base);
-  const first = render(<LibraryProvider><GraphNotePersistenceProbe /></LibraryProvider>);
+  const first = render(<LibraryProvider><StructuredNotePersistenceProbe format={format} /></LibraryProvider>);
   await waitFor(() => expect(screen.getByTestId("graph-loading")).toHaveTextContent("false"));
-  fireEvent.click(screen.getByRole("button", { name: "Save empty graph" }));
+  fireEvent.click(screen.getByRole("button", { name: `Save empty ${format}` }));
   await waitFor(() => expect(screen.getByTestId("graph-note-result")).toHaveTextContent("saved"));
   const saved = JSON.parse(screen.getByTestId("graph-note-state").textContent!);
   expect(Object.values(saved)).toHaveLength(1);
-  expect(Object.values(saved)[0]).toMatchObject({ format: "graph", bodyMarkdown: "" });
+  expect(Object.values(saved)[0]).toMatchObject({ format, bodyMarkdown: "" });
   first.unmount();
-  render(<LibraryProvider><GraphNotePersistenceProbe /></LibraryProvider>);
+  render(<LibraryProvider><StructuredNotePersistenceProbe format={format} /></LibraryProvider>);
   await waitFor(() => expect(screen.getByTestId("graph-loading")).toHaveTextContent("false"));
-  expect(Object.values(JSON.parse(screen.getByTestId("graph-note-state").textContent!))[0]).toMatchObject({ format: "graph", bodyMarkdown: "" });
+  expect(Object.values(JSON.parse(screen.getByTestId("graph-note-state").textContent!))[0]).toMatchObject({ format, bodyMarkdown: "" });
 });

@@ -1276,7 +1276,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       const retainedNoteIds = new Set<string>();
       input.notes.forEach((draft, index) => {
-        if (draft.format !== "graph" && !draft.bodyMarkdown.trim() && !draft.attachments.length) return;
+        if ((draft.format ?? "markdown") === "markdown" && !draft.bodyMarkdown.trim() && !draft.attachments.length) return;
         const noteId = draft.id && database.notes[draft.id]?.gameId === id ? draft.id : crypto.randomUUID();
         retainedNoteIds.add(noteId);
         const attachments: NoteAttachment[] = draft.attachments.map((attachment: EditableAttachment) => {

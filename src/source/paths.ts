@@ -141,7 +141,7 @@ function deriveNoteSlugText(bodyMarkdown: string): string {
 }
 
 export function deriveNoteFilename(note: Note): string {
-  const slug = slugifySourceName(noteFormat(note) === "graph" ? noteContentTitle(note) ?? "" : deriveNoteSlugText(note.bodyMarkdown), "note");
+  const slug = slugifySourceName(noteFormat(note) !== "markdown" ? noteContentTitle(note) ?? "" : deriveNoteSlugText(note.bodyMarkdown), "note");
   return `${slug}_${note.id.toLowerCase()}.md`;
 }
 

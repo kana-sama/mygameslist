@@ -52,7 +52,7 @@ export interface FileAttachment {
 
 export type NoteAttachment = ImageAttachment | LinkAttachment | FileAttachment;
 
-export type NoteFormat = "markdown" | "graph";
+export type NoteFormat = "markdown" | "graph" | "tierlist";
 
 export interface Note {
   format?: NoteFormat;

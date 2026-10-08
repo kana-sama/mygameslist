@@ -1,3 +1,4 @@
+import { validateTierListImageAttachments } from "./tierList";
 import { validateNoteContent } from "./noteContent";
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
 import { parseMarkdownRichTooltips } from "./markdownRichTooltips";
@@ -201,7 +202,7 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
   const optionalFields = ["format", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
   exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
-  if (value.format !== undefined && value.format !== "markdown" && value.format !== "graph") issue(issues, `${path}/format`, "Неизвестный формат заметки");
+  if (value.format !== undefined && value.format !== "markdown" && value.format !== "graph" && value.format !== "tierlist") issue(issues, `${path}/format`, "Неизвестный формат заметки");
   else noteBody(value.bodyMarkdown, value.format, `${path}/bodyMarkdown`, issues);
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
   else value.attachments.forEach((attachment, index) => {
@@ -221,6 +222,10 @@ function validateNote(value: unknown, path: string, issues: ValidationIssue[]): 
       string(attachment.label, `${attachmentPath}/label`, issues, false, 1_000);
     } else issue(issues, `${attachmentPath}/type`, "Неизвестный тип вложения");
   });
+  if (value.format === "tierlist" && typeof value.bodyMarkdown === "string" && Array.isArray(value.attachments)) {
+    const pool = value.attachments.filter(isObject).map(item => ({ type: String(item.type), assetId: typeof item.assetId === "string" ? item.assetId : undefined }));
+    for (const message of validateTierListImageAttachments(value.bodyMarkdown, pool)) issue(issues, `${path}/bodyMarkdown`, message);
+  }
   if (value.collapsedChecklistSections !== undefined) stringList(value.collapsedChecklistSections, `${path}/collapsedChecklistSections`, issues);
   if (value.doubleHeight !== undefined && typeof value.doubleHeight !== "boolean") issue(issues, `${path}/doubleHeight`, "Ожидалось логическое значение");
   if (value.doubleWidth !== undefined && typeof value.doubleWidth !== "boolean") issue(issues, `${path}/doubleWidth`, "Ожидалось логическое значение");
@@ -671,7 +676,7 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     const allowedKeys = operation.operation === "set" ? ["operation", "value", "baseExists", "baseHash", "changedAt", "transactionId"] : ["operation", "baseExists", "baseHash", "changedAt", "transactionId"];
     exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat"]);
     if (operation.noteFormat !== undefined) {
-      if (operation.noteFormat !== "graph" && operation.noteFormat !== "markdown" || parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") {
+      if (operation.noteFormat !== "graph" && operation.noteFormat !== "markdown" && operation.noteFormat !== "tierlist" || parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") {
         issue(issues, `/operations/${path}/noteFormat`, "Формат операции допустим только для записи текста заметки");
       }
       const partner = value.operations[`/notes/${parsed?.id}/format`];

@@ -1,3 +1,4 @@
+import { validateTierListImageAttachments } from "../domain/tierList";
 import { validateNoteContent } from "../domain/noteContent";
 import type { NoteFormat } from "../domain/types";
 import { parseNoteMetadataYaml, serializeNoteMetadataYaml } from "./metadata";
@@ -21,7 +22,7 @@ function fail(context: string, message: string): never {
 
 function validateBodyMarkdown(bodyMarkdown: string, context: string, format?: NoteFormat): void {
   const errors = validateNoteContent(bodyMarkdown, format);
-  if (errors.length) fail(context, `invalid ${format === "graph" ? "graph" : "Markdown"}: ${errors.join("; ")}`);
+  if (errors.length) fail(context, `invalid ${format ?? "Markdown"}: ${errors.join("; ")}`);
 }
 
 function escapeLiteralText(value: string): string {
@@ -137,7 +138,7 @@ export function parseNoteDocument(
   }
 
   const remainder = text.slice(closeIndex + NOTE_ENVELOPE_CLOSE.length);
-  if (metadata.format !== "graph" && remainder.includes(NOTE_ENVELOPE_OPEN)) {
+  if ((metadata.format ?? "markdown") === "markdown" && remainder.includes(NOTE_ENVELOPE_OPEN)) {
     fail(sourcePath, "a second note envelope is not allowed");
   }
   let projection: string;
@@ -155,6 +156,10 @@ export function parseNoteDocument(
   }
 
   validateBodyMarkdown(bodyMarkdown, sourcePath, metadata.format);
+  if (metadata.format === "tierlist") {
+    const errors = validateTierListImageAttachments(bodyMarkdown, metadata.attachments ?? []);
+    if (errors.length) fail(sourcePath, errors.join("; "));
+  }
   return { metadata, bodyMarkdown };
 }
 
@@ -163,8 +168,12 @@ export function serializeNoteDocument(
   assetNames: ReadonlyMap<string, string>,
 ): string {
   validateBodyMarkdown(document.bodyMarkdown, "note document", document.metadata.format);
-  if (document.metadata.format !== "graph" && document.bodyMarkdown.includes(NOTE_ENVELOPE_OPEN)) {
+  if ((document.metadata.format ?? "markdown") === "markdown" && document.bodyMarkdown.includes(NOTE_ENVELOPE_OPEN)) {
     fail("note document", "a second note envelope is not allowed");
+  }
+  if (document.metadata.format === "tierlist") {
+    const errors = validateTierListImageAttachments(document.bodyMarkdown, document.metadata.attachments ?? []);
+    if (errors.length) fail("note document", errors.join("; "));
   }
   const metadataYaml = serializeNoteMetadataYaml(document.metadata);
   const projection = renderAttachmentProjection(document.metadata, assetNames);

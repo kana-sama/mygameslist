@@ -53,7 +53,7 @@ export function describeAssetForRecovery(database: LibraryDatabase, assetId: str
     for (const attachment of note.attachments) {
       if (attachment.type === "link" || attachment.assetId !== assetId) continue;
       const attachmentName = attachment.type === "file" ? attachment.label : attachment.alt;
-      references.push(`вложение ${quotedDiagnosticLabel(attachmentName, "файл без подписи", 64)} в заметке ${noteFormat(note) === "graph" ? quotedDiagnosticLabel(noteContentTitle(note) ?? undefined, "заметка без текста", 64) : noteDiagnosticLabel(note.bodyMarkdown)} игры ${quotedDiagnosticLabel(game?.title, "неизвестная игра", 64)}`);
+      references.push(`вложение ${quotedDiagnosticLabel(attachmentName, "файл без подписи", 64)} в заметке ${noteFormat(note) !== "markdown" ? quotedDiagnosticLabel(noteContentTitle(note) ?? undefined, "заметка без текста", 64) : noteDiagnosticLabel(note.bodyMarkdown)} игры ${quotedDiagnosticLabel(game?.title, "неизвестная игра", 64)}`);
     }
   }
   const referenceSummary = references.length ? `; ${references.slice(0, 3).join("; ")}${references.length > 3 ? `; ещё мест: ${references.length - 3}` : ""}` : "";

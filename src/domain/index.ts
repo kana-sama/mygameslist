@@ -21,3 +21,4 @@ export * from "./patchSelection";
 export * from "./assetOwnership";
 export * from "./libraryNormalization";
 export * from "./noteContent";
+export * from "./tierList";

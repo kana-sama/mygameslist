@@ -1,5 +1,6 @@
+import { parseTierList, tierListImageAssetIds, validateTierListImageAttachments } from "./tierList";
 import { canonicalHash, canonicalStringify, MISSING_VALUE_HASH, withComputedRevision } from "./canonical";
-import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch, type NoteFormat } from "./types";
+import { LIBRARY_SCHEMA_VERSION, type LibraryDatabase, type PatchConflict, type PatchEnvelope, type PatchOperation, type ReconciledPatch, type NoteFormat, type NoteAttachment } from "./types";
 import { DomainValidationError, assertSourceRepresentable, assertValidLibrary, assertValidPatch, LOCALLY_PATCHABLE_FIELDS, parsePatchPath, patchOperationSourceIssues, validateInteractiveNoteField, validateInteractiveNoteOperationMetadata, type EntityMapName } from "./validation";
 import { deriveImageAssetAlt } from "./assetOwnership";
 import { normalizeLibraryDatabase } from "./libraryNormalization";
@@ -92,7 +93,7 @@ function isCompatiblePublishedAsset(path: string, operation: PatchOperation, act
 function freshOperation(base: { exists: boolean; value?: unknown }, operation: "set" | "delete", value: unknown, changedAt: string, transactionId: string, noteFormat?: NoteFormat): PatchOperation {
   return {
     operation,
-    ...(noteFormat === "graph" ? { noteFormat } : {}),
+    ...(noteFormat !== undefined && noteFormat !== "markdown" ? { noteFormat } : {}),
     ...(operation === "set" ? { value: clone(value) } : {}),
     baseExists: base.exists,
     baseHash: base.exists ? canonicalHash(base.value) : MISSING_VALUE_HASH,
@@ -145,6 +146,10 @@ export function updateInteractiveNoteField(input: {
     throw new Error("Заметка изменилась. Повторите действие с актуальным содержимым.");
   }
   assertInteractiveNoteFieldIsValid(update, effectiveNote.format);
+  if (update.field === "bodyMarkdown" && effectiveNote.format === "tierlist") {
+    const errors = validateTierListImageAttachments(update.value as string, effectiveNote.attachments);
+    if (errors.length) throw new Error(errors.join("; "));
+  }
   const baseNote = base.notes[update.noteId];
   const baseFieldExists = baseNote !== undefined && hasOwn(baseNote, update.field);
   const baseValue = baseNote?.[update.field];
@@ -201,6 +206,15 @@ export function updateInteractiveNoteField(input: {
     operations = { ...patch.operations, [fieldPath]: operation };
   }
 
+  if (update.field === "bodyMarkdown" && effectiveNote.format === "tierlist") {
+    const poolPath = entityPath("notes", update.noteId, "attachments");
+    const poolOperation = operations[poolPath];
+    const isSnapshot = poolOperation?.operation === "set" && poolOperation.baseExists && poolOperation.baseHash === canonicalHash(poolOperation.value);
+    if (!operations[fieldPath] && isSnapshot) delete operations[poolPath];
+    else if (operations[fieldPath] && !poolOperation && baseNote && tierListImageAssetIds(parseTierList(update.value as string)).size > 0) {
+      operations[poolPath] = freshOperation({ exists: true, value: baseNote.attachments }, "set", effectiveNote.attachments, changedAt, transactionId);
+    }
+  }
   return { effective: nextEffective, patch: { ...patch, operations } };
 }
 
@@ -265,7 +279,10 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
           const before = baseEntity[field];
           const after = currentEntity[field];
           const requiredContentSnapshot = mapName === "notes" && field === "bodyMarkdown" && baseEntity.format !== currentEntity.format;
-          if (!requiredContentSnapshot && beforeExists === afterExists && (!beforeExists || same(before, after))) continue;
+          const requiredPoolSnapshot = mapName === "notes" && field === "attachments" && currentEntity.format === "tierlist"
+            && (baseEntity.format !== currentEntity.format || baseEntity.bodyMarkdown !== currentEntity.bodyMarkdown)
+            && tierListImageAssetIds(parseTierList(currentEntity.bodyMarkdown as string)).size > 0;
+          if (!requiredContentSnapshot && !requiredPoolSnapshot && beforeExists === afterExists && (!beforeExists || same(before, after))) continue;
           const path = entityPath(mapName, id, field);
           const candidate = freshOperation(
             { exists: beforeExists, ...(beforeExists ? { value: before } : {}) },
@@ -392,12 +409,75 @@ function applyBestEffort(base: LibraryDatabase, operations: Record<string, Patch
   applyUpdatedAt(result, base, applied); return result;
 }
 
-/** Format and source form one content candidate whenever both operations are present. */
-function noteContentOperationPaths(operations: Record<string, PatchOperation>, path: string): string[] {
-  const parsed = parsePatchPath(path);
-  if (parsed?.map !== "notes" || (parsed.field !== "format" && parsed.field !== "bodyMarkdown")) return [path];
-  const partner = entityPath("notes", parsed.id, parsed.field === "format" ? "bodyMarkdown" : "format");
-  return hasOwn(operations, partner) ? [path, partner] : [path];
+/** Metadata snapshots cannot resurrect globally removed image bytes. Keep those note candidates explicit conflicts. */
+function unavailableTierListImages(database: LibraryDatabase): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  for (const note of Object.values(database.notes)) {
+    if (note.format !== "tierlist") continue;
+    const missing = [...tierListImageAssetIds(parseTierList(note.bodyMarkdown))].filter(id => !database.assets[id]);
+    if (missing.length) result.set(note.id, missing);
+  }
+  return result;
+}
+
+/** Dependency groups preserve a complete source/format/image-pool candidate during conflicts. */
+function noteContentOperationGroups(database: LibraryDatabase, intended: LibraryDatabase, operations: Record<string, PatchOperation>): Map<string, string[]> {
+  const edges = new Map<string, Set<string>>();
+  const connect = (paths: string[]) => {
+    for (const path of paths) {
+      const adjacent = edges.get(path) ?? new Set<string>();
+      paths.forEach(partner => adjacent.add(partner)); edges.set(path, adjacent);
+    }
+  };
+  for (const id of new Set([...Object.keys(database.notes), ...Object.keys(intended.notes)])) {
+    const root = entityPath("notes", id), body = entityPath("notes", id, "bodyMarkdown"), format = entityPath("notes", id, "format"), pool = entityPath("notes", id, "attachments");
+    const contentPaths = [body, format].filter(path => hasOwn(operations, path));
+    if (contentPaths.length > 1) connect(contentPaths);
+    const before = database.notes[id], after = intended.notes[id];
+    const missingBefore = before?.format === "tierlist" && validateTierListImageAttachments(before.bodyMarkdown, after?.attachments ?? []).length > 0;
+    const missingAfter = after?.format === "tierlist" && validateTierListImageAttachments(after.bodyMarkdown, before?.attachments ?? []).length > 0;
+    if (hasOwn(operations, pool) && contentPaths.length && (missingBefore || missingAfter)) connect([...contentPaths, pool]);
+    if (after?.format === "tierlist" && [...tierListImageAssetIds(parseTierList(after.bodyMarkdown))].some(assetId => !intended.assets[assetId])) {
+      connect([root, ...contentPaths, pool].filter(path => hasOwn(operations, path)));
+    }
+    const ownerPaths = hasOwn(operations, root) ? [root] : hasOwn(operations, pool) ? [pool] : [];
+    if (!ownerPaths.length) continue;
+    const beforeImages = before?.format === "tierlist" ? tierListImageAssetIds(parseTierList(before.bodyMarkdown)) : new Set<string>();
+    const afterImages = after?.format === "tierlist" ? tierListImageAssetIds(parseTierList(after.bodyMarkdown)) : new Set<string>();
+    for (const assetId of new Set([...beforeImages, ...afterImages])) {
+      const assetPath = entityPath("assets", assetId), operation = operations[assetPath];
+      if (operation?.operation === "delete" && beforeImages.has(assetId)
+        || operation?.operation === "set" && afterImages.has(assetId) && !operation.baseExists) connect([...ownerPaths, assetPath]);
+    }
+  }
+  const groups = new Map<string, string[]>();
+  for (const path of edges.keys()) {
+    if (groups.has(path)) continue;
+    const visited = new Set<string>(), pending = [path];
+    while (pending.length) { const next = pending.pop()!; if (visited.has(next)) continue; visited.add(next); pending.push(...(edges.get(next) ?? [])); }
+    const group = [...visited]; group.forEach(member => groups.set(member, group));
+  }
+  return groups;
+}
+
+/** Unchanged pools accompany image-bearing body writes as ownership snapshots.
+ * Keep authoritative unrelated attachments; restore only missing required image entries.
+ */
+function adaptTierListPoolSnapshots(database: LibraryDatabase, operations: Record<string, PatchOperation>): void {
+  for (const [path, operation] of Object.entries(operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "notes" || parsed.field !== "attachments" || operation.operation !== "set"
+      || !operation.baseExists || operation.baseHash !== canonicalHash(operation.value)) continue;
+    const body = operations[entityPath("notes", parsed.id, "bodyMarkdown")];
+    if (body?.operation !== "set" || body.noteFormat !== "tierlist" || typeof body.value !== "string" || !Array.isArray(operation.value)) continue;
+    const note = database.notes[parsed.id];
+    if (!note) continue;
+    const needed = tierListImageAssetIds(parseTierList(body.value));
+    const pool = new Set(note.attachments.filter(item => item.type === "image").map(item => item.assetId));
+    const missing = operation.value.filter((item): item is NoteAttachment => !!item && typeof item === "object" && item.type === "image" && needed.has(item.assetId) && !pool.has(item.assetId));
+    if (!missing.length) { delete operations[path]; continue; }
+    operation.value = [...clone(note.attachments), ...clone(missing)];
+  }
 }
 
 /** Rebases clean operations, prunes already-published values, and reports same-field conflicts. */
@@ -415,17 +495,28 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
     if (!note || hasOwn(normalizedIncoming.operations, formatPath)) continue;
     const format = operation.noteFormat ?? "markdown";
     if (format === (note.format ?? "markdown")) continue;
-    const original = format === "graph" ? { exists: true, value: "graph" } : { exists: false };
-    normalizedIncoming.operations[formatPath] = freshOperation(original, format === "graph" ? "set" : "delete", format === "graph" ? "graph" : undefined, operation.changedAt, operation.transactionId);
+    const original = format !== "markdown" ? { exists: true, value: format } : { exists: false };
+    normalizedIncoming.operations[formatPath] = freshOperation(original, format !== "markdown" ? "set" : "delete", format !== "markdown" ? format : undefined, operation.changedAt, operation.transactionId);
   }
+  adaptTierListPoolSnapshots(normalizedStatic, normalizedIncoming.operations);
   const intended = applyBestEffort(normalizedStatic, normalizedIncoming.operations);
   assertDirectImageAssetAltsAreDerived(normalizedStatic, intended, normalizedIncoming.operations);
-  assertSourceRepresentable(normalizeLibraryDatabase(intended));
+  const unavailable = unavailableTierListImages(intended);
+  const unavailablePaths = new Set(Object.keys(normalizedIncoming.operations).filter(path => {
+    const parsed = parsePatchPath(path);
+    return parsed?.map === "notes" && unavailable.has(parsed.id)
+      && (parsed.field === undefined || parsed.field === "bodyMarkdown" || parsed.field === "format" || parsed.field === "attachments");
+  }));
+  const representableIntended = unavailablePaths.size
+    ? applyBestEffort(normalizedStatic, Object.fromEntries(Object.entries(normalizedIncoming.operations).filter(([path]) => !unavailablePaths.has(path))))
+    : intended;
+  assertSourceRepresentable(normalizeLibraryDatabase(representableIntended));
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
-  const contentConflicts = new Set<string>();
+  const contentGroups = noteContentOperationGroups(normalizedStatic, intended, normalizedIncoming.operations);
+  const contentConflicts = new Set<string>(unavailablePaths);
   const pendingContent = new Set<string>();
   for (const path of Object.keys(normalizedIncoming.operations)) {
-    const coupled = noteContentOperationPaths(normalizedIncoming.operations, path);
+    const coupled = contentGroups.get(path) ?? [path];
     if (coupled.length < 2) continue;
     if (coupled.some(candidate => !opTargetMatches(candidate, normalizedIncoming.operations[candidate], readPatchPath(normalizedStatic, candidate)))) {
       coupled.forEach(candidate => pendingContent.add(candidate));
@@ -476,8 +567,15 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
   const next = clone(patch); const operation = next.operations[path];
   if (!operation) throw new Error(`Операция ${path} не найдена`);
   const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
-  const coupledPaths = noteContentOperationPaths(next.operations, path);
+  const intended = applyBestEffort(normalizedStatic, next.operations);
+  const coupledPaths = noteContentOperationGroups(normalizedStatic, intended, next.operations).get(path) ?? [path];
   const actual = readPatchPath(normalizedStatic, path);
+  if (resolution.choice === "local") {
+    const unavailable = unavailableTierListImages(intended);
+    const noteIds = coupledPaths.flatMap(candidate => { const parsed = parsePatchPath(candidate); return parsed?.map === "notes" ? [parsed.id] : []; });
+    const missing = noteIds.flatMap(id => unavailable.get(id) ?? []);
+    if (missing.length) throw new Error(`Изображение тирлиста недоступно: ${[...new Set(missing)].join(", ")}. Восстановите его через загрузку или восстановление ресурсов.`);
+  }
   if (resolution.choice === "static") coupledPaths.forEach(candidate => { delete next.operations[candidate]; });
   else {
     if (resolution.choice === "manual" && !resolution.delete && !("value" in resolution)) throw new Error("Для ручного разрешения нужно значение либо delete=true");

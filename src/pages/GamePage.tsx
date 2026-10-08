@@ -1,3 +1,7 @@
+import { TierListNote } from "../components/tierlist/TierListNote";
+import { TierListEditor } from "../components/tierlist/TierListEditor";
+import { attachmentImageId, usedTierListImages } from "../components/tierlist/tierListPool";
+import { createTierListDocument, serializeTierList, validateTierList, validateTierListImageAttachments } from "../domain/tierList";
 import { validateGraph } from "../domain/graph";
 import { noteContentTitle } from "../domain/noteContent";
 import { LazyGraphNote } from "../components/LazyGraphNote";
@@ -414,7 +418,7 @@ function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNo
     .map((note) => ({
       id: note.id,
       clientId: note.id,
-      ...(note.format === "graph" ? { format: "graph" as const } : {}),
+      ...(note.format && note.format !== "markdown" ? { format: note.format } : {}),
       bodyMarkdown: note.bodyMarkdown,
       attachments: [...note.attachments] as EditableAttachment[],
       ...(note.collapsedChecklistSections === undefined ? {} : { collapsedChecklistSections: [...note.collapsedChecklistSections] }),
@@ -674,6 +678,12 @@ function PlainNoteEditor({
   const completion = useContext(GameLinkSuggestionsContext);
   const graphErrors = useMemo(() => note.format === "graph" ? validateGraph(note.bodyMarkdown) : [], [note.format, note.bodyMarkdown]);
   const noteRef = useRef(note);
+  const formatDrafts = useRef<{text: string; tierlist: string; tierlistPool: EditableAttachment[]; textImages: EditableAttachment[]}>({ text: note.format === "tierlist" ? "" : note.bodyMarkdown, tierlist: note.format === "tierlist" ? note.bodyMarkdown : serializeTierList(createTierListDocument()), tierlistPool: [], textImages: note.attachments.filter(a => { const id = attachmentImageId(a); return id && (note.format !== "tierlist" || !usedTierListImages(note.bodyMarkdown).has(id)); }) });
+  const [cardProcessing, setCardProcessing] = useState(false);
+  const cardProcessingRef = useRef(false);
+  const tierListErrors = useMemo(() => note.format === "tierlist" ? [...validateTierList(note.bodyMarkdown), ...validateTierListImageAttachments(note.bodyMarkdown, note.attachments.map(a => a.type === "pending-image" ? { type: "image", assetId: a.image.assetId } : a))] : [], [note.format, note.bodyMarkdown, note.attachments]);
+  const poolImages = note.format === "tierlist" ? usedTierListImages(note.bodyMarkdown) : new Set<string>();
+  const galleryAttachments = note.attachments.filter(a => { const id = attachmentImageId(a); return !id || !poolImages.has(id); });
   const imageQueue = useRef<Promise<void>>(Promise.resolve());
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -819,10 +829,11 @@ function PlainNoteEditor({
     publishNote({ ...noteRef.current, bodyMarkdown });
   };
   const submitNote = async () => {
-    if (!onSubmit || submitPending.current) return;
+    if (!onSubmit || submitPending.current || pendingJobs.current > 0 || cardProcessingRef.current) return;
     const draft = noteRef.current;
     if (draft.format === "graph" && validateGraph(draft.bodyMarkdown).length) return;
-    const warning = draft.format === "graph" ? null : markdownRichTooltipSaveWarning([draft.bodyMarkdown]);
+    if (draft.format === "tierlist" && (validateTierList(draft.bodyMarkdown).length || validateTierListImageAttachments(draft.bodyMarkdown, draft.attachments.map(a => a.type === "pending-image" ? { type: "image", assetId: a.image.assetId } : a)).length)) return;
+    const warning = !draft.format || draft.format === "markdown" ? markdownRichTooltipSaveWarning([draft.bodyMarkdown]) : null;
     if (warning && confirmedMarkdown.current !== draft.bodyMarkdown) {
       confirmedMarkdown.current = draft.bodyMarkdown;
       setSaveWarning(warning);
@@ -846,9 +857,17 @@ function PlainNoteEditor({
   }, []);
 
   return (
-    <article aria-busy={processingImages} className={`note-card note-card--editing${interactionActive ? " note-card--interaction-active" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-current-table-width={note.format === "graph" ? undefined : currentTableWidth || undefined} data-shelf-required-width={note.format === "graph" ? undefined : requiredTableWidth || undefined} ref={editorRef}>
-      {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} editing onRemove={(index) => publishNote({ ...noteRef.current, attachments: noteRef.current.attachments.filter((_, attachmentIndex) => attachmentIndex !== index) })} resolveAssetUrl={resolveAssetUrl} /> : null}
-      <LazyMonacoNoteEditor
+    <article aria-busy={processingImages || cardProcessing} className={`note-card note-card--editing${interactionActive ? " note-card--interaction-active" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-current-table-width={note.format && note.format !== "markdown" ? undefined : currentTableWidth || undefined} data-shelf-required-width={note.format && note.format !== "markdown" ? undefined : requiredTableWidth || undefined} ref={editorRef}>
+      {galleryAttachments.length ? <NoteAttachments assets={assets} attachments={galleryAttachments} editing onRemove={(index) => publishNote({ ...noteRef.current, attachments: noteRef.current.attachments.filter(a => a !== galleryAttachments[index]) })} resolveAssetUrl={resolveAssetUrl} /> : null}
+      {note.format === "tierlist" ? <TierListEditor source={note.bodyMarkdown} attachments={note.attachments} assets={assets} resolveAssetUrl={resolveAssetUrl} disabled={storageLocked} prepareImage={async file => {
+        const quota = await canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + file.size);
+        if (quota) throw new Error(quota);
+        const prepared = await prepareNoteAttachment(file);
+        if (prepared.type !== "pending-image") throw new Error("Не удалось подготовить изображение");
+        const optimizedQuota = await canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + prepared.image.byteLength);
+        if (optimizedQuota) throw new Error(optimizedQuota);
+        return prepared;
+      }} onPendingChange={value => { cardProcessingRef.current = value; setCardProcessing(value); processingChange.current?.(value || pendingJobs.current > 0, noteRef.current); }} onChange={(source, attachments) => publishNote({ ...noteRef.current, bodyMarkdown: source, attachments })} /> : <LazyMonacoNoteEditor
         autoFocus={autoFocus}
         excludeGameId={completion.excludeGameId}
         filesDisabled={storageLocked}
@@ -861,9 +880,10 @@ function PlainNoteEditor({
         onImageFiles={addImageFiles}
         onRequiredTableWidthChange={reportTableWidth}
         onSubmit={onSubmit ? submitNote : undefined}
-        submitDisabled={processingImages || graphErrors.length > 0}
+        submitDisabled={processingImages || cardProcessing || graphErrors.length > 0 || tierListErrors.length > 0}
         value={note.bodyMarkdown}
-      />
+      />}
+      {tierListErrors.map((error, index) => <p className="field-error" key={index} role="alert">{error}</p>)}
       {graphErrors.map((error, index) => <p className="field-error graph-editor-diagnostic" role="alert" key={index}>Строка {error.line}, столбец {error.column}: {error.message}</p>)}
       {note.format === "graph" ? <div className="graph-editor-help"><span>Текст интерпретируется как граф DOT.</span>{!note.bodyMarkdown.trim() ? <button type="button" onClick={() => updateBodyMarkdown(GRAPH_NOTE_EXAMPLE)}>Вставить пример</button> : null}<details><summary>Синтаксис графа</summary><p><code>digraph {'{'} a [label="Задача", state=todo]; a -&gt; b; b; {'}'}</code></p><p>Узлы: label, subtitle, kind (normal, special, milestone, note), task (true, false), state (todo, doing, done). Группы: subgraph, label, kind (group, section), layout (flow, grid). Цвета и размеры задаёт приложение.</p></details></div> : null}
       {attachmentError ? <p className="field-error note-image-error" role="alert">{attachmentError}</p> : null}
@@ -872,7 +892,22 @@ function PlainNoteEditor({
       <input aria-label="Выбрать файлы" className="note-attachment-file-input" disabled={storageLocked || processingImages} hidden multiple onChange={(event) => selectFiles(event, "file")} ref={fileInput} type="file" />
       {attachmentPickerOpen ? <div className="note-attachment-picker-row" id={attachmentPickerId}><button disabled={storageLocked || processingImages} onClick={() => imageInput.current?.click()} ref={attachmentFirstAction} type="button"><Icon name="image" size={14} />Изображение</button><button disabled={storageLocked || processingImages} onClick={() => fileInput.current?.click()} type="button"><Icon name="note" size={14} />Файл</button></div> : null}
       {saveWarning ? <MarkdownRichTooltipSaveWarning model={saveWarning} submitLabel="Сохранить заметку" /> : null}
-      <footer className="note-editor-actions"><div>{extraActions}</div><select aria-label="Формат заметки" className="note-format-select" title="Текст интерпретируется в выбранном формате без преобразования" value={note.format ?? "markdown"} onChange={(event) => { setSaveWarning(null); confirmedMarkdown.current = null; setCurrentTableWidth(0); setRequiredTableWidth(0); publishNote({ ...noteRef.current, format: event.currentTarget.value === "graph" ? "graph" : undefined }); }}><option value="markdown">Markdown</option><option value="graph">Граф</option></select><div className="note-editor-size-actions"><button aria-label="Двойная высота заметки" aria-pressed={Boolean(note.doubleHeight)} onClick={() => toggleSize("doubleHeight")} title="Двойная высота" type="button"><Icon name="expand-vertical" size={16} /></button><button aria-label="Двойная ширина заметки" aria-pressed={Boolean(note.doubleWidth)} onClick={() => toggleSize("doubleWidth")} title="Двойная ширина" type="button"><Icon name="expand-horizontal" size={16} /></button></div><div><button aria-controls={attachmentPickerId} aria-expanded={attachmentPickerOpen} aria-label="Добавить вложение" disabled={storageLocked || processingImages} onClick={() => { setAttachmentPickerOpen((open) => !open); setAttachmentError(null); }} title="Добавить изображение или файл" type="button"><Icon name="plus" size={16} /></button><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages || graphErrors.length > 0} onClick={submitNote} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
+      <footer className="note-editor-actions"><div>{extraActions}</div><select aria-label="Формат заметки" className="note-format-select" disabled={cardProcessing || processingImages} title="Текст интерпретируется в выбранном формате без преобразования" value={note.format ?? "markdown"} onChange={(event) => { setSaveWarning(null); confirmedMarkdown.current = null; setCurrentTableWidth(0); setRequiredTableWidth(0); const current = noteRef.current; const nextFormat = event.currentTarget.value as Note["format"]; let attachments = current.attachments;
+        if (current.format === "tierlist") {
+          formatDrafts.current.tierlist = current.bodyMarkdown;
+          const ids = usedTierListImages(current.bodyMarkdown);
+          formatDrafts.current.tierlistPool = attachments.filter(a => { const id = attachmentImageId(a); return id && ids.has(id); });
+          if (nextFormat !== "tierlist") {
+            const originals = formatDrafts.current.textImages;
+            attachments = attachments.filter(a => !formatDrafts.current.tierlistPool.includes(a) || originals.some(original => attachmentImageId(original) === attachmentImageId(a)));
+            attachments = [...attachments, ...originals.filter(a => !attachments.some(existing => attachmentImageId(existing) === attachmentImageId(a)))];
+          }
+        } else {
+          formatDrafts.current.text = current.bodyMarkdown;
+          formatDrafts.current.textImages = current.attachments.filter(a => attachmentImageId(a));
+          if (nextFormat === "tierlist") attachments = [...attachments, ...formatDrafts.current.tierlistPool.filter(a => !attachments.some(existing => attachmentImageId(existing) === attachmentImageId(a)))];
+        }
+        publishNote({ ...current, attachments, format: nextFormat === "markdown" ? undefined : nextFormat, bodyMarkdown: nextFormat === "tierlist" ? formatDrafts.current.tierlist : formatDrafts.current.text }); }}><option value="markdown">Markdown</option><option value="graph">Граф</option><option value="tierlist">Тирлист</option></select><div className="note-editor-size-actions"><button aria-label="Двойная высота заметки" aria-pressed={Boolean(note.doubleHeight)} onClick={() => toggleSize("doubleHeight")} title="Двойная высота" type="button"><Icon name="expand-vertical" size={16} /></button><button aria-label="Двойная ширина заметки" aria-pressed={Boolean(note.doubleWidth)} onClick={() => toggleSize("doubleWidth")} title="Двойная ширина" type="button"><Icon name="expand-horizontal" size={16} /></button></div><div><button aria-controls={attachmentPickerId} aria-expanded={attachmentPickerOpen} aria-label="Добавить вложение" disabled={storageLocked || processingImages} onClick={() => { setAttachmentPickerOpen((open) => !open); setAttachmentError(null); }} title="Добавить изображение или файл" type="button"><Icon name="plus" size={16} /></button><a aria-controls={youtubeInputId} aria-expanded={youtubeInputOpen} aria-label="Загрузить видео на YouTube" className="note-editor-youtube" href="https://www.youtube.com/upload" onClick={() => { setYoutubeInputOpen(true); setYoutubeError(null); }} rel="noopener noreferrer" target="_blank" title="Загрузить видео на YouTube"><Icon name="youtube" size={16} /></a>{onCancel ? <button aria-label="Отменить редактирование" onClick={onCancel} title="Отменить" type="button"><Icon name="close" size={15} /></button> : null}{onSubmit ? <button aria-label="Сохранить заметку" disabled={processingImages || cardProcessing || graphErrors.length > 0 || tierListErrors.length > 0} onClick={submitNote} title="Сохранить" type="button"><Icon name="check" size={15} /></button> : null}</div></footer>
       <NoteDropZones disabled={dropDisabled} indicatorEdge={dropIndicatorEdge} note={note} />
     </article>
   );
@@ -979,7 +1014,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
   const [completedChecklistRevealed, setCompletedChecklistRevealed] = useState<{ epoch: string; itemIds: ReadonlySet<string>; sectionIds: ReadonlySet<string> } | null>(null);
   const [highlightedChecklistSearchTargetId, setHighlightedChecklistSearchTargetId] = useState<string | null>(null);
   const completedChecklistFilterEpoch = `${completedChecklistFilterGeneration}:${completedChecklistFilterRevision}`;
-  if (note.format !== "graph" && completedChecklistFilterEnabled && !editing && completedChecklistFilterSnapshotCache.current?.epoch !== completedChecklistFilterEpoch) {
+  if ((!note.format || note.format === "markdown") && completedChecklistFilterEnabled && !editing && completedChecklistFilterSnapshotCache.current?.epoch !== completedChecklistFilterEpoch) {
     const snapshotMarkdown = note.clientId.startsWith("legacy-review:")
       ? note.bodyMarkdown
       : parseMarkdownRichTooltips(note.bodyMarkdown).visibleMarkdown;
@@ -1016,7 +1051,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
   }, [note, onTaskSave]);
   const saveBodyMarkdown = useCallback(async (bodyMarkdown: string) => {
     const saved = await onTaskSave({ ...note, bodyMarkdown });
-    if (note.format === "graph" && saved === false) throw new Error("Не удалось сохранить изменение графа");
+    if (note.format && note.format !== "markdown" && saved === false) throw new Error("Не удалось сохранить изменение заметки");
   }, [note, onTaskSave]);
   const saveCheckboxBodyMarkdown = useCallback((bodyMarkdown: string) => {
     void onTaskSave({ ...note, bodyMarkdown }, "checkbox", completedChecklistFilterGeneration);
@@ -1141,7 +1176,7 @@ function ConnectedInlineNoteCard({
   const saveInteraction = useCallback(async (draft: EditableNote, reason?: "checkbox" | "checkbox-saved", filterGeneration?: number) => {
     if (interactionPendingRef.current) return false;
     const update: InteractiveNoteFieldUpdate = draft.bodyMarkdown !== currentNote.bodyMarkdown
-      ? { noteId: note.id, field: "bodyMarkdown", value: draft.bodyMarkdown, ...(currentNote.format === "graph" ? { expectedBodyMarkdown: currentNote.bodyMarkdown, expectedFormat: "graph" as const } : {}) }
+      ? { noteId: note.id, field: "bodyMarkdown", value: draft.bodyMarkdown, ...(currentNote.format && currentNote.format !== "markdown" ? { expectedBodyMarkdown: currentNote.bodyMarkdown, expectedFormat: currentNote.format } : {}) }
       : {
         noteId: note.id,
         field: "collapsedChecklistSections",
@@ -1250,7 +1285,9 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedCh
   const viewportRef = useRef<HTMLDivElement>(null);
   const [firstHeadingPortalTarget, setFirstHeadingPortalTarget] = useState<HTMLDivElement | null>(null);
   const [scrollState, setScrollState] = useState({ scrollable: false, atTop: true, atBottom: true });
-  const hasText = note.format === "graph" || Boolean(note.bodyMarkdown.trim());
+  const poolImages = note.format === "tierlist" ? usedTierListImages(note.bodyMarkdown) : new Set<string>();
+  const galleryAttachments = note.attachments.filter(a => { const id = attachmentImageId(a); return !id || !poolImages.has(id); });
+  const hasText = Boolean(note.format && note.format !== "markdown") || Boolean(note.bodyMarkdown.trim());
   const mediaOnly = !hasText && note.attachments.length > 0 && note.attachments.every((attachment) => isInlineMediaAttachment(attachment, assets));
 
   useEffect(() => {
@@ -1283,13 +1320,13 @@ function ScrollableNoteCard({ note, assets, actionsDisabled = false, completedCh
 
   return <article aria-label={mediaOnly ? "Медиа-заметка" : undefined} className={`note-card${sortable ? " note-card--sortable" : ""}${interactionActive ? " note-card--interaction-active" : ""}${mediaOnly ? " note-card--media-only" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${dragging ? " is-dragging" : ""}${dropTarget ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={nodeRef}>
       <div className="note-card__surface">
-        {note.attachments.length ? <NoteAttachments assets={assets} attachments={note.attachments} resolveAssetUrl={resolveAssetUrl} /> : null}
+        {galleryAttachments.length ? <NoteAttachments assets={assets} attachments={galleryAttachments} resolveAssetUrl={resolveAssetUrl} /> : null}
         <div className="note-card__text">
           <div aria-live="off" className="markdown note-card__page-heading" ref={setFirstHeadingPortalTarget}>{note.format === "graph" && noteContentTitle(note) ? <h2 className="markdown-note-title--outer">{noteContentTitle(note)}</h2> : null}</div>
           <div className={`note-card__viewport-frame${scrollState.scrollable ? " is-scrollable" : ""}${!scrollState.atTop ? " can-scroll-up" : ""}${!scrollState.atBottom ? " can-scroll-down" : ""}`}>
             <div className="note-card__viewport" onScroll={updateScrollState} ref={viewportRef}>
               <div className="note-card__content">
-                {note.format === "graph" ? <div className="markdown graph-note-card-body">{noteContentTitle(note) ? <h2 className="markdown-note-title--inner" aria-hidden="true" inert>{noteContentTitle(note)}</h2> : null}<LazyGraphNote className="graph-note--card" source={note.bodyMarkdown} onSourceChange={onTaskChange} disabled={taskChangesDisabled} /></div> : note.bodyMarkdown.trim() ? <MarkdownView checklistSearchNoteIdentity={note.clientId} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled={taskChangesDisabled} /> : null}
+                {note.format === "tierlist" ? <TierListNote source={note.bodyMarkdown} assets={assets} resolveAssetUrl={resolveAssetUrl} onSourceChange={onTaskChange} disabled={taskChangesDisabled} /> : note.format === "graph" ? <div className="markdown graph-note-card-body">{noteContentTitle(note) ? <h2 className="markdown-note-title--inner" aria-hidden="true" inert>{noteContentTitle(note)}</h2> : null}<LazyGraphNote className="graph-note--card" source={note.bodyMarkdown} onSourceChange={onTaskChange} disabled={taskChangesDisabled} /></div> : note.bodyMarkdown.trim() ? <MarkdownView checklistSearchNoteIdentity={note.clientId} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedItemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedSectionIds} collapsedChecklistSections={note.collapsedChecklistSections} firstHeadingPortalTarget={firstHeadingPortalTarget} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} markdown={note.bodyMarkdown} onCollapsedChecklistSectionsChange={onCollapsedChecklistSectionsChange} onRevealCompletedChecklistItems={onRevealCompletedChecklistItems} onRevealCompletedChecklistSections={onRevealCompletedChecklistSections} onTaskChange={onTaskChange} onTaskCheckboxChange={onTaskCheckboxChange} richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled={taskChangesDisabled} /> : null}
               </div>
             </div>
           </div>
@@ -1379,8 +1416,15 @@ function useNoteFileDragReveal() {
   };
 }
 
-function NoteDragPreview({ note }: { note: EditableNote }) {
-  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.format === "graph" ? <LazyGraphNote source={note.bodyMarkdown} disabled /> : note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} richTooltipTriggersDisabled richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
+function NoteDragPreview({ note, assets, resolveAssetUrl }: { note: EditableNote; assets: Record<string, Asset>; resolveAssetUrl?: (id: string) => string | null }) {
+  const [pendingUrls, setPendingUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const urls: Record<string, string> = {};
+    for (const attachment of note.attachments) if (attachment.type === "pending-image") urls[attachment.image.assetId] ??= URL.createObjectURL(attachment.image.blob);
+    setPendingUrls(urls);
+    return () => Object.values(urls).forEach(url => URL.revokeObjectURL(url));
+  }, [note.attachments]);
+  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.format === "tierlist" ? <TierListNote source={note.bodyMarkdown} assets={assets} resolveAssetUrl={id => pendingUrls[id] ?? resolveAssetUrl?.(id) ?? null} disabled /> : note.format === "graph" ? <LazyGraphNote source={note.bodyMarkdown} disabled /> : note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} richTooltipTriggersDisabled richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
 }
 
 function useNoteGroupFileDrop(disabled: boolean, onFiles: (files: File[]) => void) {
@@ -1634,14 +1678,14 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     return buildChecklistSearchIndex(editableNotes.flatMap((note) => {
       if (!note.id) return [];
       const snapshot = noteInteractionSource.readNoteInteractionSnapshot(note.id);
-      return snapshot && snapshot.format !== "graph" ? [{ bodyMarkdown: snapshot.bodyMarkdown, clientId: note.clientId, id: note.id }] : [];
+      return snapshot && (!snapshot.format || snapshot.format === "markdown") ? [{ bodyMarkdown: snapshot.bodyMarkdown, clientId: note.clientId, id: note.id }] : [];
     }));
   }, [checklistSearchBlocked, editableNotes, noteInteractionSource]);
   const getChecklistSearchRichTooltipSourceMarkdown = useCallback((entry: ChecklistSearchEntry): string | null => {
     if (!noteInteractionSource || !entry.noteId) return null;
     const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
     const snapshot = note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId) : undefined;
-    return snapshot && snapshot.format !== "graph" ? snapshot.bodyMarkdown : null;
+    return snapshot && (!snapshot.format || snapshot.format === "markdown") ? snapshot.bodyMarkdown : null;
   }, [editableNotes, noteInteractionSource]);
   useUnsavedChangesGuard(noteDirty || coverDraftDirty);
 
@@ -1791,7 +1835,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
       if (!intendedTransition) throw new Error("Недопустимое изменение пункта чеклиста");
       const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
       const snapshot = note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId) : undefined;
-      if (!note || !snapshot || snapshot.format === "graph") throw new Error("Не удалось найти заметку");
+      if (!note || !snapshot || (snapshot.format && snapshot.format !== "markdown")) throw new Error("Не удалось найти заметку");
       const freshEntry = buildChecklistSearchIndex([{
         bodyMarkdown: snapshot.bodyMarkdown,
         clientId: note.clientId,
@@ -1831,7 +1875,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
     try {
       const note = editableNotes.find((candidate) => candidate.id === entry.noteId && candidate.clientId === entry.noteClientId);
       const snapshot = note ? noteInteractionSource.readNoteInteractionSnapshot(entry.noteId) : undefined;
-      if (!note || !snapshot || snapshot.format === "graph") throw new Error("Заметка больше не существует. Откройте поиск повторно.");
+      if (!note || !snapshot || (snapshot.format && snapshot.format !== "markdown")) throw new Error("Заметка больше не существует. Откройте поиск повторно.");
 
       const freshEntry = buildChecklistSearchIndex([{
         bodyMarkdown: snapshot.bodyMarkdown,
@@ -2166,7 +2210,7 @@ function InlineGamePage({ game, notes, assets, platformSuggestions = [], tagSugg
                   />
                 </div>
               </SortableContext>
-              <DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} /> : null}</DragOverlay>
+              <DragOverlay dropAnimation={null}>{activeNote ? <NoteDragPreview note={activeNote} assets={assets} resolveAssetUrl={resolveAssetUrl} /> : null}</DragOverlay>
             </DndContext>
           </MarkdownRichTooltipProvider>
         </section>
@@ -2278,9 +2322,11 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
     if (!title.trim()) { setError("Укажите название игры."); return; }
     setError(null);
     const markdownFingerprint = JSON.stringify(draftNotes.map((note) => note.bodyMarkdown));
+    const invalidTierList = draftNotes.find(note => note.format === "tierlist" && (validateTierList(note.bodyMarkdown).length || validateTierListImageAttachments(note.bodyMarkdown, note.attachments.map(a => a.type === "pending-image" ? { type: "image", assetId: a.image.assetId } : a)).length));
+    if (invalidTierList) return;
     const invalidGraph = draftNotes.find((note) => note.format === "graph" && validateGraph(note.bodyMarkdown).length);
     if (invalidGraph) { setError("Исправьте ошибки графа перед сохранением."); return; }
-    const warning = markdownRichTooltipSaveWarning(draftNotes.filter((note) => note.format !== "graph").map((note) => note.bodyMarkdown));
+    const warning = markdownRichTooltipSaveWarning(draftNotes.filter((note) => !note.format || note.format === "markdown").map((note) => note.bodyMarkdown));
     if (warning && confirmedNoteMarkdown.current !== markdownFingerprint) {
       confirmedNoteMarkdown.current = markdownFingerprint;
       setSaveWarning(warning);
@@ -2314,7 +2360,7 @@ function NewGamePage({ assets, platformSuggestions = [], tagSuggestions = [], st
                 <EmptyNoteGroup disabled={saving || !trailingDraftGroupAvailable} filesDisabled={storageLocked} groupRank={emptyDraftGroupRank} onCreate={() => addDraftNote(emptyDraftGroupRank)} onFiles={(files) => addDraftNote(emptyDraftGroupRank, files)} showCreate={!draftNoteGroups.length} />
               </div>
             </SortableContext>
-            <DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} /> : null}</DragOverlay>
+            <DragOverlay dropAnimation={null}>{activeDraftNote ? <NoteDragPreview note={activeDraftNote} assets={assets} resolveAssetUrl={resolveAssetUrl} /> : null}</DragOverlay>
           </DndContext>
         </section>
         {error ? <p className="field-error form-error" role="alert">{error}</p> : null}
