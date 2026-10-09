@@ -542,6 +542,8 @@ export interface MarkdownViewProps extends MarkdownChecklistSearchTargetProps {
   completedChecklistRevealedSectionIds?: ReadonlySet<string>;
   className?: string;
   firstHeadingPortalTarget?: Element | null;
+  /** Suppress one parsed heading without changing the source or block boundaries. */
+  omitHeadingAtSourceOffset?: number;
   collapsedChecklistSections?: readonly string[];
   decorations?: readonly MarkdownDecoration[];
   inlineChanges?: readonly RenderedInlineChange[];
@@ -734,8 +736,10 @@ function TaskDiffControl({ change }: { change: RenderedTaskChange }) {
   );
 }
 
-function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlightedChecklistSearchTargetId = null, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, inlineChanges = [], interactionsDisabled = false, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onRichTooltipBodyChange, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipLayer = "note", richTooltipRegistry, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
+function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlightedChecklistSearchTargetId = null, className = "", collapsedChecklistSections = [], completedChecklistFilterEnabled = false, completedChecklistFilterRevision = 0, completedChecklistFilterSnapshot: providedCompletedChecklistFilterSnapshot, completedChecklistRevealedItemIds = new Set(), completedChecklistRevealedSectionIds = new Set(), decorations, firstHeadingPortalTarget, omitHeadingAtSourceOffset, inlineChanges = [], interactionsDisabled = false, emptyText = "Текста пока нет", onCollapsedChecklistSectionsChange, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onRichTooltipBodyChange, onTaskChange, onTaskCheckboxChange, richTooltipController, richTooltipLayer = "note", richTooltipRegistry, richTooltipTriggersDisabled = false, rowChanges = [], taskChanges = [], taskChangesDisabled = false }: MarkdownRenderBodyProps) {
   const blocks = useMemo(() => parseMarkdownBlocks(markdown), [markdown]);
+  const omittedHeadingSourceLine = useMemo(() => omitHeadingAtSourceOffset === undefined ? undefined
+    : splitMarkdownSourceLines(markdown).findIndex(line => line.start === omitHeadingAtSourceOffset), [markdown, omitHeadingAtSourceOffset]);
   const latestBlocksRef = useRef(blocks);
   latestBlocksRef.current = blocks;
   const completedChecklistFilterSnapshot = useMemo(
@@ -1332,6 +1336,7 @@ function MarkdownRenderBody({ markdown, checklistSearchNoteIdentity, highlighted
     }
     if (block.type === "table") return renderTable(block, key, collapseMotionOwner);
     if (block.type === "heading") {
+      if (omittedHeadingSourceLine !== undefined && block.sourceLocations?.[0]?.sourceLine === omittedHeadingSourceLine) return null;
       const children = locatedLines(block.value ?? "", key, block.sourceLocations);
       const progress = block.checklistProgress;
       const collapseId = block.collapseId;
@@ -1500,6 +1505,7 @@ const MemoizedMarkdownRenderBody = memo(MarkdownRenderBody, (previous, next) => 
   && previous.completedChecklistRevealedItemIds === next.completedChecklistRevealedItemIds
   && previous.completedChecklistRevealedSectionIds === next.completedChecklistRevealedSectionIds
   && previous.firstHeadingPortalTarget === next.firstHeadingPortalTarget
+  && previous.omitHeadingAtSourceOffset === next.omitHeadingAtSourceOffset
   && previous.emptyText === next.emptyText
   && sameStrings(previous.collapsedChecklistSections, next.collapsedChecklistSections)
   && previous.decorations === next.decorations

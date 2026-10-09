@@ -124,6 +124,19 @@ it('renders a v2 heading face and click-only rich Markdown with live links', () 
   expect(card).toHaveFocus();
 });
 
+it('keeps the promoted title in the editable card source after displaying its deduplicated tooltip', async () => {
+  const bodyMarkdown = '# Heading\n\nDescription.\n\n- Point';
+  const source = JSON.stringify({ version: 2, title: '', grades: [{ id: 'g', name: 'A', cards: [{ id: 'c', imageAssetId: null, bodyMarkdown }] }] });
+  const changed = vi.fn();
+  render(<TierListEditor source={source} attachments={[]} assets={{}} onPendingChange={vi.fn()} onChange={changed} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Карточка: Heading' }));
+  expect(within(screen.getByRole('dialog')).queryByRole('heading', { name: 'Heading' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Редактировать карточку: Heading' }));
+  const editor = await within(screen.getByRole('dialog', { name: 'Карточка' })).findByRole('textbox', { name: 'Текст заметки' });
+  expect(editor).toHaveValue(bodyMarkdown);
+  expect(changed).not.toHaveBeenCalled();
+});
+
 it('routes desktop Tab from an actual editor card into the tooltip and its link while keeping note keys isolated', async () => {
   const user = userEvent.setup();
   const outerKeys = vi.fn();

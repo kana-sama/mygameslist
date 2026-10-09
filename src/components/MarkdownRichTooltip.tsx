@@ -49,6 +49,7 @@ export interface MarkdownRichTooltipBodyViewProps {
   interactionsDisabled?: boolean;
   nestedBodyChangeRoute?: MarkdownRichTooltipBodyChangeHandler;
   onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
+  omitHeadingAtSourceOffset?: number;
   richTooltipLayer?: MarkdownRichTooltipLayer;
   richTooltipRegistry?: MarkdownRichTooltipRegistry;
 }
@@ -70,6 +71,7 @@ export function MarkdownRichTooltipBodyView({
   interactionsDisabled = false,
   nestedBodyChangeRoute,
   onBodyChange,
+  omitHeadingAtSourceOffset,
   richTooltipLayer = "note",
   richTooltipRegistry,
 }: MarkdownRichTooltipBodyViewProps): ReactNode {
@@ -96,6 +98,7 @@ export function MarkdownRichTooltipBodyView({
             interactionsDisabled={interactionsDisabled}
             key={`markdown-${partIndex}`}
             markdown={part.markdown}
+            omitHeadingAtSourceOffset={omitHeadingAtSourceOffset === undefined ? undefined : omitHeadingAtSourceOffset - part.sourceStart}
             onRichTooltipBodyChange={propagatedBodyChangeRoute}
             onTaskCheckboxChange={bodyChangesAvailable ? (nextPartMarkdown) => {
               const change: MarkdownRichTooltipBodyChange = {
@@ -445,6 +448,7 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
           definitionAnchor={active.anchor}
           nestedBodyChangeRoute={active.onBodyChange}
           onBodyChange={active.onBodyChange ? changeActiveBody : undefined}
+          omitHeadingAtSourceOffset={active.omitHeadingAtSourceOffset}
           richTooltipLayer={active.layer}
           richTooltipRegistry={active.registry}
         />

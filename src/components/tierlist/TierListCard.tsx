@@ -2,6 +2,7 @@ import { useMemo, useRef, useSyncExternalStore, type KeyboardEvent } from 'react
 import { useDraggable } from '@dnd-kit/core';
 import { tierListCardTitle, type TierListCard as Card } from '../../domain/tierList';
 import { parseMarkdownRichTooltips } from '../../domain/markdownRichTooltips';
+import { markdownLabel, parseMarkdownBlocks, splitMarkdownSourceLines } from '../../domain/markdownChecklist';
 import { Icon } from '../Icon';
 import { useMarkdownRichTooltipController } from '../markdownRichTooltipContext';
 
@@ -23,7 +24,18 @@ export function TierListCard({ card, url, disabled, dragging, suppressClick, onK
   const button = useRef<HTMLButtonElement>(null);
   const controller = useMarkdownRichTooltipController();
   const activeSource = useSyncExternalStore(controller?.subscribeActiveSource ?? (() => () => {}), controller?.getActiveSource ?? (() => null), () => null);
-  const parsed = useMemo(() => parseMarkdownRichTooltips(card.bodyMarkdown), [card.bodyMarkdown]);
+  const tooltip = useMemo(() => {
+    const registry = parseMarkdownRichTooltips(card.bodyMarkdown);
+    const heading = parseMarkdownBlocks(card.bodyMarkdown).find(block => block.type === 'heading');
+    const sourceLine = heading?.sourceLocations?.[0]?.sourceLine;
+    const line = sourceLine === undefined ? undefined : splitMarkdownSourceLines(card.bodyMarkdown)[sourceLine];
+    // Suppress the promoted heading after parsing, preserving surrounding blocks.
+    // visibleMarkdown is a prefix of the original card source.
+    const omitHeadingAtSourceOffset = heading && markdownLabel(heading.value ?? '') && line && line.start < registry.visibleMarkdown.length
+      ? line.start
+      : undefined;
+    return { registry, omitHeadingAtSourceOffset };
+  }, [card.bodyMarkdown]);
   const title = tierListCardTitle(card) || 'Изображение';
   const open = Boolean(activeSource && activeSource === button.current);
   return <div className={`tierlist-card-shell${insertion ? ' tierlist-insert-before' : ''}`}>
@@ -33,7 +45,7 @@ export function TierListCard({ card, url, disabled, dragging, suppressClick, onK
       if (suppressClick.current === card.id) { suppressClick.current = null; return; }
       if (dragging || !card.bodyMarkdown.trim() || !controller) return;
       if (open) controller.close(false);
-      else controller.open({ anchor: `tierlist-card:${card.id}`, bodyMarkdown: parsed.visibleMarkdown, dismissOnEscape: true, registry: parsed, sourceElement: event.currentTarget, title, layer: 'note' });
+      else controller.open({ anchor: `tierlist-card:${card.id}`, bodyMarkdown: tooltip.registry.visibleMarkdown, dismissOnEscape: true, omitHeadingAtSourceOffset: tooltip.omitHeadingAtSourceOffset, registry: tooltip.registry, sourceElement: event.currentTarget, title, layer: 'note' });
     }} ref={node => { button.current = node; setNodeRef(node); }} type="button"><TierListCardFace card={card} url={url} /></button>
     {onEdit ? <button aria-label={`Редактировать карточку: ${title}`} className="tierlist-card-edit icon-button" disabled={dragging || disabled} onClick={event => { event.stopPropagation(); controller?.close(false); onEdit(); }} type="button"><Icon name="edit" size={14} /></button> : null}
   </div>;

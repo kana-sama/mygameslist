@@ -22,6 +22,7 @@ export interface MarkdownRichTooltipOpenRequest {
   anchor: string;
   bodyMarkdown: string;
   dismissOnEscape?: boolean;
+  omitHeadingAtSourceOffset?: number;
   layer: MarkdownRichTooltipLayer;
   onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
   registry: MarkdownRichTooltipRegistry;
