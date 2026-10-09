@@ -17,6 +17,7 @@ export interface TierListNoteProps {
   assets: Record<string, Asset>;
   resolveAssetUrl?: (assetId: string) => string | null;
   disabled?: boolean;
+  showTitle?: boolean;
   onSourceChange?: (source: string) => void | Promise<void>;
   renderGradeLabel?: (grade: TierListGrade) => ReactNode;
   renderGradeControls?: (grade: TierListGrade, index: number) => ReactNode;
@@ -61,7 +62,7 @@ export function TierListNote(props: TierListNoteProps) {
   const controller = useMarkdownRichTooltipController();
   return controller ? <TierListBoard {...props} /> : <MarkdownRichTooltipProvider><TierListBoard {...props} /></MarkdownRichTooltipProvider>;
 }
-function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, onSourceChange, renderGradeLabel, renderGradeControls, renderEndRow, onAddCard, onEditCard }: TierListNoteProps) {
+function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, showTitle = true, onSourceChange, renderGradeLabel, renderGradeControls, renderEndRow, onAddCard, onEditCard }: TierListNoteProps) {
   const parsed = useMemo(() => {
     try { return { document: parseTierList(source), error: null }; }
     catch (reason) { return { document: null, error: reason instanceof Error ? reason.message : String(reason) }; }
@@ -226,7 +227,7 @@ function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, onSo
     : activeGrade ? <div aria-hidden="true" className="tierlist-grade-overlay" data-testid="tierlist-grade-overlay">{activeGrade.name}</div> : null;
   const activeGradeIndex = activeGrade ? document.grades.indexOf(activeGrade) : -1;
   return <div aria-busy={pending} className="tierlist-note" onPointerDown={event => event.stopPropagation()} onMouseDown={event => event.stopPropagation()} onTouchStart={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()} ref={board}>
-    {document.title && !renderGradeControls ? <h2 className="tierlist-title">{document.title}</h2> : null}
+    {showTitle && document.title && !renderGradeControls ? <h2 className="tierlist-title">{document.title}</h2> : null}
     <DndContext sensors={sensors} collisionDetection={collision} onDragStart={event => begin(event.active.data.current?.type === 'grade' ? { kind: 'grade', id: String(event.active.data.current.gradeId) } : { kind: 'card', id: String(event.active.data.current?.cardId) })} onDragMove={() => { setPlacement(placementRef.current); setGradeIndex(gradeIndexRef.current); }} onDragOver={() => { setPlacement(placementRef.current); setGradeIndex(gradeIndexRef.current); }} onDragCancel={cancel} onDragEnd={(event: DragEndEvent) => { void end(Boolean(event.over)); }}>
       {document.grades.map((grade, index) => {
         const visible = grade.cards.filter(card => active?.kind !== 'card' || card.id !== active.id);
