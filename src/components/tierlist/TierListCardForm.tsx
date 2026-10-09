@@ -13,7 +13,7 @@ export interface TierListCardFormProps {
   disabled?: boolean;
   canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
   onPendingChange: (pending: boolean) => void;
-  onSave: (card: TierListCard, prepared?: EditableAttachment) => void;
+  onSave: (card: TierListCard, prepared?: EditableAttachment) => void | Promise<void>;
   onCancel: () => void;
   onDelete?: () => void;
 }
@@ -24,6 +24,8 @@ export function TierListCardForm({ card, imageUrl, imageChoices, disabled = fals
   const dialog = useRef<HTMLElement>(null);
   const active = useRef(true);
   const pendingRef = useRef(false);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [bodyMarkdown, setBodyMarkdown] = useState(card?.bodyMarkdown ?? '');
   const [imageId, setImageId] = useState<string | null>(card?.imageAssetId ?? null);
   const [prepared, setPrepared] = useState<PreparedImage>();
@@ -48,14 +50,27 @@ export function TierListCardForm({ card, imageUrl, imageChoices, disabled = fals
     return () => URL.revokeObjectURL(url);
   }, [prepared]);
 
-  const close = () => { active.current = false; onCancel(); };
-  const save = () => {
-    if (!active.current || pendingRef.current || disabled) return;
+  const close = () => { if (savingRef.current) return; active.current = false; onCancel(); };
+  const save = async () => {
+    if (!active.current || pendingRef.current || savingRef.current || disabled) return;
     if (!imageId && !bodyMarkdown.trim()) { setError('Добавьте изображение или непустой текст карточки'); return; }
     const attachment: EditableAttachment | undefined = prepared && imageId === prepared.assetId
       ? { type: 'pending-image', alt: prepared.alt, image: prepared }
       : undefined;
-    onSave({ id: card?.id ?? crypto.randomUUID(), imageAssetId: imageId, bodyMarkdown }, attachment);
+    savingRef.current = true;
+    setError(null);
+    let asynchronous = false;
+    try {
+      const result = onSave({ id: card?.id ?? crypto.randomUUID(), imageAssetId: imageId, bodyMarkdown }, attachment);
+      if (result) { asynchronous = true; setSaving(true); onPendingChange(true); await result; }
+    } catch (reason) {
+      if (active.current) setError(reason instanceof Error ? reason.message : 'Не удалось сохранить карточку');
+    } finally {
+      if (asynchronous) onPendingChange(false);
+      savingRef.current = false;
+      if (active.current) setSaving(false);
+    }
+
   };
   const currentUrl = imageId === prepared?.assetId ? preview ?? imageUrl?.(imageId!) ?? null : imageId ? imageUrl?.(imageId) ?? null : null;
   const choices = prepared && !imageChoices.some(choice => choice.id === prepared.assetId)
@@ -67,7 +82,7 @@ export function TierListCardForm({ card, imageUrl, imageChoices, disabled = fals
       if (event.target === event.currentTarget) close();
       event.stopPropagation();
     }} onPointerDown={event => event.stopPropagation()}>
-      <section aria-busy={pending} aria-labelledby={titleId} aria-modal="true" className="game-progress-dialog tierlist-card-dialog" ref={dialog} role="dialog" onKeyDown={event => {
+      <section aria-busy={pending || saving} aria-labelledby={titleId} aria-modal="true" className="game-progress-dialog tierlist-card-dialog" ref={dialog} role="dialog" onKeyDown={event => {
         event.stopPropagation();
         if (event.key === 'Escape') { event.preventDefault(); close(); return; }
         if (event.key !== 'Tab') return;
@@ -78,10 +93,10 @@ export function TierListCardForm({ card, imageUrl, imageChoices, disabled = fals
       }}>
         <header className="modal-header game-progress-dialog__header">
           <h2 id={titleId}>Карточка</h2>
-          <button aria-label="Закрыть" className="icon-button" onClick={close} type="button"><Icon name="close" /></button>
+          <button aria-label="Закрыть" className="icon-button" disabled={saving} onClick={close} type="button"><Icon name="close" /></button>
         </header>
         <div className="game-progress-dialog__body tierlist-card-dialog__body">
-          <ImagePicker mode="cover" label="Изображение карточки" currentPreviewUrl={currentUrl} disabled={disabled} canAddBlob={canAddBlob} onPrepare={image => {
+          <ImagePicker mode="cover" label="Изображение карточки" currentPreviewUrl={currentUrl} disabled={disabled || saving} canAddBlob={canAddBlob} onPrepare={image => {
             if (!active.current) return;
             setPrepared(image);
             setImageId(image.assetId);
@@ -93,18 +108,18 @@ export function TierListCardForm({ card, imageUrl, imageChoices, disabled = fals
           }} onRemove={imageId ? () => { setImageId(null); setError(null); } : undefined} />
           {imageChoices.length ? <label className="field-group">
             <span className="field-label">Прикреплённое изображение</span>
-            <select aria-label="Прикреплённое изображение" disabled={pending || disabled} value={imageId ?? ''} onChange={event => { setImageId(event.target.value || null); setError(null); }}>
+            <select aria-label="Прикреплённое изображение" disabled={pending || saving || disabled} value={imageId ?? ''} onChange={event => { setImageId(event.target.value || null); setError(null); }}>
               <option value="">Без изображения</option>
               {choices.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
             </select>
           </label> : null}
-          <LazyMonacoNoteEditor modelKey={`tierlist-card:${modelId}`} value={bodyMarkdown} gameSuggestions={[]} filesDisabled onChange={value => { setBodyMarkdown(value); setError(null); }} onImageFiles={() => {}} onFileFiles={() => {}} onCancel={close} onSubmit={save} submitDisabled={pending || disabled} />
+          <LazyMonacoNoteEditor modelKey={`tierlist-card:${modelId}`} value={bodyMarkdown} gameSuggestions={[]} filesDisabled onChange={value => { setBodyMarkdown(value); setError(null); }} onImageFiles={() => {}} onFileFiles={() => {}} onCancel={close} onSubmit={save} submitDisabled={pending || saving || disabled} />
           {error ? <p className="field-error" role="alert">{error}</p> : null}
         </div>
         <footer className="game-progress-dialog__footer">
-          {onDelete ? <button className="button button--ghost button--danger-text game-progress-dialog__delete" disabled={pending || disabled} onClick={onDelete} type="button">Удалить карточку</button> : null}
-          <button className="button button--secondary" onClick={close} type="button">Отмена карточки</button>
-          <button className="button button--primary" disabled={pending || disabled} onClick={save} type="button">Сохранить карточку</button>
+          {onDelete ? <button className="button button--ghost button--danger-text game-progress-dialog__delete" disabled={pending || saving || disabled} onClick={onDelete} type="button">Удалить карточку</button> : null}
+          <button className="button button--secondary" disabled={saving} onClick={close} type="button">Отмена карточки</button>
+          <button className="button button--primary" disabled={pending || saving || disabled} onClick={save} type="button">Сохранить карточку</button>
         </footer>
       </section>
     </div>,

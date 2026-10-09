@@ -12,7 +12,8 @@
 .tierlist-grade-cards { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; min-width: 150px; min-height: 150px; position: relative; }
 .tierlist-card-shell { position: relative; width: 150px; height: 150px; flex: 0 0 150px; }
 .tierlist-card, .tierlist-card-add { box-sizing: border-box; width: 150px; height: 150px; min-width: 150px; min-height: 150px; max-width: 150px; max-height: 150px; flex: 0 0 150px; border-radius: 5px; padding: 0; display: flex; align-items: center; justify-content: center; font: inherit; line-height: 1.3; text-align: center; touch-action: manipulation; }
-.tierlist-card { border: 1px solid var(--line); background: var(--surface); color: inherit; overflow: hidden; cursor: grab; }
+.tierlist-card { border: 1px solid var(--line); background: var(--surface); color: inherit; overflow: hidden; cursor: pointer; }
+.tierlist-card--draggable { cursor: grab; }
 .tierlist-card-add { border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; }
 .tierlist-grade:hover .tierlist-card-add:not(:disabled), .tierlist-grade:focus-within .tierlist-card-add:not(:disabled) { border-color: #30343a; border-style: dashed; background: #17191c; }
 .tierlist-card-add:disabled { opacity: .42; cursor: not-allowed; }

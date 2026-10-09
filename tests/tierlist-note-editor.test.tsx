@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GamePage } from '../src/pages/GamePage';
@@ -26,8 +26,9 @@ describe('visual tier-list note editor',()=>{
  it('edits grades and cards visually, accepts duplicate names and confirms nonempty deletion',async()=>{
   const save=vi.fn().mockResolvedValue(undefined);render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={save}/>);await open();
   const grades=screen.getAllByTestId('tierlist-grade');expect(grades).toHaveLength(2);
-  await userEvent.click(within(grades[0]).getByRole('button',{name:'Добавить карточку'}));
-  const form=screen.getByRole('dialog',{name:'Карточка'});await userEvent.click(within(form).getByRole('button',{name:'Сохранить карточку'}));expect(within(form).getByRole('alert')).toHaveTextContent('текст');
+  expect(screen.queryAllByRole('button',{name:'Добавить карточку'})).toHaveLength(0);
+  await userEvent.click(within(grades[0]).getByRole('button',{name:'Редактировать карточку: Alpha'}));
+  const form=screen.getByRole('dialog',{name:'Карточка'});fireEvent.change(within(form).getByRole('textbox',{name:'Текст заметки'}),{target:{value:''}});await userEvent.click(within(form).getByRole('button',{name:'Сохранить карточку'}));expect(within(form).getByRole('alert')).toHaveTextContent('текст');
   fireEvent.change(within(form).getByRole('textbox',{name:'Текст заметки'}),{target:{value:'Unicode 🐈\nSecond line'}});await userEvent.click(within(form).getByRole('button',{name:'Сохранить карточку'}));
   expect(screen.getByRole('button',{name:'Карточка: Unicode 🐈'})).toBeInTheDocument();
   await userEvent.click(within(screen.getAllByTestId('tierlist-grade')[0]).getByRole('button',{name:'Удалить грейд'}));expect(screen.getByRole('alertdialog')).toHaveTextContent('карточки');
@@ -38,7 +39,7 @@ describe('visual tier-list note editor',()=>{
  });
  it('canceling the card form and outer note restores the original body and format',async()=>{
   render(<GamePage assets={{}} game={game} mode="game" notes={[note]} onSave={vi.fn()}/>);await open();
-  await userEvent.click(screen.getAllByRole('button',{name:'Добавить карточку'})[0]);fireEvent.change(screen.getByRole('textbox',{name:'Текст заметки'}),{target:{value:'Canceled'}});await userEvent.click(screen.getByRole('button',{name:'Отмена карточки'}));expect(screen.queryByText('Canceled')).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'Редактировать карточку: Alpha'}));fireEvent.change(screen.getByRole('textbox',{name:'Текст заметки'}),{target:{value:'Canceled'}});await userEvent.click(screen.getByRole('button',{name:'Отмена карточки'}));expect(screen.queryByText('Canceled')).not.toBeInTheDocument();
   await userEvent.selectOptions(screen.getByRole('combobox',{name:'Формат заметки'}),'markdown');await userEvent.click(screen.getByRole('button',{name:'Отменить редактирование'}));expect(screen.getByRole('button',{name:'Карточка: Alpha'})).toBeInTheDocument();await open();expect(screen.getByRole('combobox',{name:'Формат заметки'})).toHaveValue('tierlist');expect(screen.getByRole('textbox',{name:'Название тирлиста'})).toHaveValue('Board');
  });
 });
@@ -50,34 +51,14 @@ it('keeps the tierlist image pool in its draft and excludes it from a saved text
  expect(document.querySelectorAll('.note-attachments img')).toHaveLength(0);await open();const format=screen.getByRole('combobox',{name:'Формат заметки'});await userEvent.selectOptions(format,'markdown');expect(await screen.findByRole('textbox',{name:'Текст заметки'})).toHaveValue('');expect(document.querySelectorAll('.note-attachments img')).toHaveLength(0);
  await userEvent.selectOptions(format,'tierlist');expect(screen.getByRole('button',{name:'Карточка: Изображение'}).querySelector('img')).toHaveAttribute('src',`/${id}`);await userEvent.selectOptions(format,'markdown');fireEvent.change(await screen.findByRole('textbox',{name:'Текст заметки'}),{target:{value:'Saved text'}});await userEvent.click(screen.getByRole('button',{name:'Сохранить заметку'}));await waitFor(()=>expect(save).toHaveBeenCalledOnce());expect(save.mock.calls[0][0].notes[0].attachments).toEqual([{type:'file',assetId:fileId,label:'Unrelated file'}]);
 });
-it('uses connected expected-body/format guarded interaction saves and rolls back rejection without writing the game',async()=>{
- const saveGame=vi.fn(),saveInteraction=vi.fn().mockRejectedValue(new Error('Stale tierlist'));
- const snapshot={format:'tierlist' as const,bodyMarkdown:source};const connection={useNoteInteractionSnapshot:()=>snapshot,readNoteInteractionSnapshot:()=>snapshot,saveNoteInteraction:saveInteraction};
- render(<GamePage assets={{}} game={game} mode="game" notes={[note]} noteInteractionSource={connection} onSave={saveGame}/>);const card=screen.getByRole('button',{name:'Карточка: Alpha'});fireEvent.keyDown(card,{key:' '});fireEvent.keyDown(card,{key:'ArrowDown'});fireEvent.keyDown(card,{key:'Enter'});await waitFor(()=>expect(saveInteraction).toHaveBeenCalledOnce());expect(saveInteraction.mock.calls[0][0]).toMatchObject({noteId:note.id,field:'bodyMarkdown',expectedFormat:'tierlist',expectedBodyMarkdown:source});expect(saveGame).not.toHaveBeenCalled();await waitFor(()=>expect(screen.getAllByRole('alert').some(n=>n.textContent?.includes('Stale tierlist'))).toBe(true));expect(within(screen.getAllByTestId('tierlist-grade')[0]).getByRole('button',{name:'Карточка: Alpha'})).toBeInTheDocument();
-});
-
 it('retains original text image membership when a tierlist upload deduplicates to it, excluding new tierlist-only uploads',async()=>{
  const originalId='a'.repeat(64),newId='b'.repeat(64);const asset=(id:string)=>({id,kind:'image' as const,mime:'image/webp' as const,width:160,height:80,byteLength:5,alt:'Fixture',originalName:'fixture.webp'});vi.mocked(optimizeCover).mockResolvedValueOnce({asset:asset(originalId),blob:new Blob(['original']),byteLength:5}).mockResolvedValueOnce({asset:asset(newId),blob:new Blob(['new']),byteLength:5});
- const textNote:Note={...note,format:undefined,bodyMarkdown:'Original text',attachments:[{type:'image',assetId:originalId,alt:'Original attachment'}]};const save=vi.fn().mockResolvedValue(undefined);render(<GamePage game={game} notes={[textNote]} assets={{[originalId]:asset(originalId)}} mode="game" resolveAssetUrl={id=>`/${id}`} onSave={save}/>);await open();const format=screen.getByRole('combobox',{name:'Формат заметки'});await userEvent.selectOptions(format,'tierlist');await userEvent.click(screen.getByRole('button',{name:'Добавить грейд'}));fireEvent.change(screen.getByRole('textbox',{name:'Название грейда'}),{target:{value:'Images'}});fireEvent.keyDown(screen.getByRole('textbox',{name:'Название грейда'}),{key:'Enter'});
- for(const name of ['original.png','new.png']){await userEvent.click(screen.getByRole('button',{name:'Добавить карточку'}));await userEvent.upload(document.querySelector<HTMLInputElement>('.image-picker input[type=file]')!,new File(['fake'],name,{type:'image/png'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Сохранить карточку'})).toBeEnabled());await userEvent.click(screen.getByRole('button',{name:'Сохранить карточку'}));}
+ const textNote:Note={...note,bodyMarkdown:serializeTierList({version:2,title:'Pool draft',grades:[{id:'pool-grade',name:'Images',cards:[{id:'old',imageAssetId:null,bodyMarkdown:'Original card'},{id:'new',imageAssetId:null,bodyMarkdown:'New card'}]}]}),attachments:[{type:'image',assetId:originalId,alt:'Original attachment'}]};const save=vi.fn().mockResolvedValue(undefined);render(<GamePage game={game} notes={[textNote]} assets={{[originalId]:asset(originalId)}} mode="game" resolveAssetUrl={id=>`/${id}`} onSave={save}/>);await open();const format=screen.getByRole('combobox',{name:'Формат заметки'});await userEvent.selectOptions(format,'markdown');fireEvent.change(await screen.findByRole('textbox',{name:'Текст заметки'}),{target:{value:'Original text'}});await userEvent.selectOptions(format,'tierlist');
+ for(const [title,name] of [['Original card','original.png'],['New card','new.png']]){await userEvent.click(screen.getByRole('button',{name:`Редактировать карточку: ${title}`}));await userEvent.upload(document.querySelector<HTMLInputElement>('.image-picker input[type=file]')!,new File(['fake'],name,{type:'image/png'}));await waitFor(()=>expect(screen.getByRole('button',{name:'Сохранить карточку'})).toBeEnabled());await userEvent.click(screen.getByRole('button',{name:'Сохранить карточку'}));}
  await userEvent.selectOptions(format,'markdown');expect(await screen.findByRole('textbox',{name:'Текст заметки'})).toHaveValue('Original text');await userEvent.click(screen.getByRole('button',{name:'Сохранить заметку'}));await waitFor(()=>expect(save).toHaveBeenCalledOnce());expect(save.mock.calls[0][0].notes[0].attachments).toEqual(textNote.attachments);
 });
 
 describe('connected tierlist source reconciliation',()=>{
- it.each(['rejected','successful'] as const)('retains advanced body content and its matching guard after a %s first save',async(outcome)=>{
-  const initial=serializeTierList({version: 2,title:'Original',grades:[{id:'a',name:'A',cards:[{id:'one',imageAssetId:null,bodyMarkdown:'One'}]},{id:'b',name:'B',cards:[]}]});
-  const remote=serializeTierList({version: 2,title:'Remote title',grades:[{id:'a',name:'A',cards:[{id:'one',imageAssetId:null,bodyMarkdown:'One'},{id:'remote',imageAssetId:null,bodyMarkdown:'Remote card'}]},{id:'b',name:'B',cards:[]}]});
-  let snapshot={format:'tierlist' as const,bodyMarkdown:initial};let resolve!:()=>void,reject!:(reason:Error)=>void;
-  const saveInteraction=vi.fn().mockImplementationOnce(()=>new Promise<void>((r,j)=>{resolve=r;reject=j;})).mockResolvedValue(undefined),saveGame=vi.fn();
-  const connection={useNoteInteractionSnapshot:()=>snapshot,readNoteInteractionSnapshot:()=>snapshot,saveNoteInteraction:saveInteraction};
-  const props={assets:{},game,mode:'game' as const,notes:[{...note,bodyMarkdown:initial}],noteInteractionSource:connection,onSave:saveGame};const {rerender}=render(<GamePage {...props}/>);
-  const one=screen.getByRole('button',{name:'Карточка: One'});fireEvent.keyDown(one,{key:' '});fireEvent.keyDown(one,{key:'ArrowDown'});fireEvent.keyDown(one,{key:'Enter'});expect(saveInteraction).toHaveBeenCalledOnce();
-  snapshot={...snapshot,bodyMarkdown:remote};rerender(<GamePage {...props}/>);
-  await act(async()=>{if(outcome==='rejected')reject(new Error('Stale source'));else resolve();});
-  const retry=screen.getByRole('button',{name:'Карточка: One'});fireEvent.keyDown(retry,{key:' '});fireEvent.keyDown(retry,{key:'ArrowDown'});fireEvent.keyDown(retry,{key:'Enter'});await waitFor(()=>expect(saveInteraction).toHaveBeenCalledTimes(2));
-  expect(saveInteraction.mock.calls[1][0]).toMatchObject({field:'bodyMarkdown',expectedFormat:'tierlist',expectedBodyMarkdown:remote});
-  expect(parseTierList(saveInteraction.mock.calls[1][0].value)).toMatchObject({title:'Remote title',grades:[{id:'a',cards:[{id:'remote'}]},{id:'b',cards:[{id:'one'}]}]});expect(saveGame).not.toHaveBeenCalled();
- });
  it('renames the arbitrary grade ID new without adding a grade or changing its cards',async()=>{
   const body=serializeTierList({version: 2,title:'Imported',grades:[{id:'new',name:'Original grade',cards:[{id:'one',imageAssetId:null,bodyMarkdown:'One'}]}]});const save=vi.fn().mockResolvedValue(undefined);
   render(<GamePage assets={{}} game={game} mode="game" notes={[{...note,bodyMarkdown:body}]} onSave={save}/>);await open();await userEvent.click(screen.getByRole('button',{name:'Переименовать грейд: Original grade'}));fireEvent.change(screen.getByRole('textbox',{name:'Название грейда'}),{target:{value:'Renamed grade'}});fireEvent.keyDown(screen.getByRole('textbox',{name:'Название грейда'}),{key:'Enter'});

@@ -84,16 +84,14 @@ describe('approved tierlist redesign contracts', () => {
     expect(parseTierList(source({ id: 'c', imageAssetId: null, bodyMarkdown: '# Heading\nBody' })).grades[0].cards[0]).toEqual({ id: 'c', imageAssetId: null, bodyMarkdown: '# Heading\nBody' });
     for (const card of [{ id: 'c', imageAssetId: null, bodyMarkdown: ' ' }, { id: 'c', bodyMarkdown: 'Body' }, { id: 'c', imageAssetId: 'bad', bodyMarkdown: '' }, { id: 'c', imageAssetId: id, bodyMarkdown: '', type: 'image' }]) expect(() => parseTierList(source(card))).toThrow();
   });
-  it('places the add square last in each grade and opens one portalled modal with picker before Markdown', async () => {
+  it('opens existing cards in one portalled modal with picker before Markdown and offers no editor add square', async () => {
     const source = JSON.stringify({ version: 2, title: '', grades: [{ id: 'g', name: 'A', cards: [{ id: 'c', imageAssetId: null, bodyMarkdown: '# Heading\nBody' }] }] });
     render(<TierListEditor source={source} attachments={[]} assets={{}} canAddBlob={vi.fn()} onPendingChange={vi.fn()} onChange={vi.fn()} />);
     const grade = screen.getByTestId('tierlist-grade');
-    const add = within(grade).getByRole('button', { name: 'Добавить карточку' });
-    expect(add).toHaveClass('tierlist-card-add');
-    expect(add.parentElement?.lastElementChild).toBe(add);
+    expect(within(grade).queryByRole('button', { name: 'Добавить карточку' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Грейд выше' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Грейд ниже' })).not.toBeInTheDocument();
-    fireEvent.click(add);
+    fireEvent.click(within(grade).getByRole('button', { name: 'Редактировать карточку: Heading' }));
     const dialog = await screen.findByRole('dialog', { name: 'Карточка' });
     expect(dialog.closest('.modal-layer')?.parentElement).toBe(document.body);
     expect(dialog).toHaveAttribute('aria-modal', 'true');
@@ -192,10 +190,10 @@ it('edits grade names in their label slots with blur/Enter commits, Escape cance
   expect(parseTierList(changed.mock.calls[1][0]).grades).toHaveLength(3);
 });
 
-it('discards a modal draft and restores focus to its grade-local add control', async () => {
+it('discards an existing-card modal draft and restores focus to its edit control', async () => {
   const changed = vi.fn();
-  render(<TierListEditor source={JSON.stringify({ version: 2, title: '', grades: [{ id: 'a', name: 'A', cards: [] }] })} assets={{}} attachments={[]} onPendingChange={vi.fn()} onChange={changed} />);
-  const add = screen.getByRole('button', { name: 'Добавить карточку' });
+  render(<TierListEditor source={JSON.stringify({ version: 2, title: '', grades: [{ id: 'a', name: 'A', cards: [{id:'c',imageAssetId:null,bodyMarkdown:'Existing'}] }] })} assets={{}} attachments={[]} onPendingChange={vi.fn()} onChange={changed} />);
+  const add = screen.getByRole('button', { name: 'Редактировать карточку: Existing' });
   act(() => add.focus());
   fireEvent.click(add);
   const dialog = screen.getByRole('dialog', { name: 'Карточка' });

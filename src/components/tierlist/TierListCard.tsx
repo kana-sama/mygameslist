@@ -28,7 +28,7 @@ export function TierListCard({ card, url, disabled, dragging, suppressClick, onK
   const open = Boolean(activeSource && activeSource === button.current);
   return <div className={`tierlist-card-shell${insertion ? ' tierlist-insert-before' : ''}`}>
     {insertion ? <span className="tierlist-insertion" data-testid="tierlist-insertion" aria-hidden="true" /> : null}
-    <button {...attributes} {...listeners} aria-disabled={disabled} aria-label={`Карточка: ${title}`} aria-expanded={card.bodyMarkdown.trim() ? open : undefined} aria-controls={open ? 'markdown-rich-tooltip' : undefined} aria-roledescription="перетаскиваемая карточка" className={`tierlist-card${isDragging ? ' is-dragging' : ''}`} data-card-id={card.id} onKeyDown={onKeyDown} onPointerDown={event => { suppressClick.current = null; listeners?.onPointerDown?.(event); }} onClick={event => {
+    <button {...(!disabled ? attributes : {})} {...(!disabled ? listeners : {})} aria-disabled={!disabled ? false : undefined} aria-label={`Карточка: ${title}`} aria-expanded={card.bodyMarkdown.trim() ? open : undefined} aria-controls={open ? 'markdown-rich-tooltip' : undefined} aria-roledescription={!disabled ? 'перетаскиваемая карточка' : undefined} className={`tierlist-card${!disabled ? ' tierlist-card--draggable' : ''}${isDragging ? ' is-dragging' : ''}`} data-card-id={card.id} onKeyDown={onKeyDown} onPointerDown={event => { suppressClick.current = null; if (!disabled) listeners?.onPointerDown?.(event); }} onClick={event => {
       event.stopPropagation();
       if (suppressClick.current === card.id) { suppressClick.current = null; return; }
       if (dragging || !card.bodyMarkdown.trim() || !controller) return;
