@@ -131,7 +131,7 @@ it('keeps the promoted title in the editable card source after displaying its de
   render(<TierListEditor source={source} attachments={[]} assets={{}} onPendingChange={vi.fn()} onChange={changed} />);
   fireEvent.click(screen.getByRole('button', { name: 'Карточка: Heading' }));
   expect(within(screen.getByRole('dialog')).queryByRole('heading', { name: 'Heading' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Редактировать карточку: Heading' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Редактировать карточку: Heading' }));
   const editor = await within(screen.getByRole('dialog', { name: 'Карточка' })).findByRole('textbox', { name: 'Текст заметки' });
   expect(editor).toHaveValue(bodyMarkdown);
   expect(changed).not.toHaveBeenCalled();

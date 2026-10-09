@@ -11,6 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { parseMarkdownRichTooltipBody } from "../domain";
+import { Icon } from "./Icon";
 import { MarkdownInlineView, MarkdownView } from "./Markdown";
 import {
   MarkdownRichTooltipContext,
@@ -231,12 +232,18 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
     return () => document.removeEventListener("keydown", dismissWithEscape, true);
   }, [active, close]);
 
+  const refreshEditAction = useCallback((sourceElement: HTMLButtonElement) => {
+    const current = activeRef.current;
+    if (current?.sourceElement === sourceElement && current.editAction) setActive({ ...current });
+  }, []);
+
   const controller = useMemo<MarkdownRichTooltipController>(() => ({
     getActiveSource,
+    refreshEditAction,
     close,
     open,
     subscribeActiveSource,
-  }), [getActiveSource, close, open, subscribeActiveSource]);
+  }), [getActiveSource, refreshEditAction, close, open, subscribeActiveSource]);
 
   const updatePlacement = useCallback(() => {
     const current = activeRef.current;
@@ -434,6 +441,18 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
       <div className="markdown-rich-tooltip__card">
         <header className="markdown-rich-tooltip__header">
           <strong className="markdown-rich-tooltip__title" id="markdown-rich-tooltip-title">{active.title}</strong>
+          {active.editAction ? <button
+            aria-label={active.editAction.label}
+            className="markdown-rich-tooltip__close markdown-rich-tooltip__edit"
+            disabled={active.editAction.isDisabled()}
+            onClick={() => {
+              const action = activeRef.current?.editAction;
+              if (!action || action.isDisabled()) return;
+              close(true);
+              action.onEdit();
+            }}
+            type="button"
+          ><Icon name="edit" size={14} /></button> : null}
           <button
             aria-label="Закрыть"
             className="markdown-rich-tooltip__close"

@@ -22,6 +22,7 @@ export interface MarkdownRichTooltipOpenRequest {
   anchor: string;
   bodyMarkdown: string;
   dismissOnEscape?: boolean;
+  editAction?: { label: string; onEdit: () => void; isDisabled: () => boolean };
   omitHeadingAtSourceOffset?: number;
   layer: MarkdownRichTooltipLayer;
   onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
@@ -32,6 +33,7 @@ export interface MarkdownRichTooltipOpenRequest {
 
 export interface MarkdownRichTooltipController {
   getActiveSource(): HTMLButtonElement | null;
+  refreshEditAction(sourceElement: HTMLButtonElement): void;
   close(restoreTriggerFocus: boolean): void;
   open(request: MarkdownRichTooltipOpenRequest): void;
   subscribeActiveSource(listener: () => void): () => void;

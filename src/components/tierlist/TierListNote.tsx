@@ -24,6 +24,7 @@ export interface TierListNoteProps {
   renderEndRow?: ReactNode;
   onAddCard?: (gradeId: string) => void;
   onEditCard?: (gradeId: string, cardId: string) => void;
+  onTooltipEditCard?: (gradeId: string, cardId: string) => void;
 }
 type ActiveDrag = { kind: 'card'; id: string } | { kind: 'grade'; id: string };
 export const TIERLIST_SENSOR_OPTIONS = {
@@ -62,7 +63,7 @@ export function TierListNote(props: TierListNoteProps) {
   const controller = useMarkdownRichTooltipController();
   return controller ? <TierListBoard {...props} /> : <MarkdownRichTooltipProvider><TierListBoard {...props} /></MarkdownRichTooltipProvider>;
 }
-function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, showTitle = true, onSourceChange, renderGradeLabel, renderGradeControls, renderEndRow, onAddCard, onEditCard }: TierListNoteProps) {
+function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, showTitle = true, onSourceChange, renderGradeLabel, renderGradeControls, renderEndRow, onAddCard, onEditCard, onTooltipEditCard }: TierListNoteProps) {
   const parsed = useMemo(() => {
     try { return { document: parseTierList(source), error: null }; }
     catch (reason) { return { document: null, error: reason instanceof Error ? reason.message : String(reason) }; }
@@ -233,7 +234,7 @@ function TierListBoard({ source, assets, resolveAssetUrl, disabled = false, show
         const visible = grade.cards.filter(card => active?.kind !== 'card' || card.id !== active.id);
         const insertion = gradeIndex === index && gradeIndex !== activeGradeIndex ? gradeIndex < activeGradeIndex ? 'before' : 'after' : null;
         return <GradeRow grade={grade} key={grade.id} label={renderGradeLabel?.(grade) ?? <span>{grade.name}</span>} controls={renderGradeControls?.(grade, index)} writable={writable} dragging={active?.kind === 'grade'} insertion={insertion} onKeyDown={event => keyDown({ kind: 'grade', id: grade.id }, event)} setElement={node => { if (node) grades.current.set(grade.id, node); else grades.current.delete(grade.id); }} setRow={node => { if (node) rows.current.set(grade.id, node); else rows.current.delete(grade.id); }}>
-          {grade.cards.map(card => <TierListCard card={card} key={card.id} url={card.imageAssetId ? url(card.imageAssetId) : null} disabled={!writable} dragging={Boolean(active)} suppressClick={suppressClick} insertion={placement?.gradeId === grade.id && visible[placement.index]?.id === card.id} onKeyDown={event => keyDown({ kind: 'card', id: card.id }, event)} onEdit={onEditCard ? () => onEditCard(grade.id, card.id) : undefined} />)}
+          {grade.cards.map(card => <TierListCard card={card} key={card.id} url={card.imageAssetId ? url(card.imageAssetId) : null} disabled={!writable} dragging={Boolean(active)} suppressClick={suppressClick} insertion={placement?.gradeId === grade.id && visible[placement.index]?.id === card.id} onKeyDown={event => keyDown({ kind: 'card', id: card.id }, event)} onEdit={onEditCard ? () => onEditCard(grade.id, card.id) : undefined} onTooltipEdit={onTooltipEditCard || onEditCard ? () => (onTooltipEditCard ?? onEditCard)?.(grade.id, card.id) : undefined} editDisabled={disabled || pending || Boolean(active)} />)}
           {placement?.gradeId === grade.id && placement.index >= visible.length ? <span aria-hidden="true" className="tierlist-insertion tierlist-insertion--end" data-testid="tierlist-insertion" /> : null}
           {onAddCard ? <button aria-label="Добавить карточку" className="tierlist-card-add" disabled={disabled || pending} onClick={() => onAddCard(grade.id)} type="button"><Icon name="plus" size={24} /></button> : null}
         </GradeRow>;

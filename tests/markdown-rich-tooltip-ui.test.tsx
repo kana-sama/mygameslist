@@ -95,6 +95,7 @@ function idleRichTooltipController(): MarkdownRichTooltipController {
     close: vi.fn(),
     open: vi.fn(),
     subscribeActiveSource: () => () => undefined,
+    refreshEditAction: () => undefined,
   };
 }
 

@@ -614,6 +614,9 @@ button.markdown-table-group__header:disabled { cursor: default; }
   line-height: 1;
   cursor: pointer;
 }
+.markdown-rich-tooltip__edit { margin-left: auto; }
+.markdown-rich-tooltip__edit:disabled { opacity: .45; cursor: default; }
+.markdown-rich-tooltip__edit:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 .markdown-rich-tooltip__close:hover { color: var(--text); background: rgba(255, 255, 255, .055); }
 .markdown-rich-tooltip__body {
   min-height: 0;
