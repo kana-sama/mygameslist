@@ -2,14 +2,25 @@
 import { describe, expect, it } from "vitest";
 import * as tierList from "../src/domain/tierList";
 import type { TierListDocument } from "../src/domain/tierList";
+import { markdownInlinePlainText } from "../src/domain/markdownInlineAnnotations";
 const imageAssetId = "a".repeat(64);
-const fixture = (): TierListDocument => ({ version: 1, title: "Выбор 🐈\n<literal>", grades: [
-  { id: "g1", name: "Любое", cards: [{ id: "c1", type: "text", text: "Строка\nстрока" }, { id: "c2", type: "image", imageAssetId }, { id: "c3", type: "image-text", imageAssetId, text: "[x] tooltip" }] },
+const fixture = (): TierListDocument => ({ version: 2, title: "Выбор 🐈\n<literal>", grades: [
+  { id: "g1", name: "Любое", cards: [{ id: "c1", imageAssetId: null, bodyMarkdown: "Строка\nстрока" }, { id: "c2", imageAssetId, bodyMarkdown: "" }, { id: "c3", imageAssetId, bodyMarkdown: "[x] tooltip" }] },
   { id: "g2", name: "Любое", cards: [] },
 ] });
 describe("tier-list document", () => {
+  it("round-trips every legacy whitespace character without changing the strict v2 shape", () => {
+    const text = "\u00a0 \tFirst  line\n\n   Second\t \n\u2003\u202f\ufeff";
+    const source = JSON.stringify({ version: 1, title: "", grades: [{ id: "g", name: "A", cards: [{ id: "c", type: "image-text", imageAssetId, text }] }] });
+    const converted = tierList.parseTierList(source);
+    const saved = tierList.parseTierList(tierList.serializeTierList(converted));
+    expect(markdownInlinePlainText(saved.grades[0].cards[0].bodyMarkdown)).toBe(text);
+    expect(Object.keys(saved.grades[0].cards[0]).sort()).toEqual(["bodyMarkdown", "id", "imageAssetId"]);
+    expect(JSON.parse(source).version).toBe(1);
+    expect(saved).toEqual(converted);
+  });
   it("creates and parses an empty board without preset grades", () => {
-    expect(tierList.createTierListDocument()).toEqual({ version: 1, title: "", grades: [] });
+    expect(tierList.createTierListDocument()).toEqual({ version: 2, title: "", grades: [] });
     expect(tierList.parseTierList(" \n")).toEqual(tierList.createTierListDocument());
   });
   it("round-trips all card variants, duplicate names and literal multiline Unicode", () => {
@@ -20,7 +31,7 @@ describe("tier-list document", () => {
     expect(tierList.tierListImageAssetIds(document)).toEqual(new Set([imageAssetId]));
   });
   it.each([
-    null, [], {}, { version: 2, title: "", grades: [] }, { version: 1, grades: [] }, { version: 1, title: 0, grades: [] },
+    null, [], {}, { version: 3, title: "", grades: [] }, { version: 1, grades: [] }, { version: 1, title: 0, grades: [] },
     { version: 1, title: "", grades: [], extra: true }, { version: 1, title: "", grades: {} },
   ])("rejects missing fields, wrong values and unknown keys: %j", value => {
     expect(tierList.validateTierList(JSON.stringify(value)).length).toBeGreaterThan(0);
@@ -38,7 +49,7 @@ describe("tier-list document", () => {
       expect(tierList.validateTierList(JSON.stringify({ version: 1, title: "", grades: [grade] })).length).toBeGreaterThan(0);
     }
     for (const id of ["g1", "g2", "c1"]) {
-      const doc = fixture(); doc.grades[1].cards.push({ id, type: "text", text: "duplicate" });
+      const doc = fixture(); doc.grades[1].cards.push({ id, imageAssetId: null, bodyMarkdown: "duplicate" });
       expect(tierList.validateTierList(JSON.stringify(doc)).join()).toMatch(/ID/);
     }
     const doc = fixture(); doc.grades[1].id = "g1";

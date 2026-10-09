@@ -30,6 +30,7 @@ import {
 } from "../domain/markdownRichTooltips";
 import {
   markdownInlineAnnotationEscapeBackslashCount,
+  markdownLiteralEscapeValue,
   markdownInlineAnnotationTokenIsEscaped,
   parseMarkdownInlineAnnotationToken,
 } from "../domain/markdownInlineAnnotations";
@@ -296,7 +297,7 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
     const key = `${keyPrefix}-${match.index}`;
     const inlineAnnotation = raw.startsWith("[") ? parseMarkdownInlineAnnotationToken(raw) : null;
     const simpleEscapeSlashCount = inlineAnnotation?.kind === "simple"
-      ? markdownInlineAnnotationEscapeBackslashCount(source, match.index)
+      ? Math.min(markdownInlineAnnotationEscapeBackslashCount(source, match.index), match.index - cursor)
       : 0;
     const precedingEnd = match.index - simpleEscapeSlashCount;
     if (precedingEnd > cursor) nodes.push(...renderDecoratedText(source.slice(cursor, precedingEnd), keyPrefix, cursor, location));
@@ -304,8 +305,11 @@ function renderInline(source: string, keyPrefix = "inline", location?: MarkdownI
       const visibleSlashes = "\\".repeat(Math.floor(simpleEscapeSlashCount / 2));
       if (visibleSlashes) nodes.push(...renderDecoratedText(visibleSlashes, `${key}-slashes`, precedingEnd, location));
     }
-    if (raw === "\\|") {
-      nodes.push(...renderDecoratedText("|", key, match.index + 1, location));
+    const literalEscape = markdownLiteralEscapeValue(raw);
+    if (literalEscape !== null) {
+      if (raw.startsWith("&")) nodes.push(<span className="markdown-literal-whitespace" key={key} style={{ whiteSpace: "pre-wrap" }}>{literalEscape}</span>);
+      else if (literalEscape === "\n" || literalEscape === "\r\n") nodes.push(<br key={key} />);
+      else nodes.push(...renderDecoratedText(literalEscape, key, match.index + 1, location));
     } else if (raw.startsWith("\\")) {
       const slashCount = markdownRichTooltipLeadingBackslashCount(raw);
       const visibleSlashes = "\\".repeat(Math.floor(slashCount / 2));

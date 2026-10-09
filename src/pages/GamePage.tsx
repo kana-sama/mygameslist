@@ -859,15 +859,7 @@ function PlainNoteEditor({
   return (
     <article aria-busy={processingImages || cardProcessing} className={`note-card note-card--editing${interactionActive ? " note-card--interaction-active" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} data-shelf-current-table-width={note.format && note.format !== "markdown" ? undefined : currentTableWidth || undefined} data-shelf-required-width={note.format && note.format !== "markdown" ? undefined : requiredTableWidth || undefined} ref={editorRef}>
       {galleryAttachments.length ? <NoteAttachments assets={assets} attachments={galleryAttachments} editing onRemove={(index) => publishNote({ ...noteRef.current, attachments: noteRef.current.attachments.filter(a => a !== galleryAttachments[index]) })} resolveAssetUrl={resolveAssetUrl} /> : null}
-      {note.format === "tierlist" ? <TierListEditor source={note.bodyMarkdown} attachments={note.attachments} assets={assets} resolveAssetUrl={resolveAssetUrl} disabled={storageLocked} prepareImage={async file => {
-        const quota = await canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + file.size);
-        if (quota) throw new Error(quota);
-        const prepared = await prepareNoteAttachment(file);
-        if (prepared.type !== "pending-image") throw new Error("Не удалось подготовить изображение");
-        const optimizedQuota = await canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + prepared.image.byteLength);
-        if (optimizedQuota) throw new Error(optimizedQuota);
-        return prepared;
-      }} onPendingChange={value => { cardProcessingRef.current = value; setCardProcessing(value); processingChange.current?.(value || pendingJobs.current > 0, noteRef.current); }} onChange={(source, attachments) => publishNote({ ...noteRef.current, bodyMarkdown: source, attachments })} /> : <LazyMonacoNoteEditor
+      {note.format === "tierlist" ? <TierListEditor source={note.bodyMarkdown} attachments={note.attachments} assets={assets} resolveAssetUrl={resolveAssetUrl} disabled={storageLocked} canAddBlob={byteLength => canAddBlob?.(pendingAttachmentBytes(noteRef.current.attachments) + byteLength) ?? null} onPendingChange={value => { cardProcessingRef.current = value; setCardProcessing(value); processingChange.current?.(value || pendingJobs.current > 0, noteRef.current); }} onChange={(source, attachments) => publishNote({ ...noteRef.current, bodyMarkdown: source, attachments })} /> : <LazyMonacoNoteEditor
         autoFocus={autoFocus}
         excludeGameId={completion.excludeGameId}
         filesDisabled={storageLocked}

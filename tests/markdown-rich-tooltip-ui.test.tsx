@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Profiler, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarkdownView } from "../src/components/Markdown";
 import { MarkdownRichTooltipProvider } from "../src/components/MarkdownRichTooltip";
 import {
   MarkdownRichTooltipContext,
+  useMarkdownRichTooltipController,
   type MarkdownRichTooltipController,
 } from "../src/components/markdownRichTooltipContext";
 import type { Game, Note } from "../src/domain";
@@ -90,6 +92,7 @@ function renderWithController(controller: MarkdownRichTooltipController, view: R
 function idleRichTooltipController(): MarkdownRichTooltipController {
   return {
     getActiveSource: () => null,
+    close: vi.fn(),
     open: vi.fn(),
     subscribeActiveSource: () => () => undefined,
   };
@@ -669,6 +672,22 @@ describe("Markdown rich tooltip rendering", () => {
     expect(intervening).not.toHaveFocus();
   });
 
+  it("routes desktop Tab before ancestor keyboard boundaries without changing ordinary tooltip Escape", async () => {
+    const user = userEvent.setup();
+    render(<div onKeyDown={event => event.stopPropagation()}><RichTooltipHarness markdown={richMarkdown} /></div>);
+    const trigger = screen.getByRole("button", { name: "Archive Entry" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const tooltip = await screen.findByRole("dialog");
+    expect(tooltip).toHaveClass("markdown-rich-tooltip--desktop");
+    await user.tab();
+    expect(within(tooltip).getByRole("button", { name: "Закрыть" })).toHaveFocus();
+    await user.tab();
+    expect(within(tooltip).getByRole("link", { name: "Guide" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBe(tooltip);
+  });
+
   it("uses a fullscreen modal when neither side fits and traps focus until X restores the trigger", async () => {
     noteRect = rectangle(100, 100, 1000, 500);
     sourceRects.set("Archive Entry", rectangle(500, 300, 90, 20));
@@ -702,4 +721,21 @@ describe("Markdown rich tooltip rendering", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
+});
+
+it.each([1200, 390])('closes the active rich tooltip with Escape at width %i before ancestor note handlers and restores its trigger', async width => {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+  const outerEscape = vi.fn();
+  function EscapeTrigger() {
+    const controller = useMarkdownRichTooltipController()!;
+    return <button onClick={event => controller.open({ anchor: 'escape-fixture', bodyMarkdown: '# Body', dismissOnEscape: true, layer: 'note', registry: { definitions: new Map(), duplicateAnchors: new Set() }, sourceElement: event.currentTarget, title: 'Archive Entry' })}>Archive Entry</button>;
+  }
+  render(<div onKeyDown={event => { if (event.key === 'Escape') outerEscape(); event.stopPropagation(); }}><MarkdownRichTooltipProvider><section className="note-card__surface"><EscapeTrigger /></section></MarkdownRichTooltipProvider></div>);
+  const trigger = screen.getByRole('button', { name: 'Archive Entry' });
+  fireEvent.click(trigger);
+  const tooltip = await screen.findByRole('dialog', { name: 'Archive Entry' });
+  fireEvent.keyDown(width === 390 ? within(tooltip).getByRole('button', { name: 'Закрыть' }) : trigger, { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+  expect(outerEscape).not.toHaveBeenCalled();
 });

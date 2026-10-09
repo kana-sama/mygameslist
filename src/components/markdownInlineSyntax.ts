@@ -4,7 +4,7 @@ import {
   markdownRichTooltipLeadingBackslashCount,
   parseMarkdownRichTooltipReference,
 } from "../domain/markdownRichTooltips";
-import { markdownInlineTokenPattern } from "../domain/markdownInlineAnnotations";
+import { markdownInlineTokenPattern, markdownLiteralEscapeValue } from "../domain/markdownInlineAnnotations";
 
 export { markdownInlineTokenPattern } from "../domain/markdownInlineAnnotations";
 
@@ -112,8 +112,8 @@ function collectVisibleRanges(source: string, offset: number, ranges: MarkdownSo
     }
     const raw = match[0];
     const start = offset + match.index;
-    if (raw === "\\|") {
-      ranges.push({ start: start + 1, end: start + 2 });
+    if (markdownLiteralEscapeValue(raw) !== null) {
+      ranges.push({ start: start + (raw.startsWith("\\") ? 1 : 0), end: start + raw.length });
     } else if (raw.startsWith("\\")) {
       const slashCount = markdownRichTooltipLeadingBackslashCount(raw);
       const visibleSlashCount = Math.floor(slashCount / 2);

@@ -1,33 +1,113 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { TierListCard } from '../../domain/tierList';
 import type { EditableAttachment } from '../../pages/GamePage';
-import { TierListCardFace } from './TierListCard';
-import { attachmentImageId } from './tierListPool';
+import { Icon } from '../Icon';
+import { ImagePicker, type PreparedImage } from '../ImagePicker';
+import { LazyMonacoNoteEditor } from '../LazyMonacoNoteEditor';
+
 export interface TierListCardFormProps {
-  card?:TierListCard; imageUrl?:(id:string)=>string|null; imageChoices:{id:string;label:string}[]; disabled?:boolean;
-  prepareImage:(file:File)=>Promise<EditableAttachment>; onPendingChange:(pending:boolean)=>void; onSave:(card:TierListCard,prepared?:EditableAttachment)=>void; onCancel:()=>void; onDelete?:()=>void;
+  card?: TierListCard;
+  imageUrl?: (id: string) => string | null;
+  imageChoices: { id: string; label: string }[];
+  disabled?: boolean;
+  canAddBlob?: (byteLength: number) => string | null | Promise<string | null>;
+  onPendingChange: (pending: boolean) => void;
+  onSave: (card: TierListCard, prepared?: EditableAttachment) => void;
+  onCancel: () => void;
+  onDelete?: () => void;
 }
-export function TierListCardForm({card,imageUrl,imageChoices,disabled=false,prepareImage,onPendingChange,onSave,onCancel,onDelete}:TierListCardFormProps){
-  const [type,setType]=useState<TierListCard['type']>(card?.type??'text'),[text,setText]=useState(card&&card.type!=='image'?card.text:''),[imageId,setImageId]=useState(card&&card.type!=='text'?card.imageAssetId:''),[prepared,setPrepared]=useState<EditableAttachment>(),[preview,setPreview]=useState<string|null>(null),[pending,setPending]=useState(false),[error,setError]=useState<string|null>(null);
-  const active=useRef(true),generation=useRef(0),pendingRef=useRef(false),pendingCallback=useRef(onPendingChange);pendingCallback.current=onPendingChange;
-  useEffect(()=>{active.current=true;return()=>{active.current=false;generation.current++;if(pendingRef.current)pendingCallback.current(false);};},[]);
-  useEffect(()=>{if(prepared?.type!=='pending-image'){setPreview(null);return;}const url=URL.createObjectURL(prepared.image.blob);setPreview(url);return()=>URL.revokeObjectURL(url);},[prepared]);
-  const prepare=async(file:File|undefined)=>{
-    if(!file||pendingRef.current)return;const token=++generation.current;setError(null);setPending(true);pendingRef.current=true;pendingCallback.current(true);
-    try{if(file.type&&!file.type.startsWith('image/'))throw new Error('Выберите изображение');const attachment=await prepareImage(file);if(!active.current||generation.current!==token)return;const id=attachmentImageId(attachment);if(!id)throw new Error('Не удалось подготовить изображение');setPrepared(attachment);setImageId(id);}
-    catch(reason){if(active.current&&generation.current===token)setError(reason instanceof Error?reason.message:'Не удалось подготовить изображение');}
-    finally{if(active.current&&generation.current===token){pendingRef.current=false;setPending(false);pendingCallback.current(false);}}
+
+export function TierListCardForm({ card, imageUrl, imageChoices, disabled = false, canAddBlob, onPendingChange, onSave, onCancel, onDelete }: TierListCardFormProps) {
+  const titleId = useId();
+  const modelId = useId();
+  const dialog = useRef<HTMLElement>(null);
+  const active = useRef(true);
+  const pendingRef = useRef(false);
+  const [bodyMarkdown, setBodyMarkdown] = useState(card?.bodyMarkdown ?? '');
+  const [imageId, setImageId] = useState<string | null>(card?.imageAssetId ?? null);
+  const [prepared, setPrepared] = useState<PreparedImage>();
+  const [preview, setPreview] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    active.current = true;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => dialog.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    return () => {
+      active.current = false;
+      cancelAnimationFrame(frame);
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, []);
+  useEffect(() => {
+    if (!prepared) { setPreview(null); return; }
+    const url = URL.createObjectURL(prepared.blob);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [prepared]);
+
+  const close = () => { active.current = false; onCancel(); };
+  const save = () => {
+    if (!active.current || pendingRef.current || disabled) return;
+    if (!imageId && !bodyMarkdown.trim()) { setError('Добавьте изображение или непустой текст карточки'); return; }
+    const attachment: EditableAttachment | undefined = prepared && imageId === prepared.assetId
+      ? { type: 'pending-image', alt: prepared.alt, image: prepared }
+      : undefined;
+    onSave({ id: card?.id ?? crypto.randomUUID(), imageAssetId: imageId, bodyMarkdown }, attachment);
   };
-  const save=()=>{if(pendingRef.current||disabled)return;if(type!=='image'&&!text.trim()){setError('Введите непустой текст карточки');return;}if(type!=='text'&&!imageId){setError('Выберите изображение карточки');return;}const id=card?.id??crypto.randomUUID();onSave(type==='text'?{id,type,text}:type==='image'?{id,type,imageAssetId:imageId}:{id,type,text,imageAssetId:imageId},type!=='text'&&prepared&&attachmentImageId(prepared)===imageId?prepared:undefined);};
-  const preparedImageId=prepared?attachmentImageId(prepared):null;
-  const selectedPreview=imageId===preparedImageId?preview??imageUrl?.(imageId)??null:imageUrl?.(imageId)??null;
-  const previewCard:TierListCard=type==='text'?{id:'preview',type,text}:type==='image'?{id:'preview',type,imageAssetId:imageId}:{id:'preview',type,imageAssetId:imageId,text};
-  return <div aria-label="Карточка" aria-busy={pending} className="tierlist-card-form" role="dialog" onKeyDown={event=>{event.stopPropagation();if(event.key==='Escape'){event.preventDefault();onCancel();}}}>
-    <label>Вид карточки<select aria-label="Вид карточки" value={type} onChange={e=>{setType(e.target.value as TierListCard['type']);setError(null);}}><option value="text">Текст</option><option value="image">Картинка</option><option value="image-text">Картинка с текстом</option></select></label>
-    {type!=='image'?<label>Текст карточки<textarea aria-label="Текст карточки" autoFocus value={text} onChange={e=>{setText(e.target.value);setError(null);}}/></label>:null}
-    {type!=='text'?<><label>Изображение<input accept="image/*" aria-label="Изображение карточки" disabled={pending||disabled} onChange={e=>{void prepare(e.target.files?.[0]);e.target.value='';}} type="file"/></label>{imageChoices.length?<label>Прикреплённое изображение<select aria-label="Прикреплённое изображение" value={imageId} onChange={e=>{setImageId(e.target.value);setError(null);}}><option value="">Выберите изображение</option>{imageChoices.map(image=><option key={image.id} value={image.id}>{image.label}</option>)}{preparedImageId&&!imageChoices.some(i=>i.id===preparedImageId)?<option value={preparedImageId}>Новое изображение</option>:null}</select></label>:null}</>:null}
-    <div aria-label="Предпросмотр карточки" className="tierlist-card"><TierListCardFace card={previewCard} url={selectedPreview}/></div>
-    {pending?<p role="status">Подготовка изображения…</p>:null}{error?<p className="field-error" role="alert">{error}</p>:null}
-    <div className="tierlist-form-actions"><button disabled={pending||disabled} onClick={save} type="button">Сохранить карточку</button><button onClick={onCancel} type="button">Отмена карточки</button>{onDelete?<button disabled={pending||disabled} onClick={onDelete} type="button">Удалить карточку</button>:null}</div>
-  </div>;
+  const currentUrl = imageId === prepared?.assetId ? preview ?? imageUrl?.(imageId!) ?? null : imageId ? imageUrl?.(imageId) ?? null : null;
+  const choices = prepared && !imageChoices.some(choice => choice.id === prepared.assetId)
+    ? [...imageChoices, { id: prepared.assetId, label: 'Новое изображение' }]
+    : imageChoices;
+
+  return createPortal(
+    <div className="modal-layer game-progress-dialog-layer tierlist-card-dialog-layer" role="presentation" onMouseDown={event => {
+      if (event.target === event.currentTarget) close();
+      event.stopPropagation();
+    }} onPointerDown={event => event.stopPropagation()}>
+      <section aria-busy={pending} aria-labelledby={titleId} aria-modal="true" className="game-progress-dialog tierlist-card-dialog" ref={dialog} role="dialog" onKeyDown={event => {
+        event.stopPropagation();
+        if (event.key === 'Escape') { event.preventDefault(); close(); return; }
+        if (event.key !== 'Tab') return;
+        const nodes = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]') ?? []);
+        const first = nodes[0], last = nodes.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}>
+        <header className="modal-header game-progress-dialog__header">
+          <h2 id={titleId}>Карточка</h2>
+          <button aria-label="Закрыть" className="icon-button" onClick={close} type="button"><Icon name="close" /></button>
+        </header>
+        <div className="game-progress-dialog__body tierlist-card-dialog__body">
+          <ImagePicker mode="cover" label="Изображение карточки" currentPreviewUrl={currentUrl} disabled={disabled} canAddBlob={canAddBlob} onPrepare={image => {
+            if (!active.current) return;
+            setPrepared(image);
+            setImageId(image.assetId);
+            setError(null);
+          }} onDraftChange={value => {
+            pendingRef.current = value;
+            if (active.current) setPending(value);
+            onPendingChange(value);
+          }} onRemove={imageId ? () => { setImageId(null); setError(null); } : undefined} />
+          {imageChoices.length ? <label className="field-group">
+            <span className="field-label">Прикреплённое изображение</span>
+            <select aria-label="Прикреплённое изображение" disabled={pending || disabled} value={imageId ?? ''} onChange={event => { setImageId(event.target.value || null); setError(null); }}>
+              <option value="">Без изображения</option>
+              {choices.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}
+            </select>
+          </label> : null}
+          <LazyMonacoNoteEditor modelKey={`tierlist-card:${modelId}`} value={bodyMarkdown} gameSuggestions={[]} filesDisabled onChange={value => { setBodyMarkdown(value); setError(null); }} onImageFiles={() => {}} onFileFiles={() => {}} onCancel={close} onSubmit={save} submitDisabled={pending || disabled} />
+          {error ? <p className="field-error" role="alert">{error}</p> : null}
+        </div>
+        <footer className="game-progress-dialog__footer">
+          {onDelete ? <button className="button button--ghost button--danger-text game-progress-dialog__delete" disabled={pending || disabled} onClick={onDelete} type="button">Удалить карточку</button> : null}
+          <button className="button button--secondary" onClick={close} type="button">Отмена карточки</button>
+          <button className="button button--primary" disabled={pending || disabled} onClick={save} type="button">Сохранить карточку</button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
 }

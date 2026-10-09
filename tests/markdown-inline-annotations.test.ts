@@ -11,6 +11,25 @@ import {
 } from "../src/domain/markdownInlineAnnotations";
 
 describe("Markdown inline annotations", () => {
+  it("renders only supported numeric whitespace references as safe pre-wrap text while raw Markdown stays ordinary", () => {
+    const source = "&#32;A&#32;&#32;B&#9;&#10;&#10;C&#32;";
+    const text = " A  B\t\n\nC ";
+    expect(markdownInlinePlainText(source)).toBe(text);
+    const view = render(createElement(MarkdownView, { markdown: source }));
+    expect(view.container.querySelector("p")?.textContent).toBe(text);
+    expect(view.container.querySelector(".markdown-literal-whitespace")).toHaveStyle({ whiteSpace: "pre-wrap" });
+    view.unmount();
+    const ordinary = render(createElement(MarkdownView, { markdown: "\u00a0\u2003  A  B\n   C  \u202f\ufeff" }));
+    expect(ordinary.container.querySelector("p")?.textContent).toBe("A  B\nC");
+    expect(ordinary.container.querySelector(".markdown-literal-whitespace")).toBeNull();
+    ordinary.unmount();
+    const escaped = String.raw`\&\#32\; &#60;script&#62;`;
+    expect(markdownInlinePlainText(escaped)).toBe("&#32; &#60;script&#62;");
+    const safe = render(createElement(MarkdownView, { markdown: escaped }));
+    expect(safe.container.textContent).toBe("&#32; &#60;script&#62;");
+    expect(safe.container.querySelector("script, .markdown-literal-whitespace")).toBeNull();
+    safe.unmount();
+  });
   it("parses simple descriptions and rich references as separate annotation kinds", () => {
     expect(parseMarkdownInlineAnnotationToken('[Archive]("plain description")')).toEqual({
       kind: "simple",

@@ -183,3 +183,16 @@ describe("clipboardImageFile", () => {
     expect(clipboardImageFile(data)).toBe(image);
   });
 });
+
+it('does not deliver late cover work or duplicate busy callbacks after unmount', async () => {
+  let resolve!: (result: typeof optimized) => void;
+  assetMocks.optimizeCover.mockImplementationOnce(() => new Promise<typeof optimized>(r => { resolve = r; }));
+  const onPrepare = vi.fn(), onDraftChange = vi.fn();
+  const view = render(<ImagePicker mode="cover" onPrepare={onPrepare} onDraftChange={onDraftChange} />);
+  fireEvent.change(view.container.querySelector('input[type=file]')!, { target: { files: [new File(['fake'], 'cover.png', { type: 'image/png' })] } });
+  await waitFor(() => expect(assetMocks.optimizeCover).toHaveBeenCalled());
+  view.unmount();
+  resolve(optimized);
+  await waitFor(() => expect(onDraftChange.mock.calls).toEqual([[true], [false]]));
+  expect(onPrepare).not.toHaveBeenCalled();
+});

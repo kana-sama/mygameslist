@@ -18,7 +18,7 @@ import { INTERACTION_RESCUE_STORAGE_KEY, loadActiveInteractionRescue, resolveRes
 import { fixtureDatabase, NOTE_EMPTY_ID, NOTE_SHARED_ID, NOW, IMAGE_ID, IMAGE_BYTES, FILE_BYTES, FILE_ID } from "./fixtures/source-tree";
 import type { NoteFormat, PatchConflict } from "../src/domain/types";
 const format = "tierlist" as NoteFormat;
-const source = serializeTierList({ version: 1, title: "Выбор <literal>", grades: [{ id: "g", name: "Любой", cards: [{ id: "a", type: "image", imageAssetId: IMAGE_ID }, { id: "b", type: "image-text", imageAssetId: IMAGE_ID, text: "[x] literal\n<svg>" }] }, { id: "empty", name: "Пустой", cards: [] }] });
+const source = serializeTierList({ version: 2, title: "Выбор <literal>", grades: [{ id: "g", name: "Любой", cards: [{ id: "a", imageAssetId: IMAGE_ID , bodyMarkdown: "" }, { id: "b", imageAssetId: IMAGE_ID, bodyMarkdown: "[x] literal\n<svg>" }] }, { id: "empty", name: "Пустой", cards: [] }] });
 const movedSource = serializeTierList(moveTierListCard(parseTierList(source), "a", "empty", 0));
 const path = `/notes/${NOTE_EMPTY_ID}`, bodyPath = `${path}/bodyMarkdown`;
 function database() {
@@ -107,7 +107,7 @@ describe("tier-list note persistence", () => {
   });
   it("closes body selection over new pool references and pool removal over card deletion", () => {
     const base = database(), next = structuredClone(base);
-    base.notes[NOTE_EMPTY_ID].bodyMarkdown = serializeTierList({ version: 1, title: "", grades: [] });
+    base.notes[NOTE_EMPTY_ID].bodyMarkdown = serializeTierList({ version: 2, title: "", grades: [] });
     base.notes[NOTE_EMPTY_ID].attachments = [];
     const patch = diffLibrary(base, next, { changedAt: NOW });
     expect(resolvePatchSelection(base, next, patch, [{ changeId: "body", operationPaths: [bodyPath] }]).selectedPaths).toEqual([`${path}/attachments`, bodyPath]);

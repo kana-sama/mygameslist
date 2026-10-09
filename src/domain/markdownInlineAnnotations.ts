@@ -31,6 +31,23 @@ type MarkdownInlineAnnotationToken = MarkdownInlineAnnotation extends infer Anno
     : never
   : never;
 
+const BACKSLASH_LITERAL_ESCAPE = /\\(?:[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]|\r?\n)/;
+// ECMAScript whitespace and line terminators: the exact String.trim()/\s set.
+// Keep entity decoding restricted to these safe text characters.
+const WHITESPACE_REFERENCE_CODES = [
+  0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x0020, 0x00a0, 0x1680,
+  ...Array.from({ length: 11 }, (_, index) => 0x2000 + index),
+  0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+];
+const LITERAL_ESCAPE = new RegExp(`${BACKSLASH_LITERAL_ESCAPE.source}|(?:&#(?:${WHITESPACE_REFERENCE_CODES.join('|')});)+`);
+export function markdownLiteralEscapeValue(source: string): string | null {
+  const match = LITERAL_ESCAPE.exec(source);
+  if (match?.index !== 0 || match[0].length !== source.length) return null;
+  return source.startsWith('&')
+    ? source.replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    : source.slice(1);
+}
+
 const INLINE_TOKEN_SOURCE_PREFIX = "(`[^`\\n]+`";
 const INLINE_RICH_TOOLTIP_TOKEN_SOURCE = `|${MARKDOWN_ESCAPED_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}|${MARKDOWN_RICH_TOOLTIP_REFERENCE_TOKEN_SOURCE}`;
 const INLINE_LEGACY_RICH_TOOLTIP_TOKEN_SOURCE = "|\\[[^\\]\\n]*\\]\\[\\?[^\\]\\n]+\\]";
@@ -39,7 +56,7 @@ const SIMPLE_ANNOTATION = /^\[([^\]\r\n]+)\]\("([^"\r\n]*)"\)$/u;
 const ORDINARY_LINK = /^\[([^\]\r\n]+)\]\(([^\s)]+)(?:\s+"([^"]*)")?\)$/u;
 
 export function markdownInlineTokenPattern(): RegExp {
-  return new RegExp(`${INLINE_TOKEN_SOURCE_PREFIX}${INLINE_RICH_TOOLTIP_TOKEN_SOURCE}${INLINE_TOKEN_SOURCE_SUFFIX}`, "g");
+  return new RegExp(`${INLINE_TOKEN_SOURCE_PREFIX}${INLINE_RICH_TOOLTIP_TOKEN_SOURCE}|${LITERAL_ESCAPE.source}${INLINE_TOKEN_SOURCE_SUFFIX}`, "g");
 }
 
 export function markdownInlineAnnotationEscapeBackslashCount(source: string, tokenStart: number): number {
@@ -125,12 +142,13 @@ export function markdownInlinePlainText(source: string): string {
     const raw = match[0];
     const annotation = raw.startsWith("[") ? parseMarkdownInlineAnnotationToken(raw) : null;
     const simpleEscapeSlashCount = annotation?.kind === "simple"
-      ? markdownInlineAnnotationEscapeBackslashCount(source, match.index)
+      ? Math.min(markdownInlineAnnotationEscapeBackslashCount(source, match.index), match.index - cursor)
       : 0;
     result += source.slice(cursor, match.index - simpleEscapeSlashCount);
     result += "\\".repeat(Math.floor(simpleEscapeSlashCount / 2));
-    if (raw === "\\|") {
-      result += "|";
+    const literalEscape = markdownLiteralEscapeValue(raw);
+    if (literalEscape !== null) {
+      result += literalEscape;
     } else if (raw.startsWith("\\")) {
       const slashCount = markdownRichTooltipLeadingBackslashCount(raw);
       result += "\\".repeat(Math.floor(slashCount / 2));

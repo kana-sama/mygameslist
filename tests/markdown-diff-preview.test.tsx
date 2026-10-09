@@ -10,6 +10,14 @@ import {
 } from "./fixtures/lego-harry-potter-98c11c1c";
 
 describe("compact Markdown diff preview", () => {
+  it("keeps complete literal whitespace reference tokens in visible source ranges", () => {
+    const source = "A&#32;&#9;&#10;B";
+    expect(markdownVisibleSourceRanges(source)).toEqual([
+      { start: 0, end: 1 },
+      { start: 1, end: 15 },
+      { start: 15, end: 16 },
+    ]);
+  });
   it("projects exact visible source ranges for title anchors, links, and hover hints", () => {
     const source = "[**Title**][?] [Guide](https://example.test) [Hint](\"Native\")";
 

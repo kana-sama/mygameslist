@@ -141,6 +141,7 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
     const replacesTooltipBody = Boolean(previous && tooltipRef.current?.contains(request.sourceElement));
     const next: ActiveMarkdownRichTooltip = {
       ...request,
+      dismissOnEscape: request.dismissOnEscape ?? (replacesTooltipBody ? previous?.dismissOnEscape : undefined),
       paletteFocusScope: request.layer === "palette"
         ? replacesTooltipBody
           ? previous?.paletteFocusScope ?? null
@@ -211,11 +212,28 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
     if (activeRef.current) close(false);
   }, [close, resetRevision]);
 
+  useEffect(() => {
+    if (!active) return;
+    if (!active.dismissOnEscape) return;
+    const dismissWithEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      close(true);
+    };
+    // Note boards stop bubbling keyboard events to keep their drag and editor
+    // gestures local. Consume Escape before those ancestor handlers can cancel
+    // a surrounding note draft.
+    document.addEventListener("keydown", dismissWithEscape, true);
+    return () => document.removeEventListener("keydown", dismissWithEscape, true);
+  }, [active, close]);
+
   const controller = useMemo<MarkdownRichTooltipController>(() => ({
     getActiveSource,
+    close,
     open,
     subscribeActiveSource,
-  }), [getActiveSource, open, subscribeActiveSource]);
+  }), [getActiveSource, close, open, subscribeActiveSource]);
 
   const updatePlacement = useCallback(() => {
     const current = activeRef.current;
@@ -261,7 +279,7 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
       setPlacement(next);
       return;
     }
-    const noteSurface = placementSource.closest<HTMLElement>(".note-card__surface");
+    const noteSurface = placementSource.closest<HTMLElement>(".note-card__surface") ?? placementSource.closest<HTMLElement>(".tierlist-note");
     if (!noteSurface) return;
 
     const noteRect = noteSurface.getBoundingClientRect();
@@ -367,8 +385,10 @@ export function MarkdownRichTooltipProvider({ children, resetRevision = 0 }: Mar
       event.preventDefault();
       destination.focus({ preventScroll: true });
     };
-    document.addEventListener("keydown", routeDesktopFocus);
-    return () => document.removeEventListener("keydown", routeDesktopFocus);
+    // Route the active trigger's Tab before editor/drag boundaries stop
+    // bubbling keydowns. Other keys and normal tooltip traversal are untouched.
+    document.addEventListener("keydown", routeDesktopFocus, true);
+    return () => document.removeEventListener("keydown", routeDesktopFocus, true);
   }, [active]);
 
   const trapFullscreenFocus = (event: ReactKeyboardEvent<HTMLElement>) => {

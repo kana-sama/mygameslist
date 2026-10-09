@@ -1,6 +1,6 @@
-import { useId, useRef, useState, type DragEvent } from "react";
+import { useEffect, useId, useRef, useState, type DragEvent } from "react";
 import { optimizeCover, optimizeNoteImage } from "../domain/assets";
-import { readClipboardImage } from "./clipboardImage";
+import { clipboardImageFile, readClipboardImage } from "./clipboardImage";
 import { Icon } from "./Icon";
 
 export interface PreparedImage {
@@ -45,25 +45,45 @@ export function ImagePicker({
   const inputId = useId();
   const dragDepth = useRef(0);
   const processing = useRef(false);
+  const active = useRef(true);
+  const generation = useRef(0);
+  const draftCallback = useRef(onDraftChange);
+  draftCallback.current = onDraftChange;
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      generation.current += 1;
+      if (processing.current) {
+        processing.current = false;
+        draftCallback.current?.(false);
+      }
+    };
+  }, []);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const processImage = async (loadFile: () => File | Promise<File>) => {
     if (disabled || processing.current) return;
+    const token = ++generation.current;
+    const current = () => active.current && generation.current === token;
     setError(null);
     processing.current = true;
     setBusy(true);
     onDraftChange?.(true);
     try {
       const file = await loadFile();
+      if (!current()) return;
       if (file.type && !file.type.startsWith("image/")) {
         setError("Выберите изображение, а не другой тип файла.");
         return;
       }
       const imageAlt = alt.trim() || file.name.replace(/\.[^.]+$/, "");
       const optimized = mode === "cover" ? await optimizeCover(file, imageAlt) : await optimizeNoteImage(file, imageAlt);
+      if (!current()) return;
       const storageError = await canAddBlob?.(optimized.byteLength);
+      if (!current()) return;
       if (storageError) {
         setError(storageError);
         return;
@@ -80,13 +100,15 @@ export function ImagePicker({
         byteLength: optimized.byteLength,
       };
       const accepted = await onPrepare(prepared);
-      if (accepted === false) setError("Не удалось сохранить изображение.");
+      if (current() && accepted === false) setError("Не удалось сохранить изображение.");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось подготовить изображение");
+      if (current()) setError(reason instanceof Error ? reason.message : "Не удалось подготовить изображение");
     } finally {
-      processing.current = false;
-      setBusy(false);
-      onDraftChange?.(false);
+      if (current()) {
+        processing.current = false;
+        setBusy(false);
+        draftCallback.current?.(false);
+      }
     }
   };
 
@@ -121,7 +143,13 @@ export function ImagePicker({
   };
 
   return (
-    <div aria-busy={busy} className={`image-picker image-picker--${mode}`}>
+    <div aria-busy={busy} className={`image-picker image-picker--${mode}`} onPaste={event => {
+      if (mode !== "cover") return;
+      const file = clipboardImageFile(event.clipboardData);
+      if (!file) return;
+      event.preventDefault();
+      void processFile(file);
+    }}>
       <span className="field-label">{label}</span>
       <div className="image-picker__workspace">
         <div className={`image-picker__preview${dragOver ? " is-drag-over" : ""}`} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} onDrop={onDrop}>

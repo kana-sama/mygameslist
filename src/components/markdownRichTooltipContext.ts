@@ -21,6 +21,7 @@ export type MarkdownRichTooltipLayer = "note" | "palette";
 export interface MarkdownRichTooltipOpenRequest {
   anchor: string;
   bodyMarkdown: string;
+  dismissOnEscape?: boolean;
   layer: MarkdownRichTooltipLayer;
   onBodyChange?: MarkdownRichTooltipBodyChangeHandler;
   registry: MarkdownRichTooltipRegistry;
@@ -30,6 +31,7 @@ export interface MarkdownRichTooltipOpenRequest {
 
 export interface MarkdownRichTooltipController {
   getActiveSource(): HTMLButtonElement | null;
+  close(restoreTriggerFocus: boolean): void;
   open(request: MarkdownRichTooltipOpenRequest): void;
   subscribeActiveSource(listener: () => void): () => void;
 }
