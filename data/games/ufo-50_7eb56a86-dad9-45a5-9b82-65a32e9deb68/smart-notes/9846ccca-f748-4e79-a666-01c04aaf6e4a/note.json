@@ -3,7 +3,7 @@
   "version": 1,
   "apiVersion": 1,
   "id": "9846ccca-f748-4e79-a666-01c04aaf6e4a",
-  "title": "Barbuta · атлас замка",
+  "title": "Barbuta",
   "entrypoints": { "preview": "preview.js", "page": "page.js" },
   "rank": 1024,
   "doubleWidth": true,

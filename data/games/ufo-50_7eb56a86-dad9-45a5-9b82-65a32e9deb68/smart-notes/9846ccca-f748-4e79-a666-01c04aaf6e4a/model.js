@@ -24,9 +24,15 @@ export function changeRoom(value, key, patch) {
   else rooms[key] = next;
   return { ...current, rooms };
 }
-export function stats(value) {
-  const rooms = Object.values(state(value).rooms);
-  return { found: rooms.filter(r => r.image).length, solved: rooms.filter(r => r.image && r.solved).length };
+// Selection is temporary view context shared by the two entrypoints.
+let previewSelection = null;
+export function selectPreviewRoom(key) {
+  if (keys.includes(key)) previewSelection = key;
+}
+export function takePreviewSelection() {
+  const selected = previewSelection;
+  previewSelection = null;
+  return selected;
 }
 // The console captures the complete 384×216 UFO 50 display. Use the central
 // 16:9 frame for uniform letterboxing; minimap validation rejects wrong layouts.

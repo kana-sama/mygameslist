@@ -62,7 +62,7 @@ export function board(interactive, onSelect) {
         cell.classList.toggle("solved", !!item.solved && !!item.image);
         cell.classList.toggle("selected", key === selected);
         cell.setAttribute("aria-label", `${label(key)} · ${item.image ? item.solved ? "разгадано" : "не разгадано" : "не исследовано"}${item.note ? " · есть заметка" : ""}`);
-        if (interactive) { cell.setAttribute("aria-pressed", String(key === selected)); cell.tabIndex = key === selected ? 0 : -1; }
+        if (interactive) { cell.setAttribute("aria-pressed", String(key === selected)); cell.tabIndex = selected === null || key === selected ? 0 : -1; }
         mark.textContent = item.solved && item.image ? "✓" : item.note ? "•" : "";
         images.show(img, item.image);
       }
