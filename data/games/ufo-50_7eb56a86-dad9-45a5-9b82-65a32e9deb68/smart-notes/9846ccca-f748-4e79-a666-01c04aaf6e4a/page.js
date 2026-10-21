@@ -11,6 +11,7 @@ export function mount(root, api) {
       <div class="main-layout">
         <section class="map-panel" aria-label="Личная карта"></section>
         <aside class="inspector" aria-label="Выбранная комната">
+          <div class="inspector-tools">
           <div class="hud-crest" aria-hidden="true">
             <span class="hud-wing"></span>
             <svg class="hud-emblem" viewBox="0 0 104 44" focusable="false">
@@ -38,12 +39,21 @@ export function mount(root, api) {
           </div>
           <div class="import-status" role="status" aria-live="polite"></div>
           <details class="failures" hidden><summary></summary><ul></ul></details>
+          </div>
+          <div class="inspector-room">
           <div class="room-header">
             <h3 aria-label="Комната"></h3>
             <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
           </div>
-          <div class="room-picture" hidden><img alt=""></div>
+          <div class="room-picture">
+            <img alt="">
+            <div class="picture-empty">
+              <svg viewBox="0 0 32 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M2 0h28v2h2v20h-2v2H2v-2H0V2h2zm2 4v16h24V4zm4 2h4v4H8zm10 4h4v4h2v4H8v-2h2v-2h4v2h2v-4h2z"/></svg>
+              <span>Нет скриншота</span>
+            </div>
+          </div>
           <div class="save-row"><button class="remove quiet" type="button">Убрать скрин</button></div>
+          </div>
           <div class="note-panel">
             <div class="note-actions"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="edit-note quiet" type="button">Редактировать</button></div>
             <div class="note-empty">Заметки пока нет</div>
@@ -96,7 +106,7 @@ export function mount(root, api) {
   function render() {
     const item = room(value, selected);
     $("h3").textContent = label(selected);
-    $(".room-picture").hidden = !item.image;
+    $(".picture-empty").hidden = !!item.image;
     $(".remove").hidden = !item.image;
     check.disabled = !item.image;
     check.checked = !!item.image && !!item.solved;
