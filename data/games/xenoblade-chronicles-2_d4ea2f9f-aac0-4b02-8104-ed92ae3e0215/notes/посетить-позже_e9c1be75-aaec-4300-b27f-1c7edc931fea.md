@@ -1,9 +1,8 @@
 <!-- mygameslist-note:v1
 id: "e9c1be75-aaec-4300-b27f-1c7edc931fea"
-groupRank: 1536
-rank: 512
+rank: 4608
 createdAt: "2026-08-15T11:10:49.672Z"
-updatedAt: "2026-09-23T20:49:00.089Z"
+updatedAt: "2026-10-16T04:34:19.553Z"
 -->
 # Посетить позже
 
