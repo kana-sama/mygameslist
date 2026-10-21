@@ -50,11 +50,20 @@ export function mount(root, api) {
   // The root fills the host's flex slot, independently of map/sidebar content.
   // Observe that stable slot rather than a panel whose width this changes.
   function fitMap() {
-    const gap = 7 * (parseFloat(getComputedStyle(atlas).getPropertyValue("--map-gap")) || 0);
-    const width = Math.max(0, (root.clientHeight - gap) * 32 / 23 + gap);
-    const stacked = root.clientWidth <= 680 || root.clientWidth < width + 260;
-    atlas.classList.toggle("stacked", stacked);
-    atlas.style.setProperty("--map-width", `${width}px`);
+    atlas.classList.toggle("stacked", root.clientWidth <= 680);
+    const outer = getComputedStyle(atlas), frame = getComputedStyle(mapPanel);
+    const layout = getComputedStyle($(".main-layout")), grid = getComputedStyle(map.grid);
+    const px = value => parseFloat(value) || 0;
+    const inset = (style, sides) => sides.reduce((sum, side) =>
+      sum + px(style[`padding${side}`]) + px(style[`border${side}Width`]), 0);
+    const frameWidth = inset(frame, ["Left", "Right"]);
+    const frameHeight = inset(frame, ["Top", "Bottom"]);
+    const gap = 7 * px(grid.columnGap);
+    const availableHeight = root.clientHeight - inset(outer, ["Top", "Bottom"]) - frameHeight;
+    const fromHeight = Math.max(0, availableHeight - gap) * 32 / 23 + gap + frameWidth;
+    const availableWidth = root.clientWidth - inset(outer, ["Left", "Right"]);
+    const fromWidth = availableWidth - px(layout.columnGap) - px(outer.getPropertyValue("--sidebar-min"));
+    atlas.style.setProperty("--map-width", `${Math.max(0, Math.min(fromHeight, fromWidth))}px`);
   }
   const sizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitMap);
   sizeObserver?.observe(root);
