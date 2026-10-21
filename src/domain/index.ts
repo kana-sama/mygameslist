@@ -22,3 +22,4 @@ export * from "./assetOwnership";
 export * from "./libraryNormalization";
 export * from "./noteContent";
 export * from "./tierList";
+export * from "./smartNote";

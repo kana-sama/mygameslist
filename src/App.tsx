@@ -49,6 +49,7 @@ import {
 } from "./state/githubPat";
 
 const fieldLabels: Record<string, string> = {
+  state: "Состояние смарт-заметки",
   title: "Название",
   coverAssetId: "Обложка",
   platforms: "Платформы",

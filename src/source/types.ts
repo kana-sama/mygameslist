@@ -153,7 +153,14 @@ export interface ProjectedBinaryLeaf {
   byteLength: number;
 }
 
-export type ProjectedSourceLeaf = ProjectedTextLeaf | ProjectedBinaryLeaf;
+export interface ProjectedOpaqueLeaf {
+  kind: "opaque";
+  path: string;
+  logicalId: string;
+  sha256: string;
+  byteLength: number;
+}
+export type ProjectedSourceLeaf = ProjectedTextLeaf | ProjectedBinaryLeaf | ProjectedOpaqueLeaf;
 
 export interface ProjectedGameBundle {
   gameId: string;
@@ -189,5 +196,6 @@ export interface SourceAssembly {
   database: LibraryDatabase;
   envelope: PublishedLibraryEnvelope;
   runtimeMedia: ReadonlyMap<string, Uint8Array>;
+  runtimePrograms?: ReadonlyMap<string, Uint8Array>;
   sourceAssetOccurrences: number;
 }

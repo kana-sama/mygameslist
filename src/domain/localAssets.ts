@@ -1,3 +1,4 @@
+import { storedAssetProtectionIds, withoutImageLease, withoutImageLeases } from "./assetLeases";
 import { sha256Bytes } from "./canonical";
 import { SAFARI_SAFE_BUDGET_BYTES, STORAGE_BLOCK_RATIO, storageIncreaseAllowed, webkitStorageBytes, webkitStringBytes } from "./storage";
 
@@ -323,7 +324,9 @@ export async function deleteLocalAssetsAtomic(ids: string[], storage: Storage = 
   if (!ids.length) return;
   const lockManager = productionAssetLockManager();
   if (lockManager === null) throw new Error("Web Lock локальных assets недоступен");
-  await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => deleteLocalAssetsAtomicLocked(ids, storage));
+  await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, async () => {
+    await withoutImageLeases([...new Set(ids)].sort(), available => deleteLocalAssetsAtomicLocked(available, storage));
+  });
 }
 
 function deleteLocalAssetsAtomicLocked(ids: string[], storage: Storage): void {
@@ -394,7 +397,7 @@ export async function deleteSafeOrphans(
   if (lockManager === null) return [];
   let enteredLock = false;
   try {
-    return await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, () => {
+    return await lockManager.request(LOCAL_ASSET_MUTATION_LOCK_NAME, { mode: "exclusive" }, async () => {
       enteredLock = true;
       const orphans = candidates.filter((snapshot) => {
         const { asset, metadataRaw, dataRaw } = snapshot;
@@ -407,8 +410,14 @@ export async function deleteSafeOrphans(
           && !referenced.has(asset.id)
           && !protectedSet.has(asset.id);
       }).map((snapshot) => snapshot.asset.id);
-      deleteLocalAssetsAtomicLocked(orphans, storage);
-      return orphans;
+      const removed: string[] = [];
+      for (const id of orphans) {
+        await withoutImageLease(id, () => {
+          if (storedAssetProtectionIds(storage).has(id)) return;
+          deleteLocalAssetsAtomicLocked([id], storage); removed.push(id);
+        });
+      }
+      return removed;
     });
   } catch (reason) {
     if (!enteredLock) return [];

@@ -1,3 +1,4 @@
+import { serializeSmartNoteDocument } from "./smartNoteDocument";
 import {
   assertSourceRepresentable,
   assertValidPublishedLibrary,
@@ -169,12 +170,17 @@ function projectCanonicalGameSourceBundle(
     text: serializeGameYaml(gameSourceValue(database, gameId, occurrences)),
   };
   const noteLeaves = (context.notesByGame.get(gameId) ?? [])
-    .map((note): ProjectedSourceLeaf => ({
+    .flatMap((note): ProjectedSourceLeaf[] => {
+      if (note.format === "smart") {
+        const root = `${directoryPath}/smart-notes/${note.id}`;
+        return [{ kind: "text", path: `${root}/note.json`, logicalId: `note:${note.id}`, text: serializeSmartNoteDocument(note, database) }, ...note.smart!.program.files.map(file => ({ kind: "opaque" as const, path: `${root}/${file.path}`, logicalId: `program:${note.id}:${file.path}`, sha256: file.sha256, byteLength: file.byteLength }))];
+      }
+      return [{
       kind: "text",
       path: `${directoryPath}/notes/${deriveNoteFilename(note)}`,
       logicalId: `note:${note.id}`,
       text: serializeNoteDocument({ metadata: noteSourceValue(database, note), bodyMarkdown: note.bodyMarkdown }, assetNames),
-    }));
+    }]; });
 
   return {
     gameId,

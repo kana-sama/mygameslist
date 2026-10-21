@@ -216,7 +216,7 @@ async function copyCachedShell(shellRoot: string, artifactRoot: string): Promise
     const names = (await readdir(sourceDirectory)).sort(compareText);
     await assertSameEntry(directoryIdentity, "Cached shell directory");
     for (const name of names) {
-      if (depth === 0 && (name === "data" || name === "media")) continue;
+      if (depth === 0 && (name === "data" || name === "media" || name === "smart-notes")) continue;
       const source = join(sourceDirectory, name);
       const destination = join(destinationDirectory, name);
       const stat = await lstat(source);

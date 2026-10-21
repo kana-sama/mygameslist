@@ -344,6 +344,7 @@ function affectedGameIds(before: SourceProjection, after: SourceProjection): str
 function leafContentIsEqual(left: ProjectedSourceLeaf, right: ProjectedSourceLeaf): boolean {
   if (left.kind !== right.kind || left.logicalId !== right.logicalId) return false;
   if (left.kind === "text" && right.kind === "text") return left.text === right.text;
+  if (left.kind === "opaque" && right.kind === "opaque") return left.sha256 === right.sha256 && left.byteLength === right.byteLength;
   return left.kind === "binary"
     && right.kind === "binary"
     && left.assetId === right.assetId
@@ -983,6 +984,7 @@ export class GitHubGitDatabaseSyncClient {
           if (!reusedSha) invalidResponse(`Trusted Git blob is missing for ${sameLogicalLeaf.path}`);
           return { leaf, reusedSha, upload: false };
         }
+        if (leaf.kind === "opaque") invalidResponse(`Smart program bytes cannot be changed from the website: ${leaf.path}`);
         if (leaf.kind === "binary") {
           const reusedSha = remote.blobShaByAssetId.get(leaf.assetId);
           return reusedSha

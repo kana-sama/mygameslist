@@ -1,3 +1,4 @@
+import { addSyntheticSmartNote, SMART_NOTE_ID, SMART_PROGRAMS } from "./fixtures/smart-note";
 import {
   base64ToBytes,
   computeLibraryRevision,
@@ -139,12 +140,12 @@ async function remoteRepository(
   const fileEntries = projection.leaves.map((leaf): GitTreeEntry => {
     const blobSha = leaf.kind === "binary"
       ? contentObjectId(`asset:${leaf.assetId}`, objectIdLength)
-      : contentObjectId(`text:${leaf.logicalId}:${leaf.text}`, objectIdLength);
+      : leaf.kind === "opaque" ? contentObjectId(`program:${leaf.sha256}`, objectIdLength) : contentObjectId(`text:${leaf.logicalId}:${leaf.text}`, objectIdLength);
     blobShaByPath.set(leaf.path, blobSha);
     const bytes = leaf.kind === "binary"
       ? assetBytes.get(leaf.assetId)
-      : new TextEncoder().encode(leaf.text);
-    if (!bytes) throw new Error(`Missing test bytes for ${leaf.assetId}`);
+      : leaf.kind === "opaque" ? SMART_PROGRAMS.get(leaf.logicalId.slice(`program:${SMART_NOTE_ID}:`.length)) : new TextEncoder().encode(leaf.text);
+    if (!bytes) throw new Error(`Missing test bytes for ${leaf.path}`);
     const previous = blobBytesBySha.get(blobSha);
     if (previous && previous.some((value, index) => value !== bytes[index])) {
       throw new Error(`Test fixture produced a Git blob collision for ${leaf.path}`);
@@ -364,6 +365,35 @@ async function canonicalFixture(): Promise<LibraryDatabase> {
 }
 
 describe("strict GitHub source-tree publication", () => {
+  it.each(["state", "rename", "delete"] as const)("preserves opaque smart program bytes during %s publication", async (action) => {
+    const base = await normalizePublishedLibrary(addSyntheticSmartNote(fixtureDatabase()));
+    const repository = await remoteRepository(base);
+    const api = apiMock(repository);
+    const patch = patchTo(base, database => {
+      if (action === "state") database.notes[SMART_NOTE_ID].state = { synthetic: "changed" };
+      else if (action === "rename") database.games[GAME_A_ID].title = "Alpha Journey";
+      else {
+        delete database.games[GAME_A_ID];
+        for (const [id,note] of Object.entries(database.notes)) if (note.gameId === GAME_A_ID) delete database.notes[id];
+        delete database.assets[FILE_ID];
+      }
+    });
+    const result = await client(api.fetch).publishSourceTree(publicationOptions(base, patch));
+    const programLeaves = repository.projection.leaves.filter(leaf => leaf.kind === "opaque");
+    const mutations = entryMap(api);
+    for (const leaf of programLeaves) {
+      if (action === "state") expect(mutations.has(leaf.path)).toBe(false);
+      else {
+        expect(mutations.get(leaf.path)?.sha).toBeNull();
+        if (action === "rename") expect(mutations.get(leaf.path.replace(GAME_A_DIRECTORY, `data/games/alpha-journey_${GAME_A_ID}`))?.sha).toBe(repository.blobShaByPath.get(leaf.path));
+      }
+    }
+    expect(blobWrites(api, "base64")).toEqual([]);
+    const assembly = await assembleSourceTree(sourceTreeReaderAfterPublication(repository, api), { sourceCommitSha: repository.targetCommitSha });
+    expect(assembly.database).toEqual(result.database);
+    if (action !== "delete") for (const [path,bytes] of SMART_PROGRAMS) expect(assembly.runtimePrograms!.get(`${SMART_NOTE_ID}/${base.notes[SMART_NOTE_ID].smart!.program.hash}/${path}`)).toEqual(bytes);
+  });
+
   it("keeps legacy provider shims compile-only and performs zero requests", async () => {
     const fetch = vi.fn<GitHubFetch>();
     const sync = client(fetch);

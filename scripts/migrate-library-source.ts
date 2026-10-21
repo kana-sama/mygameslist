@@ -500,6 +500,7 @@ function projectionBytes(
 ): readonly { path: string; bytes: Uint8Array }[] {
   return projection.leaves.map((leaf) => {
     if (leaf.kind === "text") return { path: leaf.path, bytes: new TextEncoder().encode(leaf.text) };
+    if (leaf.kind === "opaque") throw new Error("Legacy migration cannot contain smart programs");
     const asset = database.assets[leaf.assetId];
     const bytes = asset ? media.get(runtimeAssetFilename(asset)) : undefined;
     if (!bytes) throw new Error(`Legacy media bytes are missing for projected asset ${leaf.assetId}`);

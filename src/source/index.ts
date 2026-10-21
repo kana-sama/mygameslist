@@ -6,3 +6,4 @@ export * from "./paths";
 export * from "./assetFacts";
 export * from "./project";
 export * from "./assemble";
+export * from "./smartNoteDocument";

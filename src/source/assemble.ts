@@ -1,3 +1,4 @@
+import { parseSmartNoteDocument } from "./smartNoteDocument";
 import {
   assertSourceRepresentable,
   assertValidPublishedLibrary,
@@ -111,11 +112,15 @@ function validateStructuralTree(allEntries: readonly SourceTreeEntry[]): Structu
     }
     if (parts.length === 4) {
       const allowed = entry.kind === "file" && parts[3] === "game.yaml"
-        || entry.kind === "directory" && (parts[3] === "notes" || parts[3] === "assets");
+        || entry.kind === "directory" && (parts[3] === "notes" || parts[3] === "assets" || parts[3] === "smart-notes");
       if (!allowed) fail(`unknown game source entry ${entry.path}`);
       continue;
     }
     if (parts.length === 5 && entry.kind === "file" && (parts[3] === "notes" || parts[3] === "assets")) continue;
+    if (parts[3] === "smart-notes" && parts.length >= 5 && new RegExp(`^${UUID}$`).test(parts[4])) {
+      if (parts.length === 5 && entry.kind !== "directory") fail(`smart note root must be a directory ${entry.path}`);
+      continue;
+    }
     fail(`unknown nested source entry ${entry.path}`);
   }
 
@@ -126,7 +131,7 @@ function validateStructuralTree(allEntries: readonly SourceTreeEntry[]): Structu
 
   for (const directory of gameDirectories) {
     if (exact.get(`${directory}/game.yaml`)?.kind !== "file") fail(`missing ${directory}/game.yaml`);
-    for (const optional of ["notes", "assets"] as const) {
+    for (const optional of ["notes", "assets", "smart-notes"] as const) {
       const optionalPath = `${directory}/${optional}`;
       const directoryEntry = exact.get(optionalPath);
       const children = entries.filter((entry) => entry.path.startsWith(`${optionalPath}/`));
@@ -218,6 +223,7 @@ interface ParsedGameDirectory {
   source: SourceGameV1;
   assetFiles: Map<string, { path: string; filename: string }>;
   notes: readonly { metadata: SourceNoteMetadataV1; bodyMarkdown: string }[];
+  smartNotes: Awaited<ReturnType<typeof parseSmartNoteDocument>>[];
 }
 
 async function parseGameDirectory(
@@ -244,7 +250,13 @@ async function parseGameDirectory(
     if (document.metadata.id !== noteId) fail(`note metadata id ${document.metadata.id} does not match filename UUID ${noteId}`);
     notes.push(document);
   }
-  return { gameId: directoryGameId, directory, source, assetFiles, notes };
+  const smartNotes: Awaited<ReturnType<typeof parseSmartNoteDocument>>[] = [];
+  const smartRoot = `${directory}/smart-notes/`;
+  for (const entry of structural.entries.filter(entry => entry.kind === "directory" && entry.path.startsWith(smartRoot) && entry.path.split("/").length === 5)) {
+    if (!structural.files.includes(`${entry.path}/note.json`)) fail(`missing ${entry.path}/note.json`);
+    smartNotes.push(await parseSmartNoteDocument(reader, entry.path, structural.files, directoryGameId));
+  }
+  return { gameId: directoryGameId, directory, source, assetFiles, notes, smartNotes };
 }
 
 type MutableOccurrence = {
@@ -288,6 +300,10 @@ export async function assembleSourceTree(
     if (games[parsed.gameId]) fail(`duplicate game identity ${parsed.gameId}`);
     games[parsed.gameId] = runtimeGame(parsed.source);
     for (const [assetId, file] of parsed.assetFiles) sourceBinaryPaths.set(`${parsed.gameId}\0${assetId}`, file.path);
+    for (const { note } of parsed.smartNotes) {
+      if (notes[note.id]) fail(`duplicate note identity ${note.id}`);
+      notes[note.id] = note;
+    }
     for (const document of parsed.notes) {
       if (notes[document.metadata.id]) fail(`duplicate note identity ${document.metadata.id}`);
       notes[document.metadata.id] = runtimeNote(document.metadata, parsed.gameId, document.bodyMarkdown);
@@ -328,6 +344,11 @@ export async function assembleSourceTree(
         assetId: item.icon.assetId,
         originalName: item.icon.originalName,
         progressItemId: item.id,
+      });
+    }
+    for (const { document } of parsed.smartNotes) {
+      for (const [attachmentIndex, asset] of document.assets.entries()) append(parsed.gameId, asset.assetId, "image", asset.originalName, {
+        role: "note-image", gameId: parsed.gameId, assetId: asset.assetId, originalName: asset.originalName, noteId: document.id, attachmentIndex, alt: asset.alt,
       });
     }
     for (const document of parsed.notes) {
@@ -402,8 +423,12 @@ export async function assembleSourceTree(
   for (const assetId of Object.keys(database.assets).sort(compareText)) {
     runtimeMedia.set(runtimeAssetFilename(database.assets[assetId]), bytesByAsset.get(assetId)!.slice());
   }
+  const runtimePrograms = new Map<string, Uint8Array>();
+  for (const parsed of parsedGames) for (const { note, programs } of parsed.smartNotes) {
+    for (const [path, bytes] of programs) runtimePrograms.set(`${note.id}/${note.smart!.program.hash}/${path}`, bytes.slice());
+  }
   const envelope = { sourceCommitSha: commitSha, database };
-  return { database, envelope, runtimeMedia, sourceAssetOccurrences: occurrences.length };
+  return { database, envelope, runtimeMedia, runtimePrograms, sourceAssetOccurrences: occurrences.length };
 }
 
 export function parsePublishedLibraryEnvelope(value: unknown): PublishedLibraryEnvelope {

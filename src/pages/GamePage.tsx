@@ -1,3 +1,4 @@
+import { ConnectedSmartNote } from "../components/smart/SmartNote";
 import { TierListView } from "../components/tierlist/TierListView";
 import { TierListNote } from "../components/tierlist/TierListNote";
 import { TierListEditor } from "../components/tierlist/TierListEditor";
@@ -85,7 +86,7 @@ export interface PreparedFile {
 export type EditableAttachment = NoteAttachment
   | { type: "pending-image"; image: PreparedImage; alt: string }
   | { type: "pending-file"; file: PreparedFile; label: string };
-export interface EditableNote { format?: Note["format"]; id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; collapsedChecklistSections?: string[]; doubleHeight?: boolean; doubleWidth?: boolean; groupRank?: number; rank: number }
+export interface EditableNote { state?: Note["state"]; smart?: Note["smart"]; format?: Note["format"]; id?: string; clientId: string; bodyMarkdown: string; attachments: EditableAttachment[]; collapsedChecklistSections?: string[]; doubleHeight?: boolean; doubleWidth?: boolean; groupRank?: number; rank: number }
 export interface EditableGameProgressItem {
   id: string;
   iconAssetId: string | null;
@@ -421,6 +422,8 @@ function editableNotesForGame(game: Game | undefined, notes: Note[]): EditableNo
       clientId: note.id,
       ...(note.format && note.format !== "markdown" ? { format: note.format } : {}),
       bodyMarkdown: note.bodyMarkdown,
+      ...(note.smart === undefined ? {} : { smart: note.smart }),
+      ...(note.state === undefined ? {} : { state: note.state }),
       attachments: [...note.attachments] as EditableAttachment[],
       ...(note.collapsedChecklistSections === undefined ? {} : { collapsedChecklistSections: [...note.collapsedChecklistSections] }),
       ...(note.doubleHeight ? { doubleHeight: true } : {}),
@@ -864,7 +867,7 @@ function PlainNoteEditor({
         autoFocus={autoFocus}
         excludeGameId={completion.excludeGameId}
         filesDisabled={storageLocked}
-        format={note.format}
+        format={note.format === "smart" ? undefined : note.format}
         gameSuggestions={completion.games}
         modelKey={`note:${note.clientId}`}
         onCancel={onCancel}
@@ -1120,6 +1123,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
       revealObserver?.disconnect();
     };
   }, [checklistSearchNavigationRequest?.sequence]);
+  if (note.format === "smart") return <SmartSortableNoteCard actionsDisabled={actionsDisabled || saving} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onMove={onMove} index={index} count={count} onSave={onSave} />;
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} interactionActive={interactionActive} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
   return <SortableNoteCard tierListContent={note.format === "tierlist" ? <TierListView note={note} assets={assets} resolveAssetUrl={resolveAssetUrl} disabled={saving || storageLocked || actionsDisabled} canAddBlob={canAddBlob} onSave={onTierListSave} /> : undefined} actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedForEpoch?.itemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedForEpoch?.sectionIds} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} interactionActive={interactionActive} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onRevealCompletedChecklistItems={revealCompletedChecklistItems} onRevealCompletedChecklistSections={revealCompletedChecklistSections} onTaskChange={saveBodyMarkdown} onTaskCheckboxChange={saveCheckboxBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
@@ -1207,9 +1211,36 @@ function ConnectedInlineNoteCard({
 }
 
 function InlineNoteCardBoundary({ noteInteractionSource, ...props }: InlineNoteCardProps & { noteInteractionSource?: NoteInteractionSource }) {
-  return noteInteractionSource && props.note.id && props.acquireNoteInteraction && props.releaseNoteInteraction
+  return props.note.format !== "smart" && noteInteractionSource && props.note.id && props.acquireNoteInteraction && props.releaseNoteInteraction
     ? <ConnectedInlineNoteCard {...props} acquireNoteInteraction={props.acquireNoteInteraction} note={props.note as EditableNote & { id: string }} noteInteractionSource={noteInteractionSource} releaseNoteInteraction={props.releaseNoteInteraction} />
     : <InlineNoteCard {...props} />;
+}
+
+function SmartSortableNoteCard({ note, actionsDisabled, disabled, dropIndicatorEdge, index, count, onMove, onSave }: {
+  note: EditableNote; actionsDisabled: boolean; disabled: boolean; dropIndicatorEdge?: NoteDropEdge | null;
+  index: number; count: number; onMove: (index: number) => void; onSave: InlineNoteCardProps["onSave"];
+}) {
+  const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
+    id: `note:${note.clientId}`, animateLayoutChanges: () => false,
+    attributes: { roleDescription: "перетаскиваемая заметка" },
+    data: { type: "note", clientId: note.clientId, groupRank: noteGroupRank(note) }, disabled,
+  });
+  const toggleSize = (field: "doubleHeight" | "doubleWidth") => {
+    const next = { ...note };
+    if (next[field]) delete next[field]; else next[field] = true;
+    void onSave(next);
+  };
+  return <article className={`note-card note-card--sortable note-card--smart${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={setNodeRef}>
+    <div className="note-card__surface"><ConnectedSmartNote dragging={isDragging} note={{ id: note.id ?? note.clientId, smart: note.smart }} /></div>
+    <div className="note-card__actions">
+      <button {...(disabled ? {} : attributes)} {...(disabled ? {} : listeners)} aria-label="Перетащить заметку" className="note-card__drag" disabled={actionsDisabled} ref={setActivatorNodeRef} type="button"><Icon name="drag" size={14} /></button>
+      <button aria-label="Переместить заметку выше" disabled={actionsDisabled || index === 0} onClick={() => onMove(index - 1)} type="button">↑</button>
+      <button aria-label="Переместить заметку ниже" disabled={actionsDisabled || index === count - 1} onClick={() => onMove(index + 1)} type="button">↓</button>
+      <button aria-label="Двойная высота заметки" aria-pressed={Boolean(note.doubleHeight)} disabled={actionsDisabled} onClick={() => toggleSize("doubleHeight")} type="button"><Icon name="expand-vertical" size={16} /></button>
+      <button aria-label="Двойная ширина заметки" aria-pressed={Boolean(note.doubleWidth)} disabled={actionsDisabled} onClick={() => toggleSize("doubleWidth")} type="button"><Icon name="expand-horizontal" size={16} /></button>
+    </div>
+    <NoteDropZones disabled={disabled} indicatorEdge={dropIndicatorEdge} note={note} />
+  </article>;
 }
 
 function SortableNoteCard({ tierListContent, note, assets, actionsDisabled, completedChecklistFilterEnabled, completedChecklistFilterRevision, completedChecklistFilterSnapshot, completedChecklistRevealedItemIds, completedChecklistRevealedSectionIds, disabled, dropIndicatorEdge, highlightedChecklistSearchTargetId, interactionActive, resolveAssetUrl, onEdit, onRevealCompletedChecklistItems, onRevealCompletedChecklistSections, onTaskChange, onTaskCheckboxChange, onCollapsedChecklistSectionsChange, taskChangesDisabled, taskError }: {
@@ -1422,7 +1453,7 @@ function NoteDragPreview({ note, assets, resolveAssetUrl }: { note: EditableNote
     setPendingUrls(urls);
     return () => Object.values(urls).forEach(url => URL.revokeObjectURL(url));
   }, [note.attachments]);
-  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.format === "tierlist" ? <TierListNote source={note.bodyMarkdown} assets={assets} resolveAssetUrl={id => pendingUrls[id] ?? resolveAssetUrl?.(id) ?? null} disabled /> : note.format === "graph" ? <LazyGraphNote source={note.bodyMarkdown} disabled /> : note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} richTooltipTriggersDisabled richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
+  return <article aria-hidden="true" className="note-card note-drag-preview"><div className="note-card__content">{note.format === "smart" ? <h1 className="smart-note-title">{note.smart?.title}</h1> : note.format === "tierlist" ? <TierListNote source={note.bodyMarkdown} assets={assets} resolveAssetUrl={id => pendingUrls[id] ?? resolveAssetUrl?.(id) ?? null} disabled /> : note.format === "graph" ? <LazyGraphNote source={note.bodyMarkdown} disabled /> : note.bodyMarkdown.trim() ? <MarkdownView collapsedChecklistSections={note.collapsedChecklistSections} markdown={note.bodyMarkdown} richTooltipTriggersDisabled richTooltipsEnabled={!note.clientId.startsWith("legacy-review:")} taskChangesDisabled /> : <p className="markdown-empty">Вложение</p>}</div></article>;
 }
 
 function useNoteGroupFileDrop(disabled: boolean, onFiles: (files: File[]) => void) {

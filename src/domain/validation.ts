@@ -1,3 +1,4 @@
+import { collectSmartAssetIds, validateSmartDefinition } from "./smartNote";
 import { validateTierListImageAttachments } from "./tierList";
 import { validateNoteContent } from "./noteContent";
 import { MAX_WEBP_DIMENSION, base64ToBytes, isCanonicalBase64 } from "./assets";
@@ -22,13 +23,13 @@ export type EntityMapName = (typeof ENTITY_MAPS)[number];
 
 export const ENTITY_FIELDS: Record<EntityMapName, readonly string[]> = {
   games: ["id", "title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown", "createdAt", "updatedAt"],
-  notes: ["id", "gameId", "format", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
+  notes: ["id", "gameId", "format", "state", "smart", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank", "createdAt", "updatedAt"],
   assets: ["id", "kind", "mime", "width", "height", "byteLength", "alt", "originalName"],
 };
 
 export const LOCALLY_PATCHABLE_FIELDS = {
   games: ["title", "coverAssetId", "progressItems", "platforms", "tags", "status", "placement", "reviewMarkdown"],
-  notes: ["format", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
+  notes: ["format", "state", "bodyMarkdown", "attachments", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank", "rank"],
   assets: [],
 } as const satisfies Record<EntityMapName, readonly string[]>;
 
@@ -199,11 +200,20 @@ function validateGame(value: unknown, path: string, issues: ValidationIssue[]): 
 
 function validateNote(value: unknown, path: string, issues: ValidationIssue[]): void {
   if (!isObject(value)) { issue(issues, path, "Ожидался объект заметки"); return; }
-  const optionalFields = ["format", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
+  const optionalFields = ["format", "state", "smart", "collapsedChecklistSections", "doubleHeight", "doubleWidth", "groupRank"];
   exactKeys(value, ENTITY_FIELDS.notes.filter((field) => !optionalFields.includes(field)), path, issues, optionalFields);
   uuid(value.id, `${path}/id`, issues); uuid(value.gameId, `${path}/gameId`, issues);
-  if (value.format !== undefined && value.format !== "markdown" && value.format !== "graph" && value.format !== "tierlist") issue(issues, `${path}/format`, "Неизвестный формат заметки");
+  if (value.format !== undefined && value.format !== "markdown" && value.format !== "graph" && value.format !== "tierlist" && value.format !== "smart") issue(issues, `${path}/format`, "Неизвестный формат заметки");
   else noteBody(value.bodyMarkdown, value.format, `${path}/bodyMarkdown`, issues);
+  if (value.format === "smart") {
+    try { validateSmartDefinition(value.smart); } catch (error) { issue(issues, `${path}/smart`, error instanceof Error ? error.message : String(error)); }
+    try {
+      const ids = [...collectSmartAssetIds(value.state)].sort();
+      const attachments = value.attachments;
+      if (!Array.isArray(attachments) || attachments.length !== ids.length || attachments.some((attachment, index) => !isObject(attachment) || attachment.type !== "image" || attachment.assetId !== ids[index])) issue(issues, `${path}/attachments`, "Smart image attachments must exactly match sorted state references");
+    } catch (error) { issue(issues, `${path}/state`, error instanceof Error ? error.message : String(error)); }
+    if (value.collapsedChecklistSections !== undefined) issue(issues, `${path}/collapsedChecklistSections`, "Smart notes do not support checklist sections");
+  } else if (value.state !== undefined || value.smart !== undefined) issue(issues, path, "Smart state/config requires smart format");
   if (!Array.isArray(value.attachments)) issue(issues, `${path}/attachments`, "Ожидался массив вложений");
   else value.attachments.forEach((attachment, index) => {
     const attachmentPath = `${path}/attachments/${index}`;
@@ -402,6 +412,7 @@ function absoluteHttpUrl(value: string): boolean {
 
 function sourceStrings(value: unknown, path: string, issues: ValidationIssue[]): void {
   walkStrings(value, path, (item, itemPath) => {
+    if (/(?:^|\/)state(?:\/|$)/.test(itemPath)) return;
     if (hasUnpairedSurrogate(item)) issue(issues, itemPath, "Строка содержит unpaired surrogate");
     if (itemPath.endsWith("/reviewMarkdown") || itemPath.endsWith("/bodyMarkdown")) {
       if (MARKDOWN_CONTROL.test(item)) issue(issues, itemPath, "Markdown содержит недопустимый control character");
@@ -463,6 +474,7 @@ const SOURCE_PATCH_FIELD_VALIDATORS = {
   },
   notes: {
     format: recursivelySourceSafe,
+    state: recursivelySourceSafe,
     bodyMarkdown: recursivelySourceSafe,
     attachments: sourceAttachments,
     collapsedChecklistSections: sourceCollapsedSections,
@@ -645,6 +657,10 @@ function validatePatchSetValue(parsed: ParsedPatchPath, value: unknown, path: st
   if (parsed.field === undefined) { validateNote(value, entityPath, issues); return; }
   // A field patch has no format context. Validate its text after merging the candidate.
   if (parsed.field === "bodyMarkdown") { string(value, entityPath, issues, true, 2_000_000); return; }
+  if (parsed.field === "state") {
+    try { collectSmartAssetIds(value); } catch (error) { issue(issues, entityPath, error instanceof Error ? error.message : String(error)); }
+    return;
+  }
   const candidate: Record<string, unknown> = {
     id: parsed.id,
     gameId: "00000000-0000-4000-8000-000000000000",
@@ -674,7 +690,9 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     if (!parsed) issue(issues, `/operations/${path}`, "Недопустимый путь");
     if (!isObject(operation)) { issue(issues, `/operations/${path}`, "Ожидалась операция"); continue; }
     const allowedKeys = operation.operation === "set" ? ["operation", "value", "baseExists", "baseHash", "changedAt", "transactionId"] : ["operation", "baseExists", "baseHash", "changedAt", "transactionId"];
-    exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat"]);
+    exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat", "smartProgramHash"]);
+    if (operation.smartProgramHash !== undefined && (typeof operation.smartProgramHash !== "string" || !SHA256.test(operation.smartProgramHash) || parsed?.map !== "notes" || !["state", "attachments"].includes(parsed.field ?? ""))) issue(issues, `/operations/${path}/smartProgramHash`, "Invalid smart program binding");
+    if (parsed?.map === "notes" && parsed.field === "state" && (operation.operation !== "set" || typeof operation.smartProgramHash !== "string" || !SHA256.test(operation.smartProgramHash))) issue(issues, `/operations/${path}/smartProgramHash`, "Smart state writes require a program hash");
     if (operation.noteFormat !== undefined) {
       if (operation.noteFormat !== "graph" && operation.noteFormat !== "markdown" && operation.noteFormat !== "tierlist" || parsed?.map !== "notes" || parsed.field !== "bodyMarkdown" || operation.operation !== "set") {
         issue(issues, `/operations/${path}/noteFormat`, "Формат операции допустим только для записи текста заметки");

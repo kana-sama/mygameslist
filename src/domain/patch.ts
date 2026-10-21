@@ -7,6 +7,45 @@ import { normalizeLibraryDatabase } from "./libraryNormalization";
 
 type Entity = LibraryDatabase[EntityMapName][string];
 
+
+/** Website mutations may change smart state and placement, never the repository program. */
+export function assertSmartNoteMutationBoundary(base: LibraryDatabase, current: LibraryDatabase): void {
+  for (const id of new Set([...Object.keys(base.notes), ...Object.keys(current.notes)])) {
+    const before = base.notes[id], after = current.notes[id];
+    if (before?.format !== "smart" && after?.format !== "smart") continue;
+    if (!before || before.format !== "smart") throw new Error("Cannot create or convert a smart note from the website");
+    if (!after) {
+      if (current.games[before.gameId]) throw new Error("Cannot delete an individual smart note");
+      continue;
+    }
+    for (const field of ["id", "gameId", "format", "smart", "bodyMarkdown", "createdAt", "collapsedChecklistSections"] as const) {
+      if (before[field] === undefined || after[field] === undefined ? before[field] !== after[field] : !same(before[field], after[field])) throw new Error(`Immutable smart note field: ${field}`);
+    }
+  }
+}
+
+function staleSmartProgramPaths(base: LibraryDatabase, operations: Record<string, PatchOperation>): Set<string> {
+  const staleNotes = new Set<string>();
+  for (const [path, operation] of Object.entries(operations)) {
+    const parsed = parsePatchPath(path);
+    if (parsed?.map !== "notes" || parsed.field !== "state" && parsed.field !== "attachments") continue;
+    const note = base.notes[parsed.id];
+    if (note?.format === "smart" && operation.smartProgramHash !== note.smart?.program.hash) staleNotes.add(parsed.id);
+  }
+  const imageIds = new Set<string>();
+  for (const id of staleNotes) {
+    for (const attachment of base.notes[id]?.attachments ?? []) if (attachment.type === "image") imageIds.add(attachment.assetId);
+    const pool = operations[entityPath("notes", id, "attachments")];
+    if (pool?.operation === "set" && Array.isArray(pool.value)) for (const attachment of pool.value) {
+      if (attachment?.type === "image") imageIds.add(attachment.assetId);
+    }
+  }
+  return new Set(Object.keys(operations).filter(path => {
+    const parsed = parsePatchPath(path);
+    return parsed?.map === "assets" && imageIds.has(parsed.id) || parsed?.map === "notes" && staleNotes.has(parsed.id) && (parsed.field === "state" || parsed.field === "attachments");
+  }));
+}
+
 export interface DiffOptions {
   changedAt?: string;
   transactionId?: string;
@@ -221,7 +260,7 @@ export function updateInteractiveNoteField(input: {
 function retainTimestamp(path: string, candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {
   if (!previous || previous.operation !== candidate.operation || previous.baseExists !== candidate.baseExists || previous.baseHash !== candidate.baseHash) return candidate;
   if (candidate.operation === "set" && !sameTargetValue(path, candidate, candidate.value, previous.value)) return candidate;
-  if ((previous.noteFormat ?? "markdown") !== (candidate.noteFormat ?? "markdown")) return candidate;
+  if ((previous.noteFormat ?? "markdown") !== (candidate.noteFormat ?? "markdown") || previous.smartProgramHash !== candidate.smartProgramHash) return candidate;
   return clone(previous);
 }
 
@@ -247,6 +286,7 @@ export function prunePatchBlobs(patch: PatchEnvelope): PatchEnvelope {
 
 /** Produces a sparse, stable-ID patch and drops derived updatedAt noise. */
 export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, options: DiffOptions = {}): PatchEnvelope {
+  assertSmartNoteMutationBoundary(base, current);
   assertValidLibrary(base); assertValidLibrary(current);
   const normalizedBase = normalizeLibraryDatabase(base);
   const normalizedCurrent = normalizeLibraryDatabase(current);
@@ -292,6 +332,7 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
             transactionId,
             mapName === "notes" && field === "bodyMarkdown" ? currentEntity.format as NoteFormat | undefined : undefined,
           );
+          if (mapName === "notes" && currentEntity.format === "smart" && (field === "state" || field === "attachments")) candidate.smartProgramHash = normalizedCurrent.notes[id].smart!.program.hash;
           operations[path] = retainTimestamp(path, candidate, options.previousPatch?.operations[path]);
         }
       }
@@ -380,6 +421,8 @@ export function applyPatch(base: LibraryDatabase, patch: PatchEnvelope, options:
   for (const [path, operation] of Object.entries(patch.operations).sort(([a], [b]) => a.localeCompare(b))) mutateAtPath(result, path, operation);
   applyUpdatedAt(result, normalizedBase, patch.operations);
   if (options.validateResult ?? true) assertOperationPayloadsSourceRepresentable(patch.operations, "Локальный патч содержит данные, не представимые в source tree");
+  assertSmartNoteMutationBoundary(normalizedBase, result);
+  if (staleSmartProgramPaths(normalizedBase, patch.operations).size) throw new Error("Smart note program conflict");
   const normalizedResult = normalizeLibraryDatabase(result);
   if (options.validateResult ?? true) {
     assertNoteSourceFormats(normalizedResult, patch.operations);
@@ -434,6 +477,9 @@ function noteContentOperationGroups(database: LibraryDatabase, intended: Library
     const contentPaths = [body, format].filter(path => hasOwn(operations, path));
     if (contentPaths.length > 1) connect(contentPaths);
     const before = database.notes[id], after = intended.notes[id];
+    if (before?.format === "smart" || after?.format === "smart") {
+      connect([entityPath("notes", id, "state"), pool].filter(path => hasOwn(operations, path)));
+    }
     const missingBefore = before?.format === "tierlist" && validateTierListImageAttachments(before.bodyMarkdown, after?.attachments ?? []).length > 0;
     const missingAfter = after?.format === "tierlist" && validateTierListImageAttachments(after.bodyMarkdown, before?.attachments ?? []).length > 0;
     if (hasOwn(operations, pool) && contentPaths.length && (missingBefore || missingAfter)) connect([...contentPaths, pool]);
@@ -442,8 +488,8 @@ function noteContentOperationGroups(database: LibraryDatabase, intended: Library
     }
     const ownerPaths = hasOwn(operations, root) ? [root] : hasOwn(operations, pool) ? [pool] : [];
     if (!ownerPaths.length) continue;
-    const beforeImages = before?.format === "tierlist" ? tierListImageAssetIds(parseTierList(before.bodyMarkdown)) : new Set<string>();
-    const afterImages = after?.format === "tierlist" ? tierListImageAssetIds(parseTierList(after.bodyMarkdown)) : new Set<string>();
+    const beforeImages = before?.format === "tierlist" ? tierListImageAssetIds(parseTierList(before.bodyMarkdown)) : new Set((before?.format === "smart" ? before.attachments : []).filter(item => item.type === "image").map(item => item.assetId));
+    const afterImages = after?.format === "tierlist" ? tierListImageAssetIds(parseTierList(after.bodyMarkdown)) : new Set((after?.format === "smart" ? after.attachments : []).filter(item => item.type === "image").map(item => item.assetId));
     for (const assetId of new Set([...beforeImages, ...afterImages])) {
       const assetPath = entityPath("assets", assetId), operation = operations[assetPath];
       if (operation?.operation === "delete" && beforeImages.has(assetId)
@@ -500,6 +546,8 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
   }
   adaptTierListPoolSnapshots(normalizedStatic, normalizedIncoming.operations);
   const intended = applyBestEffort(normalizedStatic, normalizedIncoming.operations);
+  assertSmartNoteMutationBoundary(normalizedStatic, intended);
+  const staleSmartPaths = staleSmartProgramPaths(normalizedStatic, normalizedIncoming.operations);
   assertDirectImageAssetAltsAreDerived(normalizedStatic, intended, normalizedIncoming.operations);
   const unavailable = unavailableTierListImages(intended);
   const unavailablePaths = new Set(Object.keys(normalizedIncoming.operations).filter(path => {
@@ -507,13 +555,14 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
     return parsed?.map === "notes" && unavailable.has(parsed.id)
       && (parsed.field === undefined || parsed.field === "bodyMarkdown" || parsed.field === "format" || parsed.field === "attachments");
   }));
-  const representableIntended = unavailablePaths.size
-    ? applyBestEffort(normalizedStatic, Object.fromEntries(Object.entries(normalizedIncoming.operations).filter(([path]) => !unavailablePaths.has(path))))
+  const unsafePaths = new Set([...unavailablePaths, ...staleSmartPaths]);
+  const representableIntended = unsafePaths.size
+    ? applyBestEffort(normalizedStatic, Object.fromEntries(Object.entries(normalizedIncoming.operations).filter(([path]) => !unsafePaths.has(path))))
     : intended;
   assertSourceRepresentable(normalizeLibraryDatabase(representableIntended));
   const operations: Record<string, PatchOperation> = {}; const applicable: Record<string, PatchOperation> = {}; const conflicts: PatchConflict[] = []; let prunedCount = 0;
   const contentGroups = noteContentOperationGroups(normalizedStatic, intended, normalizedIncoming.operations);
-  const contentConflicts = new Set<string>(unavailablePaths);
+  const contentConflicts = new Set<string>(unsafePaths);
   const pendingContent = new Set<string>();
   for (const path of Object.keys(normalizedIncoming.operations)) {
     const coupled = contentGroups.get(path) ?? [path];
@@ -529,7 +578,7 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
   }
   for (const [path, operation] of Object.entries(normalizedIncoming.operations)) {
     const actual = readPatchPath(normalizedStatic, path);
-    if (!pendingContent.has(path) && (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual))) { prunedCount += 1; continue; }
+    if (!contentConflicts.has(path) && !pendingContent.has(path) && (opTargetMatches(path, operation, actual) || isCompatiblePublishedAsset(path, operation, actual))) { prunedCount += 1; continue; }
     operations[path] = clone(operation);
     if (contentConflicts.has(path) || (!opTargetMatches(path, operation, actual) && !baseMatches(operation, actual))) conflicts.push({ path, operation: clone(operation), staticValue: clone(actual.value), staticExists: actual.exists });
     else applicable[path] = clone(operation);
@@ -569,6 +618,7 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
   const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
   const intended = applyBestEffort(normalizedStatic, next.operations);
   const coupledPaths = noteContentOperationGroups(normalizedStatic, intended, next.operations).get(path) ?? [path];
+  if (resolution.choice !== "static" && coupledPaths.some(candidate => staleSmartProgramPaths(normalizedStatic, next.operations).has(candidate))) throw new Error("Smart note program changed; export stale state and resolve against the published program");
   const actual = readPatchPath(normalizedStatic, path);
   if (resolution.choice === "local") {
     const unavailable = unavailableTierListImages(intended);
@@ -582,6 +632,7 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
     const target: PatchOperation = resolution.choice === "manual"
       ? freshOperation(actual, resolution.delete ? "delete" : "set", resolution.value, new Date().toISOString(), operation.transactionId, resolution.delete ? undefined : operation.noteFormat)
       : { ...operation, baseExists: actual.exists, baseHash: actual.exists ? canonicalHash(actual.value) : MISSING_VALUE_HASH };
+    if (operation.smartProgramHash !== undefined) target.smartProgramHash = operation.smartProgramHash;
     next.operations[path] = target;
     for (const candidate of coupledPaths) {
       if (candidate === path) continue;

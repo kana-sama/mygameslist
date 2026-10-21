@@ -262,6 +262,16 @@ export function resolvePatchSelection(
       const changeId = pathOrigins.get(path) ?? fallbackChangeId;
       if (!current) throw new PatchSelectionError(changeId, `Операция ${path} не найдена в локальном патче`);
 
+      if (current.map === "notes" && normalizedBase.notes[current.id]?.format === "smart") {
+        if (current.field === undefined && current.operation.operation === "delete") {
+          changed = addDependency(`/games/${normalizedBase.notes[current.id].gameId}`, path, "Smart note deletion requires whole-game deletion") || changed;
+        }
+        if (current.field === "state" || current.field === "attachments") {
+          const partner = `/notes/${current.id}/${current.field === "state" ? "attachments" : "state"}`;
+          if (operationsByPath.has(partner)) changed = addDependency(partner, path, "Smart state and image references publish atomically") || changed;
+        }
+      }
+
       if (current.map === "notes" && (current.field === "format" || current.field === "bodyMarkdown")) {
         const partner = `/notes/${current.id}/${current.field === "format" ? "bodyMarkdown" : "format"}`;
         if (operationsByPath.has(partner)) changed = addDependency(partner, path, "Формат и текст заметки публикуются вместе") || changed;

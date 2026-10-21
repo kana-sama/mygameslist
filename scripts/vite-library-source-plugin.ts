@@ -35,7 +35,8 @@ function isGeneratedPath(pathname: string): boolean {
   return pathname === "/data"
     || pathname.startsWith("/data/")
     || pathname === "/media"
-    || pathname.startsWith("/media/");
+    || pathname.startsWith("/media/")
+    || pathname === "/smart-notes" || pathname.startsWith("/smart-notes/");
 }
 
 function isInsideRoot(root: string, candidate: string): boolean {
@@ -109,6 +110,12 @@ function createMiddleware(readState: () => DevArtifactState) {
       }
     }
 
+    if (pathname.startsWith("/smart-notes/")) {
+      let path: string;
+      try { path = decodeURIComponent(pathname.slice("/smart-notes/".length)); } catch { response.statusCode = 400; response.end(); return; }
+      const artifact = state.snapshot.programs.get(path);
+      if (artifact) { endBytes(request, response, 200, artifact.bytes, artifact.contentType); return; }
+    }
     response.statusCode = 404;
     setNoStore(response);
     response.end();

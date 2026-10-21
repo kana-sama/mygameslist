@@ -52,9 +52,22 @@ export interface FileAttachment {
 
 export type NoteAttachment = ImageAttachment | LinkAttachment | FileAttachment;
 
-export type NoteFormat = "markdown" | "graph" | "tierlist";
+export type NoteFormat = "markdown" | "graph" | "tierlist" | "smart";
+
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+export interface SmartAssetRef { $asset: string }
+export interface SmartProgramFile { path: string; sha256: string; byteLength: number }
+export interface SmartNoteDefinition {
+  version: 1;
+  apiVersion: 1;
+  title: string;
+  entrypoints: { preview: string; page?: string };
+  program: { hash: string; files: SmartProgramFile[] };
+}
 
 export interface Note {
+  state?: JsonValue;
+  smart?: SmartNoteDefinition;
   format?: NoteFormat;
   id: string;
   gameId: string;
@@ -119,6 +132,7 @@ export interface LibraryDatabase {
 }
 
 export interface PatchOperation {
+  smartProgramHash?: string;
   /** Interpretation of a note body set; absence retains legacy Markdown semantics. */
   noteFormat?: NoteFormat;
   operation: "set" | "delete";

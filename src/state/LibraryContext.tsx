@@ -57,6 +57,10 @@ import {
   webkitStorageBytes,
   webkitStringBytes,
   writeLocalAssetsAtomic,
+  optimizeNoteImage,
+  readLocalAsset,
+  saveValidatedInteractionPatch,
+  assertSmartNoteMutationBoundary,
   DEFAULT_NOTE_GROUP_RANK,
   LIBRARY_SCHEMA_VERSION,
   type Asset,
@@ -74,6 +78,7 @@ import {
 import { parsePublishedLibraryEnvelope, type PublishedLibraryEnvelope } from "../source";
 import {
   PENDING_PUBLICATION_STORAGE_KEY,
+  LOCAL_LIBRARY_AUTHORITY_LOCK_NAME,
   discardPendingPublicationAfterRecoveryExport,
   finalizePendingPublicationJournal,
   installPendingPublicationJournal,
@@ -101,6 +106,9 @@ import {
   loadGitHubPat,
 } from "./githubPat";
 import { createLibraryStore, useLibraryStoreSelector, type LibraryStore } from "./libraryStore";
+import { holdImageAsset } from "../domain/assetLeases";
+import { collectSmartAssetIds } from "../domain/smartNote";
+import { createSmartNoteRuntime, type SmartNoteMode, type SmartNotePageControls, type SmartNoteScope } from "./smartNoteRuntime";
 
 function emptyPatch(baseRevision: string): PatchEnvelope {
   return { patchVersion: 2, schemaVersion: LIBRARY_SCHEMA_VERSION, baseRevision, operations: {}, blobs: {} };
@@ -367,6 +375,7 @@ interface LibrarySnapshot extends LibraryState {
 }
 
 interface LibraryActions {
+  createSmartNoteScope: (noteId: string, mode: SmartNoteMode, page: SmartNotePageControls) => SmartNoteScope;
   canAddBlob: (byteLength: number) => Promise<string | null>;
   resolveAssetUrl: (assetId: string) => string | null;
   saveGame: (input: GameSaveInput) => Promise<string>;
@@ -449,7 +458,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const syncInFlightRef = useRef(false);
   const deployedEnvelopeRef = useRef<PublishedLibraryEnvelope | null>(null);
   const operationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const smartRuntimeRef = useRef<ReturnType<typeof createSmartNoteRuntime> | null>(null);
   const interactionQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const undoImageRecords = useRef(new Map<PatchEnvelope, { ids: Set<string>; release: () => void }>());
   const checkPublicationRef = useRef<(token?: string) => Promise<void>>(async () => undefined);
   const actionsRef = useRef<LibraryActions | null>(null);
 
@@ -613,6 +624,43 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (next.publicationState.status === "valid") await checkPublicationRef.current();
   }, [installLoadedAuthority, setLibraryState]);
 
+  const prepareUndoImages = useCallback(async (current: LibraryState) => {
+    const ids = new Set(Object.values(current.effective.notes).filter(note => note.format === "smart").flatMap(note => [...collectSmartAssetIds(note.state)]));
+    const releases: Array<() => void> = [];
+    try { for (const id of ids) releases.push(await holdImageAsset(id)); }
+    catch (error) { releases.forEach(release => release()); throw error; }
+    let retained = false;
+    const record = { ids, release: () => releases.forEach(release => release()) };
+    return {
+      retain() {
+        retained = true;
+        const patch = structuredClone(current.patch);
+        undoImageRecords.current.set(patch, record);
+        undoStack.current = [...undoStack.current.slice(-49), patch];
+        for (const [key, previous] of undoImageRecords.current) if (!undoStack.current.includes(key)) {
+          previous.release(); undoImageRecords.current.delete(key);
+        }
+      },
+      dispose() { if (!retained) record.release(); },
+    };
+  }, []);
+
+  const protectedHistoryImageIds = useCallback(() => new Set([...undoImageRecords.current.values()].flatMap(record => [...record.ids])), []);
+
+  const releaseUndoImages = useCallback(() => {
+    for (const record of undoImageRecords.current.values()) record.release();
+    undoImageRecords.current.clear();
+  }, []);
+  useEffect(() => () => releaseUndoImages(), [releaseUndoImages]);
+
+  const collectSmartImages = useCallback(async () => {
+    const current = stateRef.current;
+    if (!current || current.publicationState.status !== "none" && current.publicationState.status !== "valid") return;
+    const protectedIds = new Set([...protectedHistoryImageIds(), ...protectedPublicationAssetIds(current.publicationState), ...current.retainedLocalAssetIds]);
+    const removed = await deleteSafeOrphans(referencedAssetIds(current.effective), Date.now(), localStorage, protectedIds);
+    if (removed.length) await refreshLocalAssets();
+  }, [protectedHistoryImageIds, protectedPublicationAssetIds, refreshLocalAssets]);
+
   const persistReconciled = useCallback(async ({
     base,
     reconciled,
@@ -628,6 +676,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     publicationState?: PublicationState;
     reason?: "mutation" | "import" | "discard" | "conflict-resolution" | "undo" | "publication";
   }): Promise<void> => {
+    assertSmartNoteMutationBoundary(base, reconciled.effective);
     const normalized = garbageCollectReconciledAssets(base, reconciled);
     assertValidLibrary(normalized.effective);
     assertSourceRepresentable(normalized.effective);
@@ -636,6 +685,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (authority.status === "corrupt" || authority.status === "legacy" || authority.status === "read-failure") {
       throw new Error("Сначала экспортируйте и восстановите состояние публикации");
     }
+    const undoImages = remember && current ? await prepareUndoImages(current) : null;
+    try {
     let installedAuthority = authority;
     if (authority.status === "none") {
       const written = savePatch(localStorage, normalized.patch);
@@ -669,7 +720,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           : { ...authority, durability: "memory-only", journal: result.journal, raw: null, expectedRaw: authority.raw, exportCompleted: false };
       }
     }
-    if (remember && current) undoStack.current = [...undoStack.current.slice(-49), structuredClone(current.patch)];
+    undoImages?.retain();
     setPersistenceError(null);
     const nextState: LibraryState = {
       sourceCommitSha: sourceCommitSha === undefined ? current?.sourceCommitSha ?? null : sourceCommitSha,
@@ -724,6 +775,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
     if (reason !== "publication") {
       const protectedIds = new Set([
+        ...protectedHistoryImageIds(),
         ...protectedPublicationAssetIds(installedAuthority),
         ...(current?.retainedLocalAssetIds ?? []),
       ]);
@@ -734,7 +786,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         await refreshQuota();
       }
     }
-  }, [protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, reloadPublicationAuthority, replaceRescueLineage, setLibraryState]);
+    } finally { undoImages?.dispose(); }
+  }, [prepareUndoImages, protectedHistoryImageIds, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, reloadPublicationAuthority, replaceRescueLineage, setLibraryState]);
 
   useEffect(() => {
     let active = true;
@@ -1188,6 +1241,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
 
     undoStack.current = [...undoStack.current.slice(-49), structuredClone(current.patch)];
+    for (const [key, record] of undoImageRecords.current) if (!undoStack.current.includes(key)) { record.release(); undoImageRecords.current.delete(key); }
     setPersistenceError(null);
     setLibraryState({
       sourceCommitSha: current.sourceCommitSha,
@@ -1199,6 +1253,96 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       publicationState,
     });
   }), [enqueueInteraction, libraryStore, replaceRescueLineage, setLibraryState]);
+
+  const createSmartNoteScope = useCallback((noteId: string, mode: SmartNoteMode, page: SmartNotePageControls): SmartNoteScope => {
+    if (!smartRuntimeRef.current) smartRuntimeRef.current = createSmartNoteRuntime({
+      read(id) {
+        const snapshot = libraryStore.getSnapshot();
+        const root = entityPath("notes", id);
+        return { note: snapshot.effective.notes[id], assets: snapshot.effective.assets, conflict: snapshot.conflicts.some(conflict => conflict.path === root || conflict.path.startsWith(`${root}/`)) };
+      },
+      subscribe: libraryStore.subscribe,
+      enqueue,
+      async persist(id, value, images, signal) {
+        let undoImages: Awaited<ReturnType<typeof prepareUndoImages>> | undefined;
+        try {
+          const current = libraryStore.getSnapshot();
+          if (current.loading || current.corruptedPatchRaw !== null) throw new Error("Library is not ready for smart state writes");
+          const next = structuredClone(current.effective), note = next.notes[id];
+          if (note?.format !== "smart") throw new Error("Smart note unavailable");
+          const previousAttachments = note.attachments;
+          note.state = value;
+          note.attachments = [...collectSmartAssetIds(value)].sort().map(assetId => {
+            const asset = images.get(assetId);
+            if (!asset) throw new Error("Unknown smart image");
+            retainLocalAsset(next, asset, "image");
+            const previous = previousAttachments.find(attachment => attachment.type === "image" && attachment.assetId === assetId);
+            return { type: "image", assetId, alt: previous?.type === "image" ? previous.alt : asset.alt };
+          });
+          garbageCollectUnreferencedAssets(next);
+          const normalized = normalizeLibraryDatabase(next);
+          const patch = diffLibrary(current.base, normalized, { previousPatch: current.patch });
+          const reconciled = reconcilePatch(current.base, patch);
+          if (reconciled.conflicts.length) throw new Error("Smart state conflict requires resolution");
+          undoImages = await prepareUndoImages(current);
+          let publicationState = current.publicationState;
+          if (signal.aborted) throw new Error("Smart note scope disposed");
+          if (publicationState.status === "none") {
+            const locks = globalThis.navigator?.locks;
+            if (!locks) throw new Error("Web Lock local authority unavailable");
+            await locks.request(LOCAL_LIBRARY_AUTHORITY_LOCK_NAME, { mode: "exclusive" }, () => {
+              if (signal.aborted) throw new Error("Smart note scope disposed");
+              if (localStorage.getItem(PENDING_PUBLICATION_STORAGE_KEY) !== null) throw new Error("Publication authority changed in another tab");
+              const written = saveValidatedInteractionPatch(localStorage, current.patch, reconciled.patch);
+              if (written.status !== "durable") throw new Error(written.status === "changed" ? "Local state changed in another tab" : written.error.message);
+            });
+          } else if (publicationState.status === "valid") {
+            const ordinary = loadPatch(localStorage);
+            const installed = await installValidatedInteractionJournal(localStorage, { ...publicationState.journal, remainderPatch: reconciled.patch }, {
+              expectedRaw: publicationState.durability === "durable" ? publicationState.raw : publicationState.expectedRaw,
+              replaceRescueLineage: replaceRescueLineage(ordinary.raw, ordinary.patch?.baseRevision ?? current.base.revision),
+            });
+            if (installed.status !== "durable") throw new Error(installed.status === "changed" ? "Publication changed in another tab" : installed.error.message);
+            publicationState = { ...publicationState, durability: "durable", journal: installed.journal, raw: installed.raw, expectedRaw: installed.raw, exportCompleted: false };
+          } else throw new Error("Recover publication authority before saving smart state");
+          undoImages.retain();
+          setPersistenceError(null);
+          setLibraryState({ sourceCommitSha: current.sourceCommitSha, base: current.base, effective: reconciled.effective, patch: reconciled.patch, conflicts: reconciled.conflicts, publicationState, retainedLocalAssetIds: current.retainedLocalAssetIds });
+        } catch (error) {
+          setPersistenceError(error instanceof Error ? error.message : "Smart note save failed");
+          throw error;
+        } finally { undoImages?.dispose(); }
+      },
+      async prepareImage(blob, options) {
+        const prepared = await optimizeNoteImage(new File([blob], options.name, { type: blob.type }), options.alt);
+        return { asset: prepared.asset, blob: prepared.blob };
+      },
+      async persistImage(image) {
+        const existing = await readLocalAsset(image.asset.id);
+        if (!existing && !stateRef.current?.base.assets[image.asset.id]) {
+          const error = localAssetWritePreflight(localStorage, image.blob.size);
+          if (error) throw new Error(error);
+          await writeLocalAssetsAtomic([makeLocalAsset(image.asset.id, image.blob, image.asset.mime)]);
+          await refreshLocalAssets();
+        }
+      },
+      async readImage(asset, signal) {
+        const local = await readLocalAsset(asset.id);
+        if (local) {
+          if (local.byteLength !== asset.byteLength || sha256Bytes(new Uint8Array(await local.blob.arrayBuffer())) !== asset.id) throw new Error("Smart image bytes are corrupt");
+          return local.blob;
+        }
+        const response = await fetch(publishedAssetUrl(asset, import.meta.env.BASE_URL), { signal });
+        if (!response.ok) throw new Error(`Smart image HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (blob.size !== asset.byteLength || sha256Bytes(new Uint8Array(await blob.arrayBuffer())) !== asset.id) throw new Error("Smart image bytes are corrupt");
+        return blob;
+      },
+      holdImage: holdImageAsset,
+      collectImages: collectSmartImages,
+    });
+    return smartRuntimeRef.current.createScope(noteId, mode, page);
+  }, [collectSmartImages, enqueue, libraryStore, prepareUndoImages, refreshLocalAssets, replaceRescueLineage, setLibraryState]);
 
   const readNoteInteractionSnapshot = useCallback((noteId: string): NoteInteractionSnapshot | undefined => {
     const note = libraryStore.getSnapshot().effective.notes[noteId];
@@ -1274,7 +1418,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         updatedAt: previous?.updatedAt ?? now,
       };
 
-      const retainedNoteIds = new Set<string>();
+      const retainedNoteIds = new Set(Object.values(database.notes).filter(note => note.gameId === id && note.format === "smart").map(note => note.id));
       input.notes.forEach((draft, index) => {
         if ((draft.format ?? "markdown") === "markdown" && !draft.bodyMarkdown.trim() && !draft.attachments.length) return;
         const noteId = draft.id && database.notes[draft.id]?.gameId === id ? draft.id : crypto.randomUUID();
@@ -1295,6 +1439,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           return attachment;
         });
         const previousNote = database.notes[noteId];
+        if (previousNote?.format === "smart") {
+          if (draft.format !== "smart") throw new Error("Cannot convert a smart note");
+          database.notes[noteId] = { ...previousNote, rank: draft.rank };
+          for (const key of ["groupRank", "doubleHeight", "doubleWidth"] as const) {
+            if (draft[key] === undefined) delete database.notes[noteId][key];
+            else Object.assign(database.notes[noteId], { [key]: draft[key] });
+          }
+          return;
+        }
         const groupRank = draft.groupRank ?? DEFAULT_NOTE_GROUP_RANK;
         database.notes[noteId] = {
           id: noteId,
@@ -1354,7 +1507,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setCorruptedPatchRaw(null);
     const current = stateRef.current;
     if (!current) return;
-    const protectedIds = new Set([...protectedPublicationAssetIds(current.publicationState), ...current.retainedLocalAssetIds]);
+    const protectedIds = new Set([...protectedHistoryImageIds(), ...protectedPublicationAssetIds(current.publicationState), ...current.retainedLocalAssetIds]);
     const removable = localAssetsRef.current
       .filter((asset) => asset.state === "local" && !protectedIds.has(asset.id) && !Object.prototype.hasOwnProperty.call(current.base.assets, asset.id))
       .map((asset) => asset.id);
@@ -1363,7 +1516,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       await refreshLocalAssets();
       await refreshQuota();
     }
-  }, [installPatch, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, state]);
+  }, [installPatch, protectedHistoryImageIds, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota, state]);
 
   const resolvePatchConflict = useCallback((path: string, choice: "static" | "local", manualValue?: unknown) => enqueue(async () => {
     const current = stateRef.current;
@@ -1406,6 +1559,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     if (!previous || !current) return false;
     try {
       await persistReconciled({ base: current.base, reconciled: reconcilePatch(current.base, previous), remember: false, reason: "undo" });
+      undoImageRecords.current.get(previous)?.release(); undoImageRecords.current.delete(previous);
       return true;
     } catch (reason) {
       undoStack.current.push(previous);
@@ -1528,7 +1682,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           publicationState: { status: "none", exportCompleted: false },
           reason: "publication",
         });
-        undoStack.current = [];
+        undoStack.current = []; releaseUndoImages();
         await refreshLocalAssets();
         return {
           status: "up-to-date",
@@ -1685,7 +1839,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         conflicts: finalRemaining.conflicts,
         publicationState,
       });
-      undoStack.current = [];
+      undoStack.current = []; releaseUndoImages();
       try {
         if (awaitedIds.length) await updateLocalAssetState(awaitedIds, "awaiting-verification");
         const reusedIds = snapshotLocalAssetIds.filter((id) => !awaitedIds.includes(id));
@@ -1875,7 +2029,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const current = stateRef.current;
     if (!current) throw new Error("Библиотека ещё загружается");
     const records = await listLocalAssets();
-    const protectedIds = new Set([...protectedPublicationAssetIds(current.publicationState), ...current.retainedLocalAssetIds]);
+    const protectedIds = new Set([...protectedHistoryImageIds(), ...protectedPublicationAssetIds(current.publicationState), ...current.retainedLocalAssetIds]);
+    for (const note of Object.values(current.effective.notes)) {
+      if (note.format === "smart") for (const assetId of collectSmartAssetIds(note.state)) protectedIds.add(assetId);
+    }
     const deletable = records.filter((asset) => asset.state === "local" && !protectedIds.has(asset.id));
     const unpublished = new Set(deletable.filter((asset) => !Object.prototype.hasOwnProperty.call(current.base.assets, asset.id)).map((asset) => asset.id));
     if (unpublished.size) await mutate((database) => {
@@ -1894,7 +2051,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setAttachmentWriteBlocked(false);
     await refreshLocalAssets();
     await refreshQuota();
-  }, [mutate, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota]);
+  }, [mutate, protectedHistoryImageIds, protectedPublicationAssetIds, refreshLocalAssets, refreshQuota]);
   const localAssetBytes = localAssets.reduce((total, asset) => total + asset.byteLength, 0);
   const snapshot = useMemo<LibrarySnapshot>(() => ({
     ...resolvedState,
@@ -1917,6 +2074,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [libraryStore, snapshot]);
 
   actionsRef.current = {
+    createSmartNoteScope,
     canAddBlob,
     resolveAssetUrl,
     saveGame,
@@ -1943,6 +2101,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   };
 
   const stableActions = useMemo<LibraryActions>(() => ({
+    createSmartNoteScope: (...args) => actionsRef.current!.createSmartNoteScope(...args),
     canAddBlob: (...args) => actionsRef.current!.canAddBlob(...args),
     resolveAssetUrl: (...args) => actionsRef.current!.resolveAssetUrl(...args),
     saveGame: (...args) => actionsRef.current!.saveGame(...args),

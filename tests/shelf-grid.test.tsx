@@ -728,6 +728,53 @@ describe("ordered shelf layout", () => {
     expect(Array.from(container.querySelectorAll<HTMLElement>(".note-card, .note-card__surface")).every((element) => element.style.height === "")).toBe(true);
   });
 
+  it("measures opaque shadow content with a passive intrinsic-height placeholder and remeasures its changes", async () => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
+    let intrinsicHeight = 313;
+    const measuredHeights: number[] = [];
+    const mountProgram = vi.fn((host: HTMLDivElement | null) => {
+      if (!host || host.shadowRoot) return;
+      host.attachShadow({ mode: "open" }).innerHTML = "<div>Independent opaque widget</div>";
+      Object.defineProperty(host, "scrollHeight", { configurable: true, get: () => intrinsicHeight });
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      if (this.classList.contains("notes-list")) return { width: 360, height: 400 } as DOMRect;
+      if (this.matches("[data-shelf-shadow-content]")) return { width: 348, height: intrinsicHeight } as DOMRect;
+      if (this.matches("article")) {
+        const placeholder = this.querySelector<HTMLElement>("[data-shelf-shadow-content]")!;
+        expect(this.parentElement).toHaveAttribute("data-shelf-measuring", "true");
+        expect(placeholder.shadowRoot).toBeNull();
+        const height = Number.parseFloat(placeholder.style.height);
+        measuredHeights.push(height);
+        return { width: 360, height: 36 + Math.min(height, Number(this.dataset.previewLimit)) } as DOMRect;
+      }
+      return { width: 0, height: 0 } as DOMRect;
+    });
+    const fixture = (limit: number) => <ShelfGrid className="notes-list" layoutKey={`opaque-${limit}`}>
+      <article className="note-card" data-preview-limit={limit}>
+        <div className="note-card__surface"><h1>Opaque fixture</h1><div style={{ maxHeight: limit, overflow: "auto" }}><div data-shelf-shadow-content="" ref={mountProgram} /></div></div>
+      </article>
+    </ShelfGrid>;
+    const { container, rerender } = render(fixture(300));
+    const card = container.querySelector("article")!;
+    const host = card.querySelector<HTMLElement>("[data-shelf-shadow-content]")!;
+    expect(card.style.gridRowEnd).toBe("span 336");
+    expect(measuredHeights).toContain(313);
+    expect(mountProgram).toHaveBeenCalledTimes(1);
+    intrinsicHeight = 540;
+    rerender(fixture(600));
+    expect(card.style.gridRowEnd).toBe("span 576");
+    intrinsicHeight = 90;
+    host.dispatchEvent(new CustomEvent("shelf-content-resize", { bubbles: true }));
+    await waitFor(() => expect(card.style.gridRowEnd).toBe("span 126"));
+    intrinsicHeight = 180;
+    window.dispatchEvent(new Event("resize"));
+    await waitFor(() => expect(card.style.gridRowEnd).toBe("span 216"));
+    expect(host.shadowRoot?.textContent).toContain("Independent opaque widget");
+    expect(mountProgram).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("[data-shelf-measuring]")).toBeNull();
+  });
+
   it("measures natural card heights without resetting the live shelf", async () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     const frames = new Map<number, FrameRequestCallback>();

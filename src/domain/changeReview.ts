@@ -120,6 +120,7 @@ const FIELD_LABELS: Record<string, string> = {
   status: "Статус",
   placement: "Место в тирлисте",
   reviewMarkdown: "Отзыв",
+  state: "Состояние смарт-заметки",
   bodyMarkdown: "Текст заметки",
   format: "Формат заметки",
   attachments: "Вложения",
@@ -133,6 +134,7 @@ const FIELD_LABELS: Record<string, string> = {
 const FIELD_ORDER = [
   "title",
   "format",
+  "state",
   "bodyMarkdown",
   "reviewMarkdown",
   "placement",
@@ -173,7 +175,7 @@ function entity(database: LibraryDatabase, map: EntityMapName, id: string): Game
 function operationFields(unit: SemanticUnit): string[] {
   if (unit.operations.some((item) => item.field === undefined)) {
     if (unit.map === "games") return ["title", "platforms", "tags", "status", "placement", "reviewMarkdown", "coverAssetId", "progressItems"];
-    if (unit.map === "notes") return ["format", "bodyMarkdown", "attachments", "groupRank", "rank", "collapsedChecklistSections", "doubleHeight", "doubleWidth"];
+    if (unit.map === "notes") return ["format", "state", "bodyMarkdown", "attachments", "groupRank", "rank", "collapsedChecklistSections", "doubleHeight", "doubleWidth"];
     return [];
   }
   return [...new Set(unit.operations.map((item) => item.field).filter((field): field is string => Boolean(field)))]
@@ -476,7 +478,9 @@ function evidenceForUnit(unit: SemanticUnit, base: LibraryDatabase, effective: L
   for (const field of operationFields(unit)) {
     const before = beforeEntity ? (beforeEntity as unknown as Record<string, unknown>)[field] : undefined;
     const after = afterEntity ? (afterEntity as unknown as Record<string, unknown>)[field] : undefined;
-    if (field === "format") {
+    if (field === "state") {
+      result.push({ type: "source", before: before === undefined ? "" : JSON.stringify(before, null, 2), after: after === undefined ? "" : JSON.stringify(after, null, 2) });
+    } else if (field === "format") {
       if (before !== after) result.push({ type: "scalar", before: `Формат: ${before === "tierlist" ? "Тирлист" : before === "graph" ? "Граф" : "Markdown"}`, after: `Формат: ${after === "tierlist" ? "Тирлист" : after === "graph" ? "Граф" : "Markdown"}` });
     } else if (field === "bodyMarkdown" && ((beforeEntity && "bodyMarkdown" in beforeEntity && noteFormat(beforeEntity) !== "markdown") || (afterEntity && "bodyMarkdown" in afterEntity && noteFormat(afterEntity) !== "markdown"))) {
       result.push({ type: "source", before: typeof before === "string" ? before : "", after: typeof after === "string" ? after : "" });

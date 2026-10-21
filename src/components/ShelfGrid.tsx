@@ -400,6 +400,16 @@ function createShelfMeasurement(grid: HTMLElement, width: number): ShelfMeasurem
     rowGap: `${DEFAULT_ROW_GAP}px`,
     alignItems: "start",
   });
+  // cloneNode deliberately omits Shadow DOM. Carry its live intrinsic box into a
+  // plain placeholder: measuring must never remount or execute a program.
+  const liveShadowContents = grid.querySelectorAll<HTMLElement>("[data-shelf-shadow-content]");
+  const clonedShadowContents = measurementGrid.querySelectorAll<HTMLElement>("[data-shelf-shadow-content]");
+  liveShadowContents.forEach((live, index) => {
+    const clone = clonedShadowContents[index];
+    if (!clone) return;
+    clone.style.height = `${Math.ceil(Math.max(live.scrollHeight, live.getBoundingClientRect().height))}px`;
+    clone.style.boxSizing = "border-box";
+  });
   measurementGrid.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
   measurementGrid.querySelectorAll("iframe, img, audio, video, source").forEach((element) => {
     element.removeAttribute("src");
@@ -637,6 +647,8 @@ export function ShelfGrid({
     mutationObserver?.observe(grid, { attributeFilter: ["aria-expanded", "class", "data-shelf-column-span", "data-shelf-current-table-width", "data-shelf-required-width"], attributeOldValue: true, attributes: true, characterData: true, childList: true, subtree: true });
     const handleResize = () => scheduleLayout(true);
     window.addEventListener("resize", handleResize);
+    const handleShadowContentResize = () => scheduleLayout(false);
+    grid.addEventListener("shelf-content-resize", handleShadowContentResize);
     layout(true);
 
     return () => {
@@ -644,6 +656,7 @@ export function ShelfGrid({
       observer?.disconnect();
       mutationObserver?.disconnect();
       window.removeEventListener("resize", handleResize);
+      grid.removeEventListener("shelf-content-resize", handleShadowContentResize);
     };
   }, [layoutDependency, packingFrozen]);
 

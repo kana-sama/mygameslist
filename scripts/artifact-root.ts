@@ -20,6 +20,7 @@ import {
 } from "../src/domain";
 import {
   parsePublishedLibraryEnvelope,
+  smartProgramContentType,
   type SourceAssembly,
 } from "../src/source";
 import { validateSourceTree } from "./validate-source";
@@ -32,6 +33,7 @@ export interface RuntimeArtifactFile {
 export interface RuntimeArtifactSnapshot {
   libraryJson: Uint8Array;
   media: ReadonlyMap<string, RuntimeArtifactFile>;
+  programs: ReadonlyMap<string, RuntimeArtifactFile>;
 }
 
 interface StableIdentity {
@@ -365,7 +367,17 @@ export function createRuntimeArtifactSnapshot(
     });
   }
 
+  const programFiles = Object.values(envelope.database.notes).flatMap(note => note.format === "smart" ? note.smart!.program.files.map(file => ({ ...file, path: `${note.id}/${note.smart!.program.hash}/${file.path}` })) : []);
+  const programBytes = assembly.runtimePrograms ?? new Map<string, Uint8Array>();
+  requireExactKeys([...programBytes.keys()], programFiles.map(file => file.path), "Assembly smart programs");
+  const programs = new Map<string, RuntimeArtifactFile>();
+  for (const file of programFiles) {
+    const bytes = programBytes.get(file.path)!;
+    if (bytes.byteLength !== file.byteLength || sha256Bytes(bytes) !== file.sha256) throw new Error(`Smart program bytes disagree with descriptor: ${file.path}`);
+    programs.set(file.path, { bytes: bytes.slice(), contentType: smartProgramContentType(file.path) });
+  }
   return {
+    programs,
     libraryJson: textEncoder.encode(`${canonicalStringify(envelope)}\n`),
     media,
   };
@@ -492,6 +504,18 @@ export async function validateArtifactRoot(
     `Artifact media namespace ${join(root, "media")}`,
   );
 
+  const expectedPrograms = new Map<string, string>();
+  if (snapshot.programs.size) expectedPrograms.set("smart-notes", "directory");
+  for (const path of snapshot.programs.keys()) {
+    const segments = `smart-notes/${path}`.split("/");
+    for (let index = 1; index < segments.length; index++) expectedPrograms.set(segments.slice(0, index).join("/"), "directory");
+    expectedPrograms.set(segments.join("/"), "file");
+  }
+  requireExactKeys(entries.filter(entry => entry.path === "smart-notes" || entry.path.startsWith("smart-notes/")).map(entry => `${entry.path}:${entry.kind}`), [...expectedPrograms].map(([path,kind]) => `${path}:${kind}`), "Artifact smart program namespace");
+  for (const [path, artifact] of snapshot.programs) {
+    const bytes = await readExactRegularFile(join(root, "smart-notes", path), `Smart program ${path}`);
+    if (!sameBytes(bytes, artifact.bytes)) throw new Error(`Smart program bytes differ at ${path}`);
+  }
   const libraryPath = join(root, "data", "library.json");
   await assertSameIdentity(rootIdentity, "Artifact root");
   const libraryBytes = await readExactRegularFile(libraryPath, "Artifact library JSON");
@@ -527,7 +551,7 @@ async function removeOwnedNamespace(
   stagingRoot: string,
   stagingIdentity: StableIdentity,
   stagingChain: StableDirectoryChain,
-  name: "data" | "media",
+  name: "data" | "media" | "smart-notes",
 ): Promise<void> {
   await assertStableDirectoryChain(stagingChain, "Artifact staging root");
   await assertSameIdentity(stagingIdentity, "Artifact staging root");
@@ -591,6 +615,7 @@ export async function buildArtifactData(
   await assertStableDirectoryChain(stagingChain, "Artifact staging root");
   await removeOwnedNamespace(stagingRoot, stagingIdentity, stagingChain, "data");
   await removeOwnedNamespace(stagingRoot, stagingIdentity, stagingChain, "media");
+  await removeOwnedNamespace(stagingRoot, stagingIdentity, stagingChain, "smart-notes");
 
   await assertStableDirectoryChain(stagingChain, "Artifact staging root");
   await assertSameIdentity(stagingIdentity, "Artifact staging root");
@@ -609,6 +634,17 @@ export async function buildArtifactData(
     await assertSameIdentity(mediaIdentity, "Artifact media namespace");
     await writeExclusiveFile(join(stagingRoot, "media", filename), artifact.bytes);
   }
+  const programDirectories = new Set<string>();
+  for (const [path, artifact] of snapshot.programs) {
+    await assertStableDirectoryChain(stagingChain, "Artifact staging root");
+    const directory = dirname(join(stagingRoot, "smart-notes", path));
+    await mkdir(directory, { recursive: true, mode: 0o755 });
+    await assertRealDirectoryChain(directory, "Smart program directory");
+    await writeExclusiveFile(join(stagingRoot, "smart-notes", path), artifact.bytes);
+    let current = directory;
+    while (current !== stagingRoot) { programDirectories.add(current); current = dirname(current); }
+  }
+  for (const directory of [...programDirectories].sort((a,b) => b.length - a.length)) await syncDirectory(directory);
   await assertStableDirectoryChain(stagingChain, "Artifact staging root");
   await assertSameIdentity(dataIdentity, "Artifact data namespace");
   await assertSameIdentity(mediaIdentity, "Artifact media namespace");

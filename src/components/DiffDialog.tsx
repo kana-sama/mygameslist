@@ -147,7 +147,7 @@ function ChangeEvidenceView({ evidence, resolveAssetUrl }: { evidence: ChangeEvi
     );
   }
   if (evidence.type === "source") {
-    return <pre className="markdown-diff-source" aria-label="Изменения исходного текста графа">{diffSourceLines(evidence.before, evidence.after).map(line => (
+    return <pre className="markdown-diff-source" aria-label="Изменения исходного текста">{diffSourceLines(evidence.before, evidence.after).map(line => (
       <span className={`markdown-diff-source-row markdown-diff-source-row--${line.kind}`} key={line.id} aria-label={line.kind === "added" ? `Добавлено: ${line.value}` : line.kind === "removed" ? `Удалено: ${line.value}` : undefined}>{line.value}</span>
     ))}</pre>;
   }

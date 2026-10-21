@@ -13,6 +13,7 @@ import { dirname, join, parse, resolve } from "node:path";
 import { sha256Bytes } from "../src/domain";
 import type {
   ProjectedBinaryLeaf,
+  ProjectedOpaqueLeaf,
   ProjectedSourceLeaf,
   SourceProjection,
   SourceTreeEntry,
@@ -27,6 +28,7 @@ export interface MaterializeSourceTreeOptions {
   projection: SourceProjection;
   /** Called at most once per unique asset SHA; returned bytes are reused for owner copies. */
   resolveAssetBytes(leaf: ProjectedBinaryLeaf): Promise<Uint8Array>;
+  resolveProgramBytes?(leaf: ProjectedOpaqueLeaf): Promise<Uint8Array>;
 }
 
 function compareText(left: string, right: string): number {
@@ -168,7 +170,7 @@ function validateProjectedLeaves(leaves: readonly ProjectedSourceLeaf[]): readon
   const folded = new Map<string, string>();
   const byteLengthByAssetId = new Map<string, number>();
   const validated = leaves.map((leaf): ValidatedLeaf => {
-    if (leaf === null || typeof leaf !== "object" || (leaf.kind !== "text" && leaf.kind !== "binary")) {
+    if (leaf === null || typeof leaf !== "object" || (leaf.kind !== "text" && leaf.kind !== "binary" && leaf.kind !== "opaque")) {
       throw new Error("Projected source leaf has an unsupported kind");
     }
     safeLogicalFilePath(leaf.path);
@@ -182,6 +184,8 @@ function validateProjectedLeaves(leaves: readonly ProjectedSourceLeaf[]): readon
     folded.set(caseKey, leaf.path);
     if (leaf.kind === "text") {
       if (typeof leaf.text !== "string") throw new Error(`Projected text leaf ${leaf.path} has invalid text`);
+    } else if (leaf.kind === "opaque") {
+      if (!SHA256.test(leaf.sha256) || !Number.isSafeInteger(leaf.byteLength) || leaf.byteLength < 0) throw new Error(`Invalid opaque projected leaf ${leaf.path}`);
     } else {
       if (!SHA256.test(leaf.assetId)) throw new Error(`Projected binary leaf ${leaf.path} has invalid lowercase SHA`);
       if (!Number.isSafeInteger(leaf.byteLength) || leaf.byteLength < 0) {
@@ -325,6 +329,13 @@ export async function materializeProjectedSourceTree(
     binaryBytes.set(leaf.assetId, bytes);
   }
 
+  const programBytes = new Map<string, Uint8Array>();
+  for (const { leaf } of leaves) if (leaf.kind === "opaque") {
+    if (!options.resolveProgramBytes) throw new Error(`Program byte resolver is required for ${leaf.path}`);
+    const bytes = await options.resolveProgramBytes(leaf);
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength !== leaf.byteLength || sha256Bytes(bytes) !== leaf.sha256) throw new Error(`Program bytes disagree with descriptor ${leaf.path}`);
+    programBytes.set(leaf.path, bytes.slice());
+  }
   await assertStableDirectoryChain(parentIdentity);
   await assertTargetAbsent(targetSourceRoot);
 
@@ -367,7 +378,7 @@ export async function materializeProjectedSourceTree(
       const path = join(targetSourceRoot, ...relativeSegments);
       const bytes = leaf.kind === "text"
         ? new TextEncoder().encode(leaf.text)
-        : binaryBytes.get(leaf.assetId)!.slice();
+        : leaf.kind === "opaque" ? programBytes.get(leaf.path)!.slice() : binaryBytes.get(leaf.assetId)!.slice();
       await assertCreatedTargetStable();
       await writeExclusiveFile(path, bytes);
     }
