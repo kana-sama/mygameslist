@@ -17,13 +17,17 @@ export function mount(root, api) {
           </div>
           <div class="import-status" role="status" aria-live="polite"></div>
           <details class="failures" hidden><summary></summary><ul></ul></details>
-          <h3 aria-label="Комната"></h3>
+          <div class="room-header">
+            <h3 aria-label="Комната"></h3>
+            <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
+          </div>
           <div class="room-picture" hidden><img alt=""></div>
-          <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
-          <div class="note-actions"><button class="edit-note quiet" type="button">Редактировать</button></div>
-          <div class="note-empty">Заметки пока нет</div>
-          <div class="note-content" aria-label="Заметка"></div>
-          <div class="save-row"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="remove quiet" type="button">Убрать скрин</button></div>
+          <div class="save-row"><button class="remove quiet" type="button">Убрать скрин</button></div>
+          <div class="note-panel">
+            <div class="note-actions"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="edit-note quiet" type="button">Редактировать</button></div>
+            <div class="note-empty">Заметки пока нет</div>
+            <div class="note-content" aria-label="Заметка"></div>
+          </div>
         </aside>
       </div>
     </div>
