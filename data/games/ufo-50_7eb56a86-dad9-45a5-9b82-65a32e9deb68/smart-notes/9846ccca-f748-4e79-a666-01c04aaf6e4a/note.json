@@ -6,7 +6,6 @@
   "title": "Barbuta",
   "entrypoints": { "preview": "preview.js", "page": "page.js" },
   "rank": 1024,
-  "doubleWidth": true,
   "createdAt": "2026-10-21T10:00:00.000Z",
   "updatedAt": "2026-10-21T10:00:00.000Z",
   "state": { "version": 1, "rooms": {} },
