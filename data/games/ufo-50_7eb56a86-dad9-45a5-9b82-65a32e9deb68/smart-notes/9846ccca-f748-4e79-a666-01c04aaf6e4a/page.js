@@ -21,7 +21,7 @@ export function mount(root, api) {
           <div class="room-picture" hidden><img alt=""></div>
           <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
           <textarea rows="5" placeholder="Заметка" aria-label="Заметка" spellcheck="false"></textarea>
-          <div class="save-row"><span class="save-status" role="status"></span><button class="remove quiet" type="button">Убрать скрин</button></div>
+          <div class="save-row"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="remove quiet" type="button">Убрать скрин</button></div>
         </aside>
       </div>
     </div>
@@ -32,7 +32,8 @@ export function mount(root, api) {
   const check = $(".solved-toggle input");
   const status = $(".import-status"), saveStatus = $(".save-status"), errorList = $(".failures ul");
   let value = state(api.state.get().value), selected = takePreviewSelection() ?? "4,3", busy = false, disposed = false;
-  let writes = 0, dragDepth = 0;
+  let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null;
+  const drafts = new Map(), writes = new Set();
   const queue = [];
   const images = pictures(api, error => { status.textContent = error.message; status.classList.add("error"); });
   const map = board(true, select);
@@ -64,27 +65,66 @@ export function mount(root, api) {
     check.checked = !!item.image && !!item.solved;
     images.show($(".room-picture img"), item.image);
     $(".room-picture img").alt = `Комната ${label(selected)}`;
-    if (forceText || root.getRootNode().activeElement !== note) note.value = item.note;
+    const text = drafts.get(selected)?.text ?? item.note;
+    if ((forceText || root.getRootNode().activeElement !== note) && note.value !== text) note.value = text;
     map.render(value, selected, images);
     images.prune(value);
   }
   function select(key) {
+    void flushNotes().catch(() => undefined);
     selected = key;
     render(true);
   }
-  async function save(key, patch) {
-    writes++;
-    saveStatus.textContent = "Сохраняю…"; saveStatus.classList.remove("error");
-    try {
-      await api.state.update(current => changeRoom(current, key, patch));
-      if (!disposed && writes === 1) saveStatus.textContent = "Сохранено";
-    } catch (error) {
-      if (!disposed) { saveStatus.textContent = `Не сохранено: ${error.message}`; saveStatus.classList.add("error"); }
-    } finally { writes--; }
+  function savingStatus() {
+    if (disposed) return;
+    saveStatus.textContent = saveFailure ? `Не сохранено: ${saveFailure.error.message}` : drafts.size || writes.size ? "Сохраняю…" : "Сохранено";
+    saveStatus.classList.toggle("error", !!saveFailure);
+    $(".retry").hidden = !saveFailure;
   }
-  note.addEventListener("input", () => { void save(selected, { note: note.value }); });
-  check.addEventListener("change", () => { void save(selected, { solved: check.checked }); });
-  $(".remove").addEventListener("click", () => { void save(selected, { image: null, solved: false }); });
+  function write(reducer, retry, kind) {
+    const pending = api.state.update(reducer);
+    writes.add(pending);
+    savingStatus();
+    return pending.then(() => {
+      if (saveFailure?.kind === kind) saveFailure = null;
+    }, error => {
+      saveFailure = { error, retry, kind };
+      throw error;
+    }).finally(() => { writes.delete(pending); savingStatus(); });
+  }
+  function save(key, patch) {
+    const retry = () => save(key, patch);
+    return write(current => changeRoom(current, key, patch), retry, `${key}:${Object.keys(patch).join(",")}`);
+  }
+  function flushNotes() {
+    window.clearTimeout(noteTimer); noteTimer = 0;
+    // A second flush waits for the first and then captures any newer drafts.
+    if (noteFlush) return noteFlush.then(() => flushNotes());
+    if (!drafts.size || disposed) return Promise.resolve();
+    const batch = [...drafts];
+    noteFlush = write(current => batch.reduce((next, [key, draft]) => changeRoom(next, key, { note: draft.text }), current), flushNotes, "notes")
+      .then(() => { for (const [key, draft] of batch) if (drafts.get(key) === draft) drafts.delete(key); })
+      .finally(() => { noteFlush = null; savingStatus(); });
+    return noteFlush;
+  }
+  async function beforeClose() {
+    do {
+      // Subscribe to pending immediate writes before awaiting the note batch.
+      await Promise.all([flushNotes(), ...writes]);
+    } while (drafts.size || writes.size || noteFlush);
+    if (saveFailure) throw saveFailure.error;
+  }
+  note.addEventListener("input", () => {
+    drafts.set(selected, { text: note.value });
+    window.clearTimeout(noteTimer);
+    noteTimer = window.setTimeout(() => { noteTimer = 0; void flushNotes().catch(() => undefined); }, 400);
+    savingStatus();
+  });
+  note.addEventListener("blur", () => { void flushNotes().catch(() => undefined); });
+  check.addEventListener("change", () => { void save(selected, { solved: check.checked }).catch(() => undefined); });
+  $(".remove").addEventListener("click", () => { void save(selected, { image: null, solved: false }).catch(() => undefined); });
+  $(".retry").addEventListener("click", () => { if (saveFailure) void saveFailure.retry().catch(() => undefined); });
+  const unsubscribeClose = api.page.beforeClose(beforeClose);
   $(".upload").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => { void importFiles([...fileInput.files]); fileInput.value = ""; });
 
@@ -107,7 +147,9 @@ export function mount(root, api) {
           api.signal.throwIfAborted();
           ref = await api.assets.upload(blob, { name: `Barbuta-${label(key)}.png`, alt: `Экран Barbuta, комната ${label(key)}` });
           const existed = !!room(api.state.get().value, key).image;
-          await api.state.update(current => changeRoom(current, key, { image: ref }));
+          const pending = api.state.update(current => changeRoom(current, key, { image: ref }));
+          writes.add(pending);
+          try { await pending; } finally { writes.delete(pending); }
           if (existed) replaced++; else added++;
           visited.add(label(key)); lastKey = key;
         } catch (error) {
@@ -158,6 +200,8 @@ export function mount(root, api) {
   const unsubscribe = api.state.subscribe(snapshot => { value = state(snapshot.value); render(); });
   return () => {
     disposed = true;
+    window.clearTimeout(noteTimer);
+    unsubscribeClose();
     queue.length = 0;
     sizeObserver?.disconnect();
     window.removeEventListener("resize", fitMap);

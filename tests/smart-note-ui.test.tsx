@@ -23,15 +23,16 @@ function harness() {
   const factory: SmartNoteScopeFactory = vi.fn((_id, mode, page) => {
     const controller = new AbortController();
     const subscriptions = new Set<(snapshot: SmartNoteStateSnapshot) => void>();
-    const api: SmartNoteApi = { version: 1, mode, page, signal: controller.signal, state: {
+    const closeHandlers = new Set<() => void | Promise<void>>();
+    const api: SmartNoteApi = { version: 1, mode, page: { ...page, beforeClose: handler => { closeHandlers.add(handler); return () => { closeHandlers.delete(handler); }; } }, signal: controller.signal, state: {
       get: () => ({ value: structuredClone(value), revision: String(revision) }),
       subscribe: (listener) => { listeners.add(listener); subscriptions.add(listener); return () => listeners.delete(listener); }, update,
       set: async (next) => update(() => next),
     }, assets: { list: () => [], read: vi.fn(), url: vi.fn(), upload: vi.fn(), release: vi.fn() } };
     apis.push(api);
-    const dispose = vi.fn(() => { controller.abort(); subscriptions.forEach((listener) => listeners.delete(listener)); });
+    const dispose = vi.fn(() => { controller.abort(); closeHandlers.clear(); subscriptions.forEach((listener) => listeners.delete(listener)); });
     cleanups.push(dispose);
-    return { api, dispose };
+    return { api, dispose, prepareClose: () => closeHandlers.size ? Promise.all([...closeHandlers].map(handler => handler())).then(() => undefined) : undefined };
   });
   return { factory, apis, cleanups, update };
 }
@@ -51,6 +52,67 @@ function counterModule(label: string, cleanupMount = vi.fn()): SmartNoteModule {
 function shadow(container: HTMLElement, mode = "preview") { return container.querySelector(`[data-smart-mount="${mode}"]`)!.shadowRoot!; }
 
 describe("generic smart note host", () => {
+  it.each(["button", "Escape", "api"])("waits for close hooks through %s and coalesces repeated close requests", async (route) => {
+    const h = harness(), saving = deferred<void>(), hook = vi.fn(() => saving.promise), mountCleanup = vi.fn();
+    let pageApi: SmartNoteApi;
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root, api) {
+      pageApi = api; root.innerHTML = '<textarea>Local draft</textarea>';
+      const unsubscribe = api.page.beforeClose(hook);
+      return () => { unsubscribe(); mountCleanup(); };
+    } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(shadow(dialog, "page").querySelector("textarea")).not.toBeNull());
+    const request = () => { if (route === "api") pageApi.page.close(); else if (route === "Escape") fireEvent.keyDown(document, { key: "Escape" }); else fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" })); };
+    act(() => { request(); request(); });
+    expect(hook).toHaveBeenCalledOnce(); expect(dialog).toBeInTheDocument(); expect(pageApi!.signal.aborted).toBe(false);
+    await act(async () => saving.resolve());
+    expect(screen.queryByRole("dialog")).toBeNull(); expect(mountCleanup).toHaveBeenCalledOnce(); expect(pageApi!.signal.aborted).toBe(true);
+  });
+
+  it("keeps drafts and scope on close-hook failure, exposes the error and permits retry", async () => {
+    const h = harness(), hook = vi.fn().mockRejectedValueOnce(new Error("Storage is full")).mockResolvedValueOnce(undefined);
+    let pageApi: SmartNoteApi;
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root, api) { pageApi = api; root.innerHTML = '<textarea>Unsaved draft</textarea>'; api.page.beforeClose(hook); } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(shadow(dialog, "page").querySelector("textarea")).not.toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Storage is full");
+    expect(shadow(dialog, "page").querySelector("textarea")).toHaveValue("Unsaved draft"); expect(pageApi!.signal.aborted).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); expect(hook).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows closing a failed page mount after its scope is disposed", async () => {
+    const h = harness();
+    const loader: SmartNoteModuleLoader = async () => ({ mount() { throw new Error("Broken page"); } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Broken page");
+    expect(h.apis[0].signal.aborted).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("aborts forced teardown without running hooks and ignores an obsolete pending close", async () => {
+    const h = harness(), pending = deferred<void>(), hook = vi.fn(() => pending.promise);
+    const loader: SmartNoteModuleLoader = async () => ({ mount(_root, api) { api.page.beforeClose(hook); } });
+    const { rerender } = render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    await waitFor(() => expect(h.apis).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    rerender(<SmartNote note={note} conflict createScope={h.factory} loader={loader} />);
+    expect(h.apis[0].signal.aborted).toBe(true); expect(hook).toHaveBeenCalledOnce();
+    rerender(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    await waitFor(() => expect(h.apis).toHaveLength(2));
+    await act(async () => pending.resolve());
+    expect(screen.getByRole("dialog")).toBeInTheDocument(); expect(h.apis[1].signal.aborted).toBe(false);
+  });
+
   it("renders one title above one lazy isolated preview and supports preview-only modules", async () => {
     const h = harness(); const loader = vi.fn(async () => counterModule("Count"));
     const previewOnly = { ...note, smart: { ...note.smart!, entrypoints: { preview: "small.js" } } };

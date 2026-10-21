@@ -25,6 +25,33 @@ function setup() {
 }
 
 describe("smart scoped state", () => {
+  it("runs scoped close hooks before abort, supports unsubscribe and preserves immediate writes", async () => {
+    const { page, preview, persist } = setup();
+    const ignored = vi.fn(), otherView = vi.fn();
+    page.api.page.beforeClose(ignored)();
+    preview.api.page.beforeClose(otherView);
+    let finish!: () => void;
+    const hook = vi.fn(async () => { await new Promise<void>(resolve => { finish = resolve; }); await page.api.state.update(() => ({ count: 3 })); });
+    page.api.page.beforeClose(hook);
+    const pending = page.prepareClose();
+    expect(hook).toHaveBeenCalledOnce(); expect(page.api.signal.aborted).toBe(false);
+    expect(persist).not.toHaveBeenCalled();
+    finish(); await pending;
+    expect(page.api.state.get().value).toEqual({ count: 3 }); expect(persist).toHaveBeenCalledOnce();
+    expect(ignored).not.toHaveBeenCalled(); expect(otherView).not.toHaveBeenCalled();
+    page.dispose();
+    expect(() => page.api.page.beforeClose(ignored)).toThrow(/disposed/);
+    expect(() => page.prepareClose()).toThrow(/disposed/);
+  });
+  it("rejects failed close preparation without disposing the draft scope and can retry", async () => {
+    const { page } = setup();
+    const hook = vi.fn().mockRejectedValueOnce(new Error("quota")).mockResolvedValueOnce(undefined);
+    const unsubscribe = page.api.page.beforeClose(hook);
+    await expect(page.prepareClose()).rejects.toThrow("quota");
+    expect(page.api.signal.aborted).toBe(false);
+    await page.prepareClose(); expect(hook).toHaveBeenCalledTimes(2);
+    unsubscribe(); expect(page.prepareClose()).toBeUndefined();
+  });
   it("serializes reducers from both views over durable latest state and returns independent snapshots", async () => {
     const { preview, page, persist } = setup();
     const received: JsonValue[] = [];

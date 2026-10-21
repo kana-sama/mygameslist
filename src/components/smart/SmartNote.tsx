@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { Note } from "../../domain/types";
 import { smartProgramBaseUrl } from "../../domain/smartNote";
 import { useLibrarySelector } from "../../state/LibraryContext";
-import type { SmartNoteApi, SmartNoteMode, SmartNotePageControls, SmartNoteScope } from "../../state/smartNoteRuntime";
+import type { SmartNoteApi, SmartNoteBeforeClose, SmartNoteMode, SmartNotePageControls, SmartNoteScope } from "../../state/smartNoteRuntime";
 import { composedContains, deepestActiveElement, smartFocusableElements } from "./smartNoteFocus";
 import "./smartNote.css";
 
@@ -15,7 +15,7 @@ type SmartHostNote = Pick<Note, "id" | "smart">;
 
 function message(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason); }
 
-function SmartMount({ note, mode, createScope, page, loader }: { note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader }) {
+function SmartMount({ note, mode, createScope, page, loader, registerClose }: { note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(mode === "page");
   const [attempt, setAttempt] = useState(0);
@@ -65,6 +65,12 @@ function SmartMount({ note, mode, createScope, page, loader }: { note: SmartHost
         // Scope creation/get must reject conflicts before any program executes.
         scope = createScope(note.id, mode, page);
         scope.api.state.get();
+        registerClose?.(() => {
+          try {
+            const pending = scope!.prepareClose();
+            return pending?.catch(reason => { if (!stopped) setSaveError(message(reason)); throw reason; });
+          } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; }
+        });
         const api: SmartNoteApi = { ...scope.api, state: { ...scope.api.state,
           update: async (...args) => { try { const result = await scope!.api.state.update(...args); if (!stopped) setSaveError(null); return result; } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; } },
           set: async (...args) => { try { const result = await scope!.api.state.set(...args); if (!stopped) setSaveError(null); return result; } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; } },
@@ -81,6 +87,7 @@ function SmartMount({ note, mode, createScope, page, loader }: { note: SmartHost
       } catch (reason) {
         if (!stopped) {
           root.replaceChildren();
+          registerClose?.(null);
           scope?.dispose();
           setFailure({ message: message(reason), retry: !imported && reason instanceof TypeError });
         }
@@ -89,6 +96,7 @@ function SmartMount({ note, mode, createScope, page, loader }: { note: SmartHost
     void run();
     return () => {
       stopped = true;
+      registerClose?.(null);
       if (sizeFrame) window.cancelAnimationFrame(sizeFrame);
       sizeObserver?.disconnect();
       contentObserver?.disconnect();
@@ -98,7 +106,7 @@ function SmartMount({ note, mode, createScope, page, loader }: { note: SmartHost
       // Detach the mount so late async code cannot reinsert itself in the visible tree.
       shadow.replaceChildren();
     };
-  }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader]);
+  }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader, registerClose]);
   return <div className={`smart-note-mount smart-note-mount--${mode}`}>
     <div aria-busy={loading} data-shelf-shadow-content={mode === "preview" ? "" : undefined} data-smart-mount={mode} ref={host} />
     {loading ? <p className="smart-note-status" role="status">Загрузка заметки…</p> : null}
@@ -125,7 +133,7 @@ function lockBackground(portal: HTMLElement) {
   };
 }
 
-function SmartModal({ note, createScope, page, loader, onClose }: { note: SmartHostNote; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; onClose: () => void }) {
+function SmartModal({ note, createScope, page, loader, onClose, registerClose }: { note: SmartHostNote; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; onClose: () => void; registerClose: (handler: SmartNoteBeforeClose | null) => void }) {
   const [portal] = useState(() => document.createElement("div"));
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
@@ -169,7 +177,7 @@ function SmartModal({ note, createScope, page, loader, onClose }: { note: SmartH
   }, [portal, onClose]);
   return createPortal(<div className="smart-note-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) event.preventDefault(); }}><div aria-labelledby={titleId} aria-modal="true" className="smart-note-dialog" ref={dialog} role="dialog" tabIndex={-1}>
     <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button">×</button></header>
-    <SmartMount createScope={createScope} loader={loader} mode="page" note={note} page={page} />
+    <SmartMount createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} />
   </div></div>, portal);
 }
 
@@ -177,11 +185,23 @@ export function SmartNote({ note, createScope, loader = nativeLoader, dragging =
   const [open, setOpen] = useState(false);
   const origin = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const hasPage = Boolean(note.smart?.entrypoints.page);
-  const close = useCallback(() => setOpen(false), []);
+  const prepareClose = useRef<SmartNoteBeforeClose | null>(null);
+  const closing = useRef<Promise<void> | null>(null);
+  const registerClose = useCallback((handler: SmartNoteBeforeClose | null) => { prepareClose.current = handler; if (!handler) closing.current = null; }, []);
+  const close = useCallback(() => {
+    if (closing.current) return;
+    try {
+      const handler = prepareClose.current;
+      const pending = handler?.();
+      if (!pending) { setOpen(false); return; }
+      closing.current = pending;
+      void pending.then(() => { if (prepareClose.current === handler) setOpen(false); }, () => undefined).finally(() => { if (closing.current === pending) closing.current = null; });
+    } catch { /* The mount exposes the error and remains available for retry. */ }
+  }, []);
   const controls = useRef<SmartNotePageControls>({ open: () => false, close });
   controls.current.open = () => { if (!hasPage || conflict || dragging) return false; setOpen(true); return true; };
   const page = useRef<SmartNotePageControls>({ open: () => controls.current.open(), close }).current;
-  useEffect(() => { if (conflict) close(); }, [conflict, close]);
+  useEffect(() => { if (conflict) setOpen(false); }, [conflict]);
   const clickSuppressed = (event: MouseEvent) => event.defaultPrevented || dragging || origin.current?.moved || Boolean(document.getSelection()?.toString());
   const onClick = (event: MouseEvent) => {
     if (clickSuppressed(event)) return;
@@ -191,7 +211,7 @@ export function SmartNote({ note, createScope, loader = nativeLoader, dragging =
   return <div className="smart-note" onClick={onClick} onPointerDown={(event) => { origin.current = { x: event.clientX, y: event.clientY, moved: false }; }} onPointerMove={(event) => { const start = origin.current; if (start && Math.hypot(start.x - event.clientX, start.y - event.clientY) > 5) start.moved = true; }}>
     <h1 className="smart-note-title">{hasPage ? <button onClick={(event) => { if (!clickSuppressed(event)) page.open(); }} type="button">{note.smart?.title}</button> : note.smart?.title}</h1>
     {conflict ? <p className="field-error" role="alert">Локальные изменения этой заметки конфликтуют с опубликованной программой. Разрешите конфликт в локальных правках.</p> : <SmartMount createScope={createScope} loader={loader} mode="preview" note={note} page={page} />}
-    {open && !conflict ? <SmartModal createScope={createScope} loader={loader} note={note} onClose={close} page={page} /> : null}
+    {open && !conflict ? <SmartModal createScope={createScope} loader={loader} note={note} onClose={close} page={page} registerClose={registerClose} /> : null}
   </div>;
 }
 

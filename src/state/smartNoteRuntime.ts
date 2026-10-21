@@ -4,6 +4,7 @@ import type { Asset, ImageAsset, JsonValue, Note, SmartAssetRef } from "../domai
 
 export type SmartNoteMode = "preview" | "page";
 export interface SmartNotePageControls { open: () => boolean; close: () => void }
+export type SmartNoteBeforeClose = () => void | Promise<void>;
 export interface SmartNoteStateSnapshot { value: JsonValue; revision: string }
 export interface SmartNoteImageMetadata extends ImageAsset { ref: SmartAssetRef; assetId: string }
 export interface SmartNoteApi {
@@ -23,9 +24,9 @@ export interface SmartNoteApi {
     upload(blob: Blob, options: { name: string; alt?: string }): Promise<SmartAssetRef>;
     release(ref: SmartAssetRef): void;
   };
-  page: SmartNotePageControls;
+  page: SmartNotePageControls & { beforeClose(handler: SmartNoteBeforeClose): () => void };
 }
-export interface SmartNoteScope { api: SmartNoteApi; dispose(): void }
+export interface SmartNoteScope { api: SmartNoteApi; prepareClose(): void | Promise<void>; dispose(): void }
 export interface PreparedSmartImage { asset: ImageAsset; blob: Blob }
 export interface SmartNoteRuntimeAdapter {
   read(noteId: string): { note: Note | undefined; assets: Record<string, Asset>; conflict: boolean };
@@ -46,6 +47,7 @@ export function createSmartNoteRuntime(adapter: SmartNoteRuntimeAdapter) {
     const owner = Symbol(noteId);
     const controller = new AbortController();
     const subscriptions = new Set<() => void>();
+    const closeHandlers = new Set<SmartNoteBeforeClose>();
     const holds = new Map<string, () => void>();
     const urls = new Set<() => void>();
     const initial = adapter.read(noteId).note;
@@ -174,11 +176,20 @@ export function createSmartNoteRuntime(adapter: SmartNoteRuntimeAdapter) {
         },
         release(ref) { active(); const ids = collectSmartAssetIds(ref); if (ids.size !== 1 || !Object.hasOwn(ref, "$asset")) throw new Error("Invalid image reference"); releaseUpload(ref.$asset); void adapter.collectImages().catch(() => undefined); },
       },
-      page: { open: () => { current(); return initial.smart?.entrypoints.page ? page.open() : false; }, close: () => { active(); page.close(); } },
+      page: {
+        open: () => { current(); return initial.smart?.entrypoints.page ? page.open() : false; },
+        close: () => { active(); page.close(); },
+        beforeClose(handler) { active(); closeHandlers.add(handler); return () => { closeHandlers.delete(handler); }; },
+      },
     };
-    return { api, dispose() {
+    return { api, prepareClose() {
+      active();
+      if (!closeHandlers.size) return;
+      return (async () => { for (const handler of [...closeHandlers]) { active(); await handler(); } active(); })();
+    }, dispose() {
       if (controller.signal.aborted) return;
       controller.abort();
+      closeHandlers.clear();
       for (const unsubscribe of subscriptions) unsubscribe();
       for (const release of urls) release();
       for (const id of [...holds.keys()]) releaseUpload(id);
