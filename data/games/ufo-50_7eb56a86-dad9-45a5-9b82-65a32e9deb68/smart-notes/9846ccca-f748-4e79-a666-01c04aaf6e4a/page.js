@@ -41,6 +41,7 @@ export function mount(root, api) {
   let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null, noteUI = null;
   const drafts = new Map(), writes = new Set();
   const queue = [];
+  let importIdle = Promise.resolve();
   const images = pictures(api, error => { status.textContent = error.message; status.classList.add("error"); });
   const map = board(true, select);
   const mapPanel = $(".map-panel");
@@ -195,12 +196,20 @@ export function mount(root, api) {
   });
   const unsubscribeClose = api.page.beforeClose(beforeClose);
   $(".upload").addEventListener("click", () => fileInput.click());
-  fileInput.addEventListener("change", () => { void importFiles([...fileInput.files]); fileInput.value = ""; });
+  fileInput.addEventListener("change", () => {
+    // Safari needs the chosen FileList to stay alive while queued files are read.
+    const selection = fileInput.files;
+    void importFiles([...selection]).finally(() => {
+      if (fileInput.files === selection) fileInput.value = "";
+    });
+  });
 
   async function importFiles(files) {
     if (!files.length || disposed) return;
     queue.push(...files);
-    if (busy) return;
+    if (busy) return importIdle;
+    let finishImport;
+    importIdle = new Promise(resolve => { finishImport = resolve; });
     busy = true;
     errorList.replaceChildren(); $(".failures").hidden = true; status.classList.remove("error");
     let done = 0, added = 0, replaced = 0, failed = 0, lastKey = null;
@@ -234,7 +243,7 @@ export function mount(root, api) {
         status.textContent = `Готово · добавлено ${added} · заменено ${replaced}${failed ? ` · ошибок ${failed}` : ""}${visited.size ? ` — ${[...visited].join(", ")}` : ""}`;
         status.classList.toggle("error", !added && !replaced && failed > 0);
       }
-    } finally { busy = false; atlas.removeAttribute("aria-busy"); }
+    } finally { busy = false; atlas.removeAttribute("aria-busy"); finishImport(); }
   }
 
   function hasFiles(event) { return [...(event.dataTransfer?.types ?? [])].includes("Files"); }

@@ -2,7 +2,11 @@ import { WIDTH, HEIGHT, frame, cropRect, locate } from "./model.js";
 
 export async function extract(file) {
   if (file.size > 40 * 1024 * 1024) throw new Error("Файл больше 40 МБ");
-  const url = URL.createObjectURL(file);
+  let bytes;
+  try { bytes = await file.arrayBuffer(); }
+  catch (cause) { throw new Error("Не удалось прочитать файл", { cause }); }
+  // Safari can fail to load disk-backed File URLs; decode detached bytes instead.
+  const url = URL.createObjectURL(new Blob([bytes], { type: file.type }));
   try {
     const image = new Image();
     image.decoding = "async";
