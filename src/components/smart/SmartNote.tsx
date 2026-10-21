@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Game, Note } from "../../domain/types";
 import { smartProgramBaseUrl } from "../../domain/smartNote";
 import { useLibrarySelector } from "../../state/LibraryContext";
+import { Icon } from "../Icon";
 import type { SmartNoteApi, SmartNoteBeforeClose, SmartNoteMode, SmartNotePageControls, SmartNoteScope } from "../../state/smartNoteRuntime";
 import { composedContains, deepestActiveElement, smartFocusableElements } from "./smartNoteFocus";
 import { createSmartNoteUi, SmartNoteUiPortals, type SmartNoteUiBridge } from "./smartNoteUi";
@@ -185,7 +186,7 @@ function SmartModal({ note, createScope, page, loader, onClose, registerClose, g
     };
   }, [portal, onClose]);
   return createPortal(<div className="smart-note-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) event.preventDefault(); }}><div aria-labelledby={titleId} aria-modal="true" className="smart-note-dialog" ref={dialog} role="dialog" tabIndex={-1}>
-    <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button">×</button></header>
+    <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button"><Icon name="close" size={24} /></button></header>
     <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} />
   </div></div>, portal);
 }
