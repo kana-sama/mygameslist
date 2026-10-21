@@ -11,6 +11,27 @@ export function mount(root, api) {
       <div class="main-layout">
         <section class="map-panel" aria-label="Личная карта"></section>
         <aside class="inspector" aria-label="Выбранная комната">
+          <div class="hud-crest" aria-hidden="true">
+            <span class="hud-wing"></span>
+            <svg class="hud-emblem" viewBox="0 0 104 44" focusable="false">
+              <path fill="#78243d" d="M18 14h8V8h8V4h8V0h20v4h8v4h8v6h8v26H18z"/>
+              <path fill="#ee315e" d="M20 14h8V8h8V4h8V2h16v2h8v4h8v6h8v24H20z"/>
+              <path fill="#f0efd8" d="M26 16h6V10h8V6h24v4h8v6h6v20H26z"/>
+              <path fill="#989c87" d="M26 20h6v12h40V20h6v16H26zM36 10h4v4h-4zM64 10h4v4h-4z"/>
+              <path fill="#080a08" d="M36 16h32v4h4v12H32V20h4z"/>
+              <path fill="#ea315e" d="M44 8h16v4H44zM48 6h8v10h-8z"/>
+              <path fill="#f0efd8" d="M44 18h16v4h4v12h-8v4h-8v-4h-8V22h4z"/>
+              <path fill="#aaa991" d="M44 22h4v12h-4zM56 22h4v12h-4z"/>
+              <path fill="#080a08" d="M44 24h16v4h-4v6h-8v-6h-4z"/>
+              <path fill="#f0efd8" d="M48 24h4v10h-4z"/>
+              <path fill="#080a08" d="M18 36h68v8H18z"/>
+              <path fill="#ee315e" d="M12 36h12v4h12v-2h32v2h12v-4h12v4h-8v4H20v-4h-8z"/>
+              <path fill="#f0efd8" d="M28 40h16v2H28zM60 40h16v2H60z"/>
+              <path fill="#78243d" d="M0 24h14v4H0zM90 24h14v4H90z"/>
+              <path fill="#f0efd8" d="M0 24h10v2H0zM94 24h10v2H94z"/>
+            </svg>
+            <span class="hud-wing"></span>
+          </div>
           <div class="toolbar">
             <button class="primary upload" type="button">Загрузить скрины</button>
             <input class="file-input" type="file" accept="image/*" multiple aria-label="Скриншоты Barbuta" hidden>
