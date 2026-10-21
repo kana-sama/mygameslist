@@ -1,4 +1,4 @@
-import { keys, label, room } from "./model.js";
+import { keys, extraKeys, linkedKeys, label, room } from "./model.js";
 
 export function style(root) {
   const link = document.createElement("link");
@@ -56,16 +56,57 @@ export function board(interactive, onSelect) {
   return {
     grid,
     render(value, selected, images) {
+      const linked = new Set(linkedKeys(value, selected));
       for (const [key, { cell, img, mark }] of cells) {
         const item = room(value, key);
         cell.classList.toggle("filled", !!item.image);
         cell.classList.toggle("solved", !!item.solved && !!item.image);
         cell.classList.toggle("selected", key === selected);
+        cell.classList.toggle("linked", linked.has(key));
         cell.setAttribute("aria-label", `${label(key)} · ${item.image ? item.solved ? "разгадано" : "не разгадано" : "не исследовано"}${item.note ? " · есть заметка" : ""}`);
-        if (interactive) { cell.setAttribute("aria-pressed", String(key === selected)); cell.tabIndex = selected === null || key === selected ? 0 : -1; }
+        if (interactive) { cell.setAttribute("aria-pressed", String(key === selected)); cell.tabIndex = selected === null || key === selected || !keys.includes(selected) && key === keys[0] ? 0 : -1; }
         mark.textContent = item.solved && item.image ? "✓" : item.note ? "•" : "";
         images.show(img, item.image);
       }
+    },
+    focus(key) { cells.get(key)?.cell.focus(); }
+  };
+}
+export function extraBoard(interactive, onSelect) {
+  const grid = element("div", interactive ? "extra-board" : "extra-board mini");
+  grid.setAttribute("aria-label", "Комнаты вне основной карты");
+  grid.hidden = true;
+  const cells = new Map();
+  return {
+    grid,
+    render(value, selected, images) {
+      const ordered = extraKeys(value), live = new Set(ordered);
+      const linked = new Set(linkedKeys(value, selected));
+      for (const [key, { cell }] of cells) if (!live.has(key)) { cell.remove(); cells.delete(key); }
+      for (const [index, key] of ordered.entries()) {
+        if (!cells.has(key)) {
+          const cell = element(interactive ? "button" : "div", "cell");
+          cell.dataset.key = key;
+          if (interactive) { cell.type = "button"; cell.addEventListener("click", () => onSelect(key)); }
+          const img = element("img"); img.alt = ""; img.hidden = true;
+          const coord = element("span", "coord");
+          const mark = element("span", "mark"); mark.setAttribute("aria-hidden", "true");
+          cell.append(img, coord, mark); cells.set(key, { cell, img, coord, mark });
+        }
+        const { cell, img, coord, mark } = cells.get(key);
+        if (grid.children[index] !== cell) grid.insertBefore(cell, grid.children[index] ?? null);
+        const item = room(value, key), title = label(key, value);
+        coord.textContent = title;
+        cell.classList.toggle("filled", !!item.image);
+        cell.classList.toggle("solved", !!item.solved && !!item.image);
+        cell.classList.toggle("selected", key === selected);
+        cell.classList.toggle("linked", linked.has(key));
+        cell.setAttribute("aria-label", `${title} · ${item.image ? item.solved ? "разгадано" : "не разгадано" : "не исследовано"}${item.note ? " · есть заметка" : ""}`);
+        if (interactive) { cell.setAttribute("aria-pressed", String(key === selected)); cell.tabIndex = selected === null || key === selected || !live.has(selected) && index === 0 ? 0 : -1; }
+        mark.textContent = item.solved && item.image ? "✓" : item.note ? "•" : "";
+        images.show(img, item.image);
+      }
+      grid.hidden = ordered.length === 0;
     },
     focus(key) { cells.get(key)?.cell.focus(); }
   };

@@ -1,5 +1,5 @@
-import { label, room, state, changeRoom, takePreviewSelection } from "./model.js";
-import { style, element, pictures, board } from "./view.js";
+import { label, room, state, changeRoom, takePreviewSelection, isGridKey, isExtraKey, extraKeys, roomKeys, addExtraRoom, deleteExtraRoom, setRoomLink, linkedKeys } from "./model.js";
+import { style, element, pictures, board, extraBoard } from "./view.js";
 import { extract } from "./images.js";
 
 export function mount(root, api) {
@@ -42,7 +42,11 @@ export function mount(root, api) {
           </div>
           <div class="inspector-room">
           <div class="room-header">
-            <h3 aria-label="Комната"></h3>
+            <div class="room-name">
+              <h3 aria-label="Комната"></h3>
+              <input class="room-title-input" type="text" aria-label="Название комнаты" hidden>
+              <button class="rename-room quiet" type="button" aria-label="Переименовать комнату" hidden>Имя</button>
+            </div>
             <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
           </div>
           <div class="room-picture">
@@ -53,6 +57,10 @@ export function mount(root, api) {
             </div>
           </div>
           <div class="save-row"><button class="remove quiet" type="button">Убрать скрин</button></div>
+          <div class="room-links">
+            <div class="connection-list" aria-label="Связанные комнаты" hidden></div>
+            <select class="connect-room" aria-label="Связать с комнатой"></select>
+          </div>
           </div>
           <div class="note-panel">
             <div class="note-actions"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="edit-note quiet" type="button">Редактировать</button></div>
@@ -69,14 +77,18 @@ export function mount(root, api) {
   const check = $(".solved-toggle input");
   const status = $(".import-status"), saveStatus = $(".save-status"), errorList = $(".failures ul");
   let value = state(api.state.get().value), selected = takePreviewSelection() ?? "4,3", busy = false, disposed = false;
-  let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null, noteUI = null;
+  if (!roomKeys(value).includes(selected)) selected = "4,3";
+  let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null, noteUI = null, titleEditing = null, connectionsSignature = "";
   const drafts = new Map(), writes = new Set();
+  const deleting = new Set();
   const queue = [];
   let importIdle = Promise.resolve();
   const images = pictures(api, error => { status.textContent = error.message; status.classList.add("error"); });
   const map = board(true, select);
-  const mapPanel = $(".map-panel");
-  mapPanel.append(map.grid);
+  const extras = extraBoard(true, select);
+  const mapPanel = $(".map-panel"), inspector = $(".inspector");
+  const titleInput = $(".room-title-input"), renameButton = $(".rename-room"), connectRoom = $(".connect-room");
+  mapPanel.append(extras.grid, map.grid);
 
   // The root fills the host's flex slot, independently of map/sidebar content.
   // Observe that stable slot rather than a panel whose width this changes.
@@ -90,37 +102,122 @@ export function mount(root, api) {
     const frameWidth = inset(frame, ["Left", "Right"]);
     const frameHeight = inset(frame, ["Top", "Bottom"]);
     const gap = 7 * px(grid.columnGap);
-    const availableHeight = root.clientHeight - inset(outer, ["Top", "Bottom"]) - frameHeight;
-    const fromHeight = Math.max(0, availableHeight - gap) * 32 / 23 + gap + frameWidth;
+    const extraHeight = extras.grid.hidden ? 0 : extras.grid.getBoundingClientRect().height + px(frame.rowGap);
+    const availableHeight = root.clientHeight - inset(outer, ["Top", "Bottom"]) - frameHeight - extraHeight;
     const availableWidth = root.clientWidth - inset(outer, ["Left", "Right"]);
+    if (atlas.classList.contains("stacked")) {
+      const remainingHeight = availableHeight - inspector.getBoundingClientRect().height - px(getComputedStyle(inspector).marginTop);
+      const fromHeight = Math.max(0, remainingHeight - gap) * 32 / 23 + gap;
+      const width = `${Math.max(0, Math.min(availableWidth - frameWidth, fromHeight))}px`;
+      // The inspector keeps its full width; update only on a real size change.
+      if (atlas.style.getPropertyValue("--mobile-map-width") !== width) atlas.style.setProperty("--mobile-map-width", width);
+      return;
+    }
+    const fromHeight = Math.max(0, availableHeight - gap) * 32 / 23 + gap + frameWidth;
     const fromWidth = availableWidth - px(layout.columnGap) - px(outer.getPropertyValue("--sidebar-min"));
-    atlas.style.setProperty("--map-width", `${Math.max(0, Math.min(fromHeight, fromWidth))}px`);
+    const width = `${Math.max(0, Math.min(fromHeight, fromWidth))}px`;
+    if (atlas.style.getPropertyValue("--map-width") !== width) atlas.style.setProperty("--map-width", width);
   }
   const sizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitMap);
   sizeObserver?.observe(root);
+  sizeObserver?.observe(extras.grid);
+  sizeObserver?.observe(inspector);
   window.addEventListener("resize", fitMap);
   // The stylesheet loads asynchronously; fit again once its grid gap is available.
   root.querySelector('link[rel="stylesheet"]')?.addEventListener("load", fitMap, { once: true, signal: api.signal });
   fitMap();
 
   function render() {
+    if (!roomKeys(value).includes(selected)) {
+      drafts.delete(selected);
+      disposeNoteUI();
+      titleEditing = null;
+      selected = "4,3";
+    }
     const item = room(value, selected);
-    $("h3").textContent = label(selected);
+    renderTitle();
     $(".picture-empty").hidden = !!item.image;
-    $(".remove").hidden = !item.image;
+    $(".remove").hidden = !isExtraKey(selected) && !item.image;
+    $(".remove").textContent = isExtraKey(selected) ? "Удалить комнату" : "Убрать скрин";
+    $(".remove").disabled = deleting.has(selected);
+    editButton.disabled = deleting.has(selected);
     check.disabled = !item.image;
     check.checked = !!item.image && !!item.solved;
     images.show($(".room-picture img"), item.image);
-    $(".room-picture img").alt = `Комната ${label(selected)}`;
+    $(".room-picture img").alt = `Комната ${label(selected, value)}`;
+    renderConnections();
     renderNote(drafts.get(selected)?.text ?? item.note);
     map.render(value, selected, images);
+    extras.render(value, selected, images);
+    fitMap();
     images.prune(value);
   }
   function select(key) {
+    if (!roomKeys(value).includes(key)) return;
+    if (selected !== key) finishRename();
     void flushNotes().catch(() => undefined);
     if (selected !== key) disposeNoteUI();
     selected = key;
     render();
+  }
+  function focusRoom(key) {
+    (isExtraKey(key) ? extras : map).focus(key);
+  }
+  function renderTitle() {
+    const editing = titleEditing?.key === selected && isExtraKey(selected);
+    $("h3").textContent = label(selected, value);
+    $("h3").hidden = editing;
+    titleInput.hidden = !editing;
+    renameButton.hidden = !isExtraKey(selected) || editing;
+    renameButton.disabled = deleting.has(selected);
+  }
+  function finishRename(cancel = false) {
+    const session = titleEditing;
+    if (!session) return;
+    const title = titleInput.value.trim();
+    titleEditing = null;
+    renderTitle();
+    if (!cancel && title && title !== label(session.key, value)) void save(session.key, { title }).catch(() => undefined);
+  }
+  function renderConnections() {
+    const neighbors = linkedKeys(value, selected);
+    const available = roomKeys(value).filter(key => key !== selected && !neighbors.includes(key));
+    const signature = JSON.stringify([selected, neighbors, roomKeys(value).map(key => [key, label(key, value)])]);
+    if (signature === connectionsSignature) return;
+    connectionsSignature = signature;
+    const list = $(".connection-list");
+    list.replaceChildren();
+    list.hidden = !neighbors.length;
+    for (const key of neighbors) {
+      const connection = element("span", "connection");
+      const open = element("button", "connection-open", label(key, value));
+      open.type = "button";
+      open.setAttribute("aria-label", `Открыть комнату ${label(key, value)}`);
+      open.addEventListener("click", () => { select(key); focusRoom(key); });
+      const remove = element("button", "connection-remove", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Убрать связь с комнатой ${label(key, value)}`);
+      const from = selected;
+      remove.addEventListener("click", () => { void saveLink(from, key, false).catch(() => undefined); });
+      connection.append(open, remove);
+      list.append(connection);
+    }
+    const blank = element("option", "", "Связать с комнатой…");
+    blank.value = "";
+    connectRoom.replaceChildren(blank);
+    for (const [name, matches] of [["Карта", isGridKey], ["Особые комнаты", isExtraKey]]) {
+      const keys = available.filter(matches);
+      if (!keys.length) continue;
+      const group = element("optgroup");
+      group.label = name;
+      for (const key of keys) {
+        const option = element("option", "", label(key, value));
+        option.value = key;
+        group.append(option);
+      }
+      connectRoom.append(group);
+    }
+    connectRoom.value = "";
   }
   function savingStatus() {
     if (disposed) return;
@@ -141,7 +238,37 @@ export function mount(root, api) {
   }
   function save(key, patch) {
     const retry = () => save(key, patch);
-    return write(current => changeRoom(current, key, patch), retry, `${key}:${Object.keys(patch).join(",")}`);
+    return write(current => isExtraKey(key) && !state(current).rooms[key] ? current : changeRoom(current, key, patch), retry, `${key}:${Object.keys(patch).join(",")}`);
+  }
+  function saveLink(a, b, enabled) {
+    const retry = () => saveLink(a, b, enabled);
+    return write(current => setRoomLink(current, a, b, enabled), retry, `link:${[a, b].sort().join(":")}`);
+  }
+  function removeRoom(key) {
+    if (!isExtraKey(key)) return save(key, { image: null, solved: false });
+    if (deleting.has(key)) return Promise.resolve();
+    const pending = removeExtraRoom(key);
+    writes.add(pending);
+    savingStatus();
+    return pending.finally(() => { writes.delete(pending); savingStatus(); });
+  }
+  async function removeExtraRoom(key) {
+    deleting.add(key);
+    if (noteUI?.key === key) disposeNoteUI();
+    if (titleEditing?.key === key) finishRename();
+    render();
+    try {
+      // Finish the note batch before deletion so an older draft cannot restore it.
+      await flushNotes();
+      const current = state(api.state.get().value);
+      const fallback = linkedKeys(current, key).find(neighbor => roomKeys(current).includes(neighbor)) ?? "4,3";
+      if (selected === key) select(fallback);
+      await write(current => deleteExtraRoom(current, key), () => removeRoom(key), `delete:${key}`);
+      drafts.delete(key);
+    } finally {
+      deleting.delete(key);
+      if (!disposed) render();
+    }
   }
   function flushNotes() {
     window.clearTimeout(noteTimer); noteTimer = 0;
@@ -149,12 +276,14 @@ export function mount(root, api) {
     if (noteFlush) return noteFlush.then(() => flushNotes());
     if (!drafts.size || disposed) return Promise.resolve();
     const batch = [...drafts];
-    noteFlush = write(current => batch.reduce((next, [key, draft]) => changeRoom(next, key, { note: draft.text }), current), flushNotes, "notes")
+    noteFlush = write(current => batch.reduce((next, [key, draft]) =>
+      isExtraKey(key) && !state(next).rooms[key] ? next : changeRoom(next, key, { note: draft.text }), current), flushNotes, "notes")
       .then(() => { for (const [key, draft] of batch) if (drafts.get(key) === draft) drafts.delete(key); })
       .finally(() => { noteFlush = null; savingStatus(); });
     return noteFlush;
   }
   async function beforeClose() {
+    finishRename();
     do {
       // Subscribe to pending immediate writes before awaiting the note batch.
       await Promise.all([flushNotes(), ...writes]);
@@ -167,7 +296,7 @@ export function mount(root, api) {
     previous?.handle.dispose();
   }
   function noteChanged(session, text) {
-    if (disposed || noteUI !== session) return;
+    if (disposed || noteUI !== session || deleting.has(session.key)) return;
     session.text = text;
     drafts.set(session.key, { text });
     window.clearTimeout(noteTimer);
@@ -227,8 +356,28 @@ export function mount(root, api) {
     if (noteUI?.kind === "editor") void finishEditing().catch(() => undefined);
     else startEditing();
   });
+  renameButton.addEventListener("click", () => {
+    if (!isExtraKey(selected) || deleting.has(selected)) return;
+    titleEditing = { key: selected };
+    titleInput.value = label(selected, value);
+    renderTitle();
+    titleInput.focus();
+    titleInput.select();
+  });
+  titleInput.addEventListener("blur", () => finishRename());
+  titleInput.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== "Escape") return;
+    event.preventDefault();
+    finishRename(event.key === "Escape");
+    renameButton.focus();
+  });
+  connectRoom.addEventListener("change", () => {
+    const key = connectRoom.value;
+    connectRoom.value = "";
+    if (key) void saveLink(selected, key, true).catch(() => undefined);
+  });
   check.addEventListener("change", () => { void save(selected, { solved: check.checked }).catch(() => undefined); });
-  $(".remove").addEventListener("click", () => { void save(selected, { image: null, solved: false }).catch(() => undefined); });
+  $(".remove").addEventListener("click", () => { void removeRoom(selected).catch(() => undefined); });
   $(".retry").addEventListener("click", () => {
     if (saveFailure) void saveFailure.retry().then(() => {
       if (noteUI?.finishRequested) return finishEditing();
@@ -261,15 +410,18 @@ export function mount(root, api) {
         atlas.setAttribute("aria-busy", "true");
         let ref;
         try {
-          const { key, blob } = await extract(file);
+          const { key: locatedKey, blob } = await extract(file);
+          const extra = locatedKey === null;
+          const key = extra ? `extra:${crypto.randomUUID()}` : locatedKey;
           api.signal.throwIfAborted();
-          ref = await api.assets.upload(blob, { name: `Barbuta-${label(key)}.png`, alt: `Экран Barbuta, комната ${label(key)}` });
-          const existed = !!room(api.state.get().value, key).image;
-          const pending = api.state.update(current => changeRoom(current, key, { image: ref }));
+          const name = extra ? "особая комната" : `комната ${label(key, value)}`;
+          ref = await api.assets.upload(blob, { name: `Barbuta-${extra ? "extra-room" : label(key, value)}.png`, alt: `Экран Barbuta, ${name}` });
+          const existed = !extra && !!room(api.state.get().value, key).image;
+          const pending = api.state.update(current => extra ? addExtraRoom(current, key, { image: ref }) : changeRoom(current, key, { image: ref }));
           writes.add(pending);
           try { await pending; } finally { writes.delete(pending); }
           if (existed) replaced++; else added++;
-          visited.add(label(key)); lastKey = key;
+          visited.add(label(key, state(api.state.get().value))); lastKey = key;
         } catch (error) {
           if (api.signal.aborted) break;
           failed++;
@@ -308,11 +460,19 @@ export function mount(root, api) {
   map.grid.addEventListener("keydown", event => {
     const directions = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     const delta = directions[event.key];
-    if (!delta) return;
+    if (!delta || !isGridKey(selected)) return;
     event.preventDefault();
     const [x, y] = selected.split(",").map(Number);
     select(`${Math.max(0, Math.min(7, x + delta[0]))},${Math.max(0, Math.min(7, y + delta[1]))}`);
     map.focus(selected);
+  });
+  extras.grid.addEventListener("keydown", event => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" || !isExtraKey(selected)) return;
+    const keys = extraKeys(value), index = keys.indexOf(selected);
+    if (index === -1) return;
+    event.preventDefault();
+    select(keys[Math.max(0, Math.min(keys.length - 1, index + (event.key === "ArrowLeft" ? -1 : 1)))]);
+    extras.focus(selected);
   });
   render();
   const unsubscribe = api.state.subscribe(snapshot => { value = state(snapshot.value); render(); });
