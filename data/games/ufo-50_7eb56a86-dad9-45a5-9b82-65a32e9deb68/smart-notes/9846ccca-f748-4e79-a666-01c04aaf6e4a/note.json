@@ -1,0 +1,14 @@
+{
+  "format": "smart",
+  "version": 1,
+  "apiVersion": 1,
+  "id": "9846ccca-f748-4e79-a666-01c04aaf6e4a",
+  "title": "Barbuta · атлас замка",
+  "entrypoints": { "preview": "preview.js", "page": "page.js" },
+  "rank": 1024,
+  "doubleWidth": true,
+  "createdAt": "2026-10-21T10:00:00.000Z",
+  "updatedAt": "2026-10-21T10:00:00.000Z",
+  "state": { "version": 1, "rooms": {} },
+  "assets": []
+}
