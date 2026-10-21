@@ -149,6 +149,52 @@ describe("generic smart note host", () => {
     expect(title).toHaveFocus(); expect(background.inert).toBeFalsy(); expect(container.inert).toBeFalsy(); background.remove();
   });
 
+  it.each(["control", "host", "unknown"])("does not steal focus during a browser transition with %s destination", async (destination) => {
+    const h = harness();
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root) { root.innerHTML = '<textarea aria-label="Synthetic text"></textarea>'; } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(shadow(dialog, "page").querySelector("textarea")).not.toBeNull());
+    const close = screen.getByRole<HTMLButtonElement>("button", { name: "Закрыть заметку" });
+    const editor = shadow(dialog, "page").querySelector("textarea")!;
+    const target = destination === "unknown" ? null : destination === "host" ? shadow(dialog, "page").host : editor;
+
+    // Replace JSDOM's synchronous blur with the browser event sequence: the
+    // old control blurs to BODY, then a microtask runs before the new focus.
+    close.addEventListener("focusout", (event) => event.stopPropagation(), { once: true });
+    close.blur();
+    fireEvent.focusOut(close, { relatedTarget: target });
+    await act(async () => { await Promise.resolve(); });
+    expect(close).not.toHaveFocus();
+
+    editor.focus();
+    act(() => frames.forEach((callback) => callback(0)));
+    expect(shadow(dialog, "page").activeElement).toBe(editor);
+  });
+
+  it("honors an internal composed focusin target before the active element settles", async () => {
+    const h = harness();
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root) { root.innerHTML = '<textarea aria-label="Synthetic text"></textarea>'; } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(shadow(dialog, "page").querySelector("textarea")).not.toBeNull());
+    const close = screen.getByRole<HTMLButtonElement>("button", { name: "Закрыть заметку" });
+    const editor = shadow(dialog, "page").querySelector("textarea")!;
+
+    close.addEventListener("focusout", (event) => event.stopPropagation(), { once: true });
+    close.blur();
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.focusIn(editor, { composed: true });
+    expect(close).not.toHaveFocus();
+
+    editor.focus();
+    expect(shadow(dialog, "page").activeElement).toBe(editor);
+  });
+
   it("aborts closed imports and calls cleanup returned by a late asynchronous mount", async () => {
     const h = harness(); const importing = deferred<SmartNoteModule>(); const mounting = deferred<void | (() => void)>(); const lateCleanup = vi.fn();
     let pageRoot: HTMLElement | undefined;

@@ -145,15 +145,24 @@ function SmartModal({ note, createScope, page, loader, onClose }: { note: SmartH
       const next = event.shiftKey ? (index <= 0 ? focusable.length - 1 : index - 1) : (index + 1) % focusable.length;
       (focusable[next] ?? dialog.current).focus();
     };
-    const focusin = () => {
-      if (modalStack.at(-1) === portal && dialog.current && !composedContains(dialog.current, deepestActiveElement())) close.current?.focus();
+    const focusin = (event?: FocusEvent) => {
+      const target = event?.target instanceof Element ? event.target : deepestActiveElement();
+      if (modalStack.at(-1) === portal && dialog.current && !composedContains(dialog.current, target)) close.current?.focus();
     };
-    const focusout = () => queueMicrotask(focusin);
+    let focusFrame = 0;
+    const focusout = (event: FocusEvent) => {
+      if (dialog.current && event.relatedTarget instanceof Element && composedContains(dialog.current, event.relatedTarget)) return;
+      // Safari can run microtasks while native focus is still passing through
+      // BODY. Wait for the destination before repairing an unknown transition.
+      window.cancelAnimationFrame(focusFrame);
+      focusFrame = window.requestAnimationFrame(() => { focusFrame = 0; focusin(); });
+    };
     document.addEventListener("keydown", keydown);
     document.addEventListener("focusin", focusin);
     document.addEventListener("focusout", focusout);
     return () => {
       document.removeEventListener("keydown", keydown); document.removeEventListener("focusin", focusin); document.removeEventListener("focusout", focusout);
+      window.cancelAnimationFrame(focusFrame);
       unlock(); portal.remove();
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
     };
