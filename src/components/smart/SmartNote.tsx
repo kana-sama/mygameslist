@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import type { Note } from "../../domain/types";
+import type { Game, Note } from "../../domain/types";
 import { smartProgramBaseUrl } from "../../domain/smartNote";
 import { useLibrarySelector } from "../../state/LibraryContext";
 import type { SmartNoteApi, SmartNoteBeforeClose, SmartNoteMode, SmartNotePageControls, SmartNoteScope } from "../../state/smartNoteRuntime";
 import { composedContains, deepestActiveElement, smartFocusableElements } from "./smartNoteFocus";
+import { createSmartNoteUi, SmartNoteUiPortals, type SmartNoteUiBridge } from "./smartNoteUi";
 import "./smartNote.css";
+const emptyGames: readonly Game[] = [];
 
 export type SmartNoteScopeFactory = (noteId: string, mode: SmartNoteMode, page: SmartNotePageControls) => SmartNoteScope;
 export interface SmartNoteModule { mount: (root: HTMLElement, api: SmartNoteApi) => void | (() => void) | Promise<void | (() => void)> }
@@ -15,8 +17,9 @@ type SmartHostNote = Pick<Note, "id" | "smart">;
 
 function message(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason); }
 
-function SmartMount({ note, mode, createScope, page, loader, registerClose }: { note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void }) {
+function SmartMount({ note, mode, createScope, page, loader, registerClose, gameSuggestions }: { gameSuggestions: readonly Game[]; note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
+  const [uiBridge, setUiBridge] = useState<SmartNoteUiBridge | null>(null);
   const [visible, setVisible] = useState(mode === "page");
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState<{ message: string; retry: boolean } | null>(null);
@@ -39,6 +42,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose }: { 
     let stopped = false;
     let cleanup: (() => void) | undefined;
     let scope: SmartNoteScope | undefined;
+    let ui: SmartNoteUiBridge | undefined;
     const shadow = host.current.shadowRoot ?? host.current.attachShadow({ mode: "open" });
     const root = document.createElement("div");
     shadow.replaceChildren(root);
@@ -71,7 +75,9 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose }: { 
             return pending?.catch(reason => { if (!stopped) setSaveError(message(reason)); throw reason; });
           } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; }
         });
-        const api: SmartNoteApi = { ...scope.api, state: { ...scope.api.state,
+        ui = createSmartNoteUi(root, scope.api.signal);
+        setUiBridge(ui);
+        const api: SmartNoteApi = { ...scope.api, ui: ui.api, state: { ...scope.api.state,
           update: async (...args) => { try { const result = await scope!.api.state.update(...args); if (!stopped) setSaveError(null); return result; } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; } },
           set: async (...args) => { try { const result = await scope!.api.state.set(...args); if (!stopped) setSaveError(null); return result; } catch (reason) { if (!stopped) setSaveError(message(reason)); throw reason; } },
         } };
@@ -88,6 +94,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose }: { 
         if (!stopped) {
           root.replaceChildren();
           registerClose?.(null);
+          ui?.dispose();
           scope?.dispose();
           setFailure({ message: message(reason), retry: !imported && reason instanceof TypeError });
         }
@@ -101,6 +108,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose }: { 
       sizeObserver?.disconnect();
       contentObserver?.disconnect();
       root.removeEventListener("load", notifySize, true);
+      ui?.dispose();
       scope?.dispose();
       try { cleanup?.(); } catch (reason) { console.error("Smart note cleanup failed", reason); }
       // Detach the mount so late async code cannot reinsert itself in the visible tree.
@@ -109,6 +117,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose }: { 
   }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader, registerClose]);
   return <div className={`smart-note-mount smart-note-mount--${mode}`}>
     <div aria-busy={loading} data-shelf-shadow-content={mode === "preview" ? "" : undefined} data-smart-mount={mode} ref={host} />
+    {uiBridge ? <SmartNoteUiPortals bridge={uiBridge} gameSuggestions={gameSuggestions} /> : null}
     {loading ? <p className="smart-note-status" role="status">Загрузка заметки…</p> : null}
     {failure ? <div className="field-error" role="alert">Не удалось открыть заметку: {failure.message}{failure.retry ? <button type="button" onClick={() => setAttempt((value) => value + 1)}>Повторить загрузку</button> : <p>После исправления кода может потребоваться обновить страницу.</p>}</div> : null}
     {saveError ? <p className="field-error" role="alert">Изменение не сохранено: {saveError}</p> : null}
@@ -133,7 +142,7 @@ function lockBackground(portal: HTMLElement) {
   };
 }
 
-function SmartModal({ note, createScope, page, loader, onClose, registerClose }: { note: SmartHostNote; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; onClose: () => void; registerClose: (handler: SmartNoteBeforeClose | null) => void }) {
+function SmartModal({ note, createScope, page, loader, onClose, registerClose, gameSuggestions }: { gameSuggestions: readonly Game[]; note: SmartHostNote; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; onClose: () => void; registerClose: (handler: SmartNoteBeforeClose | null) => void }) {
   const [portal] = useState(() => document.createElement("div"));
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
@@ -177,11 +186,11 @@ function SmartModal({ note, createScope, page, loader, onClose, registerClose }:
   }, [portal, onClose]);
   return createPortal(<div className="smart-note-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) event.preventDefault(); }}><div aria-labelledby={titleId} aria-modal="true" className="smart-note-dialog" ref={dialog} role="dialog" tabIndex={-1}>
     <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button">×</button></header>
-    <SmartMount createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} />
+    <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} />
   </div></div>, portal);
 }
 
-export function SmartNote({ note, createScope, loader = nativeLoader, dragging = false, conflict = false }: { note: SmartHostNote; createScope: SmartNoteScopeFactory; loader?: SmartNoteModuleLoader; dragging?: boolean; conflict?: boolean }) {
+export function SmartNote({ note, createScope, loader = nativeLoader, dragging = false, conflict = false, gameSuggestions = emptyGames }: { gameSuggestions?: readonly Game[]; note: SmartHostNote; createScope: SmartNoteScopeFactory; loader?: SmartNoteModuleLoader; dragging?: boolean; conflict?: boolean }) {
   const [open, setOpen] = useState(false);
   const origin = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const hasPage = Boolean(note.smart?.entrypoints.page);
@@ -210,13 +219,14 @@ export function SmartNote({ note, createScope, loader = nativeLoader, dragging =
   };
   return <div className="smart-note" onClick={onClick} onPointerDown={(event) => { origin.current = { x: event.clientX, y: event.clientY, moved: false }; }} onPointerMove={(event) => { const start = origin.current; if (start && Math.hypot(start.x - event.clientX, start.y - event.clientY) > 5) start.moved = true; }}>
     <h1 className="smart-note-title">{hasPage ? <button onClick={(event) => { if (!clickSuppressed(event)) page.open(); }} type="button">{note.smart?.title}</button> : note.smart?.title}</h1>
-    {conflict ? <p className="field-error" role="alert">Локальные изменения этой заметки конфликтуют с опубликованной программой. Разрешите конфликт в локальных правках.</p> : <SmartMount createScope={createScope} loader={loader} mode="preview" note={note} page={page} />}
-    {open && !conflict ? <SmartModal createScope={createScope} loader={loader} note={note} onClose={close} page={page} registerClose={registerClose} /> : null}
+    {conflict ? <p className="field-error" role="alert">Локальные изменения этой заметки конфликтуют с опубликованной программой. Разрешите конфликт в локальных правках.</p> : <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="preview" note={note} page={page} />}
+    {open && !conflict ? <SmartModal gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} note={note} onClose={close} page={page} registerClose={registerClose} /> : null}
   </div>;
 }
 
 export function ConnectedSmartNote({ note, dragging }: { note: SmartHostNote; dragging?: boolean }) {
   const createScope = useLibrarySelector((library) => library.createSmartNoteScope);
   const conflict = useLibrarySelector((library) => library.conflicts.some((entry) => entry.path === `/notes/${note.id}` || entry.path.startsWith(`/notes/${note.id}/`)));
-  return <SmartNote conflict={conflict} createScope={createScope} dragging={dragging} note={note} />;
+  const games = useLibrarySelector((library) => library.games);
+  return <SmartNote gameSuggestions={Object.values(games)} conflict={conflict} createScope={createScope} dragging={dragging} note={note} />;
 }

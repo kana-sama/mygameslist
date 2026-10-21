@@ -20,7 +20,9 @@ export function mount(root, api) {
           <h3 aria-label="Комната"></h3>
           <div class="room-picture" hidden><img alt=""></div>
           <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
-          <textarea rows="5" placeholder="Заметка" aria-label="Заметка" spellcheck="false"></textarea>
+          <div class="note-actions"><button class="edit-note quiet" type="button">Редактировать</button></div>
+          <div class="note-empty">Заметки пока нет</div>
+          <div class="note-content" aria-label="Заметка"></div>
           <div class="save-row"><span class="save-status" role="status"></span><button class="retry quiet" type="button" hidden>Повторить</button><button class="remove quiet" type="button">Убрать скрин</button></div>
         </aside>
       </div>
@@ -28,11 +30,11 @@ export function mount(root, api) {
     <div class="drop-overlay" hidden>Отпустите скриншоты</div>`;
   root.append(atlas);
   const $ = selector => atlas.querySelector(selector);
-  const fileInput = $(".file-input"), note = $("textarea");
+  const fileInput = $(".file-input"), noteTarget = $(".note-content"), editButton = $(".edit-note");
   const check = $(".solved-toggle input");
   const status = $(".import-status"), saveStatus = $(".save-status"), errorList = $(".failures ul");
   let value = state(api.state.get().value), selected = takePreviewSelection() ?? "4,3", busy = false, disposed = false;
-  let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null;
+  let dragDepth = 0, noteTimer = 0, noteFlush = null, saveFailure = null, noteUI = null;
   const drafts = new Map(), writes = new Set();
   const queue = [];
   const images = pictures(api, error => { status.textContent = error.message; status.classList.add("error"); });
@@ -56,7 +58,7 @@ export function mount(root, api) {
   root.querySelector('link[rel="stylesheet"]')?.addEventListener("load", fitMap, { once: true, signal: api.signal });
   fitMap();
 
-  function render(forceText = false) {
+  function render() {
     const item = room(value, selected);
     $("h3").textContent = label(selected);
     $(".room-picture").hidden = !item.image;
@@ -65,15 +67,15 @@ export function mount(root, api) {
     check.checked = !!item.image && !!item.solved;
     images.show($(".room-picture img"), item.image);
     $(".room-picture img").alt = `Комната ${label(selected)}`;
-    const text = drafts.get(selected)?.text ?? item.note;
-    if ((forceText || root.getRootNode().activeElement !== note) && note.value !== text) note.value = text;
+    renderNote(drafts.get(selected)?.text ?? item.note);
     map.render(value, selected, images);
     images.prune(value);
   }
   function select(key) {
     void flushNotes().catch(() => undefined);
+    if (selected !== key) disposeNoteUI();
     selected = key;
-    render(true);
+    render();
   }
   function savingStatus() {
     if (disposed) return;
@@ -114,16 +116,79 @@ export function mount(root, api) {
     } while (drafts.size || writes.size || noteFlush);
     if (saveFailure) throw saveFailure.error;
   }
-  note.addEventListener("input", () => {
-    drafts.set(selected, { text: note.value });
+  function disposeNoteUI() {
+    const previous = noteUI;
+    noteUI = null;
+    previous?.handle.dispose();
+  }
+  function noteChanged(session, text) {
+    if (disposed || noteUI !== session) return;
+    session.text = text;
+    drafts.set(session.key, { text });
     window.clearTimeout(noteTimer);
     noteTimer = window.setTimeout(() => { noteTimer = 0; void flushNotes().catch(() => undefined); }, 400);
     savingStatus();
+  }
+  function renderNote(text) {
+    // State subscriptions must never replace an active editor or its selection.
+    if (noteUI?.kind === "editor") return;
+    editButton.textContent = "Редактировать";
+    noteTarget.classList.remove("editing");
+    $(".note-empty").hidden = !!text;
+    noteTarget.hidden = !text;
+    if (noteUI) { noteUI.handle.update(text); return; }
+    const session = { key: selected, kind: "markdown", text };
+    noteUI = session;
+    session.handle = api.ui.markdown(noteTarget, {
+      value: text,
+      onChange: next => { noteChanged(session, next); if (noteUI === session) renderNote(next); }
+    });
+  }
+  function startEditing() {
+    const text = drafts.get(selected)?.text ?? room(value, selected).note;
+    disposeNoteUI();
+    const session = { key: selected, kind: "editor", text, finishRequested: false, finishing: null };
+    noteUI = session;
+    editButton.textContent = "Готово";
+    $(".note-empty").hidden = true;
+    noteTarget.hidden = false;
+    noteTarget.classList.add("editing");
+    session.handle = api.ui.editor(noteTarget, {
+      value: text,
+      onChange: next => noteChanged(session, next),
+      onBlur: () => { if (noteUI === session) void flushNotes().catch(() => undefined); },
+      onSubmit: () => { if (noteUI === session) void finishEditing().catch(() => undefined); },
+      onCancel: () => { if (noteUI === session) void finishEditing().catch(() => undefined); },
+      autoFocus: true
+    });
+  }
+  function finishEditing() {
+    const session = noteUI;
+    if (session?.kind !== "editor") return Promise.resolve();
+    session.finishRequested = true;
+    if (session.finishing) return session.finishing;
+    session.finishing = (async () => {
+      do {
+        await flushNotes();
+        if (disposed || noteUI !== session) return;
+      } while (drafts.size);
+      disposeNoteUI();
+      renderNote(session.text);
+      editButton.focus();
+    })().finally(() => { session.finishing = null; });
+    return session.finishing;
+  }
+  editButton.addEventListener("click", () => {
+    if (noteUI?.kind === "editor") void finishEditing().catch(() => undefined);
+    else startEditing();
   });
-  note.addEventListener("blur", () => { void flushNotes().catch(() => undefined); });
   check.addEventListener("change", () => { void save(selected, { solved: check.checked }).catch(() => undefined); });
   $(".remove").addEventListener("click", () => { void save(selected, { image: null, solved: false }).catch(() => undefined); });
-  $(".retry").addEventListener("click", () => { if (saveFailure) void saveFailure.retry().catch(() => undefined); });
+  $(".retry").addEventListener("click", () => {
+    if (saveFailure) void saveFailure.retry().then(() => {
+      if (noteUI?.finishRequested) return finishEditing();
+    }).catch(() => undefined);
+  });
   const unsubscribeClose = api.page.beforeClose(beforeClose);
   $(".upload").addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => { void importFiles([...fileInput.files]); fileInput.value = ""; });
@@ -196,11 +261,12 @@ export function mount(root, api) {
     select(`${Math.max(0, Math.min(7, x + delta[0]))},${Math.max(0, Math.min(7, y + delta[1]))}`);
     map.focus(selected);
   });
-  render(true);
+  render();
   const unsubscribe = api.state.subscribe(snapshot => { value = state(snapshot.value); render(); });
   return () => {
     disposed = true;
     window.clearTimeout(noteTimer);
+    disposeNoteUI();
     unsubscribeClose();
     queue.length = 0;
     sizeObserver?.disconnect();

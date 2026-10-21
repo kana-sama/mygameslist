@@ -1,9 +1,10 @@
-import { useRef, type ReactElement } from "react";
+import { useRef, type ReactElement, type Ref } from "react";
 import type * as Monaco from "monaco-editor";
 import type { Game } from "../domain/types";
 import {
   MonacoMarkdownEditor,
   type MonacoMarkdownEditorExtension,
+  type MonacoMarkdownEditorHandle,
 } from "./MonacoMarkdownEditor";
 import { installMonacoGameLinkCompletion } from "./monacoGameLinkCompletion";
 import { installMonacoMarkdownListEditing } from "./monacoMarkdownListEditing";
@@ -15,6 +16,8 @@ import { installMonacoNoteActions } from "./monacoNoteActions";
 import { useNoteFileTransferCapture } from "./useNoteFileTransferCapture";
 
 export interface MonacoNoteEditorProps {
+  ref?: Ref<MonacoMarkdownEditorHandle>;
+  onBlur?(): void;
   format?: "markdown" | "graph";
   modelKey: string;
   value: string;
@@ -54,6 +57,8 @@ function disposeAll(resources: readonly Monaco.IDisposable[]): void {
 }
 
 export function MonacoNoteEditor({
+  ref,
+  onBlur,
   autoFocus,
   excludeGameId,
   filesDisabled,
@@ -139,6 +144,8 @@ export function MonacoNoteEditor({
       {...transfer.captureHandlers}
     >
       <MonacoMarkdownEditor
+        ref={ref}
+        onBlur={onBlur}
         language={format === "graph" ? "graph-note" : "markdown"}
         ariaLabel="Текст заметки"
         autoFocus={autoFocus}

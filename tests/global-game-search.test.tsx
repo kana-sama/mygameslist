@@ -32,6 +32,59 @@ beforeEach(() => { window.location.hash = "#/"; });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("global game search keyboard routing", () => {
+  it.each(["textarea", "contenteditable", "textbox", "searchbox"])("leaves slash typing and focus in a nested shadow %s", (kind) => {
+    const { container } = render(<GlobalGameSearch games={[marioKart]} />);
+    const host = document.createElement("div");
+    container.append(host);
+    const outerShadow = host.attachShadow({ mode: "open" });
+    const innerHost = document.createElement("div");
+    outerShadow.append(innerHost);
+    const innerShadow = innerHost.attachShadow({ mode: "open" });
+    const editor = document.createElement(kind === "textarea" ? "textarea" : "div");
+    if (kind === "contenteditable") {
+      editor.setAttribute("contenteditable", "true");
+      editor.tabIndex = 0;
+      // jsdom does not implement the browser's isContentEditable property.
+      Object.defineProperty(editor, "isContentEditable", { value: true });
+    }
+    if (kind === "textbox" || kind === "searchbox") {
+      editor.setAttribute("role", kind);
+      editor.tabIndex = 0;
+    }
+    innerShadow.append(editor);
+    editor.focus();
+    const event = new KeyboardEvent("keydown", { key: "/", bubbles: true, composed: true, cancelable: true });
+
+    fireEvent(editor, event);
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(innerShadow.activeElement).toBe(editor);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it.each([{ key: "/" }, { key: "k", metaKey: true }, { key: "k", ctrlKey: true }])("respects an already consumed shortcut %j", (keys) => {
+    const { container } = render(<GlobalGameSearch games={[marioKart]} />);
+    const button = document.createElement("button");
+    container.append(button);
+    button.focus();
+    button.addEventListener("keydown", (event) => event.preventDefault());
+
+    fireEvent.keyDown(button, keys);
+
+    expect(button).toHaveFocus();
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it.each([{ key: "/" }, { key: "k", metaKey: true }, { key: "k", ctrlKey: true }])("opens search for an available shortcut %j", (keys) => {
+    render(<GlobalGameSearch games={[marioKart]} />);
+
+    fireEvent.keyDown(document.body, keys);
+
+    expect(screen.getByRole("combobox")).toHaveFocus();
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("opens the only matching game on Enter", () => {
     const onNavigate = vi.fn();
     render(<GlobalGameSearch games={[marioKart, marioWorld, zelda]} onNavigate={onNavigate} />);

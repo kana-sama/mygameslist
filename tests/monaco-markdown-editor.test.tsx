@@ -1,8 +1,8 @@
-import { StrictMode } from "react";
+import { createRef, StrictMode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Monaco from "monaco-editor";
-import { MonacoMarkdownEditor } from "../src/components/MonacoMarkdownEditor";
+import { MonacoMarkdownEditor, type MonacoMarkdownEditorHandle } from "../src/components/MonacoMarkdownEditor";
 
 const monacoSpies = vi.hoisted(() => ({
   create: vi.fn(),
@@ -55,6 +55,7 @@ function installFakeMonaco() {
         for (const listener of listeners) listener();
       },
       getValue: vi.fn(() => value),
+      getFullModelRange: vi.fn(() => ({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: value.length + 1 })),
       onDidChangeContent: vi.fn((listener: Listener) => {
         listeners.add(listener);
         const subscription = { dispose: vi.fn(() => { listeners.delete(listener); }) };
@@ -77,7 +78,11 @@ function installFakeMonaco() {
     const editor = {
       dispose: vi.fn(),
       focus: vi.fn(),
+      onDidBlurEditorWidget: vi.fn(() => ({ dispose: vi.fn() })),
       getPosition: vi.fn(() => position),
+      getSelections: vi.fn(() => [{ selectionStartLineNumber: 1, selectionStartColumn: 1, positionLineNumber: position?.lineNumber ?? 1, positionColumn: position?.column ?? 1 }]),
+      setSelections: vi.fn(),
+      executeEdits: vi.fn((_source, edits) => { (options.model as FakeModel).emitUserValue(edits[0].text); return true; }),
       setPosition: vi.fn((nextPosition: Monaco.IPosition) => { position = nextPosition; }),
       updateOptions: vi.fn(),
       getModel: vi.fn(() => options.model ?? null),
@@ -114,6 +119,17 @@ describe("MonacoMarkdownEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
     view.unmount();
     expect(graphDispose).toHaveBeenCalledOnce();
+  });
+
+  it("exposes editor focus and forwards widget blur while disposing its listener", () => {
+    const ref = createRef<MonacoMarkdownEditorHandle>(); const onBlur = vi.fn();
+    const view = render(<MonacoMarkdownEditor ref={ref} onBlur={onBlur} ariaLabel="Synthetic editor" modelKey="focus" value="Draft" onChange={vi.fn()} />);
+    const editor = fakeMonaco.editors[0];
+    ref.current!.focus(); expect(editor.focus).toHaveBeenCalledOnce();
+    const blur = vi.mocked(editor.onDidBlurEditorWidget);
+    blur.mock.calls[0][0]({}); expect(onBlur).toHaveBeenCalledOnce();
+    const subscription = blur.mock.results[0].value;
+    view.unmount(); expect(subscription.dispose).toHaveBeenCalledOnce(); expect(ref.current).toBeNull();
   });
 
   it("creates one accessible Markdown model and a compact editor", () => {
@@ -195,9 +211,10 @@ describe("MonacoMarkdownEditor", () => {
       />,
     );
 
-    expect(model.setValue).toHaveBeenCalledOnce();
-    expect(model.setValue).toHaveBeenCalledWith("Внешний сброс");
-    expect(editor.setPosition).toHaveBeenCalledWith({ column: 1, lineNumber: 1 });
+    expect(model.setValue).not.toHaveBeenCalled();
+    expect(editor.executeEdits).toHaveBeenCalledOnce();
+    expect(editor.executeEdits).toHaveBeenCalledWith("mygameslist.externalValue", [expect.objectContaining({ text: "Внешний сброс" })]);
+    expect(editor.setSelections).toHaveBeenCalledWith(editor.getSelections());
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 

@@ -168,6 +168,16 @@ interface Api {
     upload(blob: Blob, options: { name: string; alt?: string }): Promise<AssetRef>;
     release(ref: AssetRef): void;
   };
+  ui: {
+    markdown(target: HTMLElement, options: {
+      value: string; onChange?: (value: string) => void;
+    }): { update(value: string): void; dispose(): void };
+    editor(target: HTMLElement, options: {
+      value: string; onChange: (value: string) => void;
+      onBlur?: () => void; onSubmit?: () => void; onCancel?: () => void;
+      autoFocus?: boolean;
+    }): { update(value: string): void; focus(): void; dispose(): void };
+  };
   page: {
     open(): boolean;
     close(): void;
@@ -200,6 +210,57 @@ interface Api {
 неопубликованный стейт старой программы становится восстанавливаемым конфликтом;
 хост не передаёт его обновлённому коду. Миграция уже опубликованного предметного
 JSON — ответственность автора программы; универсальных миграций нет.
+
+## Markdown и редактор сервиса
+
+`api.ui.markdown(target, { value, onChange? })` выводит Markdown штатным renderer
+сервиса: заголовки, списки, таблицы, ссылки и задачи. При наличии `onChange`
+интерактивные задачи передают обновлённый исходный Markdown; без него изменение
+задач отключено. `api.ui.editor(target, options)` создаёт штатный Monaco с
+подсветкой, списками, таблицами и дополнением ссылок на игры. Monaco загружается
+только при создании editor. Контекст сервиса и доступные игры предоставляет хост.
+
+Оба метода возвращают `update(value)` и идемпотентный `dispose()`. Editor также
+возвращает `focus()`, включая запрос фокуса до завершения загрузки. `update` не
+вызывает `onChange`; повтор того же значения не меняет выделение или undo.
+Внешняя замена текста остаётся в истории undo и сохраняет выделение в допустимых
+границах нового текста. `onBlur` относится к уходу фокуса из всего редактора;
+`onSubmit` вызывается через Ctrl/Cmd+Enter, `onCancel` через Escape после закрытия
+временных панелей Monaco. Что делать с черновиком, решает программа заметки.
+
+Переданный HTMLElement должен принадлежать текущему mount, в том числе внутри
+вложенного открытого ShadowRoot. Контейнер другого mount и контейнер внутри
+служебного UI отклоняются. Компоненты сервиса живут во вложенном ShadowRoot,
+изолированы от CSS программы и используют актуальные стили сервиса. Для editor
+задайте высоту контейнера; Markdown занимает естественную высоту содержимого.
+
+```js
+const target = document.createElement("div");
+root.append(target);
+const view = api.ui.markdown(target, {
+  value: text,
+  onChange(value) { text = value; void saveDraft(value); },
+});
+// Перед переходом в редактирование:
+view.dispose();
+target.style.height = "240px";
+const editor = api.ui.editor(target, {
+  value: text,
+  autoFocus: true,
+  onChange(value) { text = value; queueSave(value); },
+  onBlur() { void flushDraft(); },
+  onSubmit() { void finishEditing(); },
+  onCancel() { void finishEditing(); },
+});
+// В cleanup: editor.dispose();
+```
+
+Виджеты не записывают стейт: `onChange`, черновики, debounce, ошибки и flush
+перед закрытием остаются ответственностью программы. Закрытие scope автоматически
+удаляет UI; после него создание, `update` и `focus` отклоняются, а `dispose`
+остаётся безопасным. Поздняя загрузка Monaco не возвращает удалённый editor.
+Загрузка файлов в этом редакторе отключена; изображения доступны отдельно через
+`api.assets`.
 
 ## Изображения
 

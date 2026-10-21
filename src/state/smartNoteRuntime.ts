@@ -7,7 +7,18 @@ export interface SmartNotePageControls { open: () => boolean; close: () => void 
 export type SmartNoteBeforeClose = () => void | Promise<void>;
 export interface SmartNoteStateSnapshot { value: JsonValue; revision: string }
 export interface SmartNoteImageMetadata extends ImageAsset { ref: SmartAssetRef; assetId: string }
+export interface SmartNoteMarkdownOptions { value: string; onChange?: (value: string) => void }
+export interface SmartNoteEditorOptions extends SmartNoteMarkdownOptions {
+  onChange: (value: string) => void;
+  onBlur?: () => void; onSubmit?: () => void; onCancel?: () => void; autoFocus?: boolean;
+}
+export interface SmartNoteUiHandle { update(value: string): void; dispose(): void }
+export interface SmartNoteUi {
+  markdown(target: HTMLElement, options: SmartNoteMarkdownOptions): SmartNoteUiHandle;
+  editor(target: HTMLElement, options: SmartNoteEditorOptions): SmartNoteUiHandle & { focus(): void };
+}
 export interface SmartNoteApi {
+  ui: SmartNoteUi;
   version: 1;
   mode: SmartNoteMode;
   signal: AbortSignal;
@@ -26,7 +37,8 @@ export interface SmartNoteApi {
   };
   page: SmartNotePageControls & { beforeClose(handler: SmartNoteBeforeClose): () => void };
 }
-export interface SmartNoteScope { api: SmartNoteApi; prepareClose(): void | Promise<void>; dispose(): void }
+export type SmartNoteRuntimeApi = Omit<SmartNoteApi, "ui">;
+export interface SmartNoteScope { api: SmartNoteRuntimeApi; prepareClose(): void | Promise<void>; dispose(): void }
 export interface PreparedSmartImage { asset: ImageAsset; blob: Blob }
 export interface SmartNoteRuntimeAdapter {
   read(noteId: string): { note: Note | undefined; assets: Record<string, Asset>; conflict: boolean };
@@ -100,7 +112,7 @@ export function createSmartNoteRuntime(adapter: SmartNoteRuntimeAdapter) {
       if (entry?.owners.size === 0) uploads.get(noteId)?.delete(id);
       if (uploads.get(noteId)?.size === 0) uploads.delete(noteId);
     }
-    const api: SmartNoteApi = {
+    const api: SmartNoteRuntimeApi = {
       version: 1, mode, signal: controller.signal,
       state: {
         get,

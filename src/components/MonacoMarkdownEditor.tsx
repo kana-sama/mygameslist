@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type ReactElement, type Ref } from "react";
 import type * as Monaco from "monaco-editor";
 import {
   createCompactMarkdownEditorOptions,
@@ -18,7 +18,11 @@ export type MonacoMarkdownEditorExtension = (
   context: MonacoMarkdownEditorReadyContext,
 ) => Monaco.IDisposable | void;
 
+export interface MonacoMarkdownEditorHandle { focus(): void }
+
 export interface MonacoMarkdownEditorProps {
+  ref?: Ref<MonacoMarkdownEditorHandle>;
+  onBlur?(): void;
   language?: string;
   modelKey: string;
   value: string;
@@ -42,6 +46,8 @@ function disposeAll(resources: Array<Disposable | null | undefined>): void {
 }
 
 export function MonacoMarkdownEditor({
+  ref,
+  onBlur,
   ariaLabel,
   autoFocus = false,
   className,
@@ -57,6 +63,9 @@ export function MonacoMarkdownEditor({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const modelRef = useRef<Monaco.editor.ITextModel | null>(null);
   const applyingExternalValueRef = useRef(false);
+  const onBlurRef = useRef(onBlur);
+  const focusRequested = useRef(false);
+  useImperativeHandle(ref, () => ({ focus() { focusRequested.current = true; editorRef.current?.focus(); } }), []);
   const onChangeRef = useRef(onChange);
   const onErrorRef = useRef(onError);
   const onReadyRef = useRef(onReady);
@@ -64,6 +73,7 @@ export function MonacoMarkdownEditor({
   const valueRef = useRef(value);
   const [initializationFailed, setInitializationFailed] = useState(false);
 
+  onBlurRef.current = onBlur;
   onChangeRef.current = onChange;
   onErrorRef.current = onError;
   onReadyRef.current = onReady;
@@ -76,6 +86,7 @@ export function MonacoMarkdownEditor({
 
     let model: Monaco.editor.ITextModel | null = null;
     let editor: Monaco.editor.IStandaloneCodeEditor | null = null;
+    let blurSubscription: Monaco.IDisposable | null = null;
     let changeSubscription: Monaco.IDisposable | null = null;
     let extensionDisposable: Monaco.IDisposable | undefined;
     let initializationCommitted = false;
@@ -104,6 +115,7 @@ export function MonacoMarkdownEditor({
           onChangeRef.current(model.getValue());
         }
       });
+      blurSubscription = editor.onDidBlurEditorWidget(() => onBlurRef.current?.());
       modelRef.current = model;
       editorRef.current = editor;
       const extension = onReadyRef.current?.({
@@ -112,11 +124,11 @@ export function MonacoMarkdownEditor({
         monaco: monacoEditor,
       });
       if (extension) extensionDisposable = extension;
-      if (autoFocusRef.current) editor.focus();
+      if (autoFocusRef.current || focusRequested.current) editor.focus();
       initializationCommitted = true;
     } catch (error) {
       initializationCommitted = false;
-      disposeAll([changeSubscription, extensionDisposable, editor, model]);
+      disposeAll([blurSubscription, changeSubscription, extensionDisposable, editor, model]);
       extensionDisposable = undefined;
       changeSubscription = null;
       editor = null;
@@ -129,7 +141,7 @@ export function MonacoMarkdownEditor({
 
     return () => {
       initializationCommitted = false;
-      disposeAll([changeSubscription, extensionDisposable, editor, model]);
+      disposeAll([blurSubscription, changeSubscription, extensionDisposable, editor, model]);
       editorRef.current = null;
       modelRef.current = null;
     };
@@ -140,14 +152,14 @@ export function MonacoMarkdownEditor({
     const model = modelRef.current;
     if (!editor || !model || model.getValue() === value) return;
 
-    const position = editor.getPosition();
+    const selections = editor.getSelections();
     applyingExternalValueRef.current = true;
     try {
-      model.setValue(value);
+      editor.executeEdits("mygameslist.externalValue", [{ range: model.getFullModelRange(), text: value }]);
     } finally {
       applyingExternalValueRef.current = false;
     }
-    if (position) editor.setPosition(model.validatePosition(position));
+    if (selections) editor.setSelections(selections);
   }, [value]);
 
   useEffect(() => {

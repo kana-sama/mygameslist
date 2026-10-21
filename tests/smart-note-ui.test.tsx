@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SmartNote, type SmartNoteModule, type SmartNoteModuleLoader, type SmartNoteScopeFactory } from "../src/components/smart/SmartNote";
 import type { JsonValue, Note } from "../src/domain/types";
-import type { SmartNoteApi, SmartNoteStateSnapshot } from "../src/state/smartNoteRuntime";
+import type { SmartNoteApi, SmartNoteRuntimeApi, SmartNoteStateSnapshot } from "../src/state/smartNoteRuntime";
 
 const note: Pick<Note, "id" | "smart"> = { id: "11111111-1111-4111-8111-111111111111", smart: { version: 1, apiVersion: 1, title: "Synthetic counter", entrypoints: { preview: "preview.js", page: "page.js" }, program: { hash: "a".repeat(64), files: [] } } };
 const observers: IntersectionObserverCallback[] = [];
@@ -17,14 +17,14 @@ function harness() {
   let value: JsonValue = { count: 0 };
   let revision = 0;
   const listeners = new Set<(snapshot: SmartNoteStateSnapshot) => void>();
-  const apis: SmartNoteApi[] = [];
+  const apis: SmartNoteRuntimeApi[] = [];
   const cleanups: ReturnType<typeof vi.fn>[] = [];
   const update = vi.fn(async (reducer: (value: JsonValue) => JsonValue) => { value = reducer(structuredClone(value)); revision++; listeners.forEach((listener) => listener({ value: structuredClone(value), revision: String(revision) })); });
   const factory: SmartNoteScopeFactory = vi.fn((_id, mode, page) => {
     const controller = new AbortController();
     const subscriptions = new Set<(snapshot: SmartNoteStateSnapshot) => void>();
     const closeHandlers = new Set<() => void | Promise<void>>();
-    const api: SmartNoteApi = { version: 1, mode, page: { ...page, beforeClose: handler => { closeHandlers.add(handler); return () => { closeHandlers.delete(handler); }; } }, signal: controller.signal, state: {
+    const api: SmartNoteRuntimeApi = { version: 1, mode, page: { ...page, beforeClose: handler => { closeHandlers.add(handler); return () => { closeHandlers.delete(handler); }; } }, signal: controller.signal, state: {
       get: () => ({ value: structuredClone(value), revision: String(revision) }),
       subscribe: (listener) => { listeners.add(listener); subscriptions.add(listener); return () => listeners.delete(listener); }, update,
       set: async (next) => update(() => next),
@@ -52,6 +52,23 @@ function counterModule(label: string, cleanupMount = vi.fn()): SmartNoteModule {
 function shadow(container: HTMLElement, mode = "preview") { return container.querySelector(`[data-smart-mount="${mode}"]`)!.shadowRoot!; }
 
 describe("generic smart note host", () => {
+  it("augments a pure runtime scope with service Markdown UI and disposes its handles before authored cleanup", async () => {
+    const h = harness(); let handle!: ReturnType<SmartNoteApi["ui"]["markdown"]>;
+    const mountCleanup = vi.fn(() => handle.dispose());
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root, api) {
+      const target = document.createElement("section"); root.append(target);
+      handle = api.ui.markdown(target, { value: "**Service Markdown**" });
+      return mountCleanup;
+    } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(shadow(dialog, "page").querySelector("[data-smart-ui]")?.shadowRoot?.querySelector("strong")).toHaveTextContent("Service Markdown"));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    expect(mountCleanup).toHaveBeenCalledOnce();
+    expect(() => handle.update("Late")).toThrow(/disposed/i);
+  });
+
   it.each(["button", "Escape", "api"])("waits for close hooks through %s and coalesces repeated close requests", async (route) => {
     const h = harness(), saving = deferred<void>(), hook = vi.fn(() => saving.promise), mountCleanup = vi.fn();
     let pageApi: SmartNoteApi;

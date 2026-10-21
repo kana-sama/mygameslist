@@ -119,8 +119,8 @@ export function GlobalGameSearch({ games, onNavigate }: GlobalGameSearchProps) {
 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      const target = event.target;
-      const editing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target instanceof HTMLElement && target.isContentEditable;
+      if (event.defaultPrevented) return;
+      const editing = event.composedPath().some((target) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target instanceof HTMLElement && (target.isContentEditable || target.matches('[role="textbox"], [role="searchbox"]')));
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k" || event.key === "/" && !editing && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
         syncFromLocation();
