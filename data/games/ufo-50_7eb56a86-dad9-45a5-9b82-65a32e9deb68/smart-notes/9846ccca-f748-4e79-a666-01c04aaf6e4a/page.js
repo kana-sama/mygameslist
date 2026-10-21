@@ -8,15 +8,15 @@ export function mount(root, api) {
   root.classList.add("page-root");
   atlas.innerHTML = `
     <div class="workspace">
-      <div class="toolbar">
-        <button class="primary upload" type="button">Загрузить скрины</button>
-        <input class="file-input" type="file" accept="image/*" multiple aria-label="Скриншоты Barbuta" hidden>
-      </div>
-      <div class="import-status" role="status" aria-live="polite"></div>
-      <details class="failures" hidden><summary></summary><ul></ul></details>
       <div class="main-layout">
         <section class="map-panel" aria-label="Личная карта"></section>
         <aside class="inspector" aria-label="Выбранная комната">
+          <div class="toolbar">
+            <button class="primary upload" type="button">Загрузить скрины</button>
+            <input class="file-input" type="file" accept="image/*" multiple aria-label="Скриншоты Barbuta" hidden>
+          </div>
+          <div class="import-status" role="status" aria-live="polite"></div>
+          <details class="failures" hidden><summary></summary><ul></ul></details>
           <h3 aria-label="Комната"></h3>
           <div class="room-picture" hidden><img alt=""></div>
           <label class="solved-toggle"><input type="checkbox"><span>Разгадано</span></label>
@@ -39,19 +39,20 @@ export function mount(root, api) {
   const mapPanel = $(".map-panel");
   mapPanel.append(map.grid);
 
-  // Measure the flex slot inside the host, rather than guessing a viewport height.
+  // The root fills the host's flex slot, independently of map/sidebar content.
+  // Observe that stable slot rather than a panel whose width this changes.
   function fitMap() {
-    if (window.matchMedia("(max-width: 680px)").matches) {
-      map.grid.style.removeProperty("width");
-      return;
-    }
-    const gap = 7 * (parseFloat(getComputedStyle(map.grid).gap) || 0);
-    const width = Math.min(mapPanel.clientWidth, Math.max(0, (mapPanel.clientHeight - gap) * 32 / 23 + gap));
-    map.grid.style.width = `${Math.floor(width)}px`;
+    const gap = 7 * (parseFloat(getComputedStyle(atlas).getPropertyValue("--map-gap")) || 0);
+    const width = Math.max(0, (root.clientHeight - gap) * 32 / 23 + gap);
+    const stacked = root.clientWidth <= 680 || root.clientWidth < width + 260;
+    atlas.classList.toggle("stacked", stacked);
+    atlas.style.setProperty("--map-width", `${width}px`);
   }
   const sizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fitMap);
-  sizeObserver?.observe(mapPanel);
+  sizeObserver?.observe(root);
   window.addEventListener("resize", fitMap);
+  // The stylesheet loads asynchronously; fit again once its grid gap is available.
+  root.querySelector('link[rel="stylesheet"]')?.addEventListener("load", fitMap, { once: true, signal: api.signal });
   fitMap();
 
   function render(forceText = false) {
