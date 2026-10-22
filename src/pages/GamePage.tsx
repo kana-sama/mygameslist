@@ -1123,7 +1123,7 @@ function InlineNoteCard({ note, index, count, editing, editorAutoFocus, actionsD
       revealObserver?.disconnect();
     };
   }, [checklistSearchNavigationRequest?.sequence]);
-  if (note.format === "smart") return <SmartSortableNoteCard actionsDisabled={actionsDisabled || saving} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} note={note} onMove={onMove} index={index} count={count} onSave={onSave} />;
+  if (note.format === "smart") return <SmartSortableNoteCard actionsDisabled={actionsDisabled || saving} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} interactionActive={interactionActive} note={note} onMove={onMove} index={index} count={count} onSave={onSave} />;
   if (editing) return <PlainNoteEditor assets={assets} autoFocus={editorAutoFocus} canAddBlob={canAddBlob} dropDisabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} extraActions={<><button aria-label="Переместить заметку выше" disabled={index === 0} onClick={() => onMove(index - 1)} title="Выше" type="button">↑</button><button aria-label="Переместить заметку ниже" disabled={index === count - 1} onClick={() => onMove(index + 1)} title="Ниже" type="button">↓</button><button aria-label="Удалить заметку" onClick={onDelete} title="Удалить" type="button"><Icon name="trash" size={14} /></button></>} interactionActive={interactionActive} note={note} onCancel={onCancel} onChange={onChange} onProcessingChange={(processing, draft) => { if (processing) onChange(draft); }} onSubmit={onSave} resolveAssetUrl={resolveAssetUrl} storageLocked={storageLocked} takeInitialFiles={takeInitialFiles} />;
 
   return <SortableNoteCard tierListContent={note.format === "tierlist" ? <TierListView note={note} assets={assets} resolveAssetUrl={resolveAssetUrl} disabled={saving || storageLocked || actionsDisabled} canAddBlob={canAddBlob} onSave={onTierListSave} /> : undefined} actionsDisabled={actionsDisabled} assets={assets} completedChecklistFilterEnabled={completedChecklistFilterEnabled} completedChecklistFilterRevision={completedChecklistFilterRevision} completedChecklistFilterSnapshot={completedChecklistFilterSnapshot} completedChecklistRevealedItemIds={completedChecklistRevealedForEpoch?.itemIds} completedChecklistRevealedSectionIds={completedChecklistRevealedForEpoch?.sectionIds} disabled={sortingDisabled} dropIndicatorEdge={dropIndicatorEdge} highlightedChecklistSearchTargetId={highlightedChecklistSearchTargetId} interactionActive={interactionActive} note={note} onCollapsedChecklistSectionsChange={saveCollapsedChecklistSections} onEdit={onEdit} onRevealCompletedChecklistItems={revealCompletedChecklistItems} onRevealCompletedChecklistSections={revealCompletedChecklistSections} onTaskChange={saveBodyMarkdown} onTaskCheckboxChange={saveCheckboxBodyMarkdown} resolveAssetUrl={resolveAssetUrl} taskChangesDisabled={saving} taskError={taskError} />;
@@ -1216,8 +1216,8 @@ function InlineNoteCardBoundary({ noteInteractionSource, ...props }: InlineNoteC
     : <InlineNoteCard {...props} />;
 }
 
-function SmartSortableNoteCard({ note, actionsDisabled, disabled, dropIndicatorEdge, index, count, onMove, onSave }: {
-  note: EditableNote; actionsDisabled: boolean; disabled: boolean; dropIndicatorEdge?: NoteDropEdge | null;
+function SmartSortableNoteCard({ note, actionsDisabled, disabled, dropIndicatorEdge, interactionActive, index, count, onMove, onSave }: {
+  note: EditableNote; actionsDisabled: boolean; disabled: boolean; dropIndicatorEdge?: NoteDropEdge | null; interactionActive: boolean;
   index: number; count: number; onMove: (index: number) => void; onSave: InlineNoteCardProps["onSave"];
 }) {
   const { attributes, isDragging, isOver, listeners, setActivatorNodeRef, setNodeRef } = useSortable({
@@ -1230,7 +1230,7 @@ function SmartSortableNoteCard({ note, actionsDisabled, disabled, dropIndicatorE
     if (next[field]) delete next[field]; else next[field] = true;
     void onSave(next);
   };
-  return <article className={`note-card note-card--sortable note-card--smart${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={setNodeRef}>
+  return <article className={`note-card note-card--sortable note-card--smart${interactionActive ? " note-card--interaction-active" : ""}${note.doubleHeight ? " note-card--double-height" : ""}${note.doubleWidth ? " note-card--double-width" : ""}${isDragging ? " is-dragging" : ""}${!isDragging && isOver ? " is-drop-target" : ""}`} data-note-id={note.clientId} data-shelf-column-span={note.doubleWidth ? 2 : 1} ref={setNodeRef}>
     <div className="note-card__surface"><ConnectedSmartNote dragging={isDragging} note={{ id: note.id ?? note.clientId, smart: note.smart }} /></div>
     <div className="note-card__actions">
       <button {...(disabled ? {} : attributes)} {...(disabled ? {} : listeners)} aria-label="Перетащить заметку" className="note-card__drag" disabled={actionsDisabled} ref={setActivatorNodeRef} type="button"><Icon name="drag" size={14} /></button>
