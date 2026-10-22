@@ -18,5 +18,9 @@
 .smart-note-dialog-header h2 { flex: 1; margin: 0; font-size: 18px; }
 .smart-note-dialog-header button { display: inline-grid; width: 32px; height: 32px; padding: 0; place-items: center; cursor: pointer; }
 .smart-note-mount--page { flex: 1; display: flex; flex-direction: column; overflow: auto; }
+/* The ready tree can be revealed before React removes the status. Keep the
+   status out of flow so both states measure the same available page height. */
+.smart-note-mount--page > .smart-note-status { position: absolute; top: 0; left: 0; }
+.smart-note-mount--page > .smart-note-content:not(.smart-note-content--loading) ~ .smart-note-status { display: none; }
 .smart-note-mount--page [data-smart-mount] { flex: 1; min-height: 0; }
 @media (max-width: 680px) { .smart-note-backdrop { padding: 0; } }
