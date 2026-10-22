@@ -251,7 +251,7 @@ export function SmartNote({ note, createScope, loader = nativeLoader, dragging =
   };
   return <div className="smart-note" onClick={onClick} onPointerDown={(event) => { origin.current = { x: event.clientX, y: event.clientY, moved: false }; }} onPointerMove={(event) => { const start = origin.current; if (start && Math.hypot(start.x - event.clientX, start.y - event.clientY) > 5) start.moved = true; }}>
     <h1 className="smart-note-title">{hasPage ? <button onClick={(event) => { if (!clickSuppressed(event)) page.open(); }} type="button">{note.smart?.title}</button> : note.smart?.title}</h1>
-    {conflict ? <p className="field-error" role="alert">Локальные изменения этой заметки конфликтуют с опубликованной программой. Разрешите конфликт в локальных правках.</p> : <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="preview" note={note} page={page} />}
+    {conflict ? <p className="field-error" role="alert">Локальные изменения этой заметки конфликтуют с опубликованными данными. Разрешите конфликт в локальных правках.</p> : <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="preview" note={note} page={page} />}
     {open && !conflict ? <SmartModal gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} note={note} onClose={close} page={page} registerClose={registerClose} /> : null}
   </div>;
 }

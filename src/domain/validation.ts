@@ -690,7 +690,8 @@ export function validatePatch(value: unknown): ValidationResult<PatchEnvelope> {
     if (!parsed) issue(issues, `/operations/${path}`, "Недопустимый путь");
     if (!isObject(operation)) { issue(issues, `/operations/${path}`, "Ожидалась операция"); continue; }
     const allowedKeys = operation.operation === "set" ? ["operation", "value", "baseExists", "baseHash", "changedAt", "transactionId"] : ["operation", "baseExists", "baseHash", "changedAt", "transactionId"];
-    exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat", "smartProgramHash"]);
+    exactKeys(operation, allowedKeys, `/operations/${path}`, issues, ["noteFormat", "smartProgramHash", "smartStateVersion"]);
+    if (operation.smartStateVersion !== undefined && (!Number.isSafeInteger(operation.smartStateVersion) || Number(operation.smartStateVersion) < 1 || parsed?.map !== "notes" || !["state", "attachments"].includes(parsed.field ?? "") || typeof operation.smartProgramHash !== "string")) issue(issues, `/operations/${path}/smartStateVersion`, "Invalid smart state version binding");
     if (operation.smartProgramHash !== undefined && (typeof operation.smartProgramHash !== "string" || !SHA256.test(operation.smartProgramHash) || parsed?.map !== "notes" || !["state", "attachments"].includes(parsed.field ?? ""))) issue(issues, `/operations/${path}/smartProgramHash`, "Invalid smart program binding");
     if (parsed?.map === "notes" && parsed.field === "state" && (operation.operation !== "set" || typeof operation.smartProgramHash !== "string" || !SHA256.test(operation.smartProgramHash))) issue(issues, `/operations/${path}/smartProgramHash`, "Smart state writes require a program hash");
     if (operation.noteFormat !== undefined) {

@@ -4,6 +4,7 @@ import type { JsonValue, LibraryDatabase, Note, SmartNoteDefinition } from "../d
 import type { SourceTreeReader } from "./types";
 export interface SourceSmartNoteDocument {
   format: "smart"; version: 1; apiVersion: 1; id: string; title: string;
+  stateVersion?: number;
   entrypoints: SmartNoteDefinition["entrypoints"];
   rank: number; groupRank?: number; doubleWidth?: boolean; doubleHeight?: boolean;
   createdAt: string; updatedAt: string; state: JsonValue;
@@ -15,7 +16,7 @@ export async function parseSmartNoteDocument(reader: SourceTreeReader, directory
   if (!source || typeof source !== "object" || Array.isArray(source)) throw new Error("Smart note document must be an object");
   const value = source as Record<string, unknown>;
   const required = ["format", "version", "apiVersion", "id", "title", "entrypoints", "rank", "createdAt", "updatedAt", "state", "assets"];
-  const allowed = [...required, "groupRank", "doubleWidth", "doubleHeight"];
+  const allowed = [...required, "groupRank", "doubleWidth", "doubleHeight", "stateVersion"];
   if (required.some(key => !Object.hasOwn(value, key)) || Object.keys(value).some(key => !allowed.includes(key)) || value.format !== "smart") throw new Error("Invalid smart note document fields");
   const document = source as SourceSmartNoteDocument;
   if (document.id !== directory.split("/").at(-1)) throw new Error("Smart note UUID must match its directory");
@@ -25,7 +26,7 @@ export async function parseSmartNoteDocument(reader: SourceTreeReader, directory
     programs.set(relativePath, (await reader.readFile(file)).slice());
   }
   const descriptors = [...programs].map(([path, bytes]) => ({ path, sha256: sha256Bytes(bytes), byteLength: bytes.byteLength }));
-  const definition: SmartNoteDefinition = { version: document.version, apiVersion: document.apiVersion, title: document.title, entrypoints: document.entrypoints, program: { hash: smartProgramHash(document, descriptors), files: descriptors } };
+  const definition: SmartNoteDefinition = { ...(document.stateVersion !== undefined ? { stateVersion: document.stateVersion } : {}), version: document.version, apiVersion: document.apiVersion, title: document.title, entrypoints: document.entrypoints, program: { hash: smartProgramHash(document, descriptors), files: descriptors } };
   validateSmartDefinition(definition);
   const ids = [...collectSmartAssetIds(document.state)].sort();
   if (!Array.isArray(document.assets) || document.assets.length !== ids.length || document.assets.some((asset, index) => !asset || typeof asset !== "object" || Object.keys(asset).sort().join(",") !== "alt,assetId,originalName" || asset.assetId !== ids[index] || typeof asset.alt !== "string" || typeof asset.originalName !== "string")) throw new Error("Smart note assets must exactly match sorted state references");
@@ -35,7 +36,7 @@ export async function parseSmartNoteDocument(reader: SourceTreeReader, directory
 }
 export function serializeSmartNoteDocument(note: Note, database: LibraryDatabase): string {
   const smart = note.smart!;
-  const value: SourceSmartNoteDocument = { format: "smart", version: smart.version, apiVersion: smart.apiVersion, id: note.id, title: smart.title, entrypoints: smart.entrypoints, rank: note.rank, createdAt: note.createdAt, updatedAt: note.updatedAt, state: note.state!, assets: note.attachments.map(attachment => {
+  const value: SourceSmartNoteDocument = { ...(smart.stateVersion !== undefined ? { stateVersion: smart.stateVersion } : {}), format: "smart", version: smart.version, apiVersion: smart.apiVersion, id: note.id, title: smart.title, entrypoints: smart.entrypoints, rank: note.rank, createdAt: note.createdAt, updatedAt: note.updatedAt, state: note.state!, assets: note.attachments.map(attachment => {
     if (attachment.type !== "image") throw new Error("Smart notes only reference images");
     return { assetId: attachment.assetId, alt: attachment.alt, originalName: database.assets[attachment.assetId].originalName };
   }) };

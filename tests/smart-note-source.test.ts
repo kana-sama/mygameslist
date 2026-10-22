@@ -14,6 +14,22 @@ async function fixture() {
   return { projection, files, entries };
 }
 describe("smart source programs", () => {
+  it.each([undefined, 1, 2])("roundtrips optional stateVersion=%s without injecting defaults", async stateVersion => {
+    const { files, entries } = await fixture(); const path = `${GAME_A_DIRECTORY}/smart-notes/${SMART_NOTE_ID}/note.json`;
+    const source = JSON.parse(new TextDecoder().decode(files.get(path)));
+    if (stateVersion !== undefined) source.stateVersion = stateVersion;
+    files.set(path, new TextEncoder().encode(JSON.stringify(source)));
+    const result = await assembleSourceTree(new MemorySourceTreeReader(entries, files), { sourceCommitSha: null });
+    expect(result.database.notes[SMART_NOTE_ID].smart!.stateVersion).toBe(stateVersion);
+    const projection = await projectSourceTree(result.database), leaf = projection.leaves.find(leaf => leaf.path === path)!;
+    expect(leaf.kind === "text" && JSON.parse(leaf.text)).toEqual(source);
+  });
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "1", null])("rejects invalid source stateVersion=%s", async stateVersion => {
+    const { files, entries } = await fixture(); const path = `${GAME_A_DIRECTORY}/smart-notes/${SMART_NOTE_ID}/note.json`;
+    const source = JSON.parse(new TextDecoder().decode(files.get(path))); source.stateVersion = stateVersion;
+    files.set(path, new TextEncoder().encode(JSON.stringify(source)));
+    await expect(assembleSourceTree(new MemorySourceTreeReader(entries, files), { sourceCommitSha: null })).rejects.toThrow();
+  });
   it("roundtrips structural state and nested opaque bytes without placing programs in the database", async () => {
     const { projection, files, entries } = await fixture();
     const result = await assembleSourceTree(new MemorySourceTreeReader(entries, files), { sourceCommitSha: null });

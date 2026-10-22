@@ -45,12 +45,13 @@ export function collectSmartAssetIds(value: unknown): Set<string> {
 export function validateSmartProgramPath(path: unknown): asserts path is string {
   if (typeof path !== "string" || !path || /[\\:%?#\u0000-\u001f\u007f]/u.test(path) || path.split("/").some(segment => !segment || segment === "." || segment === "..") || path.split("/")[0].toLowerCase() === "note.json") throw new TypeError("Invalid smart program path");
 }
-export function smartProgramHash(definition: Pick<SmartNoteDefinition, "version" | "apiVersion" | "entrypoints">, files: SmartProgramFile[]): string {
-  return canonicalHash({ version: definition.version, apiVersion: definition.apiVersion, entrypoints: definition.entrypoints, files: [...files].sort((a,b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) });
+export function smartProgramHash(definition: Pick<SmartNoteDefinition, "version" | "apiVersion" | "entrypoints" | "stateVersion">, files: SmartProgramFile[]): string {
+  return canonicalHash({ ...(definition.stateVersion !== undefined && definition.stateVersion > 1 ? { stateVersion: definition.stateVersion } : {}), version: definition.version, apiVersion: definition.apiVersion, entrypoints: definition.entrypoints, files: [...files].sort((a,b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) });
 }
 export function validateSmartDefinition(value: unknown): asserts value is SmartNoteDefinition {
   if (!object(value)) throw new TypeError("Missing smart note definition");
-  keys(value, ["version", "apiVersion", "title", "entrypoints", "program"]);
+  keys(value, ["version", "apiVersion", "title", "entrypoints", "program"], ["stateVersion"]);
+  if (value.stateVersion !== undefined && (!Number.isSafeInteger(value.stateVersion) || Number(value.stateVersion) < 1)) throw new TypeError("Invalid smart state version");
   if (value.version !== 1 || value.apiVersion !== 1 || typeof value.title !== "string" || !value.title.trim() || value.title.length > 500) throw new TypeError("Unsupported smart note contract");
   if (!object(value.entrypoints) || !object(value.program)) throw new TypeError("Invalid smart program descriptor");
   keys(value.entrypoints, ["preview"], ["page"]); keys(value.program, ["hash", "files"]);

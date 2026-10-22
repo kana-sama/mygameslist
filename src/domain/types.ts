@@ -58,6 +58,8 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 export interface SmartAssetRef { $asset: string }
 export interface SmartProgramFile { path: string; sha256: string; byteLength: number }
 export interface SmartNoteDefinition {
+  /** Persisted JSON format compatibility; omitted means version 1. */
+  stateVersion?: number;
   version: 1;
   apiVersion: 1;
   title: string;
@@ -133,6 +135,8 @@ export interface LibraryDatabase {
 
 export interface PatchOperation {
   smartProgramHash?: string;
+  /** Omitted in legacy operations, which use state version 1. */
+  smartStateVersion?: number;
   /** Interpretation of a note body set; absence retains legacy Markdown semantics. */
   noteFormat?: NoteFormat;
   operation: "set" | "delete";

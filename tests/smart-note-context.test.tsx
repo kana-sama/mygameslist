@@ -27,6 +27,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); localStorage.clear(); });
 
 describe("durable smart state context integration", () => {
+  it("reopens persisted legacy state after a compatible program deployment", async () => {
+    const base = database(), edited = structuredClone(base); edited.notes[noteId].state = { count: 7 };
+    const patch = diffLibrary(base, edited, { changedAt: stamp, transactionId: "legacy-edit" });
+    delete patch.operations[`/notes/${noteId}/state`].smartStateVersion;
+    localStorage.setItem(PATCH_STORAGE_KEY, JSON.stringify(patch));
+    const remote = structuredClone(base); remote.notes[noteId].smart!.program.files[0].byteLength++;
+    remote.notes[noteId].smart!.program.hash = smartProgramHash(remote.notes[noteId].smart!, remote.notes[noteId].smart!.program.files);
+    mount(withComputedRevision(remote)); await waitFor(() => expect(latest.loading).toBe(false));
+    expect(latest.conflicts).toEqual([]); expect(latest.effective.notes[noteId].state).toEqual({ count: 7 });
+    expect(loadPatch(localStorage).patch?.operations[`/notes/${noteId}/state`]).toMatchObject({ changedAt: stamp, transactionId: "legacy-edit" });
+    const scope = latest.createSmartNoteScope(noteId, "preview", page);
+    expect(scope.api.state.get().value).toEqual({ count: 7 }); scope.dispose();
+  });
   it("persists, reloads, undoes and imports through the ordinary patch", async () => {
     const first = mount(); await waitFor(() => expect(latest.loading).toBe(false));
     const scope = latest.createSmartNoteScope(noteId, "preview", page);

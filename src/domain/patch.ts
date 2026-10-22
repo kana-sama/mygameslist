@@ -24,16 +24,16 @@ export function assertSmartNoteMutationBoundary(base: LibraryDatabase, current: 
   }
 }
 
-function staleSmartProgramPaths(base: LibraryDatabase, operations: Record<string, PatchOperation>): Set<string> {
-  const staleNotes = new Set<string>();
+function incompatibleSmartStatePaths(base: LibraryDatabase, operations: Record<string, PatchOperation>): Set<string> {
+  const incompatibleNotes = new Set<string>();
   for (const [path, operation] of Object.entries(operations)) {
     const parsed = parsePatchPath(path);
     if (parsed?.map !== "notes" || parsed.field !== "state" && parsed.field !== "attachments") continue;
     const note = base.notes[parsed.id];
-    if (note?.format === "smart" && operation.smartProgramHash !== note.smart?.program.hash) staleNotes.add(parsed.id);
+    if (note?.format === "smart" && (operation.smartProgramHash === undefined || (operation.smartStateVersion ?? 1) !== (note.smart?.stateVersion ?? 1))) incompatibleNotes.add(parsed.id);
   }
   const imageIds = new Set<string>();
-  for (const id of staleNotes) {
+  for (const id of incompatibleNotes) {
     for (const attachment of base.notes[id]?.attachments ?? []) if (attachment.type === "image") imageIds.add(attachment.assetId);
     const pool = operations[entityPath("notes", id, "attachments")];
     if (pool?.operation === "set" && Array.isArray(pool.value)) for (const attachment of pool.value) {
@@ -42,7 +42,7 @@ function staleSmartProgramPaths(base: LibraryDatabase, operations: Record<string
   }
   return new Set(Object.keys(operations).filter(path => {
     const parsed = parsePatchPath(path);
-    return parsed?.map === "assets" && imageIds.has(parsed.id) || parsed?.map === "notes" && staleNotes.has(parsed.id) && (parsed.field === "state" || parsed.field === "attachments");
+    return parsed?.map === "assets" && imageIds.has(parsed.id) || parsed?.map === "notes" && incompatibleNotes.has(parsed.id) && (parsed.field === "state" || parsed.field === "attachments");
   }));
 }
 
@@ -260,7 +260,10 @@ export function updateInteractiveNoteField(input: {
 function retainTimestamp(path: string, candidate: PatchOperation, previous: PatchOperation | undefined): PatchOperation {
   if (!previous || previous.operation !== candidate.operation || previous.baseExists !== candidate.baseExists || previous.baseHash !== candidate.baseHash) return candidate;
   if (candidate.operation === "set" && !sameTargetValue(path, candidate, candidate.value, previous.value)) return candidate;
-  if ((previous.noteFormat ?? "markdown") !== (candidate.noteFormat ?? "markdown") || previous.smartProgramHash !== candidate.smartProgramHash) return candidate;
+  if ((previous.noteFormat ?? "markdown") !== (candidate.noteFormat ?? "markdown") || (previous.smartStateVersion ?? 1) !== (candidate.smartStateVersion ?? 1)) return candidate;
+  if (previous.smartProgramHash !== candidate.smartProgramHash || previous.smartStateVersion !== candidate.smartStateVersion) {
+    return { ...clone(candidate), changedAt: previous.changedAt, transactionId: previous.transactionId };
+  }
   return clone(previous);
 }
 
@@ -332,7 +335,10 @@ export function diffLibrary(base: LibraryDatabase, current: LibraryDatabase, opt
             transactionId,
             mapName === "notes" && field === "bodyMarkdown" ? currentEntity.format as NoteFormat | undefined : undefined,
           );
-          if (mapName === "notes" && currentEntity.format === "smart" && (field === "state" || field === "attachments")) candidate.smartProgramHash = normalizedCurrent.notes[id].smart!.program.hash;
+          if (mapName === "notes" && currentEntity.format === "smart" && (field === "state" || field === "attachments")) {
+            candidate.smartProgramHash = normalizedCurrent.notes[id].smart!.program.hash;
+            candidate.smartStateVersion = normalizedCurrent.notes[id].smart!.stateVersion ?? 1;
+          }
           operations[path] = retainTimestamp(path, candidate, options.previousPatch?.operations[path]);
         }
       }
@@ -422,7 +428,7 @@ export function applyPatch(base: LibraryDatabase, patch: PatchEnvelope, options:
   applyUpdatedAt(result, normalizedBase, patch.operations);
   if (options.validateResult ?? true) assertOperationPayloadsSourceRepresentable(patch.operations, "Локальный патч содержит данные, не представимые в source tree");
   assertSmartNoteMutationBoundary(normalizedBase, result);
-  if (staleSmartProgramPaths(normalizedBase, patch.operations).size) throw new Error("Smart note program conflict");
+  if (incompatibleSmartStatePaths(normalizedBase, patch.operations).size) throw new Error("Smart note state version conflict");
   const normalizedResult = normalizeLibraryDatabase(result);
   if (options.validateResult ?? true) {
     assertNoteSourceFormats(normalizedResult, patch.operations);
@@ -547,7 +553,7 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
   adaptTierListPoolSnapshots(normalizedStatic, normalizedIncoming.operations);
   const intended = applyBestEffort(normalizedStatic, normalizedIncoming.operations);
   assertSmartNoteMutationBoundary(normalizedStatic, intended);
-  const staleSmartPaths = staleSmartProgramPaths(normalizedStatic, normalizedIncoming.operations);
+  const incompatibleSmartPaths = incompatibleSmartStatePaths(normalizedStatic, normalizedIncoming.operations);
   assertDirectImageAssetAltsAreDerived(normalizedStatic, intended, normalizedIncoming.operations);
   const unavailable = unavailableTierListImages(intended);
   const unavailablePaths = new Set(Object.keys(normalizedIncoming.operations).filter(path => {
@@ -555,7 +561,7 @@ export function reconcilePatch(staticDatabase: LibraryDatabase, incoming: PatchE
     return parsed?.map === "notes" && unavailable.has(parsed.id)
       && (parsed.field === undefined || parsed.field === "bodyMarkdown" || parsed.field === "format" || parsed.field === "attachments");
   }));
-  const unsafePaths = new Set([...unavailablePaths, ...staleSmartPaths]);
+  const unsafePaths = new Set([...unavailablePaths, ...incompatibleSmartPaths]);
   const representableIntended = unsafePaths.size
     ? applyBestEffort(normalizedStatic, Object.fromEntries(Object.entries(normalizedIncoming.operations).filter(([path]) => !unsafePaths.has(path))))
     : intended;
@@ -618,7 +624,7 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
   const normalizedStatic = normalizeLibraryDatabase(staticDatabase);
   const intended = applyBestEffort(normalizedStatic, next.operations);
   const coupledPaths = noteContentOperationGroups(normalizedStatic, intended, next.operations).get(path) ?? [path];
-  if (resolution.choice !== "static" && coupledPaths.some(candidate => staleSmartProgramPaths(normalizedStatic, next.operations).has(candidate))) throw new Error("Smart note program changed; export stale state and resolve against the published program");
+  if (resolution.choice !== "static" && coupledPaths.some(candidate => incompatibleSmartStatePaths(normalizedStatic, next.operations).has(candidate))) throw new Error("Smart note state version changed; export incompatible state and resolve against the published state version");
   const actual = readPatchPath(normalizedStatic, path);
   if (resolution.choice === "local") {
     const unavailable = unavailableTierListImages(intended);
@@ -633,6 +639,7 @@ export function resolveConflict(staticDatabase: LibraryDatabase, patch: PatchEnv
       ? freshOperation(actual, resolution.delete ? "delete" : "set", resolution.value, new Date().toISOString(), operation.transactionId, resolution.delete ? undefined : operation.noteFormat)
       : { ...operation, baseExists: actual.exists, baseHash: actual.exists ? canonicalHash(actual.value) : MISSING_VALUE_HASH };
     if (operation.smartProgramHash !== undefined) target.smartProgramHash = operation.smartProgramHash;
+    if (operation.smartStateVersion !== undefined) target.smartStateVersion = operation.smartStateVersion;
     next.operations[path] = target;
     for (const candidate of coupledPaths) {
       if (candidate === path) continue;
