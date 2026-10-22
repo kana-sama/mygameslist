@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SmartNote, type SmartNoteModule, type SmartNoteModuleLoader, type SmartNoteScopeFactory } from "../src/components/smart/SmartNote";
 import type { JsonValue, Note } from "../src/domain/types";
@@ -52,6 +52,121 @@ function counterModule(label: string, cleanupMount = vi.fn()): SmartNoteModule {
 function shadow(container: HTMLElement, mode = "preview") { return container.querySelector(`[data-smart-mount="${mode}"]`)!.shadowRoot!; }
 
 describe("generic smart note host", () => {
+  it("keeps import, asynchronous mount and every nested stylesheet behind the loading state", async () => {
+    const h = harness(), importing = deferred<SmartNoteModule>(), mounting = deferred<void>();
+    let link!: HTMLLinkElement, nestedLink!: HTMLLinkElement;
+    const { container } = render(<SmartNote note={note} createScope={h.factory} loader={() => importing.promise} />);
+    const host = container.querySelector<HTMLElement>('[data-smart-mount="preview"]')!;
+    const concealed = () => {
+      expect(screen.getByRole("status")).toHaveTextContent("Загрузка заметки…");
+      expect(host).toHaveAttribute("aria-busy", "true");
+      expect(host.closest('[aria-hidden="true"]')).not.toBeNull();
+      expect(host.closest("[inert]")).not.toBeNull();
+    };
+    concealed(); visible(); concealed();
+    await act(async () => importing.resolve({ async mount(root) {
+      root.innerHTML = '<button>Waiting content</button><img width="4000" height="6000" alt="Synthetic">';
+      link = document.createElement("link"); link.rel = "stylesheet"; link.href = "/synthetic-first.css"; root.append(link);
+      const nested = document.createElement("div");
+      nestedLink = document.createElement("link"); nestedLink.rel = "stylesheet"; nestedLink.href = "/synthetic-second.css";
+      nested.attachShadow({ mode: "open" }).append(nestedLink); root.append(nested);
+      await mounting.promise;
+    } }));
+    concealed();
+    fireEvent.load(link); await act(async () => mounting.resolve()); concealed();
+    fireEvent.load(nestedLink);
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    expect(host).toHaveAttribute("aria-busy", "false");
+    expect(host.closest('[aria-hidden="true"]')).toBeNull();
+    expect(host.closest("[inert]")).toBeNull();
+  });
+
+  it("tracks later stylesheet additions, replacement hrefs, removal and already loaded sheets", async () => {
+    const h = harness(); let root!: HTMLElement;
+    const loader: SmartNoteModuleLoader = async () => ({ mount(target) {
+      root = target; const loaded = document.createElement("link"); loaded.rel = "stylesheet"; loaded.href = "/cached.css";
+      Object.defineProperty(loaded, "sheet", { value: {} }); root.append(loaded);
+    } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />); visible();
+    await waitFor(() => expect(root).toBeDefined());
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    const link = document.createElement("link"); link.rel = "stylesheet"; link.href = "/later.css";
+    await act(async () => { root.append(link); });
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    fireEvent.load(link); await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    await act(async () => { link.href = "/replacement.css"; });
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    await act(async () => { link.remove(); });
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.error(link); expect(screen.queryByRole("alert")).toBeNull();
+    // A cached resource may finish before React commits the pending state.
+    await act(async () => { root.append(link); await Promise.resolve(); fireEvent.load(link); });
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(root.getRootNode() instanceof ShadowRoot).toBe(true);
+    expect((root.getRootNode() as ShadowRoot).host.closest('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("retries stylesheet errors locally and cleans each failed or closed mount exactly once", async () => {
+    const h = harness(), mountCleanup = vi.fn(); const links: HTMLLinkElement[] = [];
+    const loader = vi.fn<SmartNoteModuleLoader>(async () => ({ mount(root) {
+      const link = document.createElement("link"); link.rel = "stylesheet"; link.href = "/retry.css"; root.append(link); links.push(link);
+      return mountCleanup;
+    } }));
+    const { unmount } = render(<SmartNote note={note} createScope={h.factory} loader={loader} />); visible();
+    await waitFor(() => expect(links).toHaveLength(1));
+    fireEvent.error(links[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("retry.css");
+    expect(mountCleanup).toHaveBeenCalledOnce(); expect(h.cleanups[0]).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку" }));
+    await waitFor(() => expect(links).toHaveLength(2));
+    expect(mountCleanup).toHaveBeenCalledOnce(); expect(h.cleanups[0]).toHaveBeenCalledOnce();
+    fireEvent.load(links[0]); expect(screen.getByRole("status")).toBeInTheDocument();
+    fireEvent.load(links[1]); await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    unmount(); expect(mountCleanup).toHaveBeenCalledTimes(2); expect(h.cleanups[1]).toHaveBeenCalledOnce();
+  });
+
+  it("detaches a failed async mount immediately and cleans its late result exactly once", async () => {
+    const h = harness(), mounting = deferred<() => void>(), mountCleanup = vi.fn();
+    let root!: HTMLElement, link!: HTMLLinkElement;
+    const loader: SmartNoteModuleLoader = async () => ({ mount(target) {
+      root = target; link = document.createElement("link"); link.rel = "stylesheet"; link.href = "/async-failure.css"; root.append(link);
+      return mounting.promise;
+    } });
+    const { unmount } = render(<SmartNote note={note} createScope={h.factory} loader={loader} />); visible();
+    await waitFor(() => expect(link).toBeDefined());
+    fireEvent.error(link); await screen.findByRole("alert");
+    expect(root.isConnected).toBe(false); expect(h.apis[0].signal.aborted).toBe(true);
+    expect(h.cleanups[0]).toHaveBeenCalledOnce(); expect(mountCleanup).not.toHaveBeenCalled();
+    await act(async () => { root.innerHTML = '<button>Late unstyled content</button>'; mounting.resolve(mountCleanup); });
+    expect(root.isConnected).toBe(false); expect(root).toBeEmptyDOMElement(); expect(mountCleanup).toHaveBeenCalledOnce();
+    unmount(); expect(mountCleanup).toHaveBeenCalledOnce(); expect(h.cleanups[0]).toHaveBeenCalledOnce();
+  });
+
+  it("waits for mirrored service styles and ignores their late events after closing a page", async () => {
+    const h = harness(), mountCleanup = vi.fn();
+    const source = document.createElement("link"); source.rel = "stylesheet"; source.href = "/synthetic-service.css"; document.head.append(source);
+    const loader: SmartNoteModuleLoader = async () => ({ mount(root, api) {
+      const target = document.createElement("div"); root.append(target); api.ui.markdown(target, { value: "**Service content**" });
+      return mountCleanup;
+    } });
+    try {
+      render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+      fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+      const dialog = await screen.findByRole("dialog");
+      let mirrored!: HTMLLinkElement;
+      await waitFor(() => {
+        mirrored = shadow(dialog, "page").querySelector("[data-smart-ui]")!.shadowRoot!.querySelector("link")!;
+        expect(mirrored).not.toBeNull();
+      });
+      expect(within(dialog).getByRole("status")).toBeInTheDocument();
+      fireEvent.load(mirrored); await waitFor(() => expect(within(dialog).queryByRole("status")).toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+      expect(mountCleanup).toHaveBeenCalledOnce();
+      fireEvent.error(mirrored); expect(screen.queryByRole("alert")).toBeNull();
+    } finally { source.remove(); }
+  });
+
   it("augments a pure runtime scope with service Markdown UI and disposes its handles before authored cleanup", async () => {
     const h = harness(); let handle!: ReturnType<SmartNoteApi["ui"]["markdown"]>;
     const mountCleanup = vi.fn(() => handle.dispose());

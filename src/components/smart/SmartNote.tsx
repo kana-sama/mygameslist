@@ -7,6 +7,7 @@ import { Icon } from "../Icon";
 import type { SmartNoteApi, SmartNoteBeforeClose, SmartNoteMode, SmartNotePageControls, SmartNoteScope } from "../../state/smartNoteRuntime";
 import { composedContains, deepestActiveElement, smartFocusableElements } from "./smartNoteFocus";
 import { createSmartNoteUi, SmartNoteUiPortals, type SmartNoteUiBridge } from "./smartNoteUi";
+import { observeSmartNoteStyles } from "./smartNoteStyles";
 import "./smartNote.css";
 const emptyGames: readonly Game[] = [];
 
@@ -20,12 +21,13 @@ function message(reason: unknown): string { return reason instanceof Error ? rea
 
 function SmartMount({ note, mode, createScope, page, loader, registerClose, gameSuggestions }: { gameSuggestions: readonly Game[]; note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
   const [uiBridge, setUiBridge] = useState<SmartNoteUiBridge | null>(null);
   const [visible, setVisible] = useState(mode === "page");
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState<{ message: string; retry: boolean } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (visible || !host.current) return;
     if (typeof IntersectionObserver === "undefined") { setVisible(true); return; }
@@ -36,17 +38,51 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     return () => observer.disconnect();
   }, [visible]);
   const definition = note.smart;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!visible || !host.current || !definition) return;
     const entrypoint = definition.entrypoints[mode];
     if (!entrypoint) return;
     let stopped = false;
+    let failed = false;
+    let mounted = false;
+    let disposed = false;
     let cleanup: (() => void) | undefined;
     let scope: SmartNoteScope | undefined;
     let ui: SmartNoteUiBridge | undefined;
     const shadow = host.current.shadowRoot ?? host.current.attachShadow({ mode: "open" });
     const root = document.createElement("div");
     shadow.replaceChildren(root);
+    const cleanMount = () => {
+      const callback = cleanup; cleanup = undefined;
+      try { callback?.(); } catch (reason) { console.error("Smart note cleanup failed", reason); }
+    };
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      registerClose?.(null);
+      ui?.dispose(); scope?.dispose(); cleanMount();
+    };
+    const fail = (reason: unknown, retry: boolean) => {
+      if (stopped || failed) return;
+      failed = true;
+      styles.dispose(); dispose(); root.replaceChildren(); shadow.replaceChildren();
+      setUiBridge(null); setLoading(false);
+      setFailure({ message: message(reason), retry });
+    };
+    const styles = observeSmartNoteStyles(root, pending => {
+      if (stopped || failed) return;
+      const loading = !mounted || pending;
+      if (content.current) {
+        // A mutation callback runs before paint; React may commit later. Conceal
+        // immediately and restore here too if cached CSS completes in that batch.
+        content.current.classList.toggle("smart-note-content--loading", loading);
+        content.current.inert = loading;
+        if (loading) content.current.setAttribute("aria-hidden", "true");
+        else content.current.removeAttribute("aria-hidden");
+        host.current?.setAttribute("aria-busy", String(loading));
+      }
+      setLoading(loading);
+    }, reason => fail(reason, true));
     // The shelf measures a light-DOM clone, so notify it when opaque content
     // changes. Observe the natural inner root rather than the clipped viewport.
     let sizeFrame = 0;
@@ -85,39 +121,34 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
         const base = smartProgramBaseUrl(note as Note, import.meta.env.BASE_URL);
         const module = await loader(new URL(entrypoint, new URL(base, document.baseURI)).href);
         imported = true;
-        if (stopped) return;
+        if (stopped || failed) return;
         if (typeof module.mount !== "function") throw new Error("Модуль заметки не экспортирует mount(root, api)");
         const result = await module.mount(root, api);
         if (result !== undefined && typeof result !== "function") throw new Error("mount должен вернуть функцию очистки или undefined");
-        if (stopped) { if (typeof result === "function") result(); root.replaceChildren(); }
-        else cleanup = typeof result === "function" ? result : undefined;
+        cleanup = typeof result === "function" ? result : undefined;
+        if (stopped || failed) { cleanMount(); root.replaceChildren(); return; }
+        mounted = true;
+        styles.refresh();
       } catch (reason) {
-        if (!stopped) {
-          root.replaceChildren();
-          registerClose?.(null);
-          ui?.dispose();
-          scope?.dispose();
-          setFailure({ message: message(reason), retry: !imported && reason instanceof TypeError });
-        }
-      } finally { if (!stopped) setLoading(false); }
+        fail(reason, !imported && reason instanceof TypeError);
+      }
     };
     void run();
     return () => {
       stopped = true;
-      registerClose?.(null);
+      styles.dispose(); dispose();
       if (sizeFrame) window.cancelAnimationFrame(sizeFrame);
       sizeObserver?.disconnect();
       contentObserver?.disconnect();
       root.removeEventListener("load", notifySize, true);
-      ui?.dispose();
-      scope?.dispose();
-      try { cleanup?.(); } catch (reason) { console.error("Smart note cleanup failed", reason); }
       // Detach the mount so late async code cannot reinsert itself in the visible tree.
       shadow.replaceChildren();
     };
   }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader, registerClose]);
   return <div className={`smart-note-mount smart-note-mount--${mode}`}>
-    <div aria-busy={loading} data-shelf-shadow-content={mode === "preview" ? "" : undefined} data-smart-mount={mode} ref={host} />
+    <div className={`smart-note-content${loading ? " smart-note-content--loading" : ""}`} aria-hidden={loading || undefined} inert={loading} ref={content}>
+      <div aria-busy={loading} data-shelf-shadow-content={mode === "preview" ? "" : undefined} data-smart-mount={mode} ref={host} />
+    </div>
     {uiBridge ? <SmartNoteUiPortals bridge={uiBridge} gameSuggestions={gameSuggestions} /> : null}
     {loading ? <p className="smart-note-status" role="status">Загрузка заметки…</p> : null}
     {failure ? <div className="field-error" role="alert">Не удалось открыть заметку: {failure.message}{failure.retry ? <button type="button" onClick={() => setAttempt((value) => value + 1)}>Повторить загрузку</button> : <p>После исправления кода может потребоваться обновить страницу.</p>}</div> : null}
