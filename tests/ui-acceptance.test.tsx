@@ -329,6 +329,40 @@ describe("CatalogPage", () => {
 });
 
 describe("GamePage", () => {
+  it.each([
+    { initialMode: "side", nextMode: "top", initialShortCount: 0, nextShortCount: 2 },
+    { initialMode: "top", nextMode: "side", initialShortCount: 2, nextShortCount: 0 },
+  ] as const)("limits compact metadata to top mode when switching from $initialMode to $nextMode", async ({ initialMode, nextMode, initialShortCount, nextShortCount }) => {
+    const user = userEvent.setup();
+    const onSave = vi.fn<(input: GameSaveInput) => void>();
+    const props = { assets: {}, game: makeGame(), mode: "game" as const, notes: [], onSave };
+    const view = render(<GamePage {...props} sidebarLayoutMode={initialMode} />);
+    const metadata = document.querySelector<HTMLDListElement>("dl.game-sidebar__meta")!;
+    const expectMetadata = (shortCount: number) => {
+      expect(metadata.children).toHaveLength(4);
+      expect(Array.from(metadata.children, (block) => block.querySelector("dt")?.textContent)).toEqual(["Статус", "Тир", "Платформы", "Теги"]);
+      expect(metadata.querySelectorAll(".game-sidebar__meta-short")).toHaveLength(shortCount);
+    };
+    expectMetadata(initialShortCount);
+
+    await user.click(screen.getByRole("button", { name: "Статус" }));
+    const statusSelect = screen.getByRole("combobox", { name: "Статус" });
+    view.rerender(<GamePage {...props} sidebarLayoutMode={nextMode} />);
+    expectMetadata(nextShortCount);
+    expect(screen.getByRole("combobox", { name: "Статус" })).toBe(statusSelect);
+    expect(statusSelect).toHaveFocus();
+    expect(statusSelect).toHaveValue("playing");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("combobox", { name: "Статус" })).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Тир" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Тир" }), "s");
+    await waitFor(() => expect(screen.queryByRole("combobox", { name: "Тир" })).not.toBeInTheDocument());
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ status: "playing", tierId: "s" }));
+    expectMetadata(nextShortCount);
+  });
+
   it("keeps delete as the only game information panel tool while applying supplied preferences", () => {
     render(<GamePage
       assets={{}}
@@ -1353,10 +1387,7 @@ describe("GamePage", () => {
     expect(sidebar.querySelector("dl.game-sidebar__meta")).toHaveTextContent("platformer");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).not.toHaveTextContent("#platformer");
     expect(sidebar.querySelector("dl.game-sidebar__meta")).not.toHaveTextContent("Изменено");
-    const shortMetadata = sidebar.querySelectorAll(".game-sidebar__meta-short");
-    expect(shortMetadata).toHaveLength(2);
-    expect(shortMetadata[0]).toHaveTextContent("СтатусИграю");
-    expect(shortMetadata[1]).toHaveTextContent("ТирA");
+    expect(sidebar.querySelectorAll(".game-sidebar__meta-short")).toHaveLength(0);
     expect(notesSection).toHaveClass("game-notes");
     expect(layout).toContainElement(notesSection);
     expect(sidebar.nextElementSibling).toBe(notesSection);
