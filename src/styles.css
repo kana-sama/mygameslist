@@ -380,7 +380,8 @@ h1, h2, h3, h4 { letter-spacing: -.01em; }
 .game-view-layout--sidebar-top .inline-cover-editor { grid-column: 1; grid-row: 1 / span 2; }
 .game-view-layout--sidebar-top .game-sidebar h1 { min-width: 0; grid-column: 2; grid-row: 1; margin-top: 0; white-space: nowrap; }
 .game-view-layout--sidebar-top .game-sidebar h1 .inline-value-trigger { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-view-layout--sidebar-top .game-sidebar__meta { grid-column: 2; grid-row: 2; margin-top: 4px; }
+.game-view-layout--sidebar-top .game-sidebar__meta { grid-column: 2; grid-row: 2; margin-top: 4px; border-top: 0; }
+.game-view-layout--sidebar-top .game-sidebar__meta > div:last-child { border-bottom: 0; }
 .game-view-layout--sidebar-top .game-sidebar__tools { grid-column: 4; grid-row: 1 / span 2; align-self: start; flex-direction: column; padding-top: 0; }
 .game-view-layout--sidebar-top .inline-save-error { grid-column: 2; grid-row: 3; }
 .game-view-layout--sidebar-top .game-progress { grid-column: 3; grid-row: 1 / span 3; margin-top: 0; }
