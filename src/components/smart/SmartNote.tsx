@@ -8,6 +8,7 @@ import type { SmartNoteApi, SmartNoteBeforeClose, SmartNoteMode, SmartNotePageCo
 import { composedContains, deepestActiveElement, smartFocusableElements } from "./smartNoteFocus";
 import { createSmartNoteUi, SmartNoteUiPortals, type SmartNoteUiBridge } from "./smartNoteUi";
 import { observeSmartNoteStyles } from "./smartNoteStyles";
+import { smartNoteBackground } from "./smartNoteBackground";
 import "./smartNote.css";
 const emptyGames: readonly Game[] = [];
 
@@ -19,7 +20,7 @@ type SmartHostNote = Pick<Note, "id" | "smart">;
 
 function message(reason: unknown): string { return reason instanceof Error ? reason.message : String(reason); }
 
-function SmartMount({ note, mode, createScope, page, loader, registerClose, gameSuggestions }: { gameSuggestions: readonly Game[]; note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void }) {
+function SmartMount({ note, mode, createScope, page, loader, registerClose, gameSuggestions, onBackgroundChange }: { gameSuggestions: readonly Game[]; note: SmartHostNote; mode: SmartNoteMode; createScope: SmartNoteScopeFactory; page: SmartNotePageControls; loader: SmartNoteModuleLoader; registerClose?: (handler: SmartNoteBeforeClose | null) => void; onBackgroundChange?: (background: string | null) => void }) {
   const host = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const [uiBridge, setUiBridge] = useState<SmartNoteUiBridge | null>(null);
@@ -45,6 +46,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     let stopped = false;
     let failed = false;
     let mounted = false;
+    let pendingStyles = true;
     let disposed = false;
     let cleanup: (() => void) | undefined;
     let scope: SmartNoteScope | undefined;
@@ -52,6 +54,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     const shadow = host.current.shadowRoot ?? host.current.attachShadow({ mode: "open" });
     const root = document.createElement("div");
     shadow.replaceChildren(root);
+    onBackgroundChange?.(null);
     const cleanMount = () => {
       const callback = cleanup; cleanup = undefined;
       try { callback?.(); } catch (reason) { console.error("Smart note cleanup failed", reason); }
@@ -65,13 +68,18 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     const fail = (reason: unknown, retry: boolean) => {
       if (stopped || failed) return;
       failed = true;
+      onBackgroundChange?.(null);
       styles.dispose(); dispose(); root.replaceChildren(); shadow.replaceChildren();
       setUiBridge(null); setLoading(false);
       setFailure({ message: message(reason), retry });
     };
     const styles = observeSmartNoteStyles(root, pending => {
       if (stopped || failed) return;
+      pendingStyles = pending;
       const loading = !mounted || pending;
+      // Bridge only the header: painting this color under the authored page
+      // would double-composite translucent page backgrounds.
+      onBackgroundChange?.(loading ? null : smartNoteBackground(root));
       if (content.current) {
         // A mutation callback runs before paint; React may commit later. Conceal
         // immediately and restore here too if cached CSS completes in that batch.
@@ -95,7 +103,16 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     };
     const sizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(notifySize);
     sizeObserver?.observe(root);
-    const contentObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(notifySize);
+    const contentObserver = typeof MutationObserver === "undefined" ? null : new MutationObserver(records => {
+      notifySize();
+      // This observer covers only the program's own tree, not mutations inside
+      // nested service widgets. Theme changes need only the narrow surface read;
+      // they must not rescan every nested stylesheet on editor updates.
+      const surfaceChanged = records.some(record => record.type === "childList" ||
+        (record.type === "attributes" && ["class", "style", "hidden"].includes(record.attributeName!)) ||
+        (record.type === "characterData" && record.target.parentElement?.tagName === "STYLE"));
+      if (mode === "page" && mounted && !pendingStyles && !stopped && !failed && surfaceChanged) onBackgroundChange?.(smartNoteBackground(root));
+    });
     contentObserver?.observe(shadow, { attributes: true, characterData: true, childList: true, subtree: true });
     root.addEventListener("load", notifySize, true);
     notifySize();
@@ -136,6 +153,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
     void run();
     return () => {
       stopped = true;
+      onBackgroundChange?.(null);
       styles.dispose(); dispose();
       if (sizeFrame) window.cancelAnimationFrame(sizeFrame);
       sizeObserver?.disconnect();
@@ -144,7 +162,7 @@ function SmartMount({ note, mode, createScope, page, loader, registerClose, game
       // Detach the mount so late async code cannot reinsert itself in the visible tree.
       shadow.replaceChildren();
     };
-  }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader, registerClose]);
+  }, [visible, attempt, note.id, definition?.program.hash, mode, createScope, page, loader, registerClose, onBackgroundChange]);
   return <div className={`smart-note-mount smart-note-mount--${mode}`}>
     <div className={`smart-note-content${loading ? " smart-note-content--loading" : ""}`} aria-hidden={loading || undefined} inert={loading} ref={content}>
       <div aria-busy={loading} data-shelf-shadow-content={mode === "preview" ? "" : undefined} data-smart-mount={mode} ref={host} />
@@ -179,6 +197,10 @@ function SmartModal({ note, createScope, page, loader, onClose, registerClose, g
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  const backgroundChange = useCallback((background: string | null) => {
+    if (background) dialog.current?.style.setProperty("--smart-note-page-background", background);
+    else dialog.current?.style.removeProperty("--smart-note-page-background");
+  }, []);
   useLayoutEffect(() => {
     const previousFocus = deepestActiveElement();
     document.body.append(portal);
@@ -217,8 +239,8 @@ function SmartModal({ note, createScope, page, loader, onClose, registerClose, g
     };
   }, [portal, onClose]);
   return createPortal(<div className="smart-note-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) event.preventDefault(); }}><div aria-labelledby={titleId} aria-modal="true" className="smart-note-dialog" ref={dialog} role="dialog" tabIndex={-1}>
-    <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button"><Icon name="close" size={24} /></button></header>
-    <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} />
+    <header className="smart-note-dialog-header"><h2 id={titleId}>{note.smart?.title}</h2><button aria-label="Закрыть заметку" onClick={onClose} ref={close} type="button"><Icon name="close" size={14} /></button></header>
+    <SmartMount gameSuggestions={gameSuggestions} createScope={createScope} loader={loader} mode="page" note={note} page={page} registerClose={registerClose} onBackgroundChange={backgroundChange} />
   </div></div>, portal);
 }
 

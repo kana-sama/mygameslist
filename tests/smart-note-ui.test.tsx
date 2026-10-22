@@ -52,6 +52,46 @@ function counterModule(label: string, cleanupMount = vi.fn()): SmartNoteModule {
 function shadow(container: HTMLElement, mode = "preview") { return container.querySelector(`[data-smart-mount="${mode}"]`)!.shadowRoot!; }
 
 describe("generic smart note host", () => {
+  it("bridges the ready outer page background before reveal and resets it through CSS reload, failure and teardown", async () => {
+    const h = harness(), mounting = deferred<void>();
+    let root!: HTMLElement, surface!: HTMLElement, link!: HTMLLinkElement;
+    const loader: SmartNoteModuleLoader = async () => ({ async mount(target) {
+      root = target;
+      root.innerHTML = '<style>.unused { color: red; }</style><div><main style="background-color: rgba(40, 80, 120, 0.5)"><button>Action</button></main></div>';
+      surface = root.querySelector("main")!;
+      link = document.createElement("link"); link.rel = "stylesheet"; link.href = "/surface.css"; root.append(link);
+      await mounting.promise;
+    } });
+    render(<SmartNote note={note} createScope={h.factory} loader={loader} />);
+    fireEvent.click(screen.getByRole("button", { name: "Synthetic counter" }));
+    const dialog = await screen.findByRole("dialog");
+    const background = () => dialog.style.getPropertyValue("--smart-note-page-background");
+    await waitFor(() => expect(link).toBeDefined());
+    fireEvent.load(link); expect(background()).toBe("");
+    await act(async () => mounting.resolve());
+    expect(background()).toBe("rgba(40, 80, 120, 0.5)");
+    expect(root.getRootNode() instanceof ShadowRoot).toBe(true);
+    expect((root.getRootNode() as ShadowRoot).host.closest('[aria-hidden="true"]')).toBeNull();
+    // Changing the surface without re-mounting updates the shell before paint.
+    await act(async () => { surface.style.backgroundColor = "rgb(70, 30, 100)"; });
+    expect(background()).toBe("rgb(70, 30, 100)");
+    await act(async () => { surface.style.backgroundColor = "transparent"; });
+    expect(background()).toBe("");
+    await act(async () => { root.className = "alternate"; root.style.backgroundColor = "rgb(10, 90, 60)"; });
+    expect(background()).toBe("rgb(10, 90, 60)");
+    await act(async () => { link.href = "/replacement-surface.css"; });
+    expect(background()).toBe("");
+    expect((root.getRootNode() as ShadowRoot).host.closest('[aria-hidden="true"]')).not.toBeNull();
+    fireEvent.load(link); expect(background()).toBe("rgb(10, 90, 60)");
+    await act(async () => { link.href = "/broken-surface.css"; });
+    fireEvent.error(link); expect(background()).toBe("");
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
+    await act(async () => { root.style.backgroundColor = "red"; fireEvent.load(link); });
+    expect(background()).toBe("");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("keeps import, asynchronous mount and every nested stylesheet behind the loading state", async () => {
     const h = harness(), importing = deferred<SmartNoteModule>(), mounting = deferred<void>();
     let link!: HTMLLinkElement, nestedLink!: HTMLLinkElement;
