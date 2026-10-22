@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { observeSmartNoteStyles } from "../src/components/smart/smartNoteStyles";
+import { observeSmartNoteStyles, registerSmartNoteStyleBoundary } from "../src/components/smart/smartNoteStyles";
 
 const disposers: Array<() => void> = [];
 afterEach(() => { for (const dispose of disposers.splice(0)) dispose(); document.body.replaceChildren(); });
@@ -15,6 +15,35 @@ function fixture() {
 }
 
 describe("smart note stylesheet lifecycle", () => {
+  it("delegates registered widget roots while continuing to gate arbitrary authored shadows", async () => {
+    const f = fixture(), service = document.createElement("div"), authored = document.createElement("div");
+    const serviceRoot = service.attachShadow({ mode: "open" }), authoredRoot = authored.attachShadow({ mode: "open" });
+    registerSmartNoteStyleBoundary(serviceRoot);
+    const serviceLink = f.link(serviceRoot), authoredLink = f.link(authoredRoot);
+    f.root.append(service, authored); await flush();
+    expect(f.change).toHaveBeenLastCalledWith(true);
+    authoredLink.dispatchEvent(new Event("load"));
+    expect(f.change).toHaveBeenLastCalledWith(false);
+    serviceLink.dispatchEvent(new Event("error")); expect(f.fail).not.toHaveBeenCalled();
+    const localChange = vi.fn(), localFail = vi.fn();
+    const local = observeSmartNoteStyles(serviceRoot, localChange, localFail); disposers.push(local.dispose);
+    expect(localChange).toHaveBeenLastCalledWith(true);
+    serviceLink.dispatchEvent(new Event("load")); expect(localChange).toHaveBeenLastCalledWith(false);
+    const laterAuthoredLink = f.link(authoredRoot); await flush();
+    expect(f.change).toHaveBeenLastCalledWith(true);
+    laterAuthoredLink.dispatchEvent(new Event("load")); expect(f.change).toHaveBeenLastCalledWith(false);
+  });
+
+  it("does not rescan the full owner for ordinary editor content mutations", async () => {
+    const f = fixture(), editor = document.createElement("div"); f.root.append(editor); await flush();
+    const scan = vi.spyOn(f.root, "querySelectorAll");
+    const line = document.createElement("div"); line.textContent = "Typed text"; editor.append(line); await flush();
+    line.textContent = "More text"; line.className = "selected"; await flush();
+    expect(scan).not.toHaveBeenCalled();
+    f.link(editor); await flush();
+    expect(f.change).toHaveBeenLastCalledWith(true);
+    scan.mockRestore();
+  });
   it("waits for styles in an open shadow attached directly to the mount root", () => {
     const f = fixture(), shadow = f.root.attachShadow({ mode: "open" }), link = f.link(shadow);
     // The host refreshes once asynchronous mount completes, including a shadow

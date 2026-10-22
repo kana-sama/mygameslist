@@ -183,7 +183,7 @@ describe("generic smart note host", () => {
     unmount(); expect(mountCleanup).toHaveBeenCalledOnce(); expect(h.cleanups[0]).toHaveBeenCalledOnce();
   });
 
-  it("waits for mirrored service styles and ignores their late events after closing a page", async () => {
+  it("keeps mirrored service styles local and ignores their late events after closing a page", async () => {
     const h = harness(), mountCleanup = vi.fn();
     const source = document.createElement("link"); source.rel = "stylesheet"; source.href = "/synthetic-service.css"; document.head.append(source);
     const loader: SmartNoteModuleLoader = async () => ({ mount(root, api) {
@@ -199,8 +199,15 @@ describe("generic smart note host", () => {
         mirrored = shadow(dialog, "page").querySelector("[data-smart-ui]")!.shadowRoot!.querySelector("link")!;
         expect(mirrored).not.toBeNull();
       });
-      expect(within(dialog).getByRole("status")).toBeInTheDocument();
-      fireEvent.load(mirrored); await waitFor(() => expect(within(dialog).queryByRole("status")).toBeNull());
+      const page = dialog.querySelector('[data-smart-mount="page"]')!;
+      expect(page).toHaveAttribute("aria-busy", "false");
+      expect(page.closest('[aria-hidden="true"]')).toBeNull();
+      const widget = mirrored.getRootNode() as ShadowRoot;
+      expect(widget.querySelector(".smart-ui-content")).toHaveAttribute("aria-hidden", "true");
+      expect(widget.querySelector('[role="status"]')).toBeInTheDocument();
+      fireEvent.load(mirrored);
+      await waitFor(() => expect(widget.querySelector(".smart-ui-content")).not.toHaveAttribute("aria-hidden"));
+      expect(within(dialog).queryByRole("status")).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Закрыть заметку" }));
       expect(mountCleanup).toHaveBeenCalledOnce();
       fireEvent.error(mirrored); expect(screen.queryByRole("alert")).toBeNull();
