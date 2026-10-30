@@ -5,11 +5,12 @@ cover:
   alt: Обложка  Braid
   originalName: "00117cec50380c43eb6f919b0150d4ece5c480f832e5c07c.png.avif"
 platforms: []
-tags: []
+tags:
+  - Jonathan Blow
 status: platinum
 placement:
   tierId: s
   rank: 28672
 reviewMarkdown: |2-
 createdAt: "2026-07-19T08:59:19.794Z"
-updatedAt: "2026-07-19T08:59:19.797Z"
+updatedAt: "2026-10-23T14:28:56.691Z"

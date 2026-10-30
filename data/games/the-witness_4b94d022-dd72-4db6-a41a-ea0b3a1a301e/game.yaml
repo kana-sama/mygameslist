@@ -5,11 +5,12 @@ cover:
   alt: Обложка игры
   originalName: "IMAGE 2026-07-17 09:29:25.jpg"
 platforms: []
-tags: []
+tags:
+  - Jonathan Blow
 status: completed
 placement:
   tierId: s
   rank: 8192
 reviewMarkdown: |2-
 createdAt: "2026-07-17T05:30:35.481Z"
-updatedAt: "2026-07-17T05:30:35.506Z"
+updatedAt: "2026-10-23T14:28:02.793Z"
